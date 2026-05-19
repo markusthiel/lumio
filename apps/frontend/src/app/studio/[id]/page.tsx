@@ -91,6 +91,15 @@ export default function GalleryDetailPage() {
     }
   }
 
+  async function toggleSetting(
+    key: "downloadEnabled" | "watermarkEnabled" | "commentsEnabled",
+    next: boolean
+  ) {
+    if (!gallery) return;
+    await api.updateGallery(gallery.id, { [key]: next });
+    await load();
+  }
+
   if (loading) {
     return (
       <main className="min-h-screen flex items-center justify-center">
@@ -230,6 +239,27 @@ export default function GalleryDetailPage() {
         {/* Share-Panel */}
         <SharePanel galleryId={gallery.id} gallerySlug={gallery.slug} />
 
+        {/* Settings */}
+        <section className="rounded-lg border border-slate-200 bg-white p-4 space-y-2">
+          <h2 className="text-sm font-medium mb-1">Einstellungen</h2>
+          <SettingToggle
+            label="Download für Kunden erlauben"
+            value={gallery.downloadEnabled}
+            onChange={(v) => toggleSetting("downloadEnabled", v)}
+          />
+          <SettingToggle
+            label="Wasserzeichen auf Vorschaubildern"
+            description="Wird automatisch generiert. Studio-Watermark-Text in den Tenant-Settings festlegen."
+            value={gallery.watermarkEnabled}
+            onChange={(v) => toggleSetting("watermarkEnabled", v)}
+          />
+          <SettingToggle
+            label="Kommentare aktivieren"
+            value={gallery.commentsEnabled}
+            onChange={(v) => toggleSetting("commentsEnabled", v)}
+          />
+        </section>
+
         {/* File-Grid */}
         {gallery.files.length > 0 ? (
           <section>
@@ -247,6 +277,35 @@ export default function GalleryDetailPage() {
         )}
       </div>
     </main>
+  );
+}
+
+function SettingToggle({
+  label,
+  description,
+  value,
+  onChange,
+}: {
+  label: string;
+  description?: string;
+  value: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <label className="flex items-start gap-3 cursor-pointer py-1">
+      <input
+        type="checkbox"
+        checked={value}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-0.5 rounded border-slate-300"
+      />
+      <div className="flex-1">
+        <div className="text-sm">{label}</div>
+        {description && (
+          <div className="text-xs text-slate-500 mt-0.5">{description}</div>
+        )}
+      </div>
+    </label>
   );
 }
 

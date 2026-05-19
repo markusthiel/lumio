@@ -29,12 +29,14 @@
     "fastify": "^4.28.1",
     "fastify-plugin": "^5.0.1",
     "ioredis": "^5.4.1",
+    "nodemailer": "^6.9.16",
     "pino": "^9.5.0",
     "pino-pretty": "^11.3.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^22.7.4",
+    "@types/nodemailer": "^6.4.16",
     "prisma": "^5.22.0",
     "tsx": "^4.19.1",
     "typescript": "^5.6.2",

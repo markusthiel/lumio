@@ -21,6 +21,7 @@ export type GalleryMode = "collaboration" | "presentation";
 export type GalleryStatus = "draft" | "live" | "archived";
 export type FileStatus = "uploading" | "processing" | "ready" | "failed";
 export type FileKind = "image" | "raw" | "video" | "other";
+export type ZipStatus = "pending" | "building" | "ready" | "failed";
 
 export interface Gallery {
   id: string;
@@ -31,6 +32,7 @@ export interface Gallery {
   status: GalleryStatus;
   downloadEnabled: boolean;
   watermarkEnabled: boolean;
+  commentsEnabled: boolean;
   fileCount?: number;
   createdAt: string;
   updatedAt: string;
@@ -343,6 +345,32 @@ export const api = {
   // Public download URL (für href, kein fetch — Browser folgt der Redirect)
   publicDownloadUrl: (slug: string, fileId: string) =>
     `${API_URL}/api/v1/g/${slug}/files/${fileId}/download`,
+
+  // ZIP-Downloads
+  requestZipAll: (slug: string) =>
+    request<{ id: string; status: ZipStatus }>(
+      `/g/${slug}/download/zip`,
+      { method: "POST" }
+    ),
+
+  requestZipSelection: (slug: string) =>
+    request<{ id: string; status: ZipStatus; fileCount: number }>(
+      `/g/${slug}/download/selection`,
+      { method: "POST" }
+    ),
+
+  getZipStatus: (slug: string, zipId: string) =>
+    request<{
+      id: string;
+      status: ZipStatus;
+      fileCount: number;
+      sizeBytes: number | null;
+      errorMessage: string | null;
+      expiresAt: string;
+    }>(`/g/${slug}/download/zip/${zipId}`),
+
+  zipDownloadUrl: (slug: string, zipId: string) =>
+    `${API_URL}/api/v1/g/${slug}/download/zip/${zipId}?download=1`,
 };
 
 export { API_URL, ApiError };

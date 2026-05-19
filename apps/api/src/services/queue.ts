@@ -40,7 +40,7 @@ export const Queues = {
 export type QueueName = (typeof Queues)[keyof typeof Queues];
 
 export interface FileProcessingJob {
-  type: "process_file" | "process_raw";
+  type: "process_file" | "process_raw" | "process_watermark";
   fileId: string;
   tenantId: string;
   galleryId: string;
@@ -60,6 +60,7 @@ export interface ZipBuildJob {
   fileIds: string[] | null; // null = alle Files der Galerie
   label: string;
   accessId?: string; // wenn aus Kunden-Auswahl gebaut
+  zipDownloadId: string; // FK auf zip_downloads.id, Worker updated den Status
 }
 
 export type AnyJob = FileProcessingJob | VideoProcessingJob | ZipBuildJob;

@@ -80,13 +80,19 @@ def _dispatch(stream: str, payload: dict) -> None:
         app.send_task(
             "tasks.process_video.transcode", args=[file_id]
         )
+    elif job_type == "process_watermark":
+        app.send_task(
+            "tasks.process_watermark.generate", args=[file_id]
+        )
     elif job_type == "build_zip":
         app.send_task(
             "tasks.build_zip.build",
             args=[
+                payload.get("zipDownloadId"),
+                payload.get("tenantId"),
                 payload.get("galleryId"),
                 payload.get("fileIds"),
-                payload.get("label", "download"),
+                payload.get("label", "all"),
             ],
         )
     else:

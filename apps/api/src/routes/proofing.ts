@@ -17,6 +17,7 @@ import { z } from "zod";
 
 import { prisma } from "../db.js";
 import { loadVisitor } from "./galleries.js";
+import { notifyNewComment } from "../services/notifier.js";
 
 const selectionSchema = z.object({
   color: z.enum(["red", "yellow", "green"]).nullable().optional(),
@@ -189,6 +190,13 @@ export async function registerProofingRoutes(app: FastifyInstance) {
           annotation: (body.annotation as object | undefined) ?? undefined,
           parentId: body.parentId ?? null,
         },
+      });
+
+      // Studio per Mail benachrichtigen (fire-and-forget)
+      void notifyNewComment({
+        galleryId: visitor.galleryId,
+        authorLabel: comment.authorLabel,
+        body: comment.body,
       });
 
       return reply.status(201).send({ comment });

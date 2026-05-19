@@ -9,6 +9,7 @@ import {
   type Comment,
 } from "@/lib/api";
 import { VideoPlayer } from "./VideoPlayer";
+import { ZipDownloadButton } from "./ZipDownloadButton";
 
 interface Props {
   meta: PublicGalleryMeta;
@@ -54,16 +55,31 @@ export function GalleryView({
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl sm:text-3xl font-semibold">{meta.title}</h1>
-        {meta.description && (
-          <p className="text-sm opacity-60 mt-1 max-w-2xl">
-            {meta.description}
-          </p>
-        )}
-        <div className="text-xs opacity-50 mt-3">
-          {stats.total} Files · {stats.liked} liked
+      <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-semibold">{meta.title}</h1>
+          {meta.description && (
+            <p className="text-sm opacity-60 mt-1 max-w-2xl">
+              {meta.description}
+            </p>
+          )}
+          <div className="text-xs opacity-50 mt-3">
+            {stats.total} Files · {stats.liked} liked
+          </div>
         </div>
+
+        {meta.downloadEnabled && stats.total > 0 && (
+          <div className="flex flex-wrap gap-2">
+            <ZipDownloadButton slug={slug} variant="all" />
+            {meta.mode === "collaboration" && stats.liked > 0 && (
+              <ZipDownloadButton
+                slug={slug}
+                variant="selection"
+                count={stats.liked}
+              />
+            )}
+          </div>
+        )}
       </div>
 
       {/* Filter-Toolbar */}

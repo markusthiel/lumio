@@ -19,6 +19,7 @@ import { prisma } from "../db.js";
 import { generateGallerySlug } from "../services/ids.js";
 import { presignGet } from "../services/storage.js";
 import { verifyPassword } from "../services/auth.js";
+import { enqueue, Queues } from "../services/queue.js";
 import {
   createVisitorToken,
   verifyVisitorToken,
@@ -269,9 +270,12 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           tenantId: req.tenantId,
           ownerId: s.user.id,
         },
-        select: { id: true },
+        select: { id: true, watermarkEnabled: true },
       });
       if (!existing) return reply.status(404).send({ error: "not_found" });
+
+      const turningOnWatermark =
+        body.watermarkEnabled === true && !existing.watermarkEnabled;
 
       const gallery = await prisma.gallery.update({
         where: { id: existing.id },
@@ -307,6 +311,28 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
             : {}),
         },
       });
+
+      // Watermark gerade eingeschaltet → für alle Files Watermark-Rendition
+      // generieren (fire-and-forget — der Worker macht den Rest)
+      if (turningOnWatermark) {
+        const files = await prisma.file.findMany({
+          where: { galleryId: gallery.id, status: "ready" },
+          select: { id: true },
+        });
+        for (const f of files) {
+          await enqueue(Queues.FILE_PROCESSING, {
+            type: "process_watermark",
+            fileId: f.id,
+            tenantId: req.tenantId,
+            galleryId: gallery.id,
+          }).catch(() => {});
+        }
+        app.log.info(
+          { galleryId: gallery.id, count: files.length },
+          "watermark jobs enqueued"
+        );
+      }
+
       return { gallery };
     }
   );
@@ -556,21 +582,38 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         },
       });
 
-      // Signed URLs für thumb + preview, web (web optional — Lightbox lazy)
+      const galleryRow = await prisma.gallery.findUnique({
+        where: { id: visitor.galleryId },
+        select: {
+          watermarkEnabled: true,
+          downloadEnabled: true,
+        },
+      });
+      // Watermark wird ausgeliefert, wenn watermarkEnabled UND der Kunde
+      // sowieso keinen Download bekommt (sonst hätten sie das Original).
+      const useWatermark =
+        !!galleryRow?.watermarkEnabled && !galleryRow?.downloadEnabled;
+
+      // Signed URLs für thumb + preview + web. Wenn Watermark aktiv ist
+      // und eine watermarked-Rendition existiert, ersetzen wir die
+      // preview-/web-URLs durch deren signierten Pfad.
       const items = await Promise.all(
         files.map(async (f) => {
           const thumb = f.renditions.find((r) => r.kind === "thumb");
           const preview = f.renditions.find((r) => r.kind === "preview");
           const web = f.renditions.find((r) => r.kind === "web");
+          const watermarked = f.renditions.find((r) => r.kind === "watermarked");
           const hls = f.renditions.find((r) => r.kind === "hls");
 
-          // HLS-URL ist KEINE Presigned-URL — sie geht über unseren
-          // HLS-Proxy, weil Playlists relative Segment-Pfade haben.
-          // Wir liefern eine relative API-URL; das Frontend macht den
-          // fetch mit credentials:'include'.
           const hlsUrl = hls
             ? `/api/v1/g/${req.params.slug}/files/${f.id}/hls/master.m3u8`
             : null;
+
+          // Lightbox-Quelle: watermarked > web > preview
+          const lightboxRendition =
+            useWatermark && watermarked ? watermarked : web ?? preview;
+          const previewRendition =
+            useWatermark && watermarked ? watermarked : preview;
 
           return {
             id: f.id,
@@ -583,11 +626,11 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
             thumbUrl: thumb
               ? await presignGet({ key: thumb.storageKey })
               : null,
-            previewUrl: preview
-              ? await presignGet({ key: preview.storageKey })
+            previewUrl: previewRendition
+              ? await presignGet({ key: previewRendition.storageKey })
               : null,
-            webUrl: web
-              ? await presignGet({ key: web.storageKey })
+            webUrl: lightboxRendition
+              ? await presignGet({ key: lightboxRendition.storageKey })
               : null,
             hlsUrl,
             previewWidth: preview?.width ?? null,

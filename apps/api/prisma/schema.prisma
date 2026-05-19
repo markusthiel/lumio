@@ -31,6 +31,12 @@ model Tenant {
   brandingId  String?  @db.Uuid
   branding    Branding? @relation("TenantBranding", fields: [brandingId], references: [id])
   
+  // Watermark-Konfiguration (siehe docs/KONZEPT.md §9)
+  // Wenn watermarkImageKey gesetzt: PNG aus S3 wird als Overlay verwendet.
+  // Sonst: watermarkText als wiederholtes Text-Pattern (Default: tenant.name).
+  watermarkImageKey String?
+  watermarkText     String?
+  
   // Billing (siehe BillingSubscription)
   subscription BillingSubscription?
   
@@ -162,6 +168,7 @@ model Gallery {
   files           File[]
   accessTokens    GalleryAccess[]
   downloadLogs    DownloadLog[]
+  zipDownloads    ZipDownload[]
   
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -170,6 +177,42 @@ model Gallery {
   @@index([ownerId])
   @@index([slug])
   @@map("galleries")
+}
+
+// -----------------------------------------------------------------------------
+// ZIP Downloads (pre-built, gecacht in S3)
+// -----------------------------------------------------------------------------
+// Wenn ein Kunde "Alle herunterladen" klickt, baut der Worker eine ZIP-Datei
+// und cached sie für 7 Tage. Erneute Anfragen geben den fertigen Link zurück.
+// Pro Galerie + Auswahl-Set (oder NULL für "alle") ein Eintrag.
+model ZipDownload {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  galleryId   String   @db.Uuid
+  gallery     Gallery  @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+  
+  // Wer hat ihn angefordert? Null = öffentlich (alle Files der Galerie).
+  // Wenn gesetzt: spezifisch zur Auswahl dieses Access-Tokens.
+  accessId    String?  @db.Uuid
+  
+  // Wenn diese ZIP nur eine Untermenge der Files enthält (z.B. die
+  // gepickten), hashen wir die fileId-Liste, um Cache-Hits zu erkennen.
+  // NULL = "alle Files der Galerie".
+  fileIdsHash String?
+  fileCount   Int
+  
+  status      String   @default("pending") // pending | building | ready | failed
+  storageKey  String?  // wenn ready
+  sizeBytes   BigInt?
+  errorMessage String?
+  
+  expiresAt   DateTime // 7 Tage nach Erstellung
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([galleryId, expiresAt])
+  @@unique([galleryId, accessId, fileIdsHash])
+  @@map("zip_downloads")
 }
 
 // -----------------------------------------------------------------------------
