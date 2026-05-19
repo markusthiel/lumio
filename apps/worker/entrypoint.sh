@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # Lumio Worker — Entrypoint
 #
 # Startet zwei Prozesse parallel:
@@ -7,6 +7,10 @@
 #
 # Beide Prozesse teilen sich den Container. Stirbt einer, soll der Container
 # stoppen (Docker startet ihn neu). Wir lösen das mit einem simplen wait + trap.
+#
+# Bash statt /bin/sh, weil `wait -n` bash-spezifisch ist. Auf Debian ist
+# /bin/sh = dash, das die Option nicht kennt. bash ist im base-slim-Image
+# vorinstalliert.
 
 set -e
 
