@@ -12,12 +12,18 @@
  *   GET    /g/:slug                — öffentliche Galerie-Daten
  *   POST   /g/:slug/unlock         — Passwort eingeben
  */
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 
 import { prisma } from "../db.js";
 import { generateGallerySlug } from "../services/ids.js";
 import { presignGet } from "../services/storage.js";
+import { verifyPassword } from "../services/auth.js";
+import {
+  createVisitorToken,
+  verifyVisitorToken,
+  visitorCookieName,
+} from "../services/visitor.js";
 
 const createGallerySchema = z.object({
   title: z.string().min(1).max(200),
@@ -35,6 +41,54 @@ const createGallerySchema = z.object({
 const updateGallerySchema = createGallerySchema.partial().extend({
   status: z.enum(["draft", "live", "archived"]).optional(),
 });
+
+const unlockSchema = z.object({
+  password: z.string().min(1).max(200).optional(),
+  token: z.string().min(1).max(200).optional(),
+});
+
+/**
+ * Lädt aus dem Visitor-Cookie der Galerie die Galerie-Id und (falls geliefert)
+ * den Access-Token. Gibt null zurück, wenn der Visitor nicht freigeschaltet ist.
+ *
+ * Wir können hier nicht über den Slug auflösen, ohne erst die Galerie zu
+ * fetchen, weil das Cookie an die galleryId gebunden ist. Caller muss also
+ * den Slug → galleryId schon haben (z.B. aus dem Pfad-Param).
+ */
+export async function loadVisitor(
+  req: FastifyRequest & { params: { slug: string } }
+): Promise<{ galleryId: string; accessId: string | null } | null> {
+  // Wir holen die Galerie über den Slug, damit wir wissen, welches
+  // Cookie zu prüfen ist.
+  const gallery = await prisma.gallery.findUnique({
+    where: { slug: req.params.slug },
+    select: {
+      id: true,
+      status: true,
+      expiresAt: true,
+      passwordHash: true,
+    },
+  });
+  if (!gallery || gallery.status !== "live") return null;
+  if (gallery.expiresAt && gallery.expiresAt < new Date()) return null;
+
+  const cookieName = visitorCookieName(gallery.id);
+  const cookie = req.cookies?.[cookieName];
+  if (!cookie) {
+    // Wenn keine Auth nötig ist (kein Passwort), darf der Visitor anonym
+    // browsen. Das ist Picdrop-Verhalten.
+    if (!gallery.passwordHash) {
+      return { galleryId: gallery.id, accessId: null };
+    }
+    return null;
+  }
+
+  const claims = verifyVisitorToken(cookie);
+  if (!claims || claims.gid !== gallery.id) return null;
+  if (gallery.passwordHash && !claims.pw) return null;
+
+  return { galleryId: gallery.id, accessId: claims.aid };
+}
 
 export async function registerGalleryRoutes(app: FastifyInstance) {
   // -------------------------------------------------------------------------
@@ -298,9 +352,14 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
   );
 
   // -------------------------------------------------------------------------
-  // GET /g/:slug — Kunden-Sicht (öffentlich)
+  // GET /g/:slug — Kunden-Sicht, Meta + Gate-Info
   // -------------------------------------------------------------------------
-  app.get<{ Params: { slug: string } }>("/g/:slug", async (req, reply) => {
+  // Liefert nur das Minimum: Titel, Branding, ob Passwort/Token nötig.
+  // Files kommen erst nach /unlock + gültigem Visitor-Cookie.
+  app.get<{
+    Params: { slug: string };
+    Querystring: { t?: string };
+  }>("/g/:slug", async (req, reply) => {
     const gallery = await prisma.gallery.findUnique({
       where: { slug: req.params.slug },
       select: {
@@ -326,9 +385,22 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
       return reply.status(410).send({ error: "expired" });
     }
 
-    // Wenn ein Passwort gesetzt ist, gibt's hier nur die Minimal-Info,
-    // bis der Client /g/:slug/unlock aufgerufen hat. Vollständige Auflistung
-    // kommt in einem Folge-Endpoint (Sprint 3 für die Kunden-Seite).
+    // Prüfen, ob das Visitor-Cookie schon gesetzt ist (auto-unlock bei
+    // erneutem Aufruf)
+    const cookieName = visitorCookieName(gallery.id);
+    const cookie = req.cookies?.[cookieName];
+    let unlocked = false;
+    if (cookie) {
+      const claims = verifyVisitorToken(cookie);
+      if (
+        claims &&
+        claims.gid === gallery.id &&
+        (!gallery.passwordHash || claims.pw)
+      ) {
+        unlocked = true;
+      }
+    }
+
     return {
       gallery: {
         id: gallery.id,
@@ -341,8 +413,255 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         commentsEnabled: gallery.commentsEnabled,
         ratingsEnabled: gallery.ratingsEnabled,
         requiresPassword: !!gallery.passwordHash,
+        // Hinweis: ob ein Token nötig ist, sagen wir nicht hier — der Token
+        // ist optional. Wenn ein Kunde keinen hat, läuft er als anonymer
+        // Besucher (keine Selektionen/Kommentare). Studio kann auch
+        // entscheiden, ohne Token zu teilen.
+        unlocked,
         branding: gallery.branding,
       },
     };
   });
+
+  // -------------------------------------------------------------------------
+  // POST /g/:slug/unlock — Passwort/Token einlösen
+  // -------------------------------------------------------------------------
+  app.post<{
+    Params: { slug: string };
+    Body: { password?: string; token?: string };
+  }>(
+    "/g/:slug/unlock",
+    {
+      config: { rateLimit: { max: 30, timeWindow: "1 minute" } },
+    },
+    async (req, reply) => {
+      const body = unlockSchema.parse(req.body);
+      const gallery = await prisma.gallery.findUnique({
+        where: { slug: req.params.slug },
+        select: {
+          id: true,
+          status: true,
+          expiresAt: true,
+          passwordHash: true,
+        },
+      });
+      if (!gallery || gallery.status !== "live") {
+        return reply.status(404).send({ error: "not_found" });
+      }
+      if (gallery.expiresAt && gallery.expiresAt < new Date()) {
+        return reply.status(410).send({ error: "expired" });
+      }
+
+      // Passwort prüfen, falls nötig
+      let passwordOk = !gallery.passwordHash;
+      if (gallery.passwordHash) {
+        if (!body.password) {
+          return reply
+            .status(401)
+            .send({ error: "password_required" });
+        }
+        passwordOk = await verifyPassword(
+          gallery.passwordHash,
+          body.password
+        );
+        if (!passwordOk) {
+          return reply
+            .status(401)
+            .send({ error: "invalid_password" });
+        }
+      }
+
+      // Token validieren, falls geliefert
+      let accessId: string | null = null;
+      if (body.token) {
+        const access = await prisma.galleryAccess.findUnique({
+          where: { token: body.token },
+          select: {
+            id: true,
+            galleryId: true,
+            expiresAt: true,
+          },
+        });
+        if (
+          access &&
+          access.galleryId === gallery.id &&
+          (!access.expiresAt || access.expiresAt > new Date())
+        ) {
+          accessId = access.id;
+          // Audit-Count + last-access aktualisieren
+          await prisma.galleryAccess
+            .update({
+              where: { id: access.id },
+              data: {
+                lastAccessAt: new Date(),
+                accessCount: { increment: 1 },
+              },
+            })
+            .catch(() => {});
+        }
+        // Ungültiger Token → kein Fehler, einfach als anonym behandeln.
+        // Das verhindert Token-Enumeration: jeder Token-Versuch sieht aus
+        // wie ein normaler Visitor-Aufruf.
+      }
+
+      // Visitor-Cookie setzen
+      const token = createVisitorToken({
+        gid: gallery.id,
+        aid: accessId,
+        pw: passwordOk,
+      });
+      reply.setCookie(visitorCookieName(gallery.id), token, {
+        path: "/",
+        httpOnly: true,
+        sameSite: "lax",
+        secure: req.protocol === "https",
+        maxAge: 8 * 60 * 60, // 8h
+      });
+
+      return { ok: true, hasAccessToken: !!accessId };
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // GET /g/:slug/files — Files mit signierten Preview-URLs
+  // -------------------------------------------------------------------------
+  app.get<{ Params: { slug: string } }>(
+    "/g/:slug/files",
+    async (req, reply) => {
+      const visitor = await loadVisitor(req);
+      if (!visitor) {
+        return reply
+          .status(401)
+          .send({ error: "unlock_required" });
+      }
+
+      const files = await prisma.file.findMany({
+        where: {
+          galleryId: visitor.galleryId,
+          status: "ready",
+        },
+        orderBy: { sortIndex: "asc" },
+        select: {
+          id: true,
+          originalFilename: true,
+          mimeType: true,
+          sizeBytes: true,
+          kind: true,
+          width: true,
+          height: true,
+          sortIndex: true,
+          renditions: {
+            select: { kind: true, storageKey: true, width: true, height: true },
+          },
+        },
+      });
+
+      // Signed URLs für thumb + preview, web (web optional — Lightbox lazy)
+      const items = await Promise.all(
+        files.map(async (f) => {
+          const thumb = f.renditions.find((r) => r.kind === "thumb");
+          const preview = f.renditions.find((r) => r.kind === "preview");
+          const web = f.renditions.find((r) => r.kind === "web");
+          return {
+            id: f.id,
+            filename: f.originalFilename,
+            mimeType: f.mimeType,
+            sizeBytes: Number(f.sizeBytes),
+            kind: f.kind,
+            width: f.width,
+            height: f.height,
+            thumbUrl: thumb
+              ? await presignGet({ key: thumb.storageKey })
+              : null,
+            previewUrl: preview
+              ? await presignGet({ key: preview.storageKey })
+              : null,
+            webUrl: web
+              ? await presignGet({ key: web.storageKey })
+              : null,
+            previewWidth: preview?.width ?? null,
+            previewHeight: preview?.height ?? null,
+          };
+        })
+      );
+
+      // Auswahl + Kommentare des aktuellen Visitors mitliefern, damit
+      // das Frontend den State direkt anzeigen kann (Like, Color, Rating).
+      let mySelections: Record<
+        string,
+        { color: string | null; rating: number | null; liked: boolean }
+      > = {};
+      if (visitor.accessId) {
+        const selections = await prisma.selection.findMany({
+          where: { accessId: visitor.accessId },
+          select: { fileId: true, color: true, rating: true, liked: true },
+        });
+        mySelections = Object.fromEntries(
+          selections.map((s) => [
+            s.fileId,
+            { color: s.color, rating: s.rating, liked: s.liked },
+          ])
+        );
+      }
+
+      return { files: items, mySelections };
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // GET /g/:slug/files/:fileId/download — Original-Download für Kunden
+  // -------------------------------------------------------------------------
+  app.get<{ Params: { slug: string; fileId: string } }>(
+    "/g/:slug/files/:fileId/download",
+    async (req, reply) => {
+      const visitor = await loadVisitor(req);
+      if (!visitor) {
+        return reply
+          .status(401)
+          .send({ error: "unlock_required" });
+      }
+
+      const gallery = await prisma.gallery.findUnique({
+        where: { id: visitor.galleryId },
+        select: { id: true, downloadEnabled: true, tenantId: true },
+      });
+      if (!gallery || !gallery.downloadEnabled) {
+        return reply.status(403).send({ error: "downloads_disabled" });
+      }
+
+      const file = await prisma.file.findFirst({
+        where: { id: req.params.fileId, galleryId: gallery.id },
+        select: {
+          id: true,
+          storageKey: true,
+          originalFilename: true,
+          sizeBytes: true,
+        },
+      });
+      if (!file) return reply.status(404).send({ error: "not_found" });
+
+      const url = await presignGet({
+        key: file.storageKey,
+        responseContentDisposition: `attachment; filename="${encodeURIComponent(
+          file.originalFilename
+        )}"`,
+      });
+
+      // Audit
+      await prisma.downloadLog
+        .create({
+          data: {
+            galleryId: gallery.id,
+            fileId: file.id,
+            kind: "single",
+            ipAddress: req.ip,
+            userAgent: req.headers["user-agent"]?.slice(0, 500) ?? null,
+            bytes: file.sizeBytes,
+          },
+        })
+        .catch(() => {});
+
+      return reply.redirect(url);
+    }
+  );
 }

@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { api, type GalleryDetail, type GalleryFile } from "@/lib/api";
 import { uploadFiles, type UploadProgress } from "@/lib/upload";
+import { SharePanel } from "@/components/studio/SharePanel";
 
 export default function GalleryDetailPage() {
   const router = useRouter();
@@ -14,6 +15,7 @@ export default function GalleryDetailPage() {
   const [loading, setLoading] = useState(true);
   const [uploads, setUploads] = useState<Record<string, UploadProgress>>({});
   const [dragOver, setDragOver] = useState(false);
+  const [togglingStatus, setTogglingStatus] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -68,7 +70,6 @@ export default function GalleryDetailPage() {
     } catch (err) {
       console.error("upload failed", err);
     }
-    // Nach Upload Galerie neu laden
     void load();
   }
 
@@ -76,6 +77,18 @@ export default function GalleryDetailPage() {
     e.preventDefault();
     setDragOver(false);
     void handleFiles(e.dataTransfer.files);
+  }
+
+  async function toggleLive() {
+    if (!gallery) return;
+    setTogglingStatus(true);
+    try {
+      const nextStatus = gallery.status === "live" ? "draft" : "live";
+      await api.updateGallery(gallery.id, { status: nextStatus });
+      await load();
+    } finally {
+      setTogglingStatus(false);
+    }
   }
 
   if (loading) {
@@ -114,13 +127,33 @@ export default function GalleryDetailPage() {
                 </p>
               )}
               <div className="text-xs text-slate-400 mt-2 flex gap-3">
-                <span>Slug: <code className="bg-slate-100 px-1 rounded">{gallery.slug}</code></span>
+                <span>
+                  Slug:{" "}
+                  <code className="bg-slate-100 px-1 rounded">
+                    {gallery.slug}
+                  </code>
+                </span>
                 <span>·</span>
                 <span className="capitalize">{gallery.status}</span>
                 <span>·</span>
                 <span>{gallery.files.length} Files</span>
               </div>
             </div>
+            <button
+              onClick={toggleLive}
+              disabled={togglingStatus}
+              className={`text-sm px-3 py-1.5 rounded-md transition ${
+                gallery.status === "live"
+                  ? "border border-amber-300 text-amber-700 hover:bg-amber-50"
+                  : "bg-green-600 text-white hover:bg-green-700"
+              } disabled:opacity-50`}
+            >
+              {togglingStatus
+                ? "…"
+                : gallery.status === "live"
+                ? "Auf Draft setzen"
+                : "Live schalten"}
+            </button>
           </div>
         </header>
 
@@ -193,6 +226,9 @@ export default function GalleryDetailPage() {
             </ul>
           </section>
         )}
+
+        {/* Share-Panel */}
+        <SharePanel galleryId={gallery.id} gallerySlug={gallery.slug} />
 
         {/* File-Grid */}
         {gallery.files.length > 0 ? (

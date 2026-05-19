@@ -103,6 +103,88 @@ async function request<T>(
 }
 
 // -----------------------------------------------------------------------------
+// Public Gallery (Kunden-Sicht)
+// -----------------------------------------------------------------------------
+export interface PublicGalleryMeta {
+  id: string;
+  slug: string;
+  title: string;
+  description: string | null;
+  mode: GalleryMode;
+  downloadEnabled: boolean;
+  watermarkEnabled: boolean;
+  commentsEnabled: boolean;
+  ratingsEnabled: boolean;
+  requiresPassword: boolean;
+  unlocked: boolean;
+  branding: Branding | null;
+}
+
+export interface Branding {
+  id: string;
+  name: string;
+  logoUrl: string | null;
+  faviconUrl: string | null;
+  primaryColor: string;
+  accentColor: string;
+  fontFamily: string;
+  introText: string | null;
+  footerText: string | null;
+}
+
+export interface PublicFile {
+  id: string;
+  filename: string;
+  mimeType: string;
+  sizeBytes: number;
+  kind: FileKind;
+  width: number | null;
+  height: number | null;
+  thumbUrl: string | null;
+  previewUrl: string | null;
+  webUrl: string | null;
+  previewWidth: number | null;
+  previewHeight: number | null;
+}
+
+export interface MySelection {
+  color: "red" | "yellow" | "green" | null;
+  rating: number | null;
+  liked: boolean;
+}
+
+// -----------------------------------------------------------------------------
+// Access (Studio-seitig)
+// -----------------------------------------------------------------------------
+export interface GalleryAccess {
+  id: string;
+  label: string;
+  email: string | null;
+  token: string;
+  canDownload: boolean;
+  canComment: boolean;
+  canSelect: boolean;
+  canSeeOthers: boolean;
+  expiresAt: string | null;
+  lastAccessAt: string | null;
+  accessCount: number;
+  createdAt: string;
+}
+
+// -----------------------------------------------------------------------------
+// Comments
+// -----------------------------------------------------------------------------
+export interface Comment {
+  id: string;
+  authorLabel: string;
+  authorIsStudio: boolean;
+  body: string;
+  annotation: unknown;
+  parentId: string | null;
+  createdAt: string;
+}
+
+// -----------------------------------------------------------------------------
 // API surface
 // -----------------------------------------------------------------------------
 export const api = {
@@ -116,9 +198,8 @@ export const api = {
   logout: () => request<{ ok: true }>("/auth/logout", { method: "POST" }),
   me: () => request<{ user: ApiUser }>("/auth/me"),
 
-  // Galleries
-  listGalleries: () =>
-    request<{ galleries: Gallery[] }>("/galleries"),
+  // Galleries (Studio)
+  listGalleries: () => request<{ galleries: Gallery[] }>("/galleries"),
 
   createGallery: (input: {
     title: string;
@@ -144,6 +225,45 @@ export const api = {
   deleteGallery: (id: string) =>
     request<void>(`/galleries/${id}`, { method: "DELETE" }),
 
+  // Access Tokens (Studio)
+  listAccesses: (galleryId: string) =>
+    request<{ accesses: GalleryAccess[] }>(
+      `/galleries/${galleryId}/access`
+    ),
+
+  createAccess: (
+    galleryId: string,
+    input: {
+      label: string;
+      email?: string;
+      canDownload?: boolean;
+      canComment?: boolean;
+      canSelect?: boolean;
+      canSeeOthers?: boolean;
+      expiresAt?: string;
+    }
+  ) =>
+    request<{ access: GalleryAccess }>(
+      `/galleries/${galleryId}/access`,
+      { method: "POST", body: JSON.stringify(input) }
+    ),
+
+  deleteAccess: (galleryId: string, accessId: string) =>
+    request<void>(`/galleries/${galleryId}/access/${accessId}`, {
+      method: "DELETE",
+    }),
+
+  setPassword: (galleryId: string, password: string) =>
+    request<{ ok: true }>(`/galleries/${galleryId}/password`, {
+      method: "PUT",
+      body: JSON.stringify({ password }),
+    }),
+
+  clearPassword: (galleryId: string) =>
+    request<{ ok: true }>(`/galleries/${galleryId}/password`, {
+      method: "DELETE",
+    }),
+
   // Uploads
   initUpload: (
     galleryId: string,
@@ -167,6 +287,61 @@ export const api = {
         parts: input.parts,
       }),
     }),
+
+  // Public Gallery (Kunden-Sicht)
+  getPublicGallery: (slug: string) =>
+    request<{ gallery: PublicGalleryMeta }>(`/g/${slug}`),
+
+  unlockGallery: (
+    slug: string,
+    input: { password?: string; token?: string }
+  ) =>
+    request<{ ok: true; hasAccessToken: boolean }>(`/g/${slug}/unlock`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  listPublicFiles: (slug: string) =>
+    request<{
+      files: PublicFile[];
+      mySelections: Record<string, MySelection>;
+    }>(`/g/${slug}/files`),
+
+  // Proofing (Kunden-Sicht)
+  setSelection: (
+    slug: string,
+    fileId: string,
+    sel: Partial<MySelection & { status: "pick" | "reject" | "maybe" | null }>
+  ) =>
+    request<{ selection: unknown }>(
+      `/g/${slug}/files/${fileId}/selection`,
+      { method: "PUT", body: JSON.stringify(sel) }
+    ),
+
+  clearSelection: (slug: string, fileId: string) =>
+    request<void>(`/g/${slug}/files/${fileId}/selection`, {
+      method: "DELETE",
+    }),
+
+  listComments: (slug: string, fileId: string) =>
+    request<{ comments: Comment[] }>(
+      `/g/${slug}/files/${fileId}/comments`
+    ),
+
+  postComment: (
+    slug: string,
+    fileId: string,
+    body: string,
+    authorLabel?: string
+  ) =>
+    request<{ comment: Comment }>(
+      `/g/${slug}/files/${fileId}/comments`,
+      { method: "POST", body: JSON.stringify({ body, authorLabel }) }
+    ),
+
+  // Public download URL (für href, kein fetch — Browser folgt der Redirect)
+  publicDownloadUrl: (slug: string, fileId: string) =>
+    `${API_URL}/api/v1/g/${slug}/files/${fileId}/download`,
 };
 
 export { API_URL, ApiError };

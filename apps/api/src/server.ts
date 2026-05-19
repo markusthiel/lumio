@@ -18,6 +18,7 @@ import authPlugin from "./plugins/auth.js";
 import { registerHealthRoute } from "./routes/health.js";
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerGalleryRoutes } from "./routes/galleries.js";
+import { registerAccessRoutes } from "./routes/access.js";
 import { registerFileRoutes } from "./routes/files.js";
 import { registerProofingRoutes } from "./routes/proofing.js";
 import { registerBillingRoutes } from "./routes/billing.js";
@@ -51,6 +52,7 @@ async function buildServer() {
     async (api) => {
       await registerAuthRoutes(api);
       await registerGalleryRoutes(api);
+      await registerAccessRoutes(api);
       await registerFileRoutes(api);
       await registerProofingRoutes(api);
       if (config.BILLING_ENABLED) {

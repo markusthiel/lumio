@@ -41,23 +41,26 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 - [ ] WebSocket-Push für Upload-Progress (Polling reicht für Phase 1)
 - [ ] Worker-Test: tatsächlich ein Bild end-to-end durchlassen (manuell durchspielen)
 
-### Sprint 3 — Kunden-Galerie
+### Sprint 3 — Kunden-Galerie ✅ (großteils)
 
-- [ ] Galerie-Slug-Route `/g/[slug]` mit Branding
-- [ ] Passwort-Gate (optional)
-- [ ] Grid-Ansicht mit virtualisiertem Masonry-Layout
-- [ ] PhotoSwipe-Lightbox
-- [ ] Like / Color-Tag / Stern-Rating
-- [ ] Mobile-Touch-Optimierung
+- [x] Galerie-Slug-Route `/g/[slug]` mit Branding
+- [x] Passwort-Gate
+- [x] Grid-Ansicht (Standard-Grid, virtualisiertes Masonry kommt Phase 2)
+- [x] Lightbox mit Tastatur-Navigation + Touch + Filtern
+- [x] Like / Color-Tag (Sterne-Rating-UI kommt Phase 2)
+- [x] Mobile-Touch-Optimierung (alle Tap-Targets ≥36px)
+- [x] Share-Link-Verwaltung im Studio inkl. Tokens und Berechtigungen
+- [x] Visitor-Session via HMAC-Cookie statt Token-in-jeder-URL
 
-### Sprint 4 — Download & Proofing
+### Sprint 4 — Download & Proofing ✅ (großteils)
 
-- [ ] Single-File-Download via Presigned URL
-- [ ] Streaming-ZIP-Builder (Worker-Task build_zip)
+- [x] Single-File-Download via Presigned URL
+- [x] Kommentare pro Bild
+- [x] Studio-Übersicht: welche Files wurden ausgewählt? (`/galleries/:id/proofing/summary`)
+- [ ] Streaming-ZIP-Builder (Worker-Task build_zip) — Stub vorhanden
 - [ ] Watermark-Rendition (wenn Download deaktiviert)
-- [ ] Kommentare pro Bild
-- [ ] Studio-Übersicht: welche Files wurden ausgewählt?
 - [ ] CSV-Export der Auswahl
+- [ ] Studio-UI für Proofing-Summary (gerade nur API)
 
 ---
 
