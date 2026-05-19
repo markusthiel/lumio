@@ -10,6 +10,7 @@ import {
 } from "@/lib/api";
 import { VideoPlayer } from "./VideoPlayer";
 import { ZipDownloadButton } from "./ZipDownloadButton";
+import { Slideshow } from "./Slideshow";
 import { useT } from "@/lib/i18n";
 import { useReveal } from "@/lib/useReveal";
 
@@ -37,6 +38,7 @@ export function GalleryView({
   const t = useT();
   const [filter, setFilter] = useState<FilterMode>("all");
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
+  const [slideshowIdx, setSlideshowIdx] = useState<number | null>(null);
   const [finalizing, setFinalizing] = useState(false);
 
   const filtered = useMemo(() => {
@@ -147,6 +149,16 @@ export function GalleryView({
           </div>
 
           <div className="flex flex-wrap gap-1.5">
+            {stats.total > 0 && (
+              <button
+                onClick={() => setSlideshowIdx(0)}
+                className="text-ui-sm px-3 h-8 rounded inline-flex items-center gap-1.5 bg-white/5 border border-white/15 text-white/85 hover:bg-white/15 hover:border-white/30 hover:text-white transition-colors duration-motion"
+                title={t("gallery.slideshowStartTitle")}
+              >
+                <PlayMiniIcon />
+                <span>{t("gallery.slideshowStart")}</span>
+              </button>
+            )}
             {meta.mode === "collaboration" &&
               stats.liked > 0 &&
               !finalizedAt && (
@@ -225,7 +237,28 @@ export function GalleryView({
           onSelectionChange={onSelectionChange}
         />
       )}
+
+      {/* Slideshow — Fullscreen-Auto-Play. Bewusst NICHT an die Lightbox-
+          Selektion gebunden — die Slideshow zeigt immer die volle Galerie
+          in DOM-Reihenfolge, nicht den aktuellen Filter. Ein gefiltertes
+          Slideshow-Behaviour wäre nett-to-have, würde aber den UX-Mental-
+          Model unklarer machen ("warum sehe ich nur 3 Bilder?"). */}
+      {slideshowIdx !== null && (
+        <Slideshow
+          files={files}
+          startIndex={slideshowIdx}
+          onClose={() => setSlideshowIdx(null)}
+        />
+      )}
     </>
+  );
+}
+
+function PlayMiniIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" aria-hidden>
+      <path d="M2.5 1.5v7l6-3.5-6-3.5z" />
+    </svg>
   );
 }
 

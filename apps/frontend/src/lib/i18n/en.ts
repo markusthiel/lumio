@@ -118,6 +118,13 @@ export const en: Dict = {
     noFilesForFilter: "No files match this filter.",
     modePresentation: "Presentation",
     hintNavigate: "Navigate",
+    slideshowStart: "Slideshow",
+    slideshowStartTitle: "Start fullscreen slideshow (Space pauses, Esc exits)",
+    slideshowClose: "Exit slideshow",
+    slideshowPlay: "Play",
+    slideshowPause: "Pause",
+    slideshowInterval: "{sec} seconds per image",
+    slideshowNoImages: "No viewable images in this gallery.",
     // Lightbox
     close: "Close",
     previous: "Previous image",

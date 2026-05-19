@@ -171,6 +171,18 @@ body {
   animation: lumio-reveal var(--motion-reveal) var(--motion-ease) both;
 }
 
+/* === Slideshow-Progress-Bar ===
+ * Linearer Sweep am unteren Slideshow-Rand. Wird direkt per
+ * `animation: lumio-slide-progress 5s linear` aus dem React-Code
+ * referenziert; Dauer kommt von der gewählten Interval-Länge.
+ * Liegt hier in globals.css statt in tailwind.config.mjs, weil
+ * Tailwind ungenutzte Keyframes purged — und wir die Animation
+ * nicht über eine Utility-Klasse, sondern über inline style aufrufen. */
+@keyframes lumio-slide-progress {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
 /* Galerie-Modus (Backward-Compat) — alt war .theme-dark; wir halten den Selector
  * aber das Token-System macht das eigentlich überflüssig. */
 .theme-dark {
