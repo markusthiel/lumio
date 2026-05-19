@@ -13,7 +13,7 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 - [x] Worker-Skeleton mit Celery + Storage-Helper
 - [x] Frontend-Skeleton mit Next.js + Tailwind
 - [x] Konzept-Dokument
-- [ ] CI-Pipeline (Forgejo Actions) — Lint, Build, Test
+- [x] CI-Pipeline (Forgejo Actions) — Lint, Build, Test
 - [ ] Container-Images automatisch nach Container-Registry
 
 ---
@@ -24,11 +24,11 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 
 ### Sprint 1 — Auth & Tenancy
 
-- [ ] Tenant-Auto-Bootstrap im single-Mode (erster Start legt Default-Tenant an)
-- [ ] User-Registrierung + Login (E-Mail + Passwort, Argon2)
-- [ ] Session-Management mit HTTPOnly-Cookies
-- [ ] CLI: `npm run create-admin`
-- [ ] Tenant-Resolver-Middleware (Domain/Subdomain/Slug)
+- [x] Tenant-Auto-Bootstrap im single-Mode (erster Start legt Default-Tenant an)
+- [x] User-Registrierung + Login (E-Mail + Passwort, Argon2)
+- [x] Session-Management mit HTTPOnly-Cookies
+- [x] CLI: `npm run create-admin`
+- [x] Tenant-Resolver-Middleware (Domain/Subdomain/Slug)
 
 ### Sprint 2 — Upload-Pipeline ✅ (großteils)
 
