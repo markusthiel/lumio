@@ -11,6 +11,7 @@ import {
 import { VideoPlayer } from "./VideoPlayer";
 import { ZipDownloadButton } from "./ZipDownloadButton";
 import { useT } from "@/lib/i18n";
+import { useReveal } from "@/lib/useReveal";
 
 interface Props {
   meta: PublicGalleryMeta;
@@ -60,115 +61,156 @@ export function GalleryView({
   }, [files, mySelections]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-semibold">{meta.title}</h1>
-          {meta.description && (
-            <p className="text-sm opacity-60 mt-1 max-w-2xl">
-              {meta.description}
-            </p>
-          )}
-          <div className="text-xs opacity-50 mt-3">
-            {stats.total} {t("gallery.files")} · {stats.liked} {t("gallery.liked")}
-            {finalizedAt && (
-              <span className="ml-2 text-green-400">
-                · {t("gallery.finalized")}
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {meta.mode === "collaboration" &&
-            stats.liked > 0 &&
-            !finalizedAt && (
-              <button
-                onClick={async () => {
-                  setFinalizing(true);
-                  try {
-                    await onFinalize();
-                  } finally {
-                    setFinalizing(false);
-                  }
-                }}
-                disabled={finalizing}
-                className="text-xs px-3 py-1.5 rounded bg-brand-accent text-neutral-950 font-medium hover:opacity-90 disabled:opacity-50"
-              >
-                {finalizing ? t("gallery.finalizing") : t("gallery.finalize")}
-              </button>
-            )}
-          {meta.downloadEnabled && stats.total > 0 && (
+    <>
+      {/* Hero — großer Atmungsraum für Title und Description.
+          Wir lassen das Hero bewusst minimal: kein Cover-Image, weil das in
+          den meisten Self-Host-Fällen zu viel Aufmerksamkeit von den
+          eigentlichen Bildern stiehlt. */}
+      <section className="px-4 sm:px-6 md:px-12 pt-14 pb-10 sm:pt-20 sm:pb-14 max-w-7xl mx-auto animate-fade-in">
+        <h1 className="text-display-lg sm:text-display-xl font-medium tracking-tight">
+          {meta.title}
+        </h1>
+        {meta.description && (
+          <p className="text-ui-lg sm:text-ui-md opacity-70 mt-4 max-w-2xl leading-relaxed">
+            {meta.description}
+          </p>
+        )}
+        <div className="text-ui-xs opacity-50 mt-6 flex items-center gap-3 flex-wrap uppercase tracking-[0.12em]">
+          <span>
+            {stats.total} {t("gallery.files")}
+          </span>
+          {meta.mode === "collaboration" && stats.liked > 0 && (
             <>
-              <ZipDownloadButton slug={slug} variant="all" />
-              {meta.mode === "collaboration" && stats.liked > 0 && (
-                <ZipDownloadButton
-                  slug={slug}
-                  variant="selection"
-                  count={stats.liked}
-                />
-              )}
+              <span className="opacity-30">·</span>
+              <span>
+                {stats.liked} {t("gallery.liked")}
+              </span>
+            </>
+          )}
+          {finalizedAt && (
+            <>
+              <span className="opacity-30">·</span>
+              <span className="text-semantic-success">
+                {t("gallery.finalized")}
+              </span>
             </>
           )}
         </div>
+      </section>
+
+      {/* Sticky-Toolbar — verbleibt am oberen Rand beim Scrollen.
+          Backdrop-blur sorgt für saubere Trennung über den Bildern. */}
+      <div
+        className="sticky top-0 z-20 backdrop-blur-md border-y border-white/5"
+        style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
+      >
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-3 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex gap-1.5 flex-wrap">
+            {meta.mode === "collaboration" && stats.total > 0 ? (
+              <>
+                <FilterChip
+                  active={filter === "all"}
+                  onClick={() => setFilter("all")}
+                  label={t("gallery.filterAll", { count: stats.total })}
+                />
+                <FilterChip
+                  active={filter === "liked"}
+                  onClick={() => setFilter("liked")}
+                  label={`♥ ${stats.liked}`}
+                />
+                <FilterChip
+                  active={filter === "green"}
+                  onClick={() => setFilter("green")}
+                  label={`${stats.green}`}
+                  dot="bg-green-500"
+                />
+                <FilterChip
+                  active={filter === "yellow"}
+                  onClick={() => setFilter("yellow")}
+                  label={`${stats.yellow}`}
+                  dot="bg-yellow-500"
+                />
+                <FilterChip
+                  active={filter === "red"}
+                  onClick={() => setFilter("red")}
+                  label={`${stats.red}`}
+                  dot="bg-red-500"
+                />
+              </>
+            ) : (
+              <span className="text-ui-xs opacity-50 uppercase tracking-[0.12em] self-center">
+                {meta.mode === "presentation"
+                  ? t("gallery.modePresentation")
+                  : ""}
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-1.5">
+            {meta.mode === "collaboration" &&
+              stats.liked > 0 &&
+              !finalizedAt && (
+                <button
+                  onClick={async () => {
+                    setFinalizing(true);
+                    try {
+                      await onFinalize();
+                    } finally {
+                      setFinalizing(false);
+                    }
+                  }}
+                  disabled={finalizing}
+                  className="text-ui-sm px-3 h-8 rounded inline-flex items-center bg-brand-accent text-neutral-950 font-medium hover:opacity-90 disabled:opacity-50 transition-opacity duration-motion"
+                >
+                  {finalizing ? t("gallery.finalizing") : t("gallery.finalize")}
+                </button>
+              )}
+            {meta.downloadEnabled && stats.total > 0 && (
+              <>
+                <ZipDownloadButton slug={slug} variant="all" />
+                {meta.mode === "collaboration" && stats.liked > 0 && (
+                  <ZipDownloadButton
+                    slug={slug}
+                    variant="selection"
+                    count={stats.liked}
+                  />
+                )}
+              </>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Filter-Toolbar */}
-      {meta.mode === "collaboration" && stats.total > 0 && (
-        <div className="flex flex-wrap gap-2 mb-6">
-          <FilterChip
-            active={filter === "all"}
-            onClick={() => setFilter("all")}
-            label={t("gallery.filterAll", { count: stats.total })}
-          />
-          <FilterChip
-            active={filter === "liked"}
-            onClick={() => setFilter("liked")}
-            label={`♥ ${stats.liked}`}
-          />
-          <FilterChip
-            active={filter === "green"}
-            onClick={() => setFilter("green")}
-            label={`● ${stats.green}`}
-            dot="bg-green-500"
-          />
-          <FilterChip
-            active={filter === "yellow"}
-            onClick={() => setFilter("yellow")}
-            label={`● ${stats.yellow}`}
-            dot="bg-yellow-500"
-          />
-          <FilterChip
-            active={filter === "red"}
-            onClick={() => setFilter("red")}
-            label={`● ${stats.red}`}
-            dot="bg-red-500"
-          />
-        </div>
-      )}
-
       {/* Grid */}
-      {filtered.length === 0 ? (
-        <div className="text-center py-20 opacity-50 text-sm">
-          {filter === "all"
-            ? t("gallery.noFiles")
-            : t("gallery.noFilesForFilter")}
-        </div>
-      ) : (
-        <ul className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-          {filtered.map((f) => (
-            <GalleryTile
-              key={f.id}
-              file={f}
-              sel={mySelections[f.id]}
-              onOpen={() =>
-                setLightboxIdx(files.findIndex((ff) => ff.id === f.id))
-              }
-            />
-          ))}
-        </ul>
-      )}
+      <section className="px-4 sm:px-6 md:px-12 pt-6 pb-16 max-w-7xl mx-auto">
+        {filtered.length === 0 ? (
+          <div className="text-center py-32 opacity-50 text-ui">
+            {filter === "all"
+              ? t("gallery.noFiles")
+              : t("gallery.noFilesForFilter")}
+          </div>
+        ) : (
+          /* Masonry via CSS columns. Vorteile gegenüber JS-Masonry:
+             - kein Layout-Shift
+             - kein zusätzliches JS
+             - Reihenfolge folgt der DOM-Reihenfolge, nicht der visuellen.
+               Letzteres ist normalerweise ok, weil Bilder eh nach Sortierung
+               eingestellt werden und der Scroll-Weg vertikal bleibt. */
+          <div className="columns-2 sm:columns-3 lg:columns-4 gap-3 [column-fill:_balance]">
+            {filtered.map((f, i) => (
+              <GalleryTile
+                key={f.id}
+                file={f}
+                index={i}
+                sel={mySelections[f.id]}
+                onOpen={() =>
+                  setLightboxIdx(files.findIndex((ff) => ff.id === f.id))
+                }
+              />
+            ))}
+          </div>
+        )}
+      </section>
 
       {/* Lightbox */}
       {lightboxIdx !== null && (
@@ -183,27 +225,55 @@ export function GalleryView({
           onSelectionChange={onSelectionChange}
         />
       )}
-    </div>
+    </>
   );
 }
 
 // -----------------------------------------------------------------------------
-// Tile
+// Tile — IntersectionObserver für Reveal-Animation
 // -----------------------------------------------------------------------------
 function GalleryTile({
   file,
+  index,
   sel,
   onOpen,
 }: {
   file: PublicFile;
+  index: number;
   sel: MySelection | undefined;
   onOpen: () => void;
 }) {
+  const { ref, revealed } = useReveal<HTMLDivElement>();
+  // Aspect-Ratio aus den File-Dimensionen, mit sicherem Fallback.
+  // Wir geben dem Tile-Container die echte Höhe, damit der Reveal nicht
+  // erst nach Bild-Load springt (Layout-Shift vermeiden).
+  const aspect =
+    file.width && file.height ? `${file.width} / ${file.height}` : "1 / 1";
+
+  // Reveal-Distanz wird per CSS-Var gesteuert (motion-Setting),
+  // hier nur das Delay je nach Index. Cap bei 24, sonst gefühlt zu lang.
+  const delay = `${Math.min(index, 24) * 30}ms`;
+
   return (
-    <li>
+    <div
+      ref={ref}
+      className="mb-3 break-inside-avoid"
+      style={{
+        opacity: revealed ? 1 : 0,
+        transform: revealed
+          ? "translateY(0)"
+          : "translateY(var(--motion-reveal-y, 8px))",
+        transition:
+          "opacity var(--motion-reveal, 280ms) var(--motion-ease) " +
+          delay +
+          ", transform var(--motion-reveal, 280ms) var(--motion-ease) " +
+          delay,
+      }}
+    >
       <button
         onClick={onOpen}
-        className="block w-full aspect-square overflow-hidden rounded bg-white/5 relative group focus:outline-none focus:ring-2 focus:ring-brand-accent"
+        className="block w-full overflow-hidden rounded bg-white/5 relative group focus:outline-none"
+        style={{ aspectRatio: aspect }}
       >
         {file.thumbUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */
@@ -211,10 +281,11 @@ function GalleryTile({
             src={file.thumbUrl}
             alt={file.filename}
             loading="lazy"
-            className="w-full h-full object-cover transition group-hover:scale-[1.02]"
+            className="w-full h-full object-cover transition-transform duration-motion ease-out group-hover:scale-[1.02]"
+            draggable={false}
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-xs opacity-40">
+          <div className="w-full h-full flex items-center justify-center text-ui-xs opacity-40">
             {file.kind}
           </div>
         )}
@@ -222,7 +293,7 @@ function GalleryTile({
         {/* Video-Indikator */}
         {file.kind === "video" && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="w-10 h-10 bg-black/60 rounded-full flex items-center justify-center text-white text-lg drop-shadow">
+            <div className="w-12 h-12 bg-black/50 backdrop-blur-sm rounded-full flex items-center justify-center text-white text-lg drop-shadow">
               ▶
             </div>
           </div>
@@ -230,16 +301,16 @@ function GalleryTile({
 
         {/* RAW-Indikator */}
         {file.kind === "raw" && (
-          <div className="absolute bottom-1.5 right-1.5 text-[9px] font-mono uppercase bg-black/60 text-white px-1.5 py-0.5 rounded">
+          <div className="absolute bottom-2 right-2 text-ui-xs font-mono uppercase bg-black/60 backdrop-blur-sm text-white px-1.5 py-0.5 rounded-xs">
             RAW
           </div>
         )}
 
         {/* Selection-Indikatoren */}
-        <div className="absolute top-1.5 left-1.5 flex gap-1">
-          {sel?.color && (
+        {sel?.color && (
+          <div className="absolute top-2 left-2">
             <span
-              className={`block w-3 h-3 rounded-full border border-white/40 ${
+              className={`block w-3 h-3 rounded-full ring-2 ring-white/60 ${
                 sel.color === "red"
                   ? "bg-red-500"
                   : sel.color === "yellow"
@@ -247,15 +318,15 @@ function GalleryTile({
                   : "bg-green-500"
               }`}
             />
-          )}
-        </div>
+          </div>
+        )}
         {sel?.liked && (
-          <div className="absolute top-1.5 right-1.5 text-red-400 drop-shadow text-base">
+          <div className="absolute top-2 right-2 text-red-400 text-lg drop-shadow-lg">
             ♥
           </div>
         )}
       </button>
-    </li>
+    </div>
   );
 }
 
@@ -273,10 +344,10 @@ function FilterChip({
   return (
     <button
       onClick={onClick}
-      className={`text-xs px-3 py-1.5 rounded-full border transition flex items-center gap-1.5 ${
+      className={`text-ui-xs h-7 px-3 rounded-full border transition-colors duration-motion ease-out flex items-center gap-1.5 ${
         active
           ? "bg-white text-neutral-950 border-white"
-          : "border-white/20 hover:border-white/40 opacity-80"
+          : "border-white/15 hover:border-white/35 opacity-80 hover:opacity-100"
       }`}
     >
       {dot && <span className={`w-2 h-2 rounded-full ${dot}`} />}
@@ -316,6 +387,7 @@ function Lightbox({
   };
   const [comments, setComments] = useState<Comment[] | null>(null);
   const [showComments, setShowComments] = useState(false);
+  const [showHints, setShowHints] = useState(true);
   const [newComment, setNewComment] = useState("");
   const [commentPending, setCommentPending] = useState(false);
 
@@ -343,6 +415,12 @@ function Lightbox({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index, files, onClose, onNavigate, sel.liked, sel.color]);
 
+  // Keyboard-Hints nach 5s ausblenden, damit sie nicht stören
+  useEffect(() => {
+    const id = setTimeout(() => setShowHints(false), 5000);
+    return () => clearTimeout(id);
+  }, []);
+
   // Kommentare lazy laden
   useEffect(() => {
     if (!showComments) return;
@@ -363,7 +441,6 @@ function Lightbox({
   const updateSelection = useCallback(
     async (patch: Partial<MySelection>) => {
       const next: MySelection = { ...sel, ...patch };
-      // Optimistic update
       onSelectionChange(file.id, next);
       try {
         await api.setSelection(slug, file.id, next);
@@ -400,25 +477,28 @@ function Lightbox({
     meta.downloadEnabled ? api.publicDownloadUrl(slug, file.id) : null;
 
   return (
-    <div className="fixed inset-0 bg-black z-50 flex flex-col">
+    <div className="fixed inset-0 bg-black z-50 flex flex-col animate-fade-in">
       {/* Top Bar */}
-      <div className="flex items-center justify-between p-3 border-b border-white/10 text-sm">
+      <div className="flex items-center justify-between px-3 sm:px-5 py-2.5 border-b border-white/5 text-ui-sm">
         <button
           onClick={onClose}
-          className="px-3 py-1.5 rounded hover:bg-white/10"
+          className="h-8 px-2 rounded inline-flex items-center gap-1.5 text-white/80 hover:text-white hover:bg-white/10 transition-colors duration-motion"
           aria-label={t("gallery.close")}
         >
-          ✕ {t("gallery.close")}
+          <span className="text-base leading-none">✕</span>
+          <span className="hidden sm:inline">{t("gallery.close")}</span>
         </button>
-        <div className="opacity-60 text-xs">
+        <div className="text-ui-xs text-white/50 font-mono">
           {index + 1} / {files.length}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           {meta.commentsEnabled && (
             <button
               onClick={() => setShowComments((s) => !s)}
-              className={`px-3 py-1.5 rounded text-xs ${
-                showComments ? "bg-white/20" : "hover:bg-white/10"
+              className={`h-8 px-3 rounded text-ui-xs transition-colors duration-motion ${
+                showComments
+                  ? "bg-white/15 text-white"
+                  : "text-white/70 hover:text-white hover:bg-white/10"
               }`}
             >
               {t("gallery.comments")}
@@ -427,7 +507,7 @@ function Lightbox({
           {downloadUrl && (
             <a
               href={downloadUrl}
-              className="px-3 py-1.5 rounded text-xs hover:bg-white/10"
+              className="h-8 px-3 rounded text-ui-xs inline-flex items-center text-white/70 hover:text-white hover:bg-white/10 transition-colors duration-motion"
             >
               ↓ {t("gallery.download")}
             </a>
@@ -437,12 +517,11 @@ function Lightbox({
 
       {/* Main */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Bild */}
         <div className="flex-1 flex items-center justify-center relative">
           <button
             disabled={index === 0}
             onClick={() => onNavigate(index - 1)}
-            className="absolute left-2 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/5 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed text-2xl"
+            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/5 hover:bg-white/20 disabled:opacity-20 disabled:cursor-not-allowed text-2xl text-white/80 flex items-center justify-center transition-colors duration-motion"
             aria-label={t("gallery.previous")}
           >
             ‹
@@ -450,7 +529,7 @@ function Lightbox({
           <button
             disabled={index === files.length - 1}
             onClick={() => onNavigate(index + 1)}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/5 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed text-2xl"
+            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/5 hover:bg-white/20 disabled:opacity-20 disabled:cursor-not-allowed text-2xl text-white/80 flex items-center justify-center transition-colors duration-motion"
             aria-label={t("gallery.next")}
           >
             ›
@@ -468,58 +547,72 @@ function Lightbox({
             <img
               src={file.webUrl ?? file.previewUrl ?? ""}
               alt={file.filename}
-              className="max-h-full max-w-full object-contain"
+              className="max-h-full max-w-full object-contain animate-fade-in"
               draggable={false}
+              key={file.id} /* erzwingt re-mount → fade bei Wechsel */
             />
           ) : (
-            <div className="opacity-50 text-sm">
+            <div className="opacity-50 text-ui">
               {t("gallery.previewMissing")}
+            </div>
+          )}
+
+          {/* Keyboard-Hint-Overlay — verschwindet nach 5s */}
+          {showHints && meta.mode === "collaboration" && (
+            <div
+              className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-black/60 backdrop-blur-sm rounded-full text-ui-xs text-white/70 flex items-center gap-3 pointer-events-none animate-fade-in"
+              style={{ transition: "opacity 600ms ease-out" }}
+            >
+              <span><Kbd>←</Kbd> <Kbd>→</Kbd> {t("gallery.hintNavigate")}</span>
+              <span><Kbd>Space</Kbd> ♥</span>
+              <span><Kbd>1</Kbd><Kbd>2</Kbd><Kbd>3</Kbd> ●</span>
+              <span><Kbd>Esc</Kbd> ✕</span>
             </div>
           )}
         </div>
 
         {/* Sidebar (Kommentare) */}
         {showComments && meta.commentsEnabled && (
-          <aside className="w-80 border-l border-white/10 flex flex-col">
-            <div className="p-4 border-b border-white/10 text-sm font-medium">
+          <aside className="w-80 border-l border-white/5 flex flex-col bg-black/50 backdrop-blur-sm">
+            <div className="px-4 py-3 border-b border-white/5 text-ui-sm font-medium text-white/90">
               {t("gallery.comments")}
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {comments === null ? (
-                <div className="text-xs opacity-50">{t("gallery.commentsLoading")}</div>
+                <div className="text-ui-xs opacity-50">{t("gallery.commentsLoading")}</div>
               ) : comments.length === 0 ? (
-                <div className="text-xs opacity-50">{t("gallery.commentsEmpty")}</div>
+                <div className="text-ui-xs opacity-50">{t("gallery.commentsEmpty")}</div>
               ) : (
                 comments.map((c) => (
-                  <div key={c.id} className="text-sm">
-                    <div className="text-xs opacity-60 mb-0.5">
+                  <div key={c.id} className="text-ui">
+                    <div className="text-ui-xs opacity-60 mb-0.5">
                       {c.authorLabel}
                       {c.authorIsStudio && (
-                        <span className="ml-1 text-[10px] bg-brand-accent/30 px-1 rounded">
+                        <span className="ml-1.5 text-[10px] bg-brand-accent/30 text-brand-accent px-1.5 py-0.5 rounded-xs">
                           {t("gallery.commentStudioBadge")}
                         </span>
                       )}
                     </div>
-                    <div className="whitespace-pre-wrap">{c.body}</div>
+                    <div className="whitespace-pre-wrap leading-relaxed">{c.body}</div>
                   </div>
                 ))
               )}
             </div>
             <form
               onSubmit={postComment}
-              className="border-t border-white/10 p-3 space-y-2"
+              className="border-t border-white/5 p-3 space-y-2"
             >
               <textarea
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
                 placeholder={t("gallery.commentPlaceholder")}
                 rows={2}
-                className="w-full bg-white/5 border border-white/20 rounded p-2 text-sm placeholder:opacity-40 focus:outline-none focus:ring-1 focus:ring-brand-accent"
+                className="w-full bg-white/5 border border-white/15 rounded p-2 text-ui placeholder:opacity-40 focus:outline-none focus:border-brand-accent transition-colors duration-motion"
               />
               <button
                 type="submit"
                 disabled={commentPending || !newComment.trim()}
-                className="w-full text-xs px-3 py-1.5 rounded bg-brand-accent text-neutral-950 font-medium disabled:opacity-50"
+                className="w-full text-ui-xs h-8 rounded bg-brand-accent text-neutral-950 font-medium disabled:opacity-50 transition-opacity duration-motion"
               >
                 {commentPending ? t("gallery.commentSending") : t("gallery.commentSend")}
               </button>
@@ -530,53 +623,84 @@ function Lightbox({
 
       {/* Bottom toolbar — Proofing */}
       {meta.mode === "collaboration" && (
-        <div className="border-t border-white/10 p-3 flex items-center justify-center gap-2">
-          <button
+        <div className="border-t border-white/5 px-3 py-3 flex items-center justify-center gap-2">
+          <ColorPill
+            color="red"
+            active={sel.color === "red"}
             onClick={() => setColor("red")}
-            className={`w-9 h-9 rounded-full border-2 transition ${
-              sel.color === "red"
-                ? "bg-red-500 border-white"
-                : "bg-red-500/40 border-transparent hover:bg-red-500/70"
-            }`}
-            aria-label={t("gallery.markRed")}
+            label={t("gallery.markRed")}
             title={t("gallery.markRedTitle")}
           />
-          <button
+          <ColorPill
+            color="yellow"
+            active={sel.color === "yellow"}
             onClick={() => setColor("yellow")}
-            className={`w-9 h-9 rounded-full border-2 transition ${
-              sel.color === "yellow"
-                ? "bg-yellow-500 border-white"
-                : "bg-yellow-500/40 border-transparent hover:bg-yellow-500/70"
-            }`}
-            aria-label={t("gallery.markYellow")}
+            label={t("gallery.markYellow")}
             title={t("gallery.markYellowTitle")}
           />
-          <button
+          <ColorPill
+            color="green"
+            active={sel.color === "green"}
             onClick={() => setColor("green")}
-            className={`w-9 h-9 rounded-full border-2 transition ${
-              sel.color === "green"
-                ? "bg-green-500 border-white"
-                : "bg-green-500/40 border-transparent hover:bg-green-500/70"
-            }`}
-            aria-label={t("gallery.markGreen")}
+            label={t("gallery.markGreen")}
             title={t("gallery.markGreenTitle")}
           />
-          <div className="w-px h-6 bg-white/20 mx-2" />
+          <div className="w-px h-6 bg-white/15 mx-2" />
           <button
             onClick={toggleLike}
-            className={`px-4 h-9 rounded-full border-2 transition flex items-center gap-2 ${
+            className={`h-9 px-4 rounded-full border transition-all duration-motion ease-out flex items-center gap-2 ${
               sel.liked
-                ? "bg-red-500 border-white text-white"
-                : "border-white/30 hover:border-white/60"
+                ? "bg-red-500/90 border-red-400 text-white"
+                : "border-white/20 text-white/70 hover:text-white hover:border-white/50"
             }`}
             aria-label={t("gallery.like")}
             title={t("gallery.likeTitle")}
           >
-            <span>♥</span>
-            <span className="text-xs">{t("gallery.like")}</span>
+            <span className="text-base leading-none">♥</span>
+            <span className="text-ui-xs">{t("gallery.like")}</span>
           </button>
         </div>
       )}
     </div>
+  );
+}
+
+/** Kleiner Helfer für die Color-Pills. Bewusst klein gehalten — sonst stehlen
+    sie den Bildern die Aufmerksamkeit. */
+function ColorPill({
+  color,
+  active,
+  onClick,
+  label,
+  title,
+}: {
+  color: "red" | "yellow" | "green";
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  title: string;
+}) {
+  const bg = {
+    red: active ? "bg-red-500" : "bg-red-500/30 hover:bg-red-500/55",
+    yellow: active ? "bg-yellow-500" : "bg-yellow-500/30 hover:bg-yellow-500/55",
+    green: active ? "bg-green-500" : "bg-green-500/30 hover:bg-green-500/55",
+  }[color];
+  return (
+    <button
+      onClick={onClick}
+      className={`w-9 h-9 rounded-full transition-all duration-motion ease-out ${bg} ${
+        active ? "ring-2 ring-white/70" : ""
+      }`}
+      aria-label={label}
+      title={title}
+    />
+  );
+}
+
+function Kbd({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="font-mono px-1 py-0.5 mx-px text-[10px] rounded border border-white/20 bg-white/5">
+      {children}
+    </kbd>
   );
 }

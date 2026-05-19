@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, type ProofingSummary } from "@/lib/api";
+import { PageHeader } from "@/components/studio/PageHeader";
 
 export default function ProofingPage() {
   const router = useRouter();
@@ -32,43 +33,34 @@ export default function ProofingPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen flex items-center justify-center">
-        <div className="text-sm text-ink-tertiary">Lädt…</div>
-      </main>
+      <div className="flex items-center justify-center h-screen text-ui text-ink-tertiary">
+        Lädt…
+      </div>
     );
   }
   if (error || !data) {
     return (
-      <main className="min-h-screen p-8">
-        <div className="max-w-3xl mx-auto">
-          <div className="text-sm text-semantic-danger bg-semantic-danger/10 border border-semantic-danger/30 rounded-md px-3 py-2">
-            {error ?? "Galerie nicht gefunden."}
-          </div>
+      <div className="px-6 sm:px-8 py-6">
+        <div className="text-ui text-semantic-danger bg-semantic-danger/10 border border-semantic-danger/30 rounded-sm px-3 py-2 max-w-3xl">
+          {error ?? "Galerie nicht gefunden."}
         </div>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen p-8">
-      <div className="max-w-5xl mx-auto space-y-6">
-        <header className="border-b border-line-subtle pb-4">
-          <div className="text-xs">
-            <Link
-              href={`/studio/${data.gallery.id}`}
-              className="text-ink-tertiary hover:text-ink-primary"
-            >
-              ← Galerie
-            </Link>
-          </div>
-          <h1 className="text-2xl font-semibold mt-2">
-            Auswahl-Übersicht
-          </h1>
-          <p className="text-sm text-ink-tertiary">
-            {data.gallery.title}
-          </p>
-        </header>
+    <>
+      <PageHeader
+        breadcrumb={[
+          { label: "Studio", href: "/studio" },
+          { label: data.gallery.title, href: `/studio/${data.gallery.id}` },
+          { label: "Auswahl-Übersicht" },
+        ]}
+        title="Auswahl-Übersicht"
+        description={data.gallery.title}
+      />
 
+      <div className="px-6 sm:px-8 py-6 space-y-6 max-w-6xl">
         {/* Top-Stats */}
         <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <StatCard label="Dateien" value={data.totals.fileCount} />
@@ -85,8 +77,8 @@ export default function ProofingPage() {
 
         {/* Label-Verteilung */}
         {Object.keys(data.totals.byLabel).length > 0 && (
-          <section className="rounded-lg border border-line-subtle bg-surface-raised p-4">
-            <h2 className="text-sm font-medium mb-3">Farb-Tags</h2>
+          <section className="rounded-md border border-line-subtle bg-surface-raised p-4">
+            <h2 className="text-ui-md font-medium mb-3">Farb-Tags</h2>
             <div className="flex flex-wrap gap-3">
               {Object.entries(data.totals.byLabel).map(([label, count]) => (
                 <div
@@ -234,7 +226,7 @@ export default function ProofingPage() {
           </table>
         </section>
       </div>
-    </main>
+    </>
   );
 }
 

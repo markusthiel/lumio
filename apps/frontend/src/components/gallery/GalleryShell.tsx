@@ -59,14 +59,14 @@ export function GalleryShell({
     if (!existing) document.head.appendChild(link);
   }, [branding?.faviconUrl]);
 
-  const primary = branding?.primaryColor ?? "#0a0a0a"; // neutral-950
+  const primary = branding?.primaryColor ?? "#0e0e10"; // surface-canvas
   const accent = branding?.accentColor ?? "#f59e0b";
   const accentRgb = hexToRgbTriple(accent);
   const light = isLightColor(primary);
 
   const style: React.CSSProperties = {
     backgroundColor: primary,
-    color: light ? "#0a0a0a" : "#f5f5f5",
+    color: light ? "#0e0e10" : "#f2f2f4",
   };
   if (accentRgb) {
     (style as Record<string, string>)["--brand-accent"] = accentRgb;

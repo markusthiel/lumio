@@ -45,56 +45,66 @@ export function UnlockForm({
   }
 
   return (
-    <div className="max-w-md mx-auto px-6 py-20">
-      <div className="text-center mb-8">
-        <h1 className="text-2xl font-semibold">{meta.title}</h1>
-        {meta.description && (
-          <p className="text-sm opacity-60 mt-2">{meta.description}</p>
-        )}
-      </div>
-
-      <form
-        onSubmit={onSubmit}
-        className="space-y-4 bg-white/5 border border-white/10 rounded-lg p-6 backdrop-blur"
-      >
-        <div className="text-sm opacity-80">
-          {meta.requiresPassword
-            ? t("gallery.locked")
-            : t("gallery.unlockHint")}
+    <div className="min-h-[80vh] flex items-center justify-center px-6 py-16 animate-fade-in">
+      <div className="w-full max-w-md">
+        {/* Hero — Title sehr groß, Description ruhig darunter. Bei
+            Lock-Galerien ist das die einzige Stelle, an der die Kunden
+            das Setting des Shootings sehen, also geben wir der Typo
+            ordentlich Raum. */}
+        <div className="text-center mb-10">
+          <h1 className="text-display-lg sm:text-display-xl font-medium tracking-tight">
+            {meta.title}
+          </h1>
+          {meta.description && (
+            <p className="text-ui opacity-60 mt-4 max-w-sm mx-auto leading-relaxed">
+              {meta.description}
+            </p>
+          )}
         </div>
 
-        {meta.requiresPassword && (
-          <div className="space-y-1">
-            <label htmlFor="pw" className="text-xs font-medium opacity-80">
-              {t("gallery.password")}
-            </label>
-            <input
-              id="pw"
-              type="password"
-              autoFocus
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-md bg-white/10 border border-white/20 px-3 py-2 text-sm placeholder:opacity-40 focus:outline-none focus:ring-2 focus:ring-brand-accent"
-              placeholder={t("gallery.passwordPlaceholder")}
-            />
-          </div>
-        )}
-
-        {error && (
-          <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/30 rounded-md px-3 py-2">
-            {error}
-          </div>
-        )}
-
-        <button
-          type="submit"
-          disabled={pending}
-          className="w-full bg-brand-accent text-neutral-950 text-sm font-medium rounded-md py-2.5 hover:opacity-90 disabled:opacity-50 transition"
+        <form
+          onSubmit={onSubmit}
+          className="space-y-5 bg-white/[0.03] border border-white/10 rounded-md p-7 backdrop-blur"
         >
-          {pending ? t("gallery.unlockChecking") : t("gallery.open")}
-        </button>
-      </form>
+          <div className="text-ui-sm opacity-75">
+            {meta.requiresPassword
+              ? t("gallery.locked")
+              : t("gallery.unlockHint")}
+          </div>
+
+          {meta.requiresPassword && (
+            <div className="space-y-1.5">
+              <label htmlFor="pw" className="text-ui-sm font-medium opacity-90 block">
+                {t("gallery.password")}
+              </label>
+              <input
+                id="pw"
+                type="password"
+                autoFocus
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded bg-white/5 border border-white/15 hover:border-white/30 focus:border-brand-accent focus:bg-white/10 px-3 h-10 text-ui placeholder:opacity-40 focus:outline-none transition-colors duration-motion"
+                placeholder={t("gallery.passwordPlaceholder")}
+              />
+            </div>
+          )}
+
+          {error && (
+            <div className="text-ui-sm text-red-300 bg-red-500/10 border border-red-500/30 rounded-sm px-3 py-2">
+              {error}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={pending}
+            className="w-full h-10 bg-brand-accent text-neutral-950 text-ui font-medium rounded hover:opacity-90 disabled:opacity-50 transition-opacity duration-motion"
+          >
+            {pending ? t("gallery.unlockChecking") : t("gallery.open")}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

@@ -116,6 +116,8 @@ export const en: Dict = {
     filterAll: "All ({count})",
     noFiles: "No files yet.",
     noFilesForFilter: "No files match this filter.",
+    modePresentation: "Presentation",
+    hintNavigate: "Navigate",
     // Lightbox
     close: "Close",
     previous: "Previous image",

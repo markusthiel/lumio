@@ -99,7 +99,7 @@ export function ZipDownloadButton({
     return (
       <a
         href={api.zipDownloadUrl(slug, zipId)}
-        className="text-xs px-3 py-1.5 rounded bg-green-600 text-white hover:bg-green-700 transition"
+        className="text-ui-sm h-8 px-3 inline-flex items-center rounded bg-green-600/80 text-white hover:bg-green-600 transition-colors duration-motion"
         onClick={() => setTimeout(reset, 800)}
       >
         ↓ {t("gallery.zipDownload")}
@@ -111,7 +111,7 @@ export function ZipDownloadButton({
     return (
       <button
         disabled
-        className="text-xs px-3 py-1.5 rounded bg-white/10 border border-white/20 cursor-wait flex items-center gap-2"
+        className="text-ui-sm h-8 px-3 rounded bg-white/5 border border-white/15 cursor-wait flex items-center gap-2"
       >
         <span className="inline-block w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
         {t("gallery.zipBuilding")}
@@ -123,7 +123,7 @@ export function ZipDownloadButton({
     return (
       <button
         onClick={start}
-        className="text-xs px-3 py-1.5 rounded border border-red-400/50 text-red-200 hover:bg-red-500/10"
+        className="text-ui-sm h-8 px-3 rounded border border-red-400/50 text-red-200 hover:bg-red-500/10 transition-colors duration-motion"
         title={error ?? t("gallery.downloadRetry")}
       >
         ⚠ {t("gallery.zipRetry")}
@@ -135,7 +135,7 @@ export function ZipDownloadButton({
     <button
       onClick={start}
       disabled={disabled}
-      className="text-xs px-3 py-1.5 rounded bg-white/10 border border-white/20 hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+      className="text-ui-sm h-8 px-3 rounded bg-white/5 border border-white/15 hover:bg-white/15 hover:border-white/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-motion"
       title={error ?? undefined}
     >
       {label}
