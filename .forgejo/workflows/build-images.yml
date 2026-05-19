@@ -1,0 +1,104 @@
+# =============================================================================
+# Lumio — Build & Push Container Images
+# =============================================================================
+# Baut die drei Service-Images und pusht sie in die Forgejo Container Registry.
+#
+# Trigger:
+#   - Push auf main         → Tag :main + :latest
+#   - Git-Tag v*            → Tag mit der Version, z.B. :v0.2.0
+#   - Manuell               → workflow_dispatch
+#
+# Registry-Pfad (Forgejo OCI):
+#   forgejo.thiel.tools/thiel/lumio-api:tag
+#   forgejo.thiel.tools/thiel/lumio-frontend:tag
+#   forgejo.thiel.tools/thiel/lumio-worker:tag
+
+name: Build Images
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+env:
+  REGISTRY: forgejo.thiel.tools
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: docker
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: api
+            context: apps/api
+          - service: frontend
+            context: apps/frontend
+          - service: worker
+            context: apps/worker
+
+    steps:
+      - name: Checkout
+        uses: https://code.forgejo.org/actions/checkout@v4
+
+      - name: Compute image tags
+        id: tags
+        shell: sh
+        run: |
+          REPO_LC=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          IMAGE="${{ env.REGISTRY }}/${REPO_LC}-${{ matrix.service }}"
+          SHORT_SHA=$(echo "${{ github.sha }}" | cut -c1-7)
+
+          # Standard-Tags: short SHA + branch/ref name
+          TAGS="${IMAGE}:${SHORT_SHA}"
+          REF_NAME="${{ github.ref_name }}"
+
+          case "${{ github.ref }}" in
+            refs/heads/main)
+              TAGS="${TAGS},${IMAGE}:main,${IMAGE}:latest"
+              ;;
+            refs/tags/v*)
+              # v0.2.0 → :v0.2.0 + :latest
+              TAGS="${TAGS},${IMAGE}:${REF_NAME},${IMAGE}:latest"
+              ;;
+            *)
+              TAGS="${TAGS},${IMAGE}:${REF_NAME}"
+              ;;
+          esac
+
+          echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
+          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: https://code.forgejo.org/docker/setup-buildx-action@v3
+
+      - name: Log in to Forgejo Container Registry
+        uses: https://code.forgejo.org/docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          # Anlegen via Forgejo UI: Settings → Actions → Secrets
+          # REGISTRY_USER:     Forgejo-Benutzername (z.B. "thiel")
+          # REGISTRY_TOKEN:    Personal Access Token mit Scope `write:package`
+          username: ${{ secrets.REGISTRY_USER }}
+          password: ${{ secrets.REGISTRY_TOKEN }}
+
+      - name: Build and push ${{ matrix.service }}
+        uses: https://code.forgejo.org/docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.context }}/Dockerfile
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          cache-from: type=registry,ref=${{ steps.tags.outputs.image }}:buildcache
+          cache-to: type=registry,ref=${{ steps.tags.outputs.image }}:buildcache,mode=max
+          labels: |
+            org.opencontainers.image.source=https://${{ env.REGISTRY }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.ref.name=${{ github.ref_name }}
+            org.opencontainers.image.title=lumio-${{ matrix.service }}
+            org.opencontainers.image.licenses=AGPL-3.0

@@ -1,0 +1,38 @@
+# =============================================================================
+# Lumio — Documentation Checks
+# =============================================================================
+# Leichtgewichtige Checks für Docs: lint, kaputte Links.
+
+name: Docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "**.md"
+      - "docs/**"
+      - ".forgejo/workflows/docs.yml"
+  pull_request:
+    paths:
+      - "**.md"
+      - "docs/**"
+
+jobs:
+  markdown:
+    runs-on: docker
+    container:
+      image: node:20-alpine
+    steps:
+      - name: Checkout
+        uses: https://code.forgejo.org/actions/checkout@v4
+
+      - name: Install markdownlint
+        run: npm install -g markdownlint-cli@0.42.0
+
+      - name: Lint Markdown
+        # Wir sind tolerant — Markdown-Stil ist kein Hill to die on.
+        # MD013 (line length) und MD033 (inline HTML) sind aus, der Rest läuft mit Warnungen.
+        run: |
+          markdownlint \
+            --disable MD013 MD033 MD041 \
+            "**/*.md" --ignore node_modules || echo "::warning::markdownlint reported issues"

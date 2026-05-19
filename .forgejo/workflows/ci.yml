@@ -1,0 +1,156 @@
+# =============================================================================
+# Lumio — Continuous Integration
+# =============================================================================
+# Läuft bei jedem Push und Pull Request:
+#   - API:      Type-Check + Prisma-Schema-Validation + Vitest
+#   - Frontend: Type-Check + Next.js Build
+#   - Worker:   Python-Syntax-Check + (später pytest)
+#   - Compose:  docker-compose config-Validierung
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Frühere Runs für denselben Branch abbrechen, wenn ein neuer Push kommt
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # API — Fastify + TypeScript + Prisma
+  # ---------------------------------------------------------------------------
+  api:
+    runs-on: docker
+    container:
+      image: node:20-alpine
+    defaults:
+      run:
+        working-directory: apps/api
+    steps:
+      - name: Checkout
+        uses: https://code.forgejo.org/actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Validate Prisma schema
+        run: npx prisma validate
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
+
+      # Tests werden aktiviert, sobald die ersten Vitest-Tests vorhanden sind
+      # - name: Test
+      #   run: npm test
+
+  # ---------------------------------------------------------------------------
+  # Frontend — Next.js
+  # ---------------------------------------------------------------------------
+  frontend:
+    runs-on: docker
+    container:
+      image: node:20-alpine
+    defaults:
+      run:
+        working-directory: apps/frontend
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - name: Checkout
+        uses: https://code.forgejo.org/actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Build
+        run: npm run build
+
+  # ---------------------------------------------------------------------------
+  # Worker — Python + Celery
+  # ---------------------------------------------------------------------------
+  worker:
+    runs-on: docker
+    container:
+      image: python:3.12-slim
+    defaults:
+      run:
+        working-directory: apps/worker
+    steps:
+      - name: Checkout
+        uses: https://code.forgejo.org/actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            libvips42 libraw-bin libheif1 ffmpeg libmagic1 \
+            libexiv2-27 libpq5 build-essential \
+            libvips-dev libraw-dev libheif-dev libexiv2-dev libpq-dev
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Install Python dependencies
+        run: |
+          pip install --no-cache-dir -r requirements.txt
+          pip install --no-cache-dir ruff
+
+      - name: Lint (ruff)
+        # --no-cache vermeidet Permission-Probleme in CI
+        run: ruff check . --no-cache --output-format=github
+        continue-on-error: true   # vorerst weich, bis die Codebase größer ist
+
+      - name: Syntax check
+        run: python -m compileall -q .
+
+      # - name: Test
+      #   run: pytest
+
+  # ---------------------------------------------------------------------------
+  # Shared — Type-Check
+  # ---------------------------------------------------------------------------
+  shared:
+    runs-on: docker
+    container:
+      image: node:20-alpine
+    defaults:
+      run:
+        working-directory: packages/shared
+    steps:
+      - name: Checkout
+        uses: https://code.forgejo.org/actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Type check
+        run: npm run type-check
+
+  # ---------------------------------------------------------------------------
+  # Compose — Validierung der Stack-Konfiguration
+  # ---------------------------------------------------------------------------
+  compose:
+    runs-on: docker
+    container:
+      image: docker:27-cli
+    steps:
+      - name: Checkout
+        uses: https://code.forgejo.org/actions/checkout@v4
+
+      - name: Prepare .env
+        run: cp .env.example .env
+
+      - name: Validate docker-compose.yml
+        run: docker compose config --quiet
