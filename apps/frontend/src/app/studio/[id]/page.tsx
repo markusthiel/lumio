@@ -6,11 +6,13 @@ import Link from "next/link";
 import { api, type GalleryDetail, type GalleryFile } from "@/lib/api";
 import { uploadFiles, type UploadProgress } from "@/lib/upload";
 import { SharePanel } from "@/components/studio/SharePanel";
+import { useT } from "@/lib/i18n";
 
 export default function GalleryDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const id = params.id;
+  const t = useT();
   const [gallery, setGallery] = useState<GalleryDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploads, setUploads] = useState<Record<string, UploadProgress>>({});
@@ -127,13 +129,11 @@ export default function GalleryDetailPage() {
     if (!gallery || selected.size === 0) return;
     const count = selected.size;
     if (action === "delete") {
-      if (
-        !confirm(
-          count === 1
-            ? "1 Datei löschen?"
-            : `${count} Dateien löschen?`
-        )
-      ) {
+      const msg =
+        count === 1
+          ? t("studio.confirmDeleteOne")
+          : t("studio.confirmDeleteMany", { count });
+      if (!confirm(msg)) {
         return;
       }
     }
@@ -157,14 +157,14 @@ export default function GalleryDetailPage() {
   if (loading) {
     return (
       <main className="min-h-screen flex items-center justify-center">
-        <div className="text-sm text-slate-500">Lädt…</div>
+        <div className="text-sm text-slate-500">{t("common.loading")}</div>
       </main>
     );
   }
   if (!gallery) {
     return (
       <main className="min-h-screen flex items-center justify-center">
-        <div className="text-sm text-slate-500">Galerie nicht gefunden.</div>
+        <div className="text-sm text-slate-500">{t("studio.notFound")}</div>
       </main>
     );
   }
@@ -214,8 +214,8 @@ export default function GalleryDetailPage() {
               {togglingStatus
                 ? "…"
                 : gallery.status === "live"
-                ? "Auf Draft setzen"
-                : "Live schalten"}
+                ? t("studio.setDraft")
+                : t("studio.setLive")}
             </button>
           </div>
         </header>
@@ -226,7 +226,7 @@ export default function GalleryDetailPage() {
             href={`/studio/${gallery.id}/proofing`}
             className="px-3 py-1.5 rounded border border-slate-200 hover:bg-slate-50"
           >
-            Auswahl-Übersicht →
+            {t("studio.proofingLink")}
           </Link>
         </nav>
 
@@ -305,7 +305,9 @@ export default function GalleryDetailPage() {
 
         {/* Settings */}
         <section className="rounded-lg border border-slate-200 bg-white p-4 space-y-2">
-          <h2 className="text-sm font-medium mb-1">Einstellungen</h2>
+          <h2 className="text-sm font-medium mb-1">
+            {t("studio.settingsHeading")}
+          </h2>
           <BrandingPicker
             currentBrandingId={gallery.brandingId ?? null}
             onChange={async (v) => {
@@ -314,18 +316,18 @@ export default function GalleryDetailPage() {
             }}
           />
           <SettingToggle
-            label="Download für Kunden erlauben"
+            label={t("studio.settingDownload")}
             value={gallery.downloadEnabled}
             onChange={(v) => toggleSetting("downloadEnabled", v)}
           />
           <SettingToggle
-            label="Wasserzeichen auf Vorschaubildern"
-            description="Wird automatisch generiert. Studio-Watermark-Text in den Tenant-Settings festlegen."
+            label={t("studio.settingWatermark")}
+            description={t("studio.settingWatermarkDesc")}
             value={gallery.watermarkEnabled}
             onChange={(v) => toggleSetting("watermarkEnabled", v)}
           />
           <SettingToggle
-            label="Kommentare aktivieren"
+            label={t("studio.settingComments")}
             value={gallery.commentsEnabled}
             onChange={(v) => toggleSetting("commentsEnabled", v)}
           />
@@ -336,10 +338,10 @@ export default function GalleryDetailPage() {
           <section>
             <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
               <h2 className="text-sm font-medium">
-                Dateien
+                {t("studio.files")}
                 {selectionMode && selected.size > 0 && (
                   <span className="ml-2 text-xs text-slate-500 font-normal">
-                    · {selected.size} ausgewählt
+                    · {selected.size} {t("studio.selectedSuffix")}
                   </span>
                 )}
               </h2>
@@ -352,35 +354,35 @@ export default function GalleryDetailPage() {
                       }
                       className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50"
                     >
-                      Alle
+                      {t("studio.selectAll")}
                     </button>
                     <button
                       onClick={() => setSelected(new Set())}
                       className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50"
                       disabled={selected.size === 0}
                     >
-                      Keine
+                      {t("studio.selectNone")}
                     </button>
                     <button
                       onClick={() => runBulk("hide")}
                       disabled={bulkPending || selected.size === 0}
                       className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50 disabled:opacity-50"
                     >
-                      Verstecken
+                      {t("studio.hide")}
                     </button>
                     <button
                       onClick={() => runBulk("show")}
                       disabled={bulkPending || selected.size === 0}
                       className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50 disabled:opacity-50"
                     >
-                      Anzeigen
+                      {t("studio.show")}
                     </button>
                     <button
                       onClick={() => runBulk("delete")}
                       disabled={bulkPending || selected.size === 0}
                       className="text-xs px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
                     >
-                      Löschen
+                      {t("studio.deleteAction")}
                     </button>
                     <button
                       onClick={exitSelectionMode}
@@ -394,7 +396,7 @@ export default function GalleryDetailPage() {
                     onClick={() => setSelectionMode(true)}
                     className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50"
                   >
-                    Auswählen
+                    {t("studio.selectFiles")}
                   </button>
                 )}
               </div>
@@ -413,7 +415,7 @@ export default function GalleryDetailPage() {
           </section>
         ) : (
           <div className="text-sm text-slate-500">
-            Noch keine Dateien hochgeladen.
+            {t("studio.noFiles")}
           </div>
         )}
       </div>
@@ -428,6 +430,7 @@ function BrandingPicker({
   currentBrandingId: string | null;
   onChange: (id: string | null) => void | Promise<void>;
 }) {
+  const t = useT();
   const [brandings, setBrandings] = useState<
     { id: string; name: string }[]
   >([]);
@@ -452,12 +455,12 @@ function BrandingPicker({
   if (brandings.length === 0) {
     return (
       <div className="text-xs text-slate-500 py-1">
-        Noch keine Branding-Profile —{" "}
+        {t("studio.brandingNoneYet")}{" "}
         <Link
           href="/studio/brandings"
           className="text-brand-accent hover:underline"
         >
-          jetzt anlegen
+          {t("studio.brandingCreateNow")}
         </Link>
       </div>
     );
@@ -466,7 +469,7 @@ function BrandingPicker({
   return (
     <div className="flex items-center gap-3 py-1">
       <label htmlFor="branding-pick" className="text-sm">
-        Branding:
+        {t("studio.branding")}
       </label>
       <select
         id="branding-pick"
@@ -475,10 +478,10 @@ function BrandingPicker({
         className="text-sm rounded-md border border-slate-300 px-2 py-1 bg-white"
       >
         <option value="">
-          Tenant-Default
+          {t("studio.brandingTenantDefault")}
           {defaultId
             ? ` (${brandings.find((b) => b.id === defaultId)?.name ?? "?"})`
-            : " (Lumio-Defaults)"}
+            : ""}
         </option>
         {brandings.map((b) => (
           <option key={b.id} value={b.id}>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { api, type ApiUser, type Gallery } from "@/lib/api";
+import { api, type ApiUser, type Gallery, type GalleryTemplate } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 
 export default function StudioPage() {
@@ -159,6 +159,8 @@ function CreateGalleryDialog({
   onClose: () => void;
   onCreated: (g: Gallery) => void;
 }) {
+  const [templates, setTemplates] = useState<GalleryTemplate[]>([]);
+  const [templateId, setTemplateId] = useState<string>("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [mode, setMode] = useState<"collaboration" | "presentation">(
@@ -167,6 +169,33 @@ function CreateGalleryDialog({
   const [downloadEnabled, setDownloadEnabled] = useState(true);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [descriptionDirty, setDescriptionDirty] = useState(false);
+
+  // Templates beim ersten Öffnen laden
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await api.listTemplates();
+        setTemplates(res.templates);
+      } catch {
+        // Falls's nicht klappt: Dialog läuft auch ohne
+      }
+    })();
+  }, []);
+
+  // Wenn ein Template gewählt wird, übernehmen wir die Defaults ins Form.
+  // Description nur, wenn der User noch nichts getippt hat — sonst überschreiben
+  // wir Userinput, was nervig wäre.
+  function applyTemplate(id: string) {
+    setTemplateId(id);
+    const t = templates.find((x) => x.id === id);
+    if (!t) return;
+    setMode(t.mode as typeof mode);
+    setDownloadEnabled(t.downloadEnabled);
+    if (!descriptionDirty && t.defaultDescription) {
+      setDescription(t.defaultDescription);
+    }
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -178,6 +207,7 @@ function CreateGalleryDialog({
         description: description || undefined,
         mode,
         downloadEnabled,
+        templateId: templateId || undefined,
       });
       onCreated(gallery);
     } catch (err) {
@@ -198,6 +228,27 @@ function CreateGalleryDialog({
         className="w-full max-w-md bg-white rounded-lg p-6 space-y-4"
       >
         <h2 className="text-lg font-semibold">Neue Galerie</h2>
+
+        {templates.length > 0 && (
+          <div className="space-y-1">
+            <label htmlFor="template" className="text-sm font-medium">
+              Template <span className="text-slate-400">(optional)</span>
+            </label>
+            <select
+              id="template"
+              value={templateId}
+              onChange={(e) => applyTemplate(e.target.value)}
+              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-accent"
+            >
+              <option value="">— ohne Template —</option>
+              {templates.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <div className="space-y-1">
           <label htmlFor="title" className="text-sm font-medium">
@@ -221,7 +272,10 @@ function CreateGalleryDialog({
           <textarea
             id="desc"
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
+            onChange={(e) => {
+              setDescription(e.target.value);
+              setDescriptionDirty(true);
+            }}
             rows={2}
             className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-accent"
           />

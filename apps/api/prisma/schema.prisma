@@ -43,6 +43,7 @@ model Tenant {
   users       User[]
   galleries   Gallery[]
   brandings   Branding[] @relation("TenantBrandings")
+  templates   GalleryTemplate[] @relation("TenantTemplates")
   events      Event[]
   
   createdAt   DateTime @default(now())
@@ -121,12 +122,54 @@ model Branding {
   
   galleries     Gallery[]
   tenantsAsDefault Tenant[] @relation("TenantBranding")
+  templates     GalleryTemplate[] @relation("BrandingForTemplates")
   
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
   
   @@index([tenantId])
   @@map("brandings")
+}
+
+// -----------------------------------------------------------------------------
+// Galerie-Templates
+// -----------------------------------------------------------------------------
+// Wiederverwendbare Settings-Bundles, die beim Anlegen einer neuen Galerie
+// als Defaults übernommen werden. Beispiel: "Hochzeit" = collaboration-Mode,
+// Download aus, Watermark an, Kommentare an, 30 Tage Frist, Branding-X.
+//
+// Nach dem Anlegen lassen sich alle übernommenen Settings pro Galerie noch
+// individuell ändern — das Template ist nur ein Initial-State, kein Lock.
+model GalleryTemplate {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId          String   @db.Uuid
+  tenant            Tenant   @relation("TenantTemplates", fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  name              String   // interne Bezeichnung, z.B. "Hochzeit", "Newborn"
+  description       String?  // optionale Erklärung für andere Studio-User
+  
+  // Galerie-Settings
+  mode              String   @default("collaboration")  // collaboration | presentation
+  downloadEnabled   Boolean  @default(true)
+  watermarkEnabled  Boolean  @default(false)
+  commentsEnabled   Boolean  @default(true)
+  ratingsEnabled    Boolean  @default(true)
+  
+  // Standard-Ablaufzeit in Tagen ab Erstellung — null = unbegrenzt
+  defaultExpiryDays Int?
+  
+  // Default-Beschreibung für neue Galerien (kann pro Galerie überschrieben)
+  defaultDescription String?
+  
+  // Welches Branding-Profil — null bedeutet "Tenant-Default"
+  brandingId        String?  @db.Uuid
+  branding          Branding? @relation("BrandingForTemplates", fields: [brandingId], references: [id], onDelete: SetNull)
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([tenantId])
+  @@map("gallery_templates")
 }
 
 // -----------------------------------------------------------------------------

@@ -53,6 +53,35 @@ export const de: Dict = {
     firstGallery: "Erste Galerie erstellen →",
     files: "Dateien",
     liked: "geliked",
+
+    // Gallery detail page
+    proofingLink: "Auswahl-Übersicht →",
+    setDraft: "Auf Draft setzen",
+    setLive: "Live schalten",
+    settingsHeading: "Einstellungen",
+    settingDownload: "Download für Kunden erlauben",
+    settingWatermark: "Wasserzeichen auf Vorschaubildern",
+    settingWatermarkDesc:
+      "Wird automatisch generiert. Studio-Watermark-Text in den Tenant-Settings festlegen.",
+    settingComments: "Kommentare aktivieren",
+
+    noFiles: "Noch keine Dateien hochgeladen.",
+    selectFiles: "Auswählen",
+    selectedSuffix: "ausgewählt",
+    selectAll: "Alle",
+    selectNone: "Keine",
+    hide: "Verstecken",
+    show: "Anzeigen",
+    deleteAction: "Löschen",
+    confirmDeleteOne: "1 Datei löschen?",
+    confirmDeleteMany: "{count} Dateien löschen?",
+
+    branding: "Branding:",
+    brandingTenantDefault: "Tenant-Default",
+    brandingNoneYet: "Noch keine Branding-Profile —",
+    brandingCreateNow: "jetzt anlegen",
+
+    notFound: "Galerie nicht gefunden.",
   },
 
   gallery: {
@@ -98,6 +127,9 @@ export const de: Dict = {
     branding: "Branding",
     brandingDesc:
       "Logo, Farben, Schrift und Texte für deine Kunden-Galerien.",
+    templates: "Galerie-Templates",
+    templatesDesc:
+      "Wiederverwendbare Einstellungen für wiederkehrende Galerie-Typen (Hochzeit, Newborn, Portrait …).",
     manage: "Profile verwalten →",
     customDomain: "Custom Domain",
     customDomainDesc:

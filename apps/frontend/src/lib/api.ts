@@ -236,6 +236,7 @@ export const api = {
     mode?: GalleryMode;
     downloadEnabled?: boolean;
     watermarkEnabled?: boolean;
+    templateId?: string;
   }) =>
     request<{ gallery: Gallery }>("/galleries", {
       method: "POST",
@@ -537,7 +538,58 @@ export const api = {
       `/brandings/${id}/assets/${kind}`,
       { method: "DELETE" }
     ),
+
+  // Templates
+  listTemplates: () =>
+    request<{ templates: GalleryTemplate[] }>(`/templates`),
+
+  createTemplate: (input: NewTemplateInput) =>
+    request<{ template: GalleryTemplate }>(`/templates`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  getTemplate: (id: string) =>
+    request<{ template: GalleryTemplate }>(`/templates/${id}`),
+
+  updateTemplate: (id: string, patch: Partial<NewTemplateInput>) =>
+    request<{ template: GalleryTemplate }>(`/templates/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+
+  deleteTemplate: (id: string) =>
+    request<void>(`/templates/${id}`, { method: "DELETE" }),
 };
+
+export interface GalleryTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  mode: GalleryMode;
+  downloadEnabled: boolean;
+  watermarkEnabled: boolean;
+  commentsEnabled: boolean;
+  ratingsEnabled: boolean;
+  defaultExpiryDays: number | null;
+  defaultDescription: string | null;
+  brandingId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NewTemplateInput {
+  name: string;
+  description?: string | null;
+  mode?: GalleryMode;
+  downloadEnabled?: boolean;
+  watermarkEnabled?: boolean;
+  commentsEnabled?: boolean;
+  ratingsEnabled?: boolean;
+  defaultExpiryDays?: number | null;
+  defaultDescription?: string | null;
+  brandingId?: string | null;
+}
 
 export interface BrandingDetail {
   id: string;

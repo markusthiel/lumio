@@ -188,6 +188,22 @@ export default function StudioSettingsPage() {
           </Link>
         </section>
 
+        {/* Templates-Link */}
+        <section className="rounded-lg border border-slate-200 bg-white p-5 flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-medium">{t("settings.templates")}</h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              {t("settings.templatesDesc")}
+            </p>
+          </div>
+          <Link
+            href="/studio/templates"
+            className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-50"
+          >
+            {t("settings.manage")}
+          </Link>
+        </section>
+
         {/* Custom Domain */}
         <section className="rounded-lg border border-slate-200 bg-white p-5 space-y-3">
           <h2 className="text-sm font-medium">Custom Domain</h2>

@@ -30,14 +30,17 @@ import {
 const createGallerySchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().max(2000).optional(),
-  mode: z.enum(["collaboration", "presentation"]).default("collaboration"),
+  mode: z.enum(["collaboration", "presentation"]).optional(),
   brandingId: z.string().uuid().nullable().optional(),
-  downloadEnabled: z.boolean().default(true),
-  watermarkEnabled: z.boolean().default(false),
-  commentsEnabled: z.boolean().default(true),
-  ratingsEnabled: z.boolean().default(true),
+  downloadEnabled: z.boolean().optional(),
+  watermarkEnabled: z.boolean().optional(),
+  commentsEnabled: z.boolean().optional(),
+  ratingsEnabled: z.boolean().optional(),
   selectionLimit: z.number().int().positive().optional(),
   expiresAt: z.string().datetime().optional(),
+  // Optional: Template übernehmen. Explizit gesetzte Felder im Request
+  // gewinnen über die Template-Werte.
+  templateId: z.string().uuid().optional(),
 });
 
 const updateGallerySchema = createGallerySchema.partial().extend({
@@ -131,6 +134,43 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
     const s = req.requireAuth();
     const body = createGallerySchema.parse(req.body);
 
+    // Template laden, falls angegeben — und prüfen dass es dem Tenant gehört.
+    let template: Awaited<ReturnType<typeof prisma.galleryTemplate.findFirst>> =
+      null;
+    if (body.templateId) {
+      template = await prisma.galleryTemplate.findFirst({
+        where: { id: body.templateId, tenantId: req.tenantId },
+      });
+      if (!template) {
+        return reply.status(400).send({ error: "bad_template" });
+      }
+    }
+
+    // Effektive Werte: explizit im Request → Template → Lumio-Defaults
+    const eff = {
+      mode: body.mode ?? template?.mode ?? "collaboration",
+      description:
+        body.description ?? template?.defaultDescription ?? null,
+      brandingId: body.brandingId !== undefined
+        ? body.brandingId
+        : template?.brandingId ?? null,
+      downloadEnabled:
+        body.downloadEnabled ?? template?.downloadEnabled ?? true,
+      watermarkEnabled:
+        body.watermarkEnabled ?? template?.watermarkEnabled ?? false,
+      commentsEnabled:
+        body.commentsEnabled ?? template?.commentsEnabled ?? true,
+      ratingsEnabled:
+        body.ratingsEnabled ?? template?.ratingsEnabled ?? true,
+      expiresAt: body.expiresAt
+        ? new Date(body.expiresAt)
+        : template?.defaultExpiryDays
+        ? new Date(
+            Date.now() + template.defaultExpiryDays * 24 * 3600 * 1000
+          )
+        : null,
+    };
+
     // Slug ist global eindeutig (User klickt einen Share-Link, der den Tenant
     // nicht im Pfad mitführt). Wir versuchen ein paar Mal bei Kollision.
     let slug = generateGallerySlug();
@@ -154,15 +194,15 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         ownerId: s.user.id,
         slug,
         title: body.title,
-        description: body.description ?? null,
-        mode: body.mode,
-        brandingId: body.brandingId ?? null,
-        downloadEnabled: body.downloadEnabled,
-        watermarkEnabled: body.watermarkEnabled,
-        commentsEnabled: body.commentsEnabled,
-        ratingsEnabled: body.ratingsEnabled,
+        description: eff.description,
+        mode: eff.mode,
+        brandingId: eff.brandingId,
+        downloadEnabled: eff.downloadEnabled,
+        watermarkEnabled: eff.watermarkEnabled,
+        commentsEnabled: eff.commentsEnabled,
+        ratingsEnabled: eff.ratingsEnabled,
         selectionLimit: body.selectionLimit ?? null,
-        expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
+        expiresAt: eff.expiresAt,
       },
     });
 

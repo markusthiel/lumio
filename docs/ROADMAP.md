@@ -119,7 +119,7 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 - [x] XMP-Sidecar-Export (Lightroom/Capture One kompatibel)
 - [x] Bulk-Aktionen im Studio: Multi-Select + delete + hide/show
       (sort und move via Drag&Drop stehen noch aus)
-- [ ] Galerie-Templates / Presets
+- [x] Galerie-Templates / Presets (Mode/Toggles/Branding/Expiry/Default-Description)
 - [x] Email-Notifications (Auswahl fertig, neuer Kommentar)
 - [ ] Presentation Mode (Vollbild, autoplay)
 
