@@ -7,6 +7,7 @@ import { api, type TenantSettings } from "@/lib/api";
 import { TwoFactorSection } from "@/components/studio/TwoFactorSection";
 import { PasskeysSection } from "@/components/studio/PasskeysSection";
 import { ApiTokensSection } from "@/components/studio/ApiTokensSection";
+import { MotionSection } from "@/components/studio/MotionSection";
 import { useT, useLocale } from "@/lib/i18n";
 
 export default function StudioSettingsPage() {
@@ -170,6 +171,9 @@ export default function StudioSettingsPage() {
             <option value="de">Deutsch</option>
           </select>
         </section>
+
+        {/* Motion / Animationen */}
+        <MotionSection />
 
         {/* 2FA */}
         <TwoFactorSection />

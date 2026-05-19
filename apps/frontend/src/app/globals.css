@@ -2,22 +2,178 @@
 @tailwind components;
 @tailwind utilities;
 
+/* =============================================================================
+ * Lumio Design Tokens
+ * =============================================================================
+ *
+ * Charcoal/Graphite Dark-First — gilt für Studio UND Customer.
+ *
+ * Schichten (von dunkel nach hell, optisch in Tiefen-Lesart):
+ *   surface-canvas   = die Bühne, vollflächig
+ *   surface-sunken   = etwas tiefer (Inputs, Code, leere Container)
+ *   surface-raised   = erhoben (Cards, Panels)
+ *   surface-overlay  = ganz oben (Modals, Tooltips)
+ *
+ * Ink:
+ *   primary    = wichtigste Lesefläche
+ *   secondary  = Labels, Sub-Headlines
+ *   tertiary   = Hilfsangaben, Hints
+ *   inverted   = Text auf accent-Hintergrund
+ *
+ * Accent: Amber bleibt die Marke, aber weniger laut.
+ * Semantic: gedämpfte Versionen, damit Status-Hints nicht aussehen wie Bootstrap.
+ */
 :root {
-  --brand-primary: 15 23 42;     /* slate-900 */
-  --brand-accent: 245 158 11;    /* amber-500 */
-  --font-sans: "Inter", system-ui, sans-serif;
+  /* === Designsystem === */
+  --surface-canvas:    14 14 16;          /* #0e0e10 — fast Schwarz, ohne Stich */
+  --surface-sunken:    8 8 10;            /* #08080a — Inputs, Code */
+  --surface-raised:    22 22 26;          /* #16161a — Cards */
+  --surface-overlay:   30 30 35;          /* #1e1e23 — Modals/Tooltips */
+
+  --ink-primary:       242 242 244;       /* #f2f2f4 */
+  --ink-secondary:     176 176 184;       /* #b0b0b8 */
+  --ink-tertiary:      120 120 128;       /* #787880 */
+  --ink-inverted:      14 14 16;
+
+  --line-subtle:       38 38 44;          /* #26262c — Standard-Border */
+  --line-strong:       64 64 72;          /* #404048 — Hover/Focus-Visible */
+  --line-focus:        245 158 11;        /* Marke = Fokusring */
+
+  --accent:            245 158 11;        /* Amber 500 */
+  --accent-hover:      252 176 50;        /* etwas heller */
+  --accent-subtle:     245 158 11;        /* mit alpha 0.12 nutzen */
+  --accent-contrast:   14 14 16;          /* Text auf Accent */
+
+  --semantic-success:  74 222 128;        /* gedämpft, kein crayon-grün */
+  --semantic-warning:  250 204 21;
+  --semantic-danger:   248 113 113;
+  --semantic-info:     147 197 253;
+
+  /* === Bestehende Brand-Slots: bleiben für Whitelabel-Override === */
+  --brand-primary:     242 242 244;
+  --brand-accent:      245 158 11;
+
+  /* === Typography === */
+  --font-sans: var(--font-inter), "Inter", system-ui, -apple-system, "Segoe UI",
+               Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", "Roboto Mono",
+               Consolas, monospace;
+
+  /* === Motion ===
+   * Aufrufer schreiben z.B.:
+   *   transition-colors duration-motion ease-out
+   *   animate-reveal
+   *
+   * Wir steuern Tempo + Reveal-Distanz pro User-Setting global hier:
+   */
+  --motion-duration:      200ms;     /* Default = subtle */
+  --motion-reveal:        320ms;
+  --motion-reveal-y:      8px;
+  --motion-stagger:       40ms;
+  --motion-ease:          cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* === Motion-Stufen, gesteuert vom <html data-motion="..."> === */
+
+/* "off": komplett aus. */
+html[data-motion="off"] {
+  --motion-duration: 0ms;
+  --motion-reveal:   0ms;
+  --motion-reveal-y: 0px;
+  --motion-stagger:  0ms;
+}
+
+/* "off": belt and suspenders — alle CSS-Transitions/Animations hart aus */
+html[data-motion="off"] *,
+html[data-motion="off"] *::before,
+html[data-motion="off"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-delay: 0ms !important;
+  transition-duration: 0.001ms !important;
+  transition-delay: 0ms !important;
+}
+
+/* System-prefers-reduced-motion: identisches Verhalten wie "off" */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-duration: 0ms;
+    --motion-reveal:   0ms;
+    --motion-reveal-y: 0px;
+    --motion-stagger:  0ms;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.001ms !important;
+    transition-delay: 0ms !important;
+  }
+}
+
+/* "subtle": kleine Distanzen, kurze Easings. Default. */
+html[data-motion="subtle"] {
+  --motion-duration: 180ms;
+  --motion-reveal:   260ms;
+  --motion-reveal-y: 6px;
+  --motion-stagger:  30ms;
+}
+
+/* "full": etwas mehr Drama, größere Distanz, längere Easings. */
+html[data-motion="full"] {
+  --motion-duration: 260ms;
+  --motion-reveal:   480ms;
+  --motion-reveal-y: 16px;
+  --motion-stagger:  60ms;
+}
+
+/* === Base === */
 html,
 body {
   min-height: 100%;
-  background: white;
-  color: rgb(var(--brand-primary));
+  background: rgb(var(--surface-canvas));
+  color: rgb(var(--ink-primary));
   font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01", "ss03"; /* Inter: schöne Ziffern, klares 'l' */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-/* Galerie-Modus: dunkler Hintergrund, Bilder sollen knallen */
+/* Scrollbars dezent dunkel halten (WebKit) */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: rgb(var(--line-subtle));
+  border-radius: 5px;
+  border: 2px solid rgb(var(--surface-canvas));
+}
+::-webkit-scrollbar-thumb:hover { background: rgb(var(--line-strong)); }
+
+/* Selection */
+::selection {
+  background: rgb(var(--accent) / 0.4);
+  color: rgb(var(--ink-primary));
+}
+
+/* Focus-Ring: einheitlich für alle interaktiven Elemente */
+:focus-visible {
+  outline: 2px solid rgb(var(--line-focus));
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* === Stagger-Helper-Klassen ===
+ * Aufruf: <li class="stagger-item" style={{animationDelay: `${i * 40}ms`}}>
+ * Wir setzen das `animation-delay` aus React, hier nur das Keyframe-Hookup.
+ */
+.stagger-item {
+  animation: lumio-reveal var(--motion-reveal) var(--motion-ease) both;
+}
+
+/* Galerie-Modus (Backward-Compat) — alt war .theme-dark; wir halten den Selector
+ * aber das Token-System macht das eigentlich überflüssig. */
 .theme-dark {
-  background: #0a0a0a;
-  color: #f5f5f5;
+  background: rgb(var(--surface-canvas));
+  color: rgb(var(--ink-primary));
 }
