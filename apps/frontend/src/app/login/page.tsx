@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { startAuthentication } from "@simplewebauthn/browser";
 import { api } from "@/lib/api";
 import { useT } from "@/lib/i18n";
+import { Button, Input } from "@/components/ui";
 
 type Stage =
   | { kind: "credentials" }
@@ -99,174 +100,190 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-8 bg-slate-50">
-      {stage.kind === "credentials" ? (
-        <form
-          onSubmit={submitCredentials}
-          className="w-full max-w-sm space-y-5 bg-white border border-slate-200 rounded-lg p-8 shadow-sm"
-        >
-          <header className="space-y-1">
-            <div className="text-xs font-medium text-brand-accent uppercase tracking-wider">
-              Lumio
-            </div>
-            <h1 className="text-2xl font-semibold">{t("login.title")}</h1>
-          </header>
+    <main className="min-h-screen flex items-center justify-center p-6 bg-surface-canvas">
+      {/* Dezenter Hintergrund-Gradient — gibt der zentrierten Box etwas
+          Atmosphäre, ohne abzulenken. Subtle by design. */}
+      <div
+        aria-hidden
+        className="fixed inset-0 pointer-events-none"
+        style={{
+          background:
+            "radial-gradient(60% 50% at 50% 0%, rgba(245,158,11,0.06) 0%, transparent 70%)",
+        }}
+      />
 
-          <div className="space-y-1">
-            <label htmlFor="email" className="text-sm font-medium">
-              {t("login.email")}
-            </label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent"
-            />
+      <div className="relative w-full max-w-sm animate-fade-in">
+        {/* Brand */}
+        <div className="text-center mb-8">
+          <div className="text-display text-accent font-semibold tracking-tight">
+            Lumio
           </div>
+        </div>
 
-          <div className="space-y-1">
-            <label htmlFor="password" className="text-sm font-medium">
-              {t("login.password")}
-            </label>
-            <input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent"
-            />
-          </div>
-
-          {error && (
-            <div
-              role="alert"
-              className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2"
-            >
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={pending}
-            className="w-full bg-slate-900 text-white text-sm font-medium rounded-md py-2.5 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition"
+        {stage.kind === "credentials" ? (
+          <form
+            onSubmit={submitCredentials}
+            className="space-y-5 bg-surface-raised border border-line-subtle rounded-md p-7 shadow-elev-2"
           >
-            {pending ? t("common.signingIn") : t("common.signIn")}
-          </button>
-
-          <p className="text-xs text-slate-500 text-center pt-2">
-            {t("login.cliHint")}{" "}
-            <code className="bg-slate-100 px-1 py-0.5 rounded">
-              npm run create-admin
-            </code>
-          </p>
-        </form>
-      ) : (
-        <div className="w-full max-w-sm space-y-5 bg-white border border-slate-200 rounded-lg p-8 shadow-sm">
-          <header className="space-y-1">
-            <div className="text-xs font-medium text-brand-accent uppercase tracking-wider">
-              Lumio
-            </div>
-            <h1 className="text-2xl font-semibold">
-              {stage.hasWebauthn && !stage.hasTotp
-                ? "Mit Passkey anmelden"
-                : t("login.totp.title")}
+            <h1 className="text-display-sm text-ink-primary font-medium">
+              {t("login.title")}
             </h1>
-            <p className="text-sm text-slate-500">
-              {stage.hasWebauthn && !stage.hasTotp
-                ? "Bestätige die Anmeldung mit deinem Gerät."
-                : t("login.totp.description")}
-            </p>
-          </header>
 
-          {/* Passkey-Anmeldung wenn verfügbar — als primärer CTA */}
-          {stage.hasWebauthn && (
+            <div className="space-y-1.5">
+              <label htmlFor="email" className="text-ui-sm font-medium text-ink-primary block">
+                {t("login.email")}
+              </label>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="password" className="text-ui-sm font-medium text-ink-primary block">
+                {t("login.password")}
+              </label>
+              <Input
+                id="password"
+                type="password"
+                autoComplete="current-password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+
+            {error && (
+              <div
+                role="alert"
+                className="text-ui-sm text-semantic-danger bg-semantic-danger/10 border border-semantic-danger/30 rounded-sm px-3 py-2"
+              >
+                {error}
+              </div>
+            )}
+
+            <Button
+              type="submit"
+              variant="primary"
+              size="lg"
+              disabled={pending}
+              className="w-full"
+            >
+              {pending ? t("common.signingIn") : t("common.signIn")}
+            </Button>
+
+            <p className="text-ui-xs text-ink-tertiary text-center pt-2">
+              {t("login.cliHint")}{" "}
+              <code className="font-mono bg-surface-sunken px-1 py-0.5 rounded-xs">
+                npm run create-admin
+              </code>
+            </p>
+          </form>
+        ) : (
+          <div className="space-y-5 bg-surface-raised border border-line-subtle rounded-md p-7 shadow-elev-2">
+            <header className="space-y-1.5">
+              <h1 className="text-display-sm text-ink-primary font-medium">
+                {stage.hasWebauthn && !stage.hasTotp
+                  ? "Mit Passkey anmelden"
+                  : t("login.totp.title")}
+              </h1>
+              <p className="text-ui-sm text-ink-tertiary">
+                {stage.hasWebauthn && !stage.hasTotp
+                  ? "Bestätige die Anmeldung mit deinem Gerät."
+                  : t("login.totp.description")}
+              </p>
+            </header>
+
+            {/* Passkey-Anmeldung — primärer CTA, wenn verfügbar */}
+            {stage.hasWebauthn && (
+              <Button
+                type="button"
+                variant="primary"
+                size="lg"
+                onClick={loginWithPasskey}
+                disabled={pending}
+                className="w-full"
+              >
+                {pending ? "Wartet auf Gerät…" : "Mit Passkey anmelden"}
+              </Button>
+            )}
+
+            {/* Trenner wenn beide Methoden aktiv sind */}
+            {stage.hasWebauthn && stage.hasTotp && (
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-line-subtle" />
+                </div>
+                <div className="relative flex justify-center text-ui-xs">
+                  <span className="bg-surface-raised px-2 text-ink-tertiary">
+                    oder
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* TOTP-Formular */}
+            {stage.hasTotp && (
+              <form onSubmit={submitTotp} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label htmlFor="code" className="text-ui-sm font-medium text-ink-primary block">
+                    {t("login.totp.code")}
+                  </label>
+                  <Input
+                    id="code"
+                    autoFocus={!stage.hasWebauthn}
+                    autoComplete="one-time-code"
+                    inputMode="numeric"
+                    required
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    placeholder="123456"
+                    className="font-mono tracking-[0.4em] text-center"
+                  />
+                  <p className="text-ui-xs text-ink-tertiary mt-1">
+                    {t("login.totp.backupHint")}
+                  </p>
+                </div>
+
+                <Button
+                  type="submit"
+                  variant={stage.hasWebauthn ? "secondary" : "primary"}
+                  size="lg"
+                  disabled={pending}
+                  className="w-full"
+                >
+                  {pending ? t("common.verifying") : t("common.verify")}
+                </Button>
+              </form>
+            )}
+
+            {error && (
+              <div
+                role="alert"
+                className="text-ui-sm text-semantic-danger bg-semantic-danger/10 border border-semantic-danger/30 rounded-sm px-3 py-2"
+              >
+                {error}
+              </div>
+            )}
+
             <button
               type="button"
-              onClick={loginWithPasskey}
-              disabled={pending}
-              className="w-full bg-slate-900 text-white text-sm font-medium rounded-md py-2.5 hover:bg-slate-800 disabled:opacity-50 transition"
+              onClick={() => {
+                setStage({ kind: "credentials" });
+                setCode("");
+                setError(null);
+              }}
+              className="text-ui-xs text-ink-tertiary hover:text-ink-primary w-full text-center transition-colors duration-motion"
             >
-              {pending ? "Wartet auf Gerät…" : "Mit Passkey anmelden"}
+              ← Andere Zugangsdaten verwenden
             </button>
-          )}
-
-          {/* Trenner wenn beide Methoden aktiv sind */}
-          {stage.hasWebauthn && stage.hasTotp && (
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200" />
-              </div>
-              <div className="relative flex justify-center text-xs">
-                <span className="bg-white px-2 text-slate-500">oder</span>
-              </div>
-            </div>
-          )}
-
-          {/* TOTP-Formular */}
-          {stage.hasTotp && (
-            <form onSubmit={submitTotp} className="space-y-4">
-              <div className="space-y-1">
-                <label htmlFor="code" className="text-sm font-medium">
-                  {t("login.totp.code")}
-                </label>
-                <input
-                  id="code"
-                  autoFocus={!stage.hasWebauthn}
-                  autoComplete="one-time-code"
-                  inputMode="numeric"
-                  required
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  placeholder="123456"
-                  className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-mono tracking-widest text-center focus:outline-none focus:ring-2 focus:ring-brand-accent focus:border-transparent"
-                />
-                <p className="text-xs text-slate-500 mt-1">
-                  {t("login.totp.backupHint")}
-                </p>
-              </div>
-
-              <button
-                type="submit"
-                disabled={pending}
-                className={`w-full text-sm font-medium rounded-md py-2.5 disabled:opacity-50 transition ${
-                  stage.hasWebauthn
-                    ? "border border-slate-300 hover:bg-slate-100"
-                    : "bg-slate-900 text-white hover:bg-slate-800"
-                }`}
-              >
-                {pending ? t("common.verifying") : t("common.verify")}
-              </button>
-            </form>
-          )}
-
-          {error && (
-            <div
-              role="alert"
-              className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2"
-            >
-              {error}
-            </div>
-          )}
-
-          <button
-            type="button"
-            onClick={() => {
-              setStage({ kind: "credentials" });
-              setCode("");
-              setError(null);
-            }}
-            className="text-xs text-slate-500 hover:text-slate-900 w-full text-center"
-          >
-            ← Andere Zugangsdaten verwenden
-          </button>
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </main>
   );
 }

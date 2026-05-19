@@ -75,10 +75,10 @@ export function ApiTokensSection() {
   }
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 space-y-4">
+    <section className="rounded-lg border border-line-subtle bg-surface-raised p-5 space-y-4">
       <div>
         <h2 className="text-sm font-medium">API-Tokens</h2>
-        <p className="text-xs text-slate-500 mt-0.5">
+        <p className="text-xs text-ink-tertiary mt-0.5">
           Für Plugins (z.B. Lightroom) und CLI-Tools. Tokens haben dieselben
           Rechte wie dein Studio-Account und sind einzeln widerrufbar.
         </p>
@@ -86,26 +86,26 @@ export function ApiTokensSection() {
 
       {/* Frisch erstellter Token — wird einmal angezeigt */}
       {justCreated && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 space-y-2">
-          <div className="text-xs font-medium text-amber-900">
+        <div className="rounded-md border border-semantic-warning/30 bg-semantic-warning/10 p-3 space-y-2">
+          <div className="text-xs font-medium text-semantic-warning">
             Token „{justCreated.name}" wurde erstellt. Kopiere ihn jetzt —
             er wird nicht erneut angezeigt.
           </div>
           <div className="flex items-center gap-2">
-            <code className="flex-1 font-mono text-xs bg-white border border-amber-200 rounded px-2 py-1.5 overflow-x-auto whitespace-nowrap">
+            <code className="flex-1 font-mono text-xs bg-surface-raised border border-semantic-warning/30 rounded px-2 py-1.5 overflow-x-auto whitespace-nowrap">
               {justCreated.token}
             </code>
             <button
               type="button"
               onClick={copyToken}
-              className="text-xs px-2 py-1.5 rounded border border-amber-300 bg-white hover:bg-amber-100 whitespace-nowrap"
+              className="text-xs px-2 py-1.5 rounded border border-semantic-warning/40 bg-surface-raised hover:bg-semantic-warning/15 whitespace-nowrap"
             >
               {copied ? "✓" : "Kopieren"}
             </button>
             <button
               type="button"
               onClick={() => setJustCreated(null)}
-              className="text-xs px-2 py-1.5 rounded border border-amber-300 bg-white hover:bg-amber-100"
+              className="text-xs px-2 py-1.5 rounded border border-semantic-warning/40 bg-surface-raised hover:bg-semantic-warning/15"
               aria-label="Schließen"
             >
               ✕
@@ -122,12 +122,12 @@ export function ApiTokensSection() {
           onChange={(e) => setNewName(e.target.value)}
           placeholder="z.B. Lightroom Studio-Mac"
           maxLength={100}
-          className="flex-1 rounded-md border border-slate-300 px-3 py-1.5 text-sm"
+          className="flex-1 rounded-md border border-line-subtle px-3 py-1.5 text-sm"
         />
         <button
           type="submit"
           disabled={creating || !newName.trim()}
-          className="text-sm px-3 py-1.5 rounded-md bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50 whitespace-nowrap"
+          className="text-sm px-3 py-1.5 rounded-md bg-accent text-accent-contrast hover:bg-accent-hover disabled:opacity-50 whitespace-nowrap"
         >
           {creating ? "…" : "Token erstellen"}
         </button>
@@ -135,10 +135,10 @@ export function ApiTokensSection() {
 
       {/* Liste */}
       {!loading && tokens.length === 0 && (
-        <p className="text-xs text-slate-500 italic">Keine Tokens.</p>
+        <p className="text-xs text-ink-tertiary italic">Keine Tokens.</p>
       )}
       {tokens.length > 0 && (
-        <ul className="divide-y divide-slate-100 border border-slate-200 rounded-md">
+        <ul className="divide-y divide-line-subtle border border-line-subtle rounded-md">
           {tokens.map((tok) => (
             <li
               key={tok.id}
@@ -146,7 +146,7 @@ export function ApiTokensSection() {
             >
               <div className="flex-1 min-w-0">
                 <div className="font-medium truncate">{tok.name}</div>
-                <div className="text-xs text-slate-500 mt-0.5">
+                <div className="text-xs text-ink-tertiary mt-0.5">
                   Erstellt {formatDate(tok.createdAt)}
                   {tok.lastUsedAt
                     ? ` · zuletzt verwendet ${formatDate(tok.lastUsedAt)}`
@@ -156,7 +156,7 @@ export function ApiTokensSection() {
               <button
                 type="button"
                 onClick={() => revoke(tok.id, tok.name)}
-                className="text-xs text-rose-700 hover:underline whitespace-nowrap"
+                className="text-xs text-semantic-danger hover:underline whitespace-nowrap"
               >
                 Widerrufen
               </button>

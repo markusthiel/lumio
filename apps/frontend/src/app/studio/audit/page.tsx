@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, type AuditEvent, type Gallery } from "@/lib/api";
+import { PageHeader } from "@/components/studio/PageHeader";
+import { Button } from "@/components/ui";
 
 const PAGE_SIZE = 100;
 
@@ -128,41 +130,31 @@ export default function AuditPage() {
   }
 
   return (
-    <main className="min-h-screen p-8">
-      <div className="max-w-6xl mx-auto space-y-4">
-        <header className="border-b border-slate-200 pb-4">
-          <div className="text-xs">
-            <Link href="/studio" className="text-slate-500 hover:text-slate-900">
-              ← Studio
-            </Link>
-          </div>
-          <div className="flex items-end justify-between mt-2 gap-4 flex-wrap">
-            <div>
-              <h1 className="text-2xl font-semibold">Audit-Log</h1>
-              <p className="text-sm text-slate-500 mt-1">
-                Logins, Galerie-Änderungen, Kunden-Aktivität. Read-only,
-                gefiltert nach deinem Tenant.
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={exportCsv}
-              disabled={events.length === 0}
-              className="text-sm rounded-md border border-slate-300 px-3 py-1.5 hover:bg-slate-50 disabled:opacity-50"
-            >
-              CSV exportieren ({events.length})
-            </button>
-          </div>
-        </header>
+    <>
+      <PageHeader
+        breadcrumb={[{ label: "Studio", href: "/studio" }, { label: "Audit" }]}
+        title="Audit-Log"
+        description="Logins, Galerie-Änderungen, Kunden-Aktivität. Read-only, gefiltert nach deinem Tenant."
+        actions={
+          <Button
+            variant="secondary"
+            onClick={exportCsv}
+            disabled={events.length === 0}
+          >
+            CSV exportieren ({events.length})
+          </Button>
+        }
+      />
 
+      <div className="px-6 sm:px-8 py-6 space-y-4 max-w-7xl">
         {/* Filter-Bar */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
           <div>
-            <label className="block text-xs text-slate-500 mb-1">Galerie</label>
+            <label className="block text-xs text-ink-tertiary mb-1">Galerie</label>
             <select
               value={galleryId}
               onChange={(e) => setGalleryId(e.target.value)}
-              className="w-full rounded-md border border-slate-300 px-2 py-1.5 bg-white"
+              className="w-full rounded-md border border-line-subtle px-2 py-1.5 bg-surface-raised"
             >
               <option value="">Alle</option>
               {galleries.map((g) => (
@@ -173,11 +165,11 @@ export default function AuditPage() {
             </select>
           </div>
           <div>
-            <label className="block text-xs text-slate-500 mb-1">Aktion</label>
+            <label className="block text-xs text-ink-tertiary mb-1">Aktion</label>
             <select
               value={action}
               onChange={(e) => setAction(e.target.value)}
-              className="w-full rounded-md border border-slate-300 px-2 py-1.5 bg-white"
+              className="w-full rounded-md border border-line-subtle px-2 py-1.5 bg-surface-raised"
             >
               <option value="">Alle</option>
               {ACTION_OPTIONS.map((a) => (
@@ -188,34 +180,34 @@ export default function AuditPage() {
             </select>
           </div>
           <div>
-            <label className="block text-xs text-slate-500 mb-1">Von</label>
+            <label className="block text-xs text-ink-tertiary mb-1">Von</label>
             <input
               type="datetime-local"
               value={since}
               onChange={(e) => setSince(e.target.value)}
-              className="w-full rounded-md border border-slate-300 px-2 py-1.5 bg-white"
+              className="w-full rounded-md border border-line-subtle px-2 py-1.5 bg-surface-raised"
             />
           </div>
           <div>
-            <label className="block text-xs text-slate-500 mb-1">Bis</label>
+            <label className="block text-xs text-ink-tertiary mb-1">Bis</label>
             <input
               type="datetime-local"
               value={until}
               onChange={(e) => setUntil(e.target.value)}
-              className="w-full rounded-md border border-slate-300 px-2 py-1.5 bg-white"
+              className="w-full rounded-md border border-line-subtle px-2 py-1.5 bg-surface-raised"
             />
           </div>
         </section>
 
         {/* Tabelle */}
-        <section className="rounded-lg border border-slate-200 bg-white overflow-x-auto">
+        <section className="rounded-lg border border-line-subtle bg-surface-raised overflow-x-auto">
           {events.length === 0 && !loading ? (
-            <div className="p-8 text-sm text-slate-500 text-center">
+            <div className="p-8 text-sm text-ink-tertiary text-center">
               Keine Events für diesen Filter.
             </div>
           ) : (
             <table className="w-full text-xs">
-              <thead className="bg-slate-50 text-slate-600">
+              <thead className="bg-surface-sunken text-ink-secondary">
                 <tr>
                   <th className="text-left p-2 font-medium">Zeitpunkt</th>
                   <th className="text-left p-2 font-medium">Aktion</th>
@@ -237,23 +229,23 @@ export default function AuditPage() {
         {/* Pagination */}
         <div className="flex items-center justify-center gap-3 pt-2">
           {loading && (
-            <div className="text-xs text-slate-500">Lädt…</div>
+            <div className="text-xs text-ink-tertiary">Lädt…</div>
           )}
           {nextCursor && !loading && (
             <button
               type="button"
               onClick={() => void fetchPage(false)}
-              className="text-sm rounded-md border border-slate-300 px-3 py-1.5 hover:bg-slate-50"
+              className="text-sm rounded-md border border-line-subtle px-3 py-1.5 hover:bg-surface-sunken"
             >
               Mehr laden
             </button>
           )}
           {!nextCursor && events.length > 0 && !loading && (
-            <div className="text-xs text-slate-400">— Ende —</div>
+            <div className="text-xs text-ink-tertiary">— Ende —</div>
           )}
         </div>
       </div>
-    </main>
+    </>
   );
 }
 
@@ -276,8 +268,8 @@ function EventRow({
   const gallery = galleryId ? galleries.find((g) => g.id === galleryId) : null;
 
   return (
-    <tr className={`border-t border-slate-200 ${failed ? "bg-rose-50" : ""}`}>
-      <td className="p-2 whitespace-nowrap font-mono text-slate-700">
+    <tr className={`border-t border-line-subtle ${failed ? "bg-rose-50" : ""}`}>
+      <td className="p-2 whitespace-nowrap font-mono text-ink-secondary">
         {formatTimestamp(event.createdAt)}
       </td>
       <td className="p-2 whitespace-nowrap">
@@ -285,41 +277,41 @@ function EventRow({
           className={`inline-block px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider font-medium ${
             failed
               ? "bg-rose-100 text-rose-800"
-              : "bg-slate-100 text-slate-700"
+              : "bg-surface-sunken text-ink-secondary"
           }`}
         >
           {label}
         </span>
       </td>
-      <td className="p-2 whitespace-nowrap text-slate-700">
+      <td className="p-2 whitespace-nowrap text-ink-secondary">
         {event.actorType}
         {event.actorId && (
-          <span className="text-slate-400 ml-1 font-mono">
+          <span className="text-ink-tertiary ml-1 font-mono">
             ({event.actorId.slice(0, 8)}…)
           </span>
         )}
       </td>
-      <td className="p-2 whitespace-nowrap text-slate-700">
+      <td className="p-2 whitespace-nowrap text-ink-secondary">
         {gallery ? (
           <Link
             href={`/studio/${gallery.id}`}
-            className="text-slate-700 hover:underline"
+            className="text-ink-secondary hover:underline"
           >
             {gallery.title}
           </Link>
         ) : event.targetType ? (
-          <span className="text-slate-400">
+          <span className="text-ink-tertiary">
             {event.targetType}
             {event.targetId ? ` (${event.targetId.slice(0, 8)}…)` : ""}
           </span>
         ) : (
-          <span className="text-slate-400">—</span>
+          <span className="text-ink-tertiary">—</span>
         )}
       </td>
-      <td className="p-2 whitespace-nowrap font-mono text-slate-500">
+      <td className="p-2 whitespace-nowrap font-mono text-ink-tertiary">
         {event.ipAddress ?? "—"}
       </td>
-      <td className="p-2 font-mono text-slate-500 max-w-md truncate">
+      <td className="p-2 font-mono text-ink-tertiary max-w-md truncate">
         {event.payload ? JSON.stringify(event.payload) : ""}
       </td>
     </tr>

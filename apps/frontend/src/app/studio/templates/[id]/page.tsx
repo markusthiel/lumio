@@ -8,6 +8,8 @@ import {
   type BrandingDetail,
   type GalleryTemplate,
 } from "@/lib/api";
+import { PageHeader } from "@/components/studio/PageHeader";
+import { Button } from "@/components/ui";
 
 export default function TemplateEditorPage() {
   const router = useRouter();
@@ -110,65 +112,55 @@ export default function TemplateEditorPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen flex items-center justify-center">
-        <div className="text-sm text-slate-500">Lädt…</div>
-      </main>
+      <div className="flex items-center justify-center h-screen text-ui text-ink-tertiary">
+        Lädt…
+      </div>
     );
   }
   if (!template) {
     return (
-      <main className="min-h-screen p-8">
-        <div className="text-sm text-red-700">
+      <div className="px-6 sm:px-8 py-8">
+        <div className="text-ui text-semantic-danger">
           {error ?? "Template nicht gefunden."}
         </div>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen p-8">
-      <div className="max-w-3xl mx-auto space-y-6">
-        <header className="border-b border-slate-200 pb-4 flex items-end justify-between flex-wrap gap-2">
-          <div>
-            <div className="text-xs">
-              <Link
-                href="/studio/templates"
-                className="text-slate-500 hover:text-slate-900"
-              >
-                ← Templates
-              </Link>
-            </div>
-            <h1 className="text-2xl font-semibold mt-2">{template.name}</h1>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={remove}
-              className="text-sm px-3 py-1.5 rounded-md border border-red-300 text-red-700 hover:bg-red-50"
-            >
+    <>
+      <PageHeader
+        breadcrumb={[
+          { label: "Studio", href: "/studio" },
+          { label: "Templates", href: "/studio/templates" },
+          { label: template.name },
+        ]}
+        title={template.name}
+        actions={
+          <>
+            <Button variant="danger" onClick={remove}>
               Löschen
-            </button>
-            <button
-              onClick={save}
-              disabled={saving}
-              className="text-sm px-3 py-1.5 rounded-md bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50"
-            >
+            </Button>
+            <Button variant="primary" onClick={save} disabled={saving}>
               {saving ? "Speichert…" : "Speichern"}
-            </button>
-          </div>
-        </header>
+            </Button>
+          </>
+        }
+      />
 
+      <div className="px-6 sm:px-8 py-6 space-y-6 max-w-4xl">
         {error && (
-          <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+          <div className="text-ui-sm text-semantic-danger bg-semantic-danger/10 border border-semantic-danger/30 rounded-sm px-3 py-2">
             {error}
           </div>
         )}
 
-        <section className="rounded-lg border border-slate-200 bg-white p-5 space-y-4">
+        <section className="rounded-md border border-line-subtle bg-surface-raised p-5 space-y-4">
           <Field label="Name">
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="w-full rounded border border-line-subtle bg-surface-sunken text-ink-primary px-3 py-2 text-ui focus:border-accent focus:outline-none transition-colors duration-motion"
             />
           </Field>
           <Field label="Beschreibung (intern)">
@@ -177,7 +169,7 @@ export default function TemplateEditorPage() {
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
               placeholder="Wann nutze ich dieses Template?"
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm"
             />
           </Field>
 
@@ -187,7 +179,7 @@ export default function TemplateEditorPage() {
               onChange={(e) =>
                 setMode(e.target.value as "collaboration" | "presentation")
               }
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white"
+              className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm bg-surface-raised"
             >
               <option value="collaboration">
                 Collaboration (Auswahl, Likes, Kommentare)
@@ -229,7 +221,7 @@ export default function TemplateEditorPage() {
               }
               inputMode="numeric"
               placeholder="z.B. 30"
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm"
             />
           </Field>
 
@@ -239,7 +231,7 @@ export default function TemplateEditorPage() {
               onChange={(e) => setDefaultDescription(e.target.value)}
               rows={3}
               placeholder="Wird als Default-Text in die Galerie übernommen — pro Galerie editierbar."
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm"
             />
           </Field>
 
@@ -247,7 +239,7 @@ export default function TemplateEditorPage() {
             <select
               value={brandingId}
               onChange={(e) => setBrandingId(e.target.value)}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white"
+              className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm bg-surface-raised"
             >
               <option value="">Tenant-Default</option>
               {brandings.map((b) => (
@@ -259,7 +251,7 @@ export default function TemplateEditorPage() {
           </Field>
         </section>
       </div>
-    </main>
+    </>
   );
 }
 
@@ -272,7 +264,7 @@ function Field({
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-xs font-medium text-slate-700">{label}</label>
+      <label className="text-xs font-medium text-ink-secondary">{label}</label>
       {children}
     </div>
   );
@@ -293,7 +285,7 @@ function Toggle({
         type="checkbox"
         checked={value}
         onChange={(e) => onChange(e.target.checked)}
-        className="w-4 h-4 rounded border-slate-300"
+        className="w-4 h-4 rounded border-line-subtle"
       />
       <span className="text-sm">{label}</span>
     </label>

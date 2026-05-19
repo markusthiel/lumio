@@ -33,7 +33,7 @@ export default function ProofingPage() {
   if (loading) {
     return (
       <main className="min-h-screen flex items-center justify-center">
-        <div className="text-sm text-slate-500">Lädt…</div>
+        <div className="text-sm text-ink-tertiary">Lädt…</div>
       </main>
     );
   }
@@ -41,7 +41,7 @@ export default function ProofingPage() {
     return (
       <main className="min-h-screen p-8">
         <div className="max-w-3xl mx-auto">
-          <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+          <div className="text-sm text-semantic-danger bg-semantic-danger/10 border border-semantic-danger/30 rounded-md px-3 py-2">
             {error ?? "Galerie nicht gefunden."}
           </div>
         </div>
@@ -52,11 +52,11 @@ export default function ProofingPage() {
   return (
     <main className="min-h-screen p-8">
       <div className="max-w-5xl mx-auto space-y-6">
-        <header className="border-b border-slate-200 pb-4">
+        <header className="border-b border-line-subtle pb-4">
           <div className="text-xs">
             <Link
               href={`/studio/${data.gallery.id}`}
-              className="text-slate-500 hover:text-slate-900"
+              className="text-ink-tertiary hover:text-ink-primary"
             >
               ← Galerie
             </Link>
@@ -64,7 +64,7 @@ export default function ProofingPage() {
           <h1 className="text-2xl font-semibold mt-2">
             Auswahl-Übersicht
           </h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-ink-tertiary">
             {data.gallery.title}
           </p>
         </header>
@@ -85,19 +85,19 @@ export default function ProofingPage() {
 
         {/* Label-Verteilung */}
         {Object.keys(data.totals.byLabel).length > 0 && (
-          <section className="rounded-lg border border-slate-200 bg-white p-4">
+          <section className="rounded-lg border border-line-subtle bg-surface-raised p-4">
             <h2 className="text-sm font-medium mb-3">Farb-Tags</h2>
             <div className="flex flex-wrap gap-3">
               {Object.entries(data.totals.byLabel).map(([label, count]) => (
                 <div
                   key={label}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-200"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-sunken border border-line-subtle"
                 >
                   <span
                     className={`w-3 h-3 rounded-full ${colorBg(label)}`}
                   />
                   <span className="text-sm">{label}</span>
-                  <span className="text-xs text-slate-500">{count}</span>
+                  <span className="text-xs text-ink-tertiary">{count}</span>
                 </div>
               ))}
             </div>
@@ -106,12 +106,12 @@ export default function ProofingPage() {
 
         {/* Pro Access */}
         {data.perAccess.length > 0 && (
-          <section className="rounded-lg border border-slate-200 bg-white">
-            <h2 className="text-sm font-medium px-4 py-3 border-b border-slate-100">
+          <section className="rounded-lg border border-line-subtle bg-surface-raised">
+            <h2 className="text-sm font-medium px-4 py-3 border-b border-line-subtle">
               Beteiligung pro Share-Link
             </h2>
             <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-xs text-slate-500">
+              <thead className="bg-surface-sunken text-xs text-ink-tertiary">
                 <tr>
                   <th className="text-left px-4 py-2">Bezeichnung</th>
                   <th className="text-right px-4 py-2">Picks/Likes</th>
@@ -119,7 +119,7 @@ export default function ProofingPage() {
                   <th className="text-right px-4 py-2">Kommentare</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-line-subtle">
                 {data.perAccess.map((a) => (
                   <tr key={a.label}>
                     <td className="px-4 py-2">{a.label}</td>
@@ -134,9 +134,9 @@ export default function ProofingPage() {
         )}
 
         {/* Export-Aktionen */}
-        <section className="rounded-lg border border-slate-200 bg-white p-4">
+        <section className="rounded-lg border border-line-subtle bg-surface-raised p-4">
           <h2 className="text-sm font-medium mb-1">Exporte</h2>
-          <p className="text-xs text-slate-500 mb-3">
+          <p className="text-xs text-ink-tertiary mb-3">
             CSV für Tabellenkalkulation, XMP-Sidecars für Lightroom Classic
             oder Capture One. Lege die XMPs neben deine Original-RAWs, dann
             in Lightroom <em>Metadaten → Aus Datei lesen</em>.
@@ -144,20 +144,20 @@ export default function ProofingPage() {
           <div className="flex flex-wrap gap-2">
             <a
               href={api.csvExportUrl(data.gallery.id)}
-              className="text-sm px-3 py-1.5 rounded bg-slate-900 text-white hover:bg-slate-800"
+              className="text-sm px-3 py-1.5 rounded bg-accent text-accent-contrast hover:bg-accent-hover"
               download
             >
               CSV herunterladen
             </a>
             <a
               href={api.xmpExportUrl(data.gallery.id)}
-              className="text-sm px-3 py-1.5 rounded bg-slate-900 text-white hover:bg-slate-800"
+              className="text-sm px-3 py-1.5 rounded bg-accent text-accent-contrast hover:bg-accent-hover"
               download
             >
               XMP-Sidecars (ZIP)
             </a>
           </div>
-          <div className="text-xs text-slate-500 mt-3 leading-relaxed">
+          <div className="text-xs text-ink-tertiary mt-3 leading-relaxed">
             <strong>Hinweis zu Farb-Tags:</strong> Lightroom erkennt
             Farb-Labels anhand des aktiven Label-Sets. Stelle in Lightroom
             unter <em>Metadaten → Farbbeschriftungs-Sets</em> auf
@@ -168,17 +168,17 @@ export default function ProofingPage() {
         </section>
 
         {/* Files-Liste */}
-        <section className="rounded-lg border border-slate-200 bg-white">
-          <h2 className="text-sm font-medium px-4 py-3 border-b border-slate-100">
+        <section className="rounded-lg border border-line-subtle bg-surface-raised">
+          <h2 className="text-sm font-medium px-4 py-3 border-b border-line-subtle">
             Dateien
             {data.fileCountTotal > data.files.length && (
-              <span className="text-xs text-slate-500 font-normal ml-2">
+              <span className="text-xs text-ink-tertiary font-normal ml-2">
                 — zeigt {data.files.length} von {data.fileCountTotal}
               </span>
             )}
           </h2>
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-xs text-slate-500">
+            <thead className="bg-surface-sunken text-xs text-ink-tertiary">
               <tr>
                 <th className="text-left px-4 py-2">Datei</th>
                 <th className="text-center px-4 py-2">Rating</th>
@@ -187,7 +187,7 @@ export default function ProofingPage() {
                 <th className="text-left px-4 py-2">Teams</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-line-subtle">
               {data.files.map((f) => (
                 <tr key={f.fileId}>
                   <td className="px-4 py-2 font-mono text-xs">{f.filename}</td>
@@ -213,7 +213,7 @@ export default function ProofingPage() {
                       "—"
                     )}
                   </td>
-                  <td className="px-4 py-2 text-xs text-slate-500">
+                  <td className="px-4 py-2 text-xs text-ink-tertiary">
                     {f.perAccess.length === 0
                       ? "—"
                       : f.perAccess.map((a) => a.accessLabel).join(", ")}
@@ -224,7 +224,7 @@ export default function ProofingPage() {
                 <tr>
                   <td
                     colSpan={5}
-                    className="px-4 py-6 text-center text-sm text-slate-500"
+                    className="px-4 py-6 text-center text-sm text-ink-tertiary"
                   >
                     Noch keine Auswahl von Kunden.
                   </td>
@@ -240,8 +240,8 @@ export default function ProofingPage() {
 
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
-      <div className="text-xs text-slate-500 uppercase tracking-wider">
+    <div className="rounded-lg border border-line-subtle bg-surface-raised p-4">
+      <div className="text-xs text-ink-tertiary uppercase tracking-wider">
         {label}
       </div>
       <div className="text-3xl font-semibold mt-1">{value}</div>
@@ -252,12 +252,12 @@ function StatCard({ label, value }: { label: string; value: number }) {
 function colorBg(label: string): string {
   switch (label.toLowerCase()) {
     case "red":
-      return "bg-red-500";
+      return "bg-semantic-danger/100";
     case "yellow":
       return "bg-yellow-500";
     case "green":
-      return "bg-green-500";
+      return "bg-semantic-success/100";
     default:
-      return "bg-slate-400";
+      return "bg-ink-tertiary";
   }
 }

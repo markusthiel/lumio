@@ -103,9 +103,9 @@ export function PasskeysSection() {
 
   if (!supported) {
     return (
-      <section className="rounded-lg border border-slate-200 bg-white p-5">
+      <section className="rounded-lg border border-line-subtle bg-surface-raised p-5">
         <h2 className="text-sm font-medium">Passkeys</h2>
-        <p className="text-xs text-slate-500 mt-1">
+        <p className="text-xs text-ink-tertiary mt-1">
           Dieser Browser unterstützt keine WebAuthn-/Passkey-Anmeldung. Auf
           einem aktuellen Chrome, Safari oder Firefox sollte es funktionieren.
         </p>
@@ -114,11 +114,11 @@ export function PasskeysSection() {
   }
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 space-y-4">
+    <section className="rounded-lg border border-line-subtle bg-surface-raised p-5 space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 className="text-sm font-medium">Passkeys</h2>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-ink-tertiary mt-0.5">
             Anmeldung per Touch-ID, Windows Hello oder Security-Key. Eine
             Alternative oder Ergänzung zu TOTP.
           </p>
@@ -127,26 +127,26 @@ export function PasskeysSection() {
           type="button"
           onClick={addPasskey}
           disabled={adding}
-          className="text-sm px-3 py-1.5 rounded-md bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50 whitespace-nowrap"
+          className="text-sm px-3 py-1.5 rounded-md bg-accent text-accent-contrast hover:bg-accent-hover disabled:opacity-50 whitespace-nowrap"
         >
           {adding ? "Lädt…" : "Passkey hinzufügen"}
         </button>
       </div>
 
       {error && (
-        <div className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded p-2">
+        <div className="text-xs text-semantic-danger bg-rose-50 border border-rose-200 rounded p-2">
           {error}
         </div>
       )}
 
       {!loading && credentials.length === 0 && (
-        <p className="text-xs text-slate-500 italic">
+        <p className="text-xs text-ink-tertiary italic">
           Noch keine Passkeys registriert.
         </p>
       )}
 
       {credentials.length > 0 && (
-        <ul className="divide-y divide-slate-100 border border-slate-200 rounded-md">
+        <ul className="divide-y divide-line-subtle border border-line-subtle rounded-md">
           {credentials.map((c) => (
             <li
               key={c.id}
@@ -154,7 +154,7 @@ export function PasskeysSection() {
             >
               <div>
                 <div className="font-medium">{c.label}</div>
-                <div className="text-xs text-slate-500 mt-0.5">
+                <div className="text-xs text-ink-tertiary mt-0.5">
                   Hinzugefügt {formatDate(c.createdAt)}
                   {c.lastUsedAt && ` · zuletzt verwendet ${formatDate(c.lastUsedAt)}`}
                 </div>
@@ -162,7 +162,7 @@ export function PasskeysSection() {
               <button
                 type="button"
                 onClick={() => removePasskey(c.id, c.label)}
-                className="text-xs text-rose-700 hover:underline"
+                className="text-xs text-semantic-danger hover:underline"
               >
                 Entfernen
               </button>

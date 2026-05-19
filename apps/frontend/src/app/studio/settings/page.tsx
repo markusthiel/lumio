@@ -8,6 +8,7 @@ import { TwoFactorSection } from "@/components/studio/TwoFactorSection";
 import { PasskeysSection } from "@/components/studio/PasskeysSection";
 import { ApiTokensSection } from "@/components/studio/ApiTokensSection";
 import { MotionSection } from "@/components/studio/MotionSection";
+import { PageHeader } from "@/components/studio/PageHeader";
 import { useT, useLocale } from "@/lib/i18n";
 
 export default function StudioSettingsPage() {
@@ -120,52 +121,52 @@ export default function StudioSettingsPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen flex items-center justify-center">
-        <div className="text-sm text-slate-500">Lädt…</div>
-      </main>
+      <div className="flex items-center justify-center h-screen text-ui text-ink-tertiary">
+        Lädt…
+      </div>
     );
   }
   if (!settings) {
     return (
-      <main className="min-h-screen p-8">
-        <div className="text-sm text-red-700">
+      <div className="px-6 sm:px-8 py-8">
+        <div className="text-ui text-semantic-danger">
           {error ?? "Settings konnten nicht geladen werden."}
         </div>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen p-8">
-      <div className="max-w-3xl mx-auto space-y-6">
-        <header className="border-b border-slate-200 pb-4">
-          <div className="text-xs">
-            <Link href="/studio" className="text-slate-500 hover:text-slate-900">
-              ← Studio
-            </Link>
-          </div>
-          <h1 className="text-2xl font-semibold mt-2">{t("settings.title")}</h1>
-          <p className="text-sm text-slate-500">{settings.name}</p>
-        </header>
+    <>
+      <PageHeader
+        breadcrumb={[
+          { label: "Studio", href: "/studio" },
+          { label: t("settings.title") },
+        ]}
+        title={t("settings.title")}
+        description={settings.name}
+      />
+
+      <div className="px-6 sm:px-8 py-6 space-y-6 max-w-4xl">
 
         {error && (
-          <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+          <div className="text-ui-sm text-semantic-danger bg-semantic-danger/10 border border-semantic-danger/30 rounded-sm px-3 py-2">
             {error}
           </div>
         )}
 
         {/* Locale */}
-        <section className="rounded-lg border border-slate-200 bg-white p-5 flex items-center justify-between">
+        <section className="rounded-md border border-line-subtle bg-surface-raised p-5 flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-medium">Language / Sprache</h2>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <h2 className="text-ui-md font-medium text-ink-primary">Language / Sprache</h2>
+            <p className="text-xs text-ink-tertiary mt-0.5">
               Studio interface language.
             </p>
           </div>
           <select
             value={locale}
             onChange={(e) => setLocale(e.target.value as "en" | "de")}
-            className="text-sm rounded-md border border-slate-300 px-2 py-1 bg-white"
+            className="text-sm rounded-md border border-line-subtle px-2 py-1 bg-surface-raised"
           >
             <option value="en">English</option>
             <option value="de">Deutsch</option>
@@ -185,46 +186,46 @@ export default function StudioSettingsPage() {
         <ApiTokensSection />
 
         {/* Branding-Link */}
-        <section className="rounded-lg border border-slate-200 bg-white p-5 flex items-center justify-between">
+        <section className="rounded-lg border border-line-subtle bg-surface-raised p-5 flex items-center justify-between">
           <div>
             <h2 className="text-sm font-medium">{t("settings.branding")}</h2>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-ink-tertiary mt-0.5">
               {t("settings.brandingDesc")}
             </p>
           </div>
           <Link
             href="/studio/brandings"
-            className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-50"
+            className="text-sm px-3 py-1.5 rounded-md border border-line-subtle hover:bg-surface-sunken"
           >
             {t("settings.manage")}
           </Link>
         </section>
 
         {/* Templates-Link */}
-        <section className="rounded-lg border border-slate-200 bg-white p-5 flex items-center justify-between">
+        <section className="rounded-lg border border-line-subtle bg-surface-raised p-5 flex items-center justify-between">
           <div>
             <h2 className="text-sm font-medium">{t("settings.templates")}</h2>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-ink-tertiary mt-0.5">
               {t("settings.templatesDesc")}
             </p>
           </div>
           <Link
             href="/studio/templates"
-            className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-50"
+            className="text-sm px-3 py-1.5 rounded-md border border-line-subtle hover:bg-surface-sunken"
           >
             {t("settings.manage")}
           </Link>
         </section>
 
         {/* Custom Domain */}
-        <section className="rounded-lg border border-slate-200 bg-white p-5 space-y-3">
+        <section className="rounded-lg border border-line-subtle bg-surface-raised p-5 space-y-3">
           <h2 className="text-sm font-medium">Custom Domain</h2>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-ink-tertiary">
             Eigene Domain für deine Galerien — z.B.{" "}
-            <code className="bg-slate-100 px-1 rounded">bilder.mein-studio.de</code>.
+            <code className="bg-surface-sunken px-1 rounded">bilder.mein-studio.de</code>.
             Richte einen CNAME oder A-Record auf die Lumio-Instanz, dann
             trage die Domain hier ein. Galerien sind unter
-            <code className="bg-slate-100 px-1 mx-1 rounded">
+            <code className="bg-surface-sunken px-1 mx-1 rounded">
               https://deine-domain/g/&lt;slug&gt;
             </code>
             erreichbar.
@@ -234,18 +235,18 @@ export default function StudioSettingsPage() {
               value={domain}
               onChange={(e) => setDomain(e.target.value.toLowerCase())}
               placeholder="z.B. bilder.mein-studio.de"
-              className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-mono"
+              className="flex-1 rounded-md border border-line-subtle px-3 py-2 text-sm font-mono"
             />
             <button
               onClick={saveDomain}
               disabled={domainSaving}
-              className="text-sm px-3 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50"
+              className="text-sm px-3 py-2 rounded-md bg-accent text-accent-contrast hover:bg-accent-hover disabled:opacity-50"
             >
               {domainSaving ? "Speichert…" : "Speichern"}
             </button>
           </div>
           {settings.customDomain && (
-            <div className="text-xs text-slate-500 bg-amber-50 border border-amber-200 rounded p-2">
+            <div className="text-xs text-ink-tertiary bg-semantic-warning/10 border border-semantic-warning/30 rounded p-2">
               <strong>Hinweis:</strong> DNS-Änderungen können bis zu 48h
               dauern, bis sie überall propagiert sind. Stelle sicher, dass
               ein TLS-Zertifikat für diese Domain bereitsteht (Caddy
@@ -256,9 +257,9 @@ export default function StudioSettingsPage() {
         </section>
 
         {/* Watermark-Text */}
-        <section className="rounded-lg border border-slate-200 bg-white p-5 space-y-3">
+        <section className="rounded-lg border border-line-subtle bg-surface-raised p-5 space-y-3">
           <h2 className="text-sm font-medium">Wasserzeichen — Text</h2>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-ink-tertiary">
             Wird als wiederholtes diagonales Muster über Vorschaubilder gelegt,
             wenn eine Galerie auf <em>watermarkEnabled</em> steht und kein
             Bild-Wasserzeichen hochgeladen ist. Leer = Studio-Name wird
@@ -270,12 +271,12 @@ export default function StudioSettingsPage() {
               onChange={(e) => setText(e.target.value)}
               placeholder={settings.name}
               maxLength={200}
-              className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm"
+              className="flex-1 rounded-md border border-line-subtle px-3 py-2 text-sm"
             />
             <button
               onClick={saveText}
               disabled={textSaving}
-              className="text-sm px-3 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50"
+              className="text-sm px-3 py-2 rounded-md bg-accent text-accent-contrast hover:bg-accent-hover disabled:opacity-50"
             >
               {textSaving ? "Speichert…" : "Speichern"}
             </button>
@@ -283,16 +284,16 @@ export default function StudioSettingsPage() {
         </section>
 
         {/* Watermark-Bild */}
-        <section className="rounded-lg border border-slate-200 bg-white p-5 space-y-3">
+        <section className="rounded-lg border border-line-subtle bg-surface-raised p-5 space-y-3">
           <h2 className="text-sm font-medium">Wasserzeichen — Bild</h2>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-ink-tertiary">
             PNG oder JPEG, transparenter Hintergrund empfohlen. Wird mit 35 %
             Opazität mittig über die Vorschau gelegt — bei aktiviertem
             Wasserzeichen statt des Text-Musters.
           </p>
 
           {settings.watermarkImageKey ? (
-            <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded px-3 py-2">
+            <div className="flex items-center justify-between bg-surface-sunken border border-line-subtle rounded px-3 py-2">
               <div className="text-xs font-mono truncate">
                 {settings.watermarkImageKey.split("/").pop()}
               </div>
@@ -305,7 +306,7 @@ export default function StudioSettingsPage() {
               </button>
             </div>
           ) : (
-            <div className="text-xs text-slate-400">
+            <div className="text-xs text-ink-tertiary">
               Kein Wasserzeichen-Bild hochgeladen.
             </div>
           )}
@@ -325,7 +326,7 @@ export default function StudioSettingsPage() {
             <button
               onClick={() => fileInput.current?.click()}
               disabled={imageSaving}
-              className="text-sm px-3 py-2 rounded-md border border-slate-300 hover:bg-slate-50 disabled:opacity-50"
+              className="text-sm px-3 py-2 rounded-md border border-line-subtle hover:bg-surface-sunken disabled:opacity-50"
             >
               {imageSaving
                 ? "Lädt hoch…"
@@ -333,12 +334,12 @@ export default function StudioSettingsPage() {
                 ? "Bild ersetzen"
                 : "Bild hochladen"}
             </button>
-            <span className="text-xs text-slate-400 ml-2">
+            <span className="text-xs text-ink-tertiary ml-2">
               Max. 20 MiB · PNG/JPEG
             </span>
           </div>
 
-          <div className="text-xs text-slate-500 bg-amber-50 border border-amber-200 rounded p-2">
+          <div className="text-xs text-ink-tertiary bg-semantic-warning/10 border border-semantic-warning/30 rounded p-2">
             <strong>Hinweis:</strong> Eine Änderung wirkt erst, wenn das
             Wasserzeichen einer Galerie neu generiert wird. Schalte
             <em> watermarkEnabled</em> aus und wieder an, oder warte auf den
@@ -346,6 +347,6 @@ export default function StudioSettingsPage() {
           </div>
         </section>
       </div>
-    </main>
+    </>
   );
 }

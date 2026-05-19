@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, type BrandingDetail } from "@/lib/api";
+import { PageHeader } from "@/components/studio/PageHeader";
+import { Button } from "@/components/ui";
 
 export default function BrandingEditorPage() {
   const router = useRouter();
@@ -135,70 +137,56 @@ export default function BrandingEditorPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen flex items-center justify-center">
-        <div className="text-sm text-slate-500">Lädt…</div>
-      </main>
+      <div className="flex items-center justify-center h-screen text-ui text-ink-tertiary">
+        Lädt…
+      </div>
     );
   }
   if (!branding) {
     return (
-      <main className="min-h-screen p-8">
-        <div className="text-sm text-red-700">
+      <div className="px-6 sm:px-8 py-8">
+        <div className="text-ui text-semantic-danger">
           {error ?? "Profil nicht gefunden."}
         </div>
-      </main>
+      </div>
     );
   }
 
   const isDefault = defaultId === id;
 
   return (
-    <main className="min-h-screen p-8">
-      <div className="max-w-6xl mx-auto space-y-6">
-        <header className="border-b border-slate-200 pb-4 flex items-end justify-between flex-wrap gap-2">
-          <div>
-            <div className="text-xs">
-              <Link
-                href="/studio/brandings"
-                className="text-slate-500 hover:text-slate-900"
-              >
-                ← Branding
-              </Link>
-            </div>
-            <h1 className="text-2xl font-semibold mt-2">{branding.name}</h1>
-            {isDefault && (
-              <span className="inline-block mt-1 text-[10px] font-medium uppercase tracking-wider bg-green-100 text-green-700 px-1.5 py-0.5 rounded">
-                Tenant-Default
-              </span>
-            )}
-          </div>
-          <div className="flex gap-2">
+    <>
+      <PageHeader
+        breadcrumb={[
+          { label: "Studio", href: "/studio" },
+          { label: "Branding", href: "/studio/brandings" },
+          { label: branding.name },
+        ]}
+        title={branding.name}
+        description={
+          isDefault ? "Tenant-Default — wird für Galerien ohne explizites Branding verwendet" : undefined
+        }
+        actions={
+          <>
             {!isDefault && (
-              <button
-                onClick={makeDefault}
-                className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-100"
-              >
+              <Button variant="secondary" onClick={makeDefault}>
                 Als Default
-              </button>
+              </Button>
             )}
-            <button
-              onClick={remove}
-              className="text-sm px-3 py-1.5 rounded-md border border-red-300 text-red-700 hover:bg-red-50"
-            >
+            <Button variant="danger" onClick={remove}>
               Löschen
-            </button>
-            <button
-              onClick={save}
-              disabled={saving}
-              className="text-sm px-3 py-1.5 rounded-md bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50"
-            >
+            </Button>
+            <Button variant="primary" onClick={save} disabled={saving}>
               {saving ? "Speichert…" : "Speichern"}
-            </button>
-          </div>
-        </header>
+            </Button>
+          </>
+        }
+      />
+
+      <div className="px-6 sm:px-8 py-6 space-y-6 max-w-6xl">
 
         {error && (
-          <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+          <div className="text-sm text-semantic-danger bg-semantic-danger/10 border border-semantic-danger/30 rounded-md px-3 py-2">
             {error}
           </div>
         )}
@@ -210,7 +198,7 @@ export default function BrandingEditorPage() {
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm"
               />
             </Field>
 
@@ -227,7 +215,7 @@ export default function BrandingEditorPage() {
               <select
                 value={fontFamily}
                 onChange={(e) => setFontFamily(e.target.value)}
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white"
+                className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm bg-surface-raised"
               >
                 <option value="Inter">Inter (Standard)</option>
                 <option value="Playfair Display">Playfair Display (Serif)</option>
@@ -246,7 +234,7 @@ export default function BrandingEditorPage() {
                 onChange={(e) => setIntroText(e.target.value)}
                 rows={2}
                 placeholder="z.B. Begrüßung des Kunden"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm"
               />
             </Field>
 
@@ -255,7 +243,7 @@ export default function BrandingEditorPage() {
                 value={footerText}
                 onChange={(e) => setFooterText(e.target.value)}
                 placeholder="© 2026 Mein Studio · Alle Rechte vorbehalten"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm"
               />
             </Field>
 
@@ -291,7 +279,7 @@ export default function BrandingEditorPage() {
                 onChange={(e) => setCustomCss(e.target.value)}
                 rows={5}
                 placeholder=".lumio-gallery { /* … */ }"
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-xs font-mono"
+                className="w-full rounded-md border border-line-subtle px-3 py-2 text-xs font-mono"
               />
             </Field>
           </div>
@@ -307,14 +295,14 @@ export default function BrandingEditorPage() {
               introText={introText}
               footerText={footerText}
             />
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-ink-tertiary">
               Vorschau zeigt das Branding ungefähr so, wie Kunden es sehen.
               Bilder und Layout passen sich an die echte Galerie an.
             </p>
           </div>
         </div>
       </div>
-    </main>
+    </>
   );
 }
 
@@ -330,7 +318,7 @@ function Field({
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-xs font-medium text-slate-700">{label}</label>
+      <label className="text-xs font-medium text-ink-secondary">{label}</label>
       {children}
     </div>
   );
@@ -349,12 +337,12 @@ function ColorField({
         type="color"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-12 h-9 rounded border border-slate-300 cursor-pointer"
+        className="w-12 h-9 rounded border border-line-subtle cursor-pointer"
       />
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-mono"
+        className="flex-1 rounded-md border border-line-subtle px-3 py-2 text-sm font-mono"
         pattern="^#[0-9a-fA-F]{6}$"
       />
     </div>
@@ -384,8 +372,8 @@ function AssetField({
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-xs font-medium text-slate-700">{label}</label>
-      <div className="rounded-md border border-slate-300 bg-slate-50 p-3 space-y-2">
+      <label className="text-xs font-medium text-ink-secondary">{label}</label>
+      <div className="rounded-md border border-line-subtle bg-surface-sunken p-3 space-y-2">
         <input
           ref={inputRef}
           type="file"
@@ -398,7 +386,7 @@ function AssetField({
           }}
         />
         {imageUrl ? (
-          <div className="bg-white border border-slate-200 rounded p-2 flex items-center justify-center min-h-[64px]">
+          <div className="bg-surface-raised border border-line-subtle rounded p-2 flex items-center justify-center min-h-[64px]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={imageUrl}
@@ -407,7 +395,7 @@ function AssetField({
             />
           </div>
         ) : (
-          <div className="text-xs text-slate-400 text-center py-3">
+          <div className="text-xs text-ink-tertiary text-center py-3">
             Noch nichts hochgeladen.
           </div>
         )}
@@ -415,7 +403,7 @@ function AssetField({
           <button
             onClick={onPick}
             disabled={uploading}
-            className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-white disabled:opacity-50"
+            className="text-xs px-2 py-1 rounded border border-line-subtle hover:bg-surface-raised disabled:opacity-50"
           >
             {uploading ? "…" : imageUrl ? "Ersetzen" : "Hochladen"}
           </button>
@@ -428,7 +416,7 @@ function AssetField({
             </button>
           )}
         </div>
-        <div className="text-[10px] text-slate-500">{hint}</div>
+        <div className="text-[10px] text-ink-tertiary">{hint}</div>
       </div>
     </div>
   );
@@ -451,7 +439,7 @@ function BrandingPreview({
 }) {
   return (
     <div
-      className="rounded-lg overflow-hidden border border-slate-200 shadow-sm"
+      className="rounded-lg overflow-hidden border border-line-subtle shadow-sm"
       style={{ backgroundColor: primaryColor, fontFamily }}
     >
       {/* Header */}
@@ -460,20 +448,20 @@ function BrandingPreview({
           // eslint-disable-next-line @next/next/no-img-element
           <img src={logoUrl} alt="" className="h-8 max-w-[60%] object-contain" />
         ) : (
-          <div className="text-white/40 text-xs italic">Logo</div>
+          <div className="text-accent-contrast/40 text-xs italic">Logo</div>
         )}
       </div>
 
       {/* Body */}
-      <div className="p-6 space-y-4 text-white">
+      <div className="p-6 space-y-4 text-accent-contrast">
         <h2 className="text-xl">Demo-Galerie</h2>
         {introText && (
           <p className="text-sm opacity-80 whitespace-pre-wrap">{introText}</p>
         )}
         <div className="grid grid-cols-3 gap-2">
-          <div className="aspect-square bg-white/10 rounded" />
-          <div className="aspect-square bg-white/10 rounded" />
-          <div className="aspect-square bg-white/10 rounded" />
+          <div className="aspect-square bg-surface-raised/10 rounded" />
+          <div className="aspect-square bg-surface-raised/10 rounded" />
+          <div className="aspect-square bg-surface-raised/10 rounded" />
         </div>
         <button
           className="text-sm px-3 py-1.5 rounded font-medium"
@@ -485,7 +473,7 @@ function BrandingPreview({
 
       {/* Footer */}
       {footerText && (
-        <div className="p-4 mt-4 border-t border-white/10 text-xs text-white/60 text-center">
+        <div className="p-4 mt-4 border-t border-white/10 text-xs text-accent-contrast/60 text-center">
           {footerText}
         </div>
       )}

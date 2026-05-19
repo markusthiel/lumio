@@ -100,28 +100,28 @@ export function TwoFactorSection() {
   }
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white p-5 space-y-3">
+    <section className="rounded-lg border border-line-subtle bg-surface-raised p-5 space-y-3">
       <h2 className="text-sm font-medium">{t("settings.twoFactor")}</h2>
 
       {error && (
-        <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+        <div className="text-sm text-semantic-danger bg-semantic-danger/10 border border-semantic-danger/30 rounded-md px-3 py-2">
           {error}
         </div>
       )}
 
       {state.kind === "loading" && (
-        <div className="text-xs text-slate-500">{t("common.loading")}</div>
+        <div className="text-xs text-ink-tertiary">{t("common.loading")}</div>
       )}
 
       {state.kind === "off" && (
         <>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-ink-tertiary">
             {t("settings.twoFactorOff")}
           </p>
           <button
             onClick={beginSetup}
             disabled={pending}
-            className="text-sm px-3 py-1.5 rounded-md bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50"
+            className="text-sm px-3 py-1.5 rounded-md bg-accent text-accent-contrast hover:bg-accent-hover disabled:opacity-50"
           >
             {t("settings.twoFactorEnable")}
           </button>
@@ -130,7 +130,7 @@ export function TwoFactorSection() {
 
       {state.kind === "on" && (
         <>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-ink-tertiary">
             {t("settings.twoFactorOn", { count: state.remaining })}
           </p>
           <button
@@ -139,7 +139,7 @@ export function TwoFactorSection() {
               setCode("");
               setError(null);
             }}
-            className="text-sm px-3 py-1.5 rounded-md border border-red-300 text-red-700 hover:bg-red-50"
+            className="text-sm px-3 py-1.5 rounded-md border border-red-300 text-semantic-danger hover:bg-semantic-danger/10"
           >
             {t("settings.twoFactorDisable")}
           </button>
@@ -148,22 +148,22 @@ export function TwoFactorSection() {
 
       {state.kind === "setup" && (
         <>
-          <p className="text-xs text-slate-500">{t("settings.twoFactorScan")}</p>
+          <p className="text-xs text-ink-tertiary">{t("settings.twoFactorScan")}</p>
           <div className="flex justify-center py-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={state.qrDataUrl}
               alt="QR code"
-              className="rounded border border-slate-200"
+              className="rounded border border-line-subtle"
               width={280}
               height={280}
             />
           </div>
-          <details className="text-xs text-slate-500">
+          <details className="text-xs text-ink-tertiary">
             <summary className="cursor-pointer">
               Manuelle Einrichtung
             </summary>
-            <code className="block mt-1 bg-slate-50 p-2 rounded break-all">
+            <code className="block mt-1 bg-surface-sunken p-2 rounded break-all">
               {state.otpauthUri}
             </code>
           </details>
@@ -171,14 +171,14 @@ export function TwoFactorSection() {
           <div className="flex gap-2">
             <button
               onClick={() => setState({ kind: "off" })}
-              className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-100"
+              className="text-sm px-3 py-1.5 rounded-md border border-line-subtle hover:bg-surface-sunken"
             >
               {t("common.cancel")}
             </button>
             <button
               onClick={confirmSetup}
               disabled={pending || code.length < 6}
-              className="text-sm px-3 py-1.5 rounded-md bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50"
+              className="text-sm px-3 py-1.5 rounded-md bg-accent text-accent-contrast hover:bg-accent-hover disabled:opacity-50"
             >
               {pending ? t("common.verifying") : t("common.verify")}
             </button>
@@ -195,21 +195,21 @@ export function TwoFactorSection() {
 
       {state.kind === "disable" && (
         <>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-ink-tertiary">
             {t("settings.twoFactorConfirmDisable")}
           </p>
           <CodeInput value={code} onChange={setCode} />
           <div className="flex gap-2">
             <button
               onClick={() => void refreshFromMe()}
-              className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-100"
+              className="text-sm px-3 py-1.5 rounded-md border border-line-subtle hover:bg-surface-sunken"
             >
               {t("common.cancel")}
             </button>
             <button
               onClick={disable}
               disabled={pending || code.length < 6}
-              className="text-sm px-3 py-1.5 rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+              className="text-sm px-3 py-1.5 rounded-md bg-semantic-danger text-accent-contrast hover:bg-semantic-danger/90 disabled:opacity-50"
             >
               {t("settings.twoFactorDisable")}
             </button>
@@ -235,7 +235,7 @@ function CodeInput({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder="123456"
-      className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm font-mono tracking-widest text-center"
+      className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm font-mono tracking-widest text-center"
     />
   );
 }
@@ -270,12 +270,12 @@ function BackupCodesPanel({
 
   return (
     <>
-      <p className="text-xs text-slate-700 bg-amber-50 border border-amber-200 rounded-md p-2">
+      <p className="text-xs text-ink-secondary bg-semantic-warning/10 border border-semantic-warning/30 rounded-md p-2">
         {t("settings.twoFactorBackup")}
       </p>
       <div
         ref={wrap}
-        className="grid grid-cols-2 gap-2 text-sm font-mono bg-slate-50 border border-slate-200 rounded p-3"
+        className="grid grid-cols-2 gap-2 text-sm font-mono bg-surface-sunken border border-line-subtle rounded p-3"
       >
         {codes.map((c) => (
           <div key={c} className="select-all">
@@ -286,13 +286,13 @@ function BackupCodesPanel({
       <div className="flex gap-2">
         <button
           onClick={copyAll}
-          className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50"
+          className="text-xs px-2 py-1 rounded border border-line-subtle hover:bg-surface-sunken"
         >
           {copied ? "✓ kopiert" : "Kopieren"}
         </button>
         <button
           onClick={onDone}
-          className="ml-auto text-sm px-3 py-1.5 rounded-md bg-slate-900 text-white hover:bg-slate-800"
+          className="ml-auto text-sm px-3 py-1.5 rounded-md bg-accent text-accent-contrast hover:bg-accent-hover"
         >
           {t("settings.twoFactorBackupSaved")}
         </button>

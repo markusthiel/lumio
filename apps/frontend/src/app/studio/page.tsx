@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, type ApiUser, type Gallery, type GalleryTemplate } from "@/lib/api";
 import { useT } from "@/lib/i18n";
+import { PageHeader } from "@/components/studio/PageHeader";
+import { Button, Input, Textarea, Select } from "@/components/ui";
 
 export default function StudioPage() {
   const router = useRouter();
@@ -34,92 +36,65 @@ export default function StudioPage() {
     setGalleries(list.galleries);
   }
 
-  async function handleLogout() {
-    await api.logout();
-    router.push("/login");
-  }
-
   if (loading) {
     return (
-      <main className="min-h-screen flex items-center justify-center">
-        <div className="text-sm text-slate-500">Lädt…</div>
-      </main>
+      <div className="flex items-center justify-center h-screen text-ui text-ink-tertiary">
+        Lädt…
+      </div>
     );
   }
   if (!user) return null;
 
   return (
-    <main className="min-h-screen p-8">
-      <div className="max-w-5xl mx-auto space-y-6">
-        <header className="flex items-center justify-between border-b border-slate-200 pb-4">
-          <div>
-            <div className="text-xs font-medium text-brand-accent uppercase tracking-wider">
-              Lumio · Studio
-            </div>
-            <h1 className="text-2xl font-semibold">
-              {user.name ?? user.email}
-            </h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowCreate(true)}
-              className="text-sm px-3 py-1.5 rounded-md bg-slate-900 text-white hover:bg-slate-800 transition"
-            >
-              {t("studio.newGallery")}
-            </button>
-            <Link
-              href="/studio/audit"
-              className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-100 transition"
-            >
-              Audit
-            </Link>
-            <Link
-              href="/studio/settings"
-              className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-100 transition"
-            >
-              {t("nav.settings")}
-            </Link>
-            <button
-              onClick={handleLogout}
-              className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-100 transition"
-            >
-              {t("nav.logout")}
-            </button>
-          </div>
-        </header>
+    <>
+      <PageHeader
+        title="Galerien"
+        description={user.name ? `Angemeldet als ${user.name}` : user.email}
+        actions={
+          <Button variant="primary" size="md" onClick={() => setShowCreate(true)}>
+            {t("studio.newGallery")}
+          </Button>
+        }
+      />
 
+      <div className="px-6 sm:px-8 py-6">
         {galleries.length === 0 ? (
-          <div className="rounded-lg border-2 border-dashed border-slate-200 p-12 text-center">
-            <div className="text-slate-500 text-sm">
-              {t("studio.noGalleries")}
-            </div>
+          <div className="rounded-md border border-dashed border-line-subtle bg-surface-sunken p-12 text-center">
+            <p className="text-ink-tertiary text-ui">{t("studio.noGalleries")}</p>
             <button
+              type="button"
               onClick={() => setShowCreate(true)}
-              className="mt-3 text-sm font-medium text-brand-accent hover:underline"
+              className="mt-3 text-ui-sm font-medium text-accent hover:text-accent-hover transition-colors duration-motion"
             >
               {t("studio.firstGallery")}
             </button>
           </div>
         ) : (
-          <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {galleries.map((g) => (
-              <li key={g.id}>
+          <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {galleries.map((g, i) => (
+              <li
+                key={g.id}
+                className="animate-reveal"
+                style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }}
+              >
                 <Link
                   href={`/studio/${g.id}`}
-                  className="block rounded-lg border border-slate-200 bg-white hover:border-slate-400 hover:shadow-sm transition p-5"
+                  className="block rounded-md border border-line-subtle bg-surface-raised hover:border-line-strong hover:bg-surface-overlay transition-all duration-motion ease-out p-4"
                 >
-                  <div className="flex items-center justify-between">
-                    <h2 className="font-medium truncate">{g.title}</h2>
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="text-ui-md font-medium text-ink-primary truncate">
+                      {g.title}
+                    </h2>
                     <StatusBadge status={g.status} />
                   </div>
                   {g.description && (
-                    <p className="text-xs text-slate-500 mt-1 line-clamp-2">
+                    <p className="text-ui-sm text-ink-tertiary mt-1.5 line-clamp-2">
                       {g.description}
                     </p>
                   )}
-                  <div className="text-xs text-slate-400 mt-3 flex items-center gap-3">
+                  <div className="text-ui-xs text-ink-tertiary mt-4 flex items-center gap-2">
                     <span>{g.fileCount ?? 0} Files</span>
-                    <span>·</span>
+                    <span className="text-ink-tertiary/40">·</span>
                     <span className="capitalize">{g.mode}</span>
                   </div>
                 </Link>
@@ -139,21 +114,26 @@ export default function StudioPage() {
           }}
         />
       )}
-    </main>
+    </>
   );
 }
 
 function StatusBadge({ status }: { status: Gallery["status"] }) {
   const styles: Record<Gallery["status"], string> = {
-    draft: "bg-slate-100 text-slate-600",
-    live: "bg-green-100 text-green-700",
-    archived: "bg-amber-100 text-amber-700",
+    draft: "bg-surface-sunken text-ink-tertiary border-line-subtle",
+    live: "bg-semantic-success/12 text-semantic-success border-semantic-success/30",
+    archived: "bg-semantic-warning/12 text-semantic-warning border-semantic-warning/30",
+  };
+  const labels: Record<Gallery["status"], string> = {
+    draft: "Entwurf",
+    live: "Live",
+    archived: "Archiv",
   };
   return (
     <span
-      className={`text-[10px] font-medium uppercase tracking-wider px-1.5 py-0.5 rounded ${styles[status]}`}
+      className={`text-ui-xs font-medium uppercase tracking-wider px-1.5 py-0.5 rounded-xs border ${styles[status]}`}
     >
-      {status}
+      {labels[status]}
     </span>
   );
 }
@@ -177,21 +157,17 @@ function CreateGalleryDialog({
   const [error, setError] = useState<string | null>(null);
   const [descriptionDirty, setDescriptionDirty] = useState(false);
 
-  // Templates beim ersten Öffnen laden
   useEffect(() => {
     (async () => {
       try {
         const res = await api.listTemplates();
         setTemplates(res.templates);
       } catch {
-        // Falls's nicht klappt: Dialog läuft auch ohne
+        /* Templates sind optional */
       }
     })();
   }, []);
 
-  // Wenn ein Template gewählt wird, übernehmen wir die Defaults ins Form.
-  // Description nur, wenn der User noch nichts getippt hat — sonst überschreiben
-  // wir Userinput, was nervig wäre.
   function applyTemplate(id: string) {
     setTemplateId(id);
     const t = templates.find((x) => x.id === id);
@@ -225,26 +201,29 @@ function CreateGalleryDialog({
 
   return (
     <div
-      className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in"
       onClick={onClose}
     >
       <form
         onClick={(e) => e.stopPropagation()}
         onSubmit={onSubmit}
-        className="w-full max-w-md bg-white rounded-lg p-6 space-y-4"
+        className="w-full max-w-md bg-surface-overlay border border-line-subtle rounded-md p-6 space-y-4 shadow-elev-3"
       >
-        <h2 className="text-lg font-semibold">Neue Galerie</h2>
+        <h2 className="text-display-sm font-medium text-ink-primary">
+          Neue Galerie
+        </h2>
 
         {templates.length > 0 && (
-          <div className="space-y-1">
-            <label htmlFor="template" className="text-sm font-medium">
-              Template <span className="text-slate-400">(optional)</span>
-            </label>
-            <select
+          <Field
+            label="Template"
+            optionalLabel
+            htmlFor="template"
+            hint="Vorlage übernimmt Modus, Download-Setting und Beschreibung"
+          >
+            <Select
               id="template"
               value={templateId}
               onChange={(e) => applyTemplate(e.target.value)}
-              className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-accent"
             >
               <option value="">— ohne Template —</option>
               {templates.map((t) => (
@@ -252,30 +231,23 @@ function CreateGalleryDialog({
                   {t.name}
                 </option>
               ))}
-            </select>
-          </div>
+            </Select>
+          </Field>
         )}
 
-        <div className="space-y-1">
-          <label htmlFor="title" className="text-sm font-medium">
-            Titel
-          </label>
-          <input
+        <Field label="Titel" htmlFor="title">
+          <Input
             id="title"
             required
             autoFocus
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-accent"
             placeholder="z.B. Hochzeit Müller-Schmidt 2026"
           />
-        </div>
+        </Field>
 
-        <div className="space-y-1">
-          <label htmlFor="desc" className="text-sm font-medium">
-            Beschreibung <span className="text-slate-400">(optional)</span>
-          </label>
-          <textarea
+        <Field label="Beschreibung" htmlFor="desc" optionalLabel>
+          <Textarea
             id="desc"
             value={description}
             onChange={(e) => {
@@ -283,60 +255,74 @@ function CreateGalleryDialog({
               setDescriptionDirty(true);
             }}
             rows={2}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-accent"
           />
-        </div>
+        </Field>
 
-        <div className="space-y-1">
-          <label htmlFor="mode" className="text-sm font-medium">
-            Modus
-          </label>
-          <select
+        <Field label="Modus" htmlFor="mode">
+          <Select
             id="mode"
             value={mode}
             onChange={(e) => setMode(e.target.value as typeof mode)}
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand-accent"
           >
             <option value="collaboration">
               Collaboration (Auswahl, Kommentare)
             </option>
             <option value="presentation">Presentation (nur Anzeige)</option>
-          </select>
-        </div>
+          </Select>
+        </Field>
 
-        <label className="flex items-center gap-2 text-sm">
+        <label className="flex items-center gap-2 text-ui text-ink-primary cursor-pointer">
           <input
             type="checkbox"
             checked={downloadEnabled}
             onChange={(e) => setDownloadEnabled(e.target.checked)}
-            className="rounded border-slate-300"
+            className="accent-accent"
           />
           Download für Kunden erlauben
         </label>
 
         {error && (
-          <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+          <div className="text-ui-sm text-semantic-danger bg-semantic-danger/10 border border-semantic-danger/30 rounded-sm px-3 py-2">
             {error}
           </div>
         )}
 
         <div className="flex justify-end gap-2 pt-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-sm px-3 py-2 rounded-md border border-slate-300 hover:bg-slate-100"
-          >
+          <Button type="button" variant="ghost" onClick={onClose}>
             Abbrechen
-          </button>
-          <button
-            type="submit"
-            disabled={pending}
-            className="text-sm px-3 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50"
-          >
+          </Button>
+          <Button type="submit" variant="primary" disabled={pending}>
             {pending ? "Wird erstellt…" : "Erstellen"}
-          </button>
+          </Button>
         </div>
       </form>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  htmlFor,
+  optionalLabel,
+  hint,
+  children,
+}: {
+  label: string;
+  htmlFor: string;
+  optionalLabel?: boolean;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label htmlFor={htmlFor} className="text-ui-sm font-medium text-ink-primary block">
+        {label}
+        {optionalLabel && (
+          <span className="text-ink-tertiary font-normal ml-1">(optional)</span>
+        )}
+      </label>
+      {children}
+      {hint && <p className="text-ui-xs text-ink-tertiary">{hint}</p>}
     </div>
   );
 }

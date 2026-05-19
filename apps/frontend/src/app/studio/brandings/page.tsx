@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, type BrandingDetail } from "@/lib/api";
+import { PageHeader } from "@/components/studio/PageHeader";
+import { Button } from "@/components/ui";
 
 export default function BrandingsPage() {
   const router = useRouter();
@@ -33,45 +35,38 @@ export default function BrandingsPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen flex items-center justify-center">
-        <div className="text-sm text-slate-500">Lädt…</div>
-      </main>
+      <div className="flex items-center justify-center h-screen text-ui text-ink-tertiary">
+        Lädt…
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen p-8">
-      <div className="max-w-5xl mx-auto space-y-6">
-        <header className="border-b border-slate-200 pb-4">
-          <div className="text-xs">
-            <Link href="/studio" className="text-slate-500 hover:text-slate-900">
-              ← Studio
-            </Link>
-          </div>
-          <div className="flex items-end justify-between mt-2">
-            <div>
-              <h1 className="text-2xl font-semibold">Branding</h1>
-              <p className="text-sm text-slate-500">
-                Logo, Farben und Schrift für deine Kunden-Galerien.
-              </p>
-            </div>
-            <button
-              onClick={() => setShowCreate(true)}
-              className="text-sm px-3 py-1.5 rounded-md bg-slate-900 text-white hover:bg-slate-800"
-            >
-              Neues Profil
-            </button>
-          </div>
-        </header>
+    <>
+      <PageHeader
+        breadcrumb={[
+          { label: "Studio", href: "/studio" },
+          { label: "Branding" },
+        ]}
+        title="Branding"
+        description="Logo, Farben und Schrift für deine Kunden-Galerien."
+        actions={
+          <Button variant="primary" onClick={() => setShowCreate(true)}>
+            Neues Profil
+          </Button>
+        }
+      />
+
+      <div className="px-6 sm:px-8 py-6 space-y-6 max-w-6xl">
 
         {brandings.length === 0 ? (
-          <div className="rounded-lg border-2 border-dashed border-slate-200 p-12 text-center">
-            <div className="text-slate-500 text-sm">
+          <div className="rounded-md border border-dashed border-line-subtle bg-surface-sunken p-12 text-center">
+            <div className="text-ink-tertiary text-ui">
               Noch keine Branding-Profile angelegt.
             </div>
             <button
               onClick={() => setShowCreate(true)}
-              className="mt-3 text-sm font-medium text-brand-accent hover:underline"
+              className="mt-3 text-ui-sm font-medium text-accent hover:text-accent-hover transition-colors duration-motion"
             >
               Erstes Profil erstellen →
             </button>
@@ -82,7 +77,7 @@ export default function BrandingsPage() {
               <li key={b.id}>
                 <Link
                   href={`/studio/brandings/${b.id}`}
-                  className="block rounded-lg border border-slate-200 bg-white hover:border-slate-400 hover:shadow-sm transition overflow-hidden"
+                  className="block rounded-lg border border-line-subtle bg-surface-raised hover:border-line-strong hover:shadow-sm transition overflow-hidden"
                 >
                   <div
                     className="h-20 flex items-center justify-center"
@@ -111,12 +106,12 @@ export default function BrandingsPage() {
                     <div className="flex items-center justify-between">
                       <div className="font-medium">{b.name}</div>
                       {defaultId === b.id && (
-                        <span className="text-[10px] font-medium uppercase tracking-wider bg-green-100 text-green-700 px-1.5 py-0.5 rounded">
+                        <span className="text-[10px] font-medium uppercase tracking-wider bg-semantic-success/15 text-semantic-success px-1.5 py-0.5 rounded">
                           Default
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                    <div className="flex items-center gap-2 text-xs text-ink-tertiary">
                       <ColorSwatch color={b.primaryColor} />
                       <ColorSwatch color={b.accentColor} />
                       <span className="ml-2">{b.fontFamily}</span>
@@ -138,14 +133,14 @@ export default function BrandingsPage() {
           }}
         />
       )}
-    </main>
+    </>
   );
 }
 
 function ColorSwatch({ color }: { color: string }) {
   return (
     <span
-      className="inline-block w-4 h-4 rounded border border-slate-200"
+      className="inline-block w-4 h-4 rounded border border-line-subtle"
       style={{ backgroundColor: color }}
       title={color}
     />
@@ -185,7 +180,7 @@ function CreateBrandingDialog({
       <form
         onClick={(e) => e.stopPropagation()}
         onSubmit={onSubmit}
-        className="w-full max-w-sm bg-white rounded-lg p-6 space-y-4"
+        className="w-full max-w-sm bg-surface-raised rounded-lg p-6 space-y-4"
       >
         <h2 className="text-lg font-semibold">Neues Branding-Profil</h2>
         <input
@@ -194,10 +189,10 @@ function CreateBrandingDialog({
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="z.B. Standard, Hochzeit, Newborn"
-          className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+          className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm"
         />
         {error && (
-          <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+          <div className="text-sm text-semantic-danger bg-semantic-danger/10 border border-semantic-danger/30 rounded-md px-3 py-2">
             {error}
           </div>
         )}
@@ -205,14 +200,14 @@ function CreateBrandingDialog({
           <button
             type="button"
             onClick={onClose}
-            className="text-sm px-3 py-2 rounded-md border border-slate-300 hover:bg-slate-100"
+            className="text-sm px-3 py-2 rounded-md border border-line-subtle hover:bg-surface-sunken"
           >
             Abbrechen
           </button>
           <button
             type="submit"
             disabled={pending}
-            className="text-sm px-3 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50"
+            className="text-sm px-3 py-2 rounded-md bg-accent text-accent-contrast hover:bg-accent-hover disabled:opacity-50"
           >
             {pending ? "Wird erstellt…" : "Erstellen"}
           </button>

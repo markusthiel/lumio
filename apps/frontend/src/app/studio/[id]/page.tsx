@@ -6,6 +6,8 @@ import Link from "next/link";
 import { api, type GalleryDetail, type GalleryFile } from "@/lib/api";
 import { uploadFiles, type UploadProgress } from "@/lib/upload";
 import { SharePanel } from "@/components/studio/SharePanel";
+import { PageHeader } from "@/components/studio/PageHeader";
+import { Button } from "@/components/ui";
 import { useT } from "@/lib/i18n";
 import { useGalleryEvents } from "@/lib/useGalleryEvents";
 import {
@@ -42,15 +44,9 @@ export default function GalleryDetailPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkPending, setBulkPending] = useState(false);
 
-  // Drag-and-Drop-Sortierung läuft via @dnd-kit. Drei Sensoren:
-  //   - PointerSensor: Mouse + Stylus (desktop default)
-  //   - TouchSensor: Finger. Activation-Constraint 250ms long-press, damit
-  //     normales Scrollen auf dem Phone nicht jedes Tile triggert.
-  //   - KeyboardSensor: Pfeiltasten + Space für Accessibility.
+  // DnD-Sensoren (siehe Sprint 17)
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 5 },
-    }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(TouchSensor, {
       activationConstraint: { delay: 250, tolerance: 8 },
     }),
@@ -76,10 +72,6 @@ export default function GalleryDetailPage() {
     setSelected(new Set());
   }, []);
 
-  // dnd-kit feuert handleDragEnd mit { active, over }; over kann null
-  // sein, wenn der User außerhalb aller Sortable-Items losgelassen hat.
-  // Wir bauen aus arrayMove die neue Reihenfolge, persistieren, und
-  // revertieren bei API-Fehler.
   const handleDragEnd = useCallback(
     async (e: DragEndEvent) => {
       if (!gallery || !e.over || e.active.id === e.over.id) return;
@@ -106,16 +98,8 @@ export default function GalleryDetailPage() {
   );
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  // Polling-Timer als Fallback — wenn der WebSocket weg ist (z.B. Proxy
-  // wirft uns raus und Reconnect klappt nicht), wollen wir nicht ewig auf
-  // einen festsitzenden processing-Status starren. Polling läuft DESHALB
-  // immer noch, aber mit größerem Intervall (10s) und nur, solange
-  // Files in nicht-finalem Status sind. Bei normalem Betrieb sieht der
-  // User die Updates über den WebSocket schon vorher, das Polling
-  // korrigiert nur den seltenen Edge-Case.
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Initialer Load
   const load = useCallback(async () => {
     try {
       const { gallery } = await api.getGallery(id);
@@ -142,7 +126,6 @@ export default function GalleryDetailPage() {
         if (!g) return g;
         const idx = g.files.findIndex((f) => f.id === event.fileId);
         if (idx < 0) {
-          // Unbekanntes File — lieber neu laden als raten
           void load();
           return g;
         }
@@ -155,21 +138,17 @@ export default function GalleryDetailPage() {
         };
         return { ...g, files: next };
       });
-      // Bei status=ready haben wir noch keine thumbUrl in der Payload —
-      // einmal neu fetchen, damit der Browser die signierte URL bekommt
       if (event.status === "ready") void load();
     } else if (event.type === "file.deleted") {
       setGallery((g) =>
         g ? { ...g, files: g.files.filter((f) => f.id !== event.fileId) } : g
       );
     } else if (event.type === "file.added") {
-      // Vollständiger Reload — wir brauchen die signierte thumbUrl
       void load();
     }
   });
 
-  // Fallback-Polling: nur solange noch Files in transienten Stati hängen,
-  // und nur alle 10 Sekunden (WebSocket liefert die Updates eigentlich).
+  // Fallback-Polling, falls die WS-Verbindung mal weg ist
   useEffect(() => {
     if (!gallery) return;
     const hasTransient = gallery.files.some(
@@ -189,7 +168,6 @@ export default function GalleryDetailPage() {
     };
   }, [gallery, load]);
 
-  // Upload-Handler
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
     const arr = Array.from(files);
@@ -238,9 +216,7 @@ export default function GalleryDetailPage() {
         count === 1
           ? t("studio.confirmDeleteOne")
           : t("studio.confirmDeleteMany", { count });
-      if (!confirm(msg)) {
-        return;
-      }
+      if (!confirm(msg)) return;
     }
     setBulkPending(true);
     try {
@@ -261,80 +237,81 @@ export default function GalleryDetailPage() {
 
   if (loading) {
     return (
-      <main className="min-h-screen flex items-center justify-center">
-        <div className="text-sm text-slate-500">{t("common.loading")}</div>
-      </main>
+      <div className="flex items-center justify-center h-screen text-ui text-ink-tertiary">
+        {t("common.loading")}
+      </div>
     );
   }
   if (!gallery) {
     return (
-      <main className="min-h-screen flex items-center justify-center">
-        <div className="text-sm text-slate-500">{t("studio.notFound")}</div>
-      </main>
+      <div className="flex items-center justify-center h-screen text-ui text-ink-tertiary">
+        {t("studio.notFound")}
+      </div>
     );
   }
 
   return (
-    <main className="min-h-screen p-8">
-      <div className="max-w-5xl mx-auto space-y-6">
-        <header className="border-b border-slate-200 pb-4">
-          <div className="text-xs">
+    <>
+      <PageHeader
+        breadcrumb={[
+          { label: "Studio", href: "/studio" },
+          { label: gallery.title },
+        ]}
+        title={gallery.title}
+        description={gallery.description || undefined}
+        actions={
+          <>
             <Link
-              href="/studio"
-              className="text-slate-500 hover:text-slate-900"
+              href={`/studio/${gallery.id}/proofing`}
+              className="text-ui-sm text-ink-secondary hover:text-ink-primary transition-colors duration-motion"
             >
-              ← Studio
+              {t("studio.proofingLink")}
             </Link>
-          </div>
-          <div className="flex items-end justify-between mt-2">
-            <div>
-              <h1 className="text-2xl font-semibold">{gallery.title}</h1>
-              {gallery.description && (
-                <p className="text-sm text-slate-500 mt-1">
-                  {gallery.description}
-                </p>
-              )}
-              <div className="text-xs text-slate-400 mt-2 flex gap-3">
-                <span>
-                  Slug:{" "}
-                  <code className="bg-slate-100 px-1 rounded">
-                    {gallery.slug}
-                  </code>
-                </span>
-                <span>·</span>
-                <span className="capitalize">{gallery.status}</span>
-                <span>·</span>
-                <span>{gallery.files.length} Files</span>
-              </div>
-            </div>
-            <button
+            <Button
+              variant={gallery.status === "live" ? "secondary" : "primary"}
               onClick={toggleLive}
               disabled={togglingStatus}
-              className={`text-sm px-3 py-1.5 rounded-md transition ${
-                gallery.status === "live"
-                  ? "border border-amber-300 text-amber-700 hover:bg-amber-50"
-                  : "bg-green-600 text-white hover:bg-green-700"
-              } disabled:opacity-50`}
             >
               {togglingStatus
                 ? "…"
                 : gallery.status === "live"
                 ? t("studio.setDraft")
                 : t("studio.setLive")}
-            </button>
-          </div>
-        </header>
+            </Button>
+          </>
+        }
+      />
 
-        {/* Quick-Nav */}
-        <nav className="flex gap-2 text-sm">
-          <Link
-            href={`/studio/${gallery.id}/proofing`}
-            className="px-3 py-1.5 rounded border border-slate-200 hover:bg-slate-50"
-          >
-            {t("studio.proofingLink")}
-          </Link>
-        </nav>
+      {/* Meta-Strip unter dem Header */}
+      <div className="px-6 sm:px-8 py-3 border-b border-line-subtle text-ui-xs text-ink-tertiary flex flex-wrap items-center gap-3">
+        <span className="flex items-center gap-1.5">
+          <Dot
+            className={
+              gallery.status === "live"
+                ? "bg-semantic-success"
+                : gallery.status === "draft"
+                ? "bg-ink-tertiary"
+                : "bg-semantic-warning"
+            }
+          />
+          <span className="capitalize text-ink-secondary">
+            {gallery.status}
+          </span>
+        </span>
+        <span className="text-ink-tertiary/40">·</span>
+        <span>
+          Slug:{" "}
+          <code className="font-mono bg-surface-sunken px-1 py-0.5 rounded-xs text-ink-secondary">
+            {gallery.slug}
+          </code>
+        </span>
+        <span className="text-ink-tertiary/40">·</span>
+        <span className="capitalize text-ink-secondary">{gallery.mode}</span>
+        <span className="text-ink-tertiary/40">·</span>
+        <span>{gallery.files.length} Files</span>
+      </div>
 
+      <div className="px-6 sm:px-8 py-6 space-y-6 max-w-7xl">
         {/* Upload-Zone */}
         <section
           onDragOver={(e) => {
@@ -344,10 +321,10 @@ export default function GalleryDetailPage() {
           onDragLeave={() => setDragOver(false)}
           onDrop={onDrop}
           onClick={() => fileInputRef.current?.click()}
-          className={`rounded-lg border-2 border-dashed p-8 text-center cursor-pointer transition ${
+          className={`rounded-md border border-dashed p-6 text-center cursor-pointer transition-colors duration-motion ease-out ${
             dragOver
-              ? "border-brand-accent bg-amber-50"
-              : "border-slate-200 hover:border-slate-400 hover:bg-slate-50"
+              ? "border-accent bg-accent/8"
+              : "border-line-subtle bg-surface-sunken hover:border-line-strong hover:bg-surface-raised"
           }`}
         >
           <input
@@ -357,44 +334,41 @@ export default function GalleryDetailPage() {
             className="hidden"
             onChange={(e) => void handleFiles(e.target.files)}
           />
-          <div className="text-sm font-medium">
+          <div className="text-ui text-ink-primary font-medium">
             Dateien hier ablegen oder klicken zum Auswählen
           </div>
-          <div className="text-xs text-slate-500 mt-1">
+          <div className="text-ui-xs text-ink-tertiary mt-1">
             JPEG, PNG, WebP, RAW (CR2/NEF/ARW…), MP4, MOV — bis 2 GiB pro File
           </div>
         </section>
 
         {/* Aktive Uploads */}
         {Object.keys(uploads).length > 0 && (
-          <section className="rounded-lg border border-slate-200 bg-white">
-            <div className="px-4 py-2 border-b border-slate-100 text-sm font-medium">
+          <section className="rounded-md border border-line-subtle bg-surface-raised">
+            <div className="px-4 py-2 border-b border-line-subtle text-ui-sm font-medium text-ink-secondary">
               Aktive Uploads
             </div>
-            <ul className="divide-y divide-slate-100">
+            <ul className="divide-y divide-line-subtle">
               {Object.values(uploads).map((u) => (
-                <li
-                  key={u.fileId}
-                  className="px-4 py-3 flex items-center gap-3"
-                >
+                <li key={u.fileId} className="px-4 py-3 flex items-center gap-3">
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm truncate">{u.filename}</div>
-                    <div className="mt-1 h-1.5 bg-slate-100 rounded overflow-hidden">
+                    <div className="text-ui text-ink-primary truncate">
+                      {u.filename}
+                    </div>
+                    <div className="mt-1 h-1 bg-surface-sunken rounded-xs overflow-hidden">
                       <div
-                        className={`h-full transition-all ${
+                        className={`h-full transition-all duration-motion ${
                           u.status === "failed"
-                            ? "bg-red-500"
+                            ? "bg-semantic-danger"
                             : u.status === "ready"
-                            ? "bg-green-500"
-                            : "bg-brand-accent"
+                            ? "bg-semantic-success"
+                            : "bg-accent"
                         }`}
-                        style={{
-                          width: `${Math.round(u.progress * 100)}%`,
-                        }}
+                        style={{ width: `${Math.round(u.progress * 100)}%` }}
                       />
                     </div>
                   </div>
-                  <div className="text-xs w-20 text-right text-slate-500">
+                  <div className="text-ui-xs w-20 text-right text-ink-tertiary">
                     {u.status === "uploading"
                       ? `${Math.round(u.progress * 100)} %`
                       : u.status}
@@ -408,9 +382,9 @@ export default function GalleryDetailPage() {
         {/* Share-Panel */}
         <SharePanel galleryId={gallery.id} gallerySlug={gallery.slug} />
 
-        {/* Settings */}
-        <section className="rounded-lg border border-slate-200 bg-white p-4 space-y-2">
-          <h2 className="text-sm font-medium mb-1">
+        {/* Galerie-Settings */}
+        <section className="rounded-md border border-line-subtle bg-surface-raised p-5 space-y-3">
+          <h2 className="text-ui-md font-medium text-ink-primary">
             {t("studio.settingsHeading")}
           </h2>
           <BrandingPicker
@@ -438,85 +412,95 @@ export default function GalleryDetailPage() {
           />
         </section>
 
-        {/* File-Grid */}
-        {gallery.files.length > 0 ? (
+        {/* Files-Toolbar */}
+        {gallery.files.length > 0 && (
           <section>
-            <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
-              <h2 className="text-sm font-medium">
+            <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+              <h2 className="text-ui-md font-medium text-ink-primary">
                 {t("studio.files")}
                 {selectionMode && selected.size > 0 && (
-                  <span className="ml-2 text-xs text-slate-500 font-normal">
+                  <span className="ml-2 text-ui-sm text-ink-tertiary font-normal">
                     · {selected.size} {t("studio.selectedSuffix")}
                   </span>
                 )}
               </h2>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
                 {selectionMode ? (
                   <>
-                    <button
+                    <Button
+                      size="sm"
+                      variant="secondary"
                       onClick={() =>
                         setSelected(new Set(gallery.files.map((f) => f.id)))
                       }
-                      className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50"
                     >
                       {t("studio.selectAll")}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
                       onClick={() => setSelected(new Set())}
-                      className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50"
                       disabled={selected.size === 0}
                     >
                       {t("studio.selectNone")}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
                       onClick={() => runBulk("hide")}
                       disabled={bulkPending || selected.size === 0}
-                      className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50 disabled:opacity-50"
                     >
                       {t("studio.hide")}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
                       onClick={() => runBulk("show")}
                       disabled={bulkPending || selected.size === 0}
-                      className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50 disabled:opacity-50"
                     >
                       {t("studio.show")}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="danger"
                       onClick={() => runBulk("delete")}
                       disabled={bulkPending || selected.size === 0}
-                      className="text-xs px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
                     >
                       {t("studio.deleteAction")}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
                       onClick={exitSelectionMode}
-                      className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50"
+                      aria-label="Auswahl-Modus beenden"
                     >
                       ✕
-                    </button>
+                    </Button>
                   </>
                 ) : (
-                  <button
+                  <Button
+                    size="sm"
+                    variant="secondary"
                     onClick={() => setSelectionMode(true)}
-                    className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50"
                   >
                     {t("studio.selectFiles")}
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
+
             <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
               <SortableContext
                 items={gallery.files.map((f) => f.id)}
                 strategy={rectSortingStrategy}
                 disabled={selectionMode}
               >
-                <ul className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                  {gallery.files.map((f) => (
+                <ul className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5">
+                  {gallery.files.map((f, i) => (
                     <FileTile
                       key={f.id}
                       file={f}
+                      index={i}
                       selectionMode={selectionMode}
                       selected={selected.has(f.id)}
                       onToggle={() => toggleSelected(f.id)}
@@ -526,14 +510,18 @@ export default function GalleryDetailPage() {
               </SortableContext>
             </DndContext>
           </section>
-        ) : (
-          <div className="text-sm text-slate-500">
-            {t("studio.noFiles")}
-          </div>
+        )}
+
+        {gallery.files.length === 0 && (
+          <div className="text-ui text-ink-tertiary">{t("studio.noFiles")}</div>
         )}
       </div>
-    </main>
+    </>
   );
+}
+
+function Dot({ className }: { className?: string }) {
+  return <span className={`inline-block w-1.5 h-1.5 rounded-full ${className ?? ""}`} />;
 }
 
 function BrandingPicker({
@@ -544,9 +532,7 @@ function BrandingPicker({
   onChange: (id: string | null) => void | Promise<void>;
 }) {
   const t = useT();
-  const [brandings, setBrandings] = useState<
-    { id: string; name: string }[]
-  >([]);
+  const [brandings, setBrandings] = useState<{ id: string; name: string }[]>([]);
   const [defaultId, setDefaultId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
 
@@ -554,9 +540,7 @@ function BrandingPicker({
     (async () => {
       try {
         const res = await api.listBrandings();
-        setBrandings(
-          res.brandings.map((b) => ({ id: b.id, name: b.name }))
-        );
+        setBrandings(res.brandings.map((b) => ({ id: b.id, name: b.name })));
         setDefaultId(res.defaultBrandingId);
       } finally {
         setLoaded(true);
@@ -567,12 +551,9 @@ function BrandingPicker({
   if (!loaded) return null;
   if (brandings.length === 0) {
     return (
-      <div className="text-xs text-slate-500 py-1">
+      <div className="text-ui-sm text-ink-tertiary py-1">
         {t("studio.brandingNoneYet")}{" "}
-        <Link
-          href="/studio/brandings"
-          className="text-brand-accent hover:underline"
-        >
+        <Link href="/studio/brandings" className="text-accent hover:text-accent-hover">
           {t("studio.brandingCreateNow")}
         </Link>
       </div>
@@ -581,14 +562,14 @@ function BrandingPicker({
 
   return (
     <div className="flex items-center gap-3 py-1">
-      <label htmlFor="branding-pick" className="text-sm">
+      <label htmlFor="branding-pick" className="text-ui text-ink-secondary min-w-[80px]">
         {t("studio.branding")}
       </label>
       <select
         id="branding-pick"
         value={currentBrandingId ?? ""}
         onChange={(e) => void onChange(e.target.value || null)}
-        className="text-sm rounded-md border border-slate-300 px-2 py-1 bg-white"
+        className="text-ui rounded border border-line-subtle bg-surface-sunken text-ink-primary px-2 py-1 hover:border-line-strong focus:border-accent focus:outline-none transition-colors duration-motion"
       >
         <option value="">
           {t("studio.brandingTenantDefault")}
@@ -623,12 +604,12 @@ function SettingToggle({
         type="checkbox"
         checked={value}
         onChange={(e) => onChange(e.target.checked)}
-        className="mt-0.5 rounded border-slate-300"
+        className="mt-1 accent-accent"
       />
       <div className="flex-1">
-        <div className="text-sm">{label}</div>
+        <div className="text-ui text-ink-primary">{label}</div>
         {description && (
-          <div className="text-xs text-slate-500 mt-0.5">{description}</div>
+          <div className="text-ui-xs text-ink-tertiary mt-0.5">{description}</div>
         )}
       </div>
     </label>
@@ -637,21 +618,19 @@ function SettingToggle({
 
 function FileTile({
   file,
+  index,
   selectionMode,
   selected,
   onToggle,
 }: {
   file: GalleryFile;
+  index: number;
   selectionMode: boolean;
   selected: boolean;
   onToggle: () => void;
 }) {
   const isHidden = file.status === "hidden";
 
-  // useSortable verkabelt das Tile mit dem äußeren SortableContext.
-  // Die transform/transition-Werte produzieren das CSS für das
-  // smoothe Verschieben während des Drags. listeners enthält die
-  // pointer/touch/keyboard-Event-Handler, die den Drag starten.
   const {
     attributes,
     listeners,
@@ -661,30 +640,31 @@ function FileTile({
     isDragging,
   } = useSortable({ id: file.id, disabled: selectionMode });
 
-  const style = {
+  // Reveal-Animation nur für die ersten 24 Tiles staffeln. Bei großen
+  // Galerien wäre der totale Delay sonst > 1s, was sich schleppend anfühlt.
+  const animationDelay = `${Math.min(index, 24) * 30}ms`;
+
+  const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-    // Während des Drags transparent machen — das DragOverlay-Pattern
-    // würde mehr Code kosten, und transparent reicht visuell.
     opacity: isDragging ? 0.4 : 1,
-    // Während des Drags darüber liegen, damit es nicht hinter anderen
-    // Tiles verschwindet
     zIndex: isDragging ? 10 : "auto",
+    animationDelay,
   };
 
   return (
     <li
       ref={setNodeRef}
       style={style}
-      className={`aspect-square rounded-md border bg-slate-50 overflow-hidden relative ${
+      className={`group aspect-square rounded-sm overflow-hidden relative bg-surface-sunken border animate-reveal ${
         selected
-          ? "border-brand-accent ring-2 ring-brand-accent"
-          : "border-slate-200"
+          ? "border-accent ring-1 ring-accent"
+          : "border-line-subtle hover:border-line-strong"
       } ${
         selectionMode
           ? "cursor-pointer"
           : "cursor-grab active:cursor-grabbing touch-none"
-      }`}
+      } transition-colors duration-motion`}
       onClick={selectionMode ? onToggle : undefined}
       {...(selectionMode ? {} : attributes)}
       {...(selectionMode ? {} : listeners)}
@@ -694,15 +674,14 @@ function FileTile({
         <img
           src={file.thumbUrl}
           alt={file.originalFilename}
-          className={`w-full h-full object-cover ${
-            isHidden ? "opacity-40" : ""
-          }`}
+          className={`w-full h-full object-cover ${isHidden ? "opacity-40" : ""}`}
           loading="lazy"
+          draggable={false}
         />
       ) : (
-        <div className="w-full h-full flex items-center justify-center text-xs text-slate-400 text-center p-2">
+        <div className="w-full h-full flex items-center justify-center text-ui-xs text-ink-tertiary text-center p-2">
           <div>
-            <div className="font-mono uppercase text-[10px] text-slate-500">
+            <div className="font-mono uppercase text-ui-xs text-ink-tertiary/70">
               {file.kind}
             </div>
             <div className="mt-1">
@@ -723,10 +702,10 @@ function FileTile({
       {/* Selection-Checkbox */}
       {selectionMode && (
         <div
-          className={`absolute top-1.5 left-1.5 w-5 h-5 rounded border-2 flex items-center justify-center text-[10px] font-bold ${
+          className={`absolute top-1.5 left-1.5 w-5 h-5 rounded-xs border flex items-center justify-center text-ui-xs font-bold transition-colors duration-motion ${
             selected
-              ? "bg-brand-accent border-brand-accent text-neutral-950"
-              : "bg-white/80 border-white shadow"
+              ? "bg-accent border-accent text-accent-contrast"
+              : "bg-surface-overlay/80 backdrop-blur-sm border-line-strong text-transparent"
           }`}
         >
           {selected ? "✓" : ""}
@@ -735,12 +714,13 @@ function FileTile({
 
       {/* Hidden-Badge */}
       {isHidden && (
-        <div className="absolute top-1.5 right-1.5 text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500 text-white font-medium">
+        <div className="absolute top-1.5 right-1.5 text-ui-xs uppercase tracking-wider px-1.5 py-0.5 rounded-xs bg-semantic-warning/90 text-surface-canvas font-medium">
           versteckt
         </div>
       )}
 
-      <div className="absolute bottom-0 inset-x-0 p-1.5 bg-gradient-to-t from-black/60 to-transparent text-white text-[10px] truncate">
+      {/* Filename-Overlay erscheint auf Hover */}
+      <div className="absolute bottom-0 inset-x-0 p-1.5 bg-gradient-to-t from-black/80 via-black/40 to-transparent text-white text-ui-xs truncate opacity-0 group-hover:opacity-100 transition-opacity duration-motion">
         {file.originalFilename}
       </div>
     </li>
