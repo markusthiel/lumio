@@ -74,6 +74,11 @@ jobs:
           echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
           echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
 
+      - name: Set up QEMU
+        # Wir bauen amd64-only, aber QEMU braucht's je nach Runner nicht
+        # einmal — Buildx will trotzdem manchmal die Action sehen.
+        uses: https://code.forgejo.org/docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: https://code.forgejo.org/docker/setup-buildx-action@v3
 
@@ -88,17 +93,40 @@ jobs:
           password: ${{ secrets.REGISTRY_TOKEN }}
 
       - name: Build and push ${{ matrix.service }}
+        id: build
         uses: https://code.forgejo.org/docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.context }}/Dockerfile
           push: true
+          # Wir produzieren nur amd64-Images. Die meisten Self-Host-Targets
+          # sind x86_64-Server; arm64 wäre nett für Apple-Silicon-Dev-
+          # Maschinen, vervierfacht aber Build-Zeit + Storage. Wenn jemand
+          # arm64 braucht, kann er das Image lokal mit dem gleichen
+          # Dockerfile bauen.
+          platforms: linux/amd64
           tags: ${{ steps.tags.outputs.tags }}
           cache-from: type=registry,ref=${{ steps.tags.outputs.image }}:buildcache
           cache-to: type=registry,ref=${{ steps.tags.outputs.image }}:buildcache,mode=max
+          # Forgejo-Registry akzeptiert OCI-Provenance-Attestationen nicht
+          # zuverlässig, deaktivieren bis das stabiler wird.
+          provenance: false
           labels: |
             org.opencontainers.image.source=https://${{ env.REGISTRY }}/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.ref.name=${{ github.ref_name }}
             org.opencontainers.image.title=lumio-${{ matrix.service }}
             org.opencontainers.image.licenses=AGPL-3.0
+
+      - name: Summary
+        if: success()
+        shell: sh
+        run: |
+          {
+            echo "## ${{ matrix.service }} pushed"
+            echo ""
+            echo "**Digest:** \`${{ steps.build.outputs.digest }}\`"
+            echo ""
+            echo "**Tags:**"
+            echo "${{ steps.tags.outputs.tags }}" | tr ',' '\n' | sed 's/^/- /'
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -252,6 +252,82 @@ Ohne diese Setup-Schritte funktioniert nur `software`; `auto` erkennt
 das und fällt entsprechend zurück, eine Warnung landet im Worker-Log
 (`encoder.requested_unavailable`).
 
+### Deployment aus der Container-Registry
+
+Die CI baut bei jedem Push auf `main` drei Container-Images und schiebt
+sie in die Forgejo Container Registry:
+
+```
+forgejo.thiel.tools/thiel/lumio-api:<tag>
+forgejo.thiel.tools/thiel/lumio-frontend:<tag>
+forgejo.thiel.tools/thiel/lumio-worker:<tag>
+```
+
+Tag-Schema:
+
+- `:latest` und `:main` — der letzte erfolgreiche `main`-Build
+- `:v0.2.0` — Git-Tags (`v*`) werden 1:1 als Image-Tag übernommen
+- `:<short-sha>` — jeder Build bekommt zusätzlich seinen Commit-SHA als Tag, sodass man auf exakt eine Code-Version pinnen kann
+
+Auf dem Production-Host verwendet man die `docker-compose.prod.yml` als
+Override, das die `build:`-Blöcke durch `image:`-Verweise ersetzt:
+
+```bash
+cd /opt/docker/lumio/lumio
+git pull   # nur, um docker-compose.* aktuell zu halten
+
+docker compose \
+    -f docker-compose.yml \
+    -f docker-compose.prod.yml \
+    pull
+
+docker compose \
+    -f docker-compose.yml \
+    -f docker-compose.prod.yml \
+    up -d
+```
+
+Tag-Auswahl über die Env-Variable `LUMIO_TAG`:
+
+```bash
+LUMIO_TAG=v0.2.0 docker compose \
+    -f docker-compose.yml \
+    -f docker-compose.prod.yml \
+    up -d
+```
+
+Wenn deine Forgejo-Registry private ist (Default für nicht-public Repos),
+brauchst du einen Pull-Login auf dem Server:
+
+```bash
+docker login forgejo.thiel.tools
+# Username: dein Forgejo-Name
+# Password: Forgejo Personal Access Token mit Scope `read:package`
+```
+
+Der Login wird in `~/.docker/config.json` (bzw. `/root/.docker/config.json`
+beim Root-Compose) persistiert und reicht für alle nachfolgenden Pulls.
+
+**Setup der CI:** Die Registry-Push-Workflow braucht zwei Secrets in
+Forgejo unter `Settings → Actions → Secrets`:
+
+| Name | Wert |
+|---|---|
+| `REGISTRY_USER` | Dein Forgejo-Username |
+| `REGISTRY_TOKEN` | Personal Access Token mit Scope `write:package` |
+
+**Registry-Cleanup:** Forgejo hat eingebaute Cleanup-Rules unter
+`User-Settings → Packages → Cleanup Rules`. Sinnvolle Defaults für Lumio:
+
+- Match: `lumio-*`
+- Keep the most recent: `5`
+- Keep versions matching: `^(latest|main|v.*)$` (Branch- und Release-Tags
+  behalten)
+- Remove versions older than: `30 days`
+
+Damit bleiben die letzten 5 SHA-Builds plus alle Release-Tags und der
+Branch-Pointer; ältere SHA-Tags werden automatisch entfernt.
+
 ## Hybrid: Infra in Docker, Apps lokal
 
 Für schnellen Hot-Reload:

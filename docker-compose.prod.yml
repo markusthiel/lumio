@@ -1,0 +1,60 @@
+# =============================================================================
+# Lumio — Production Override: pre-built Images aus der Registry
+# =============================================================================
+#
+# Dieser Override ersetzt die `build:`-Blöcke der drei Service-Images
+# durch `image:`-Verweise auf die Forgejo Container Registry. Damit muss
+# der Production-Host nichts mehr selbst bauen — `docker compose pull`
+# reicht.
+#
+# Verwendung:
+#
+#   docker compose \
+#     -f docker-compose.yml \
+#     -f docker-compose.prod.yml \
+#     pull
+#
+#   docker compose \
+#     -f docker-compose.yml \
+#     -f docker-compose.prod.yml \
+#     up -d
+#
+# Tag-Auswahl per Env-Variable LUMIO_TAG:
+#   :latest    — der zuletzt auf main gepushte Build (Default)
+#   :main      — Alias für :latest
+#   :v0.2.0    — pinned Release-Tag
+#   :abc1234   — pinned auf einen kurzen Commit-SHA
+#
+# Beispiel für eine konkrete Version:
+#   LUMIO_TAG=v0.2.0 docker compose -f ... -f docker-compose.prod.yml up -d
+#
+# Image-Pull braucht ggf. einen `docker login forgejo.thiel.tools` mit einem
+# Forgejo-Personal-Access-Token (Scope: read:package). Falls die Registry
+# private ist und du Pulls automatisieren möchtest, hinterleg den Login
+# in /root/.docker/config.json oder benutze einen Pull-Secret-Mechanismus.
+#
+# Kompatibilität: Compose-V2 verschmilzt mehrere -f-Dateien per Deep-Merge.
+# Wir setzen `image:` und entfernen `build:` implizit, indem wir es nicht mehr
+# setzen. Compose v2 benutzt das angegebene `image:` und ignoriert das
+# `build:` aus der Basis-Datei NICHT automatisch — d.h. ohne explizite
+# Entfernung würde `docker compose build` weiterhin lokal bauen wollen.
+# Das ist okay: wer `compose build` aufruft, signalisiert ja Build-Absicht.
+# `compose pull` und `compose up -d` (ohne --build) verhalten sich korrekt.
+#
+# Wir setzen bewusst KEIN `pull_policy: always`, weil das zwar bei
+# `up -d` ein neues Image zieht, aber den laufenden Container nicht
+# neu erstellt (siehe github.com/docker/compose/issues/9617). Der saubere
+# Workflow ist explizit:
+#
+#   docker compose ... pull
+#   docker compose ... up -d
+
+services:
+  api:
+    image: forgejo.thiel.tools/thiel/lumio-api:${LUMIO_TAG:-latest}
+
+  frontend:
+    image: forgejo.thiel.tools/thiel/lumio-frontend:${LUMIO_TAG:-latest}
+
+  worker:
+    image: forgejo.thiel.tools/thiel/lumio-worker:${LUMIO_TAG:-latest}

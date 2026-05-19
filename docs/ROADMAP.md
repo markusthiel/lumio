@@ -14,7 +14,7 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 - [x] Frontend-Skeleton mit Next.js + Tailwind
 - [x] Konzept-Dokument
 - [x] CI-Pipeline (Forgejo Actions) — Lint, Build, Test
-- [ ] Container-Images automatisch nach Container-Registry
+- [x] Container-Images automatisch nach Container-Registry (Forgejo, mit `docker-compose.prod.yml`-Override und `LUMIO_TAG`-Pin)
 
 ---
 
