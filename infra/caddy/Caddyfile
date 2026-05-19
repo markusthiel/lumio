@@ -9,15 +9,26 @@
 #   LUMIO_HOST=galerien.example.com      → automatisches Let's-Encrypt-Cert
 #   LUMIO_HOST=http://galerien.example.com → explizit nur HTTP, kein Cert
 #
-# Wenn der Server hinter einem externen Reverse-Proxy steht (z.B. Traefik,
-# nginx-proxy-manager), setze LUMIO_HOST=:80, leg die CADDY_HTTP_PORT- und
-# CADDY_HTTPS_PORT-Werte in der .env auf freie interne Ports und proxy von
-# außen dorthin.
+# Wenn der Server hinter einem externen Reverse-Proxy steht (z.B. eigener
+# vorgeschalteter Caddy, Traefik, nginx-proxy-manager), setze LUMIO_HOST=:80,
+# leg die CADDY_HTTP_PORT- und CADDY_HTTPS_PORT-Werte in der .env auf freie
+# interne Ports und proxy von außen dorthin. Die trusted_proxies-Direktive
+# unten sorgt dafür, dass X-Forwarded-Proto vom äußeren Proxy respektiert
+# wird — sonst denkt die API, alles wäre HTTP und generiert kaputte Links.
 
 {
 	admin off
 	# E-Mail für Let's-Encrypt-Account-Recovery (optional):
 	# email admin@example.com
+
+	# Allen privaten IP-Ranges + Docker-Bridge-Ranges vertrauen, damit ein
+	# vorgeschalteter Reverse-Proxy X-Forwarded-Proto: https korrekt
+	# durchreichen kann. In rein öffentlichen Setups (ohne externen Proxy)
+	# ist das nicht schädlich, weil dann eh kein vertrauenswürdiger Hop davor
+	# liegt der diese Header setzen würde.
+	servers {
+		trusted_proxies static private_ranges
+	}
 }
 
 {$LUMIO_HOST::80} {
