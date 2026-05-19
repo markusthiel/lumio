@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand-primary: 15 23 42;     /* slate-900 */
+  --brand-accent: 245 158 11;    /* amber-500 */
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+
+html,
+body {
+  min-height: 100%;
+  background: white;
+  color: rgb(var(--brand-primary));
+  font-family: var(--font-sans);
+}
+
+/* Galerie-Modus: dunkler Hintergrund, Bilder sollen knallen */
+.theme-dark {
+  background: #0a0a0a;
+  color: #f5f5f5;
+}

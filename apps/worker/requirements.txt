@@ -1,0 +1,31 @@
+# =============================================================================
+# Lumio Worker — Python Dependencies
+# =============================================================================
+
+# Task Queue
+celery[redis]==5.4.0
+redis==5.1.1
+
+# Image processing
+pyvips==2.2.3       # libvips bindings — sehr schnelle Image-Pipeline
+Pillow==11.0.0      # Fallback und einfache Operationen
+rawpy==0.24.0       # LibRaw bindings — RAW-Decoding (CR2/CR3/NEF/ARW/...)
+imageio==2.36.0     # Bridge zwischen rawpy und Pillow/pyvips
+pyheif==0.8.0       # HEIC/HEIF Decoding (Phase 1)
+
+# Video processing — via subprocess zu ffmpeg, das im Container installiert ist
+# (keine Python-Bindings nötig)
+
+# S3-Client
+boto3==1.35.49
+
+# DB-Updates (Worker schreibt File-Status zurück)
+psycopg[binary]==3.2.3
+sqlalchemy==2.0.36
+
+# Hilfsfunktionen
+python-magic==0.4.27     # Mime-Type-Detection
+zipstream-ng==1.8.0      # Streaming-ZIP-Builder
+pyexiv2==2.15.3          # EXIF-Reading + XMP-Sidecar-Erzeugung
+structlog==24.4.0
+python-dotenv==1.0.1

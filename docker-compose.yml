@@ -1,0 +1,231 @@
+# =============================================================================
+# Lumio — Docker Compose Stack
+# =============================================================================
+# Für Entwicklung: docker compose up -d
+# Für Produktion: zusätzlich docker-compose.prod.yml mergen (siehe Docs).
+
+services:
+  # ---------------------------------------------------------------------------
+  # Reverse Proxy — TLS, HTTP/3, Routing
+  # ---------------------------------------------------------------------------
+  caddy:
+    image: caddy:2-alpine
+    container_name: lumio_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+      - api
+    networks:
+      - lumio_net
+
+  # ---------------------------------------------------------------------------
+  # Frontend — Next.js Studio & Galerien
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: Dockerfile
+    container_name: lumio_frontend
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=${API_PUBLIC_URL:-http://localhost:3001}
+      - NEXT_PUBLIC_DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-single}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    networks:
+      - lumio_net
+
+  # ---------------------------------------------------------------------------
+  # API — Fastify REST + WebSocket
+  # ---------------------------------------------------------------------------
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: lumio_api
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-single}
+      - PUBLIC_URL=${PUBLIC_URL}
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - STORAGE_PROVIDER=${STORAGE_PROVIDER:-minio}
+      - S3_ENDPOINT=${S3_ENDPOINT}
+      - S3_REGION=${S3_REGION:-us-east-1}
+      - S3_BUCKET=${S3_BUCKET}
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY}
+      - S3_SECRET_KEY=${S3_SECRET_KEY}
+      - S3_FORCE_PATH_STYLE=${S3_FORCE_PATH_STYLE:-true}
+      - S3_PUBLIC_URL=${S3_PUBLIC_URL:-}
+      - JWT_SECRET=${JWT_SECRET}
+      - SESSION_SECRET=${SESSION_SECRET}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_FROM=${SMTP_FROM:-}
+      - SMTP_SECURE=${SMTP_SECURE:-false}
+      - MAX_FILE_SIZE_MIB=${MAX_FILE_SIZE_MIB:-2048}
+      - BILLING_ENABLED=${BILLING_ENABLED:-false}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+    networks:
+      - lumio_net
+
+  # ---------------------------------------------------------------------------
+  # Worker — Python/Celery für RAW/Video/Thumbnails/ZIP
+  # ---------------------------------------------------------------------------
+  worker:
+    build:
+      context: ./apps/worker
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+      - STORAGE_PROVIDER=${STORAGE_PROVIDER:-minio}
+      - S3_ENDPOINT=${S3_ENDPOINT}
+      - S3_REGION=${S3_REGION:-us-east-1}
+      - S3_BUCKET=${S3_BUCKET}
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY}
+      - S3_SECRET_KEY=${S3_SECRET_KEY}
+      - S3_FORCE_PATH_STYLE=${S3_FORCE_PATH_STYLE:-true}
+      - WORKER_CONCURRENCY=${WORKER_CONCURRENCY:-4}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    deploy:
+      replicas: 1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      minio:
+        condition: service_started
+    # GPU-Beschleunigung optional (Intel QSV / AMD VAAPI):
+    # devices:
+    #   - /dev/dri:/dev/dri
+    networks:
+      - lumio_net
+
+  # ---------------------------------------------------------------------------
+  # Postgres — Metadaten
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: lumio_postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Im Produktiv-Setup hinter Caddy — kein externer Port nötig.
+    # Für lokales Debugging entkommentieren:
+    # ports:
+    #   - "5432:5432"
+    networks:
+      - lumio_net
+
+  # ---------------------------------------------------------------------------
+  # Redis — Queue + Cache + Pub/Sub
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: lumio_redis
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    networks:
+      - lumio_net
+
+  # ---------------------------------------------------------------------------
+  # MinIO — S3-kompatibler Object Storage (für Self-Hosting)
+  # ---------------------------------------------------------------------------
+  # Im Cloud-Modus (R2/AWS S3/B2/...) kannst du diesen Service auskommentieren
+  # und stattdessen die externen S3-Credentials in der .env hinterlegen.
+  minio:
+    image: minio/minio:latest
+    container_name: lumio_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${S3_ACCESS_KEY}
+      - MINIO_ROOT_PASSWORD=${S3_SECRET_KEY}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web-Konsole
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lumio_net
+
+  # ---------------------------------------------------------------------------
+  # MinIO-Bucket-Init — legt beim ersten Start den Bucket an
+  # ---------------------------------------------------------------------------
+  minio_init:
+    image: minio/mc:latest
+    container_name: lumio_minio_init
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY}
+      - S3_SECRET_KEY=${S3_SECRET_KEY}
+      - S3_BUCKET=${S3_BUCKET}
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 $$S3_ACCESS_KEY $$S3_SECRET_KEY &&
+      (mc mb local/$$S3_BUCKET --ignore-existing) &&
+      mc anonymous set none local/$$S3_BUCKET &&
+      echo 'MinIO bucket initialized: '$$S3_BUCKET
+      "
+    restart: "no"
+    networks:
+      - lumio_net
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  caddy_data:
+  caddy_config:
+
+networks:
+  lumio_net:
+    driver: bridge

@@ -1,0 +1,460 @@
+// =============================================================================
+// Lumio — Prisma Schema
+// =============================================================================
+// Vollständiges Datenmodell. Migrationen werden mit `npm run prisma:migrate`
+// erzeugt und im Container mit `npm run prisma:deploy` ausgerollt.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -----------------------------------------------------------------------------
+// Multi-Tenancy
+// -----------------------------------------------------------------------------
+// Im Modus DEPLOYMENT_MODE=single existiert genau EIN Tenant, der automatisch
+// beim ersten Start angelegt wird. Im multi-Modus können beliebig viele
+// Tenants existieren — z.B. für SaaS-Anbieter.
+
+model Tenant {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug        String   @unique
+  name        String
+  status      String   @default("active") // active | suspended | archived
+  customDomain String? @unique
+  
+  // Branding auf Tenant-Ebene (kann pro Galerie überschrieben werden)
+  brandingId  String?  @db.Uuid
+  branding    Branding? @relation("TenantBranding", fields: [brandingId], references: [id])
+  
+  // Billing (siehe BillingSubscription)
+  subscription BillingSubscription?
+  
+  users       User[]
+  galleries   Gallery[]
+  brandings   Branding[] @relation("TenantBrandings")
+  events      Event[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([slug])
+  @@map("tenants")
+}
+
+// -----------------------------------------------------------------------------
+// Auth: Studio-User
+// -----------------------------------------------------------------------------
+model User {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String   @db.Uuid
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  email        String   @db.Citext
+  passwordHash String
+  name         String?
+  role         String   @default("member") // owner | admin | member
+  status       String   @default("active") // active | invited | disabled
+  
+  // 2FA
+  totpSecret   String?
+  totpEnabled  Boolean  @default(false)
+  
+  galleries    Gallery[]
+  sessions     Session[]
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  lastLoginAt  DateTime?
+  
+  @@unique([tenantId, email])
+  @@index([email])
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  tokenHash String   @unique
+  ipAddress String?
+  userAgent String?
+  
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@map("sessions")
+}
+
+// -----------------------------------------------------------------------------
+// Branding (Whitelabel)
+// -----------------------------------------------------------------------------
+model Branding {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String   @db.Uuid
+  tenant        Tenant   @relation("TenantBrandings", fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  name          String   // interne Bezeichnung, z.B. "Standard", "Hochzeit-Style"
+  logoUrl       String?
+  faviconUrl    String?
+  primaryColor  String   @default("#0f172a")
+  accentColor   String   @default("#f59e0b")
+  fontFamily    String   @default("Inter")
+  introText     String?
+  footerText    String?
+  customCss     String?
+  
+  galleries     Gallery[]
+  tenantsAsDefault Tenant[] @relation("TenantBranding")
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([tenantId])
+  @@map("brandings")
+}
+
+// -----------------------------------------------------------------------------
+// Galerie
+// -----------------------------------------------------------------------------
+model Gallery {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String   @db.Uuid
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  ownerId         String   @db.Uuid
+  owner           User     @relation(fields: [ownerId], references: [id])
+  
+  brandingId      String?  @db.Uuid
+  branding        Branding? @relation(fields: [brandingId], references: [id])
+  
+  slug            String   @unique // kryptografisch zufällig, z.B. 12 chars
+  title           String
+  description     String?
+  
+  mode            String   @default("collaboration") // collaboration | presentation
+  status          String   @default("draft")          // draft | live | archived
+  
+  // Zugangskontrolle
+  passwordHash    String?
+  expiresAt       DateTime?
+  
+  // Feature-Toggles pro Galerie
+  downloadEnabled Boolean  @default(true)
+  watermarkEnabled Boolean @default(false)
+  commentsEnabled Boolean  @default(true)
+  ratingsEnabled  Boolean  @default(true)
+  selectionLimit  Int?     // max Anzahl Auswahl für Kunde
+  emailRequired   Boolean  @default(false) // Kunde muss E-Mail eingeben
+  
+  // Cover-Bild
+  coverFileId     String?  @db.Uuid
+  
+  // Flexible Einstellungen (Sortierung, Layout, Hintergrundfarbe, ...)
+  settings        Json     @default("{}")
+  
+  files           File[]
+  accessTokens    GalleryAccess[]
+  downloadLogs    DownloadLog[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([tenantId])
+  @@index([ownerId])
+  @@index([slug])
+  @@map("galleries")
+}
+
+// -----------------------------------------------------------------------------
+// Galerie-Zugang (Tokens für Kunden)
+// -----------------------------------------------------------------------------
+model GalleryAccess {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  galleryId     String   @db.Uuid
+  gallery       Gallery  @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+  
+  token         String   @unique     // kryptografisch zufällig
+  label         String   // z.B. "Brautpaar", "Agentur ABC", "Team Sales"
+  email         String?  @db.Citext  // optional, für Notifications
+  
+  // Berechtigungen
+  canDownload   Boolean  @default(true)
+  canComment    Boolean  @default(true)
+  canSelect     Boolean  @default(true)
+  canSeeOthers  Boolean  @default(false) // sieht Kommentare/Auswahl anderer Teams?
+  
+  expiresAt     DateTime?
+  lastAccessAt  DateTime?
+  accessCount   Int      @default(0)
+  
+  selections    Selection[]
+  comments      Comment[]
+  
+  createdAt     DateTime @default(now())
+  
+  @@index([galleryId])
+  @@index([token])
+  @@map("gallery_access")
+}
+
+// -----------------------------------------------------------------------------
+// Files & Renditions
+// -----------------------------------------------------------------------------
+model File {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  galleryId       String   @db.Uuid
+  gallery         Gallery  @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+  
+  originalFilename String
+  storageKey      String   // Pfad im S3-Bucket
+  mimeType        String
+  sizeBytes       BigInt
+  sha256          String?
+  
+  width           Int?
+  height          Int?
+  durationMs      Int?     // bei Videos
+  
+  // Kategorisierung
+  kind            String   // image | raw | video | other
+  
+  // EXIF / Metadaten flexibel
+  exif            Json?
+  takenAt         DateTime?
+  
+  // Processing-Status
+  status          String   @default("uploading") // uploading | processing | ready | failed
+  errorMessage    String?
+  
+  sortIndex       Int      @default(0)
+  
+  renditions      Rendition[]
+  selections      Selection[]
+  comments        Comment[]
+  downloadLogs    DownloadLog[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([galleryId, sortIndex])
+  @@index([galleryId, status])
+  @@index([sha256])
+  @@map("files")
+}
+
+model Rendition {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fileId      String   @db.Uuid
+  file        File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  
+  kind        String   // thumb | preview | web | watermarked | download | hls | poster | sprite
+  storageKey  String
+  format      String   // webp | avif | jpeg | mp4 | m3u8 | ...
+  width       Int?
+  height      Int?
+  sizeBytes   BigInt
+  
+  createdAt   DateTime @default(now())
+  
+  @@unique([fileId, kind])
+  @@index([fileId])
+  @@map("renditions")
+}
+
+// -----------------------------------------------------------------------------
+// Proofing: Auswahl, Kommentare, Ratings
+// -----------------------------------------------------------------------------
+model Selection {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fileId        String   @db.Uuid
+  file          File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  
+  accessId      String   @db.Uuid
+  access        GalleryAccess @relation(fields: [accessId], references: [id], onDelete: Cascade)
+  
+  // Picdrop-Style Color-Tags
+  color         String?  // red | yellow | green
+  rating        Int?     // 1-5 Sterne
+  liked         Boolean  @default(false)
+  status        String?  // pick | reject | maybe
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@unique([fileId, accessId])
+  @@index([fileId])
+  @@index([accessId])
+  @@map("selections")
+}
+
+model Comment {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fileId        String   @db.Uuid
+  file          File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  
+  accessId      String?  @db.Uuid
+  access        GalleryAccess? @relation(fields: [accessId], references: [id], onDelete: Cascade)
+  
+  authorLabel   String   // "Anna (Brautpaar)" oder "Studio"
+  authorIsStudio Boolean @default(false)
+  
+  body          String
+  // Scribbles als SVG-Pfad-Daten / Punkte (für Annotationen direkt auf Bild)
+  annotation    Json?
+  
+  parentId      String?  @db.Uuid
+  parent        Comment? @relation("CommentThread", fields: [parentId], references: [id], onDelete: Cascade)
+  replies       Comment[] @relation("CommentThread")
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@index([fileId])
+  @@index([accessId])
+  @@map("comments")
+}
+
+// -----------------------------------------------------------------------------
+// Download-Log (Audit)
+// -----------------------------------------------------------------------------
+model DownloadLog {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  galleryId   String   @db.Uuid
+  gallery     Gallery  @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+  
+  fileId      String?  @db.Uuid
+  file        File?    @relation(fields: [fileId], references: [id], onDelete: SetNull)
+  
+  kind        String   // single | zip | rendition
+  ipAddress   String?
+  userAgent   String?
+  bytes       BigInt?
+  
+  createdAt   DateTime @default(now())
+  
+  @@index([galleryId, createdAt])
+  @@map("download_logs")
+}
+
+// -----------------------------------------------------------------------------
+// Generischer Event-Log (Audit)
+// -----------------------------------------------------------------------------
+model Event {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String   @db.Uuid
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  actorType   String   // user | access | system
+  actorId     String?
+  action      String   // login | gallery.create | file.delete | share.create | ...
+  targetType  String?
+  targetId    String?
+  payload     Json?
+  ipAddress   String?
+  
+  createdAt   DateTime @default(now())
+  
+  @@index([tenantId, createdAt])
+  @@index([tenantId, action])
+  @@map("events")
+}
+
+// -----------------------------------------------------------------------------
+// Billing (nur im Hosted Mode aktiv)
+// -----------------------------------------------------------------------------
+// Plan-Definitionen für Self-Hosting komplett deaktivierbar via BILLING_ENABLED=false.
+// Im Hosted-Modus mit BILLING_ENABLED=true werden Limits durchgesetzt.
+
+model BillingPlan {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  slug            String   @unique // free | starter | pro | studio | custom
+  name            String
+  description     String?
+  
+  // Limits (null = unbegrenzt)
+  storageGib      Int?     // Speicher in GiB
+  galleriesMax    Int?     // max Anzahl aktiver Galerien
+  filesPerGallery Int?     // max Files pro Galerie
+  usersMax        Int?     // max Studio-Mitglieder
+  bandwidthGibPerMonth Int? // Traffic-Limit
+  
+  // Feature-Gates
+  customDomain    Boolean  @default(false)
+  whiteLabel      Boolean  @default(false)
+  watermarking    Boolean  @default(true)
+  analytics       Boolean  @default(false)
+  
+  // Stripe-Integration
+  stripePriceIdMonthly String?
+  stripePriceIdYearly  String?
+  priceMonthlyCents    Int?
+  priceYearlyCents     Int?
+  currency             String  @default("EUR")
+  
+  isActive        Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  
+  subscriptions   BillingSubscription[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("billing_plans")
+}
+
+model BillingSubscription {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId           String   @unique @db.Uuid
+  tenant             Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  planId             String   @db.Uuid
+  plan               BillingPlan @relation(fields: [planId], references: [id])
+  
+  status             String   // trialing | active | past_due | canceled | unpaid
+  billingInterval    String   // monthly | yearly
+  
+  // Stripe
+  stripeCustomerId   String?
+  stripeSubscriptionId String? @unique
+  
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  cancelAtPeriodEnd  Boolean  @default(false)
+  trialEndsAt        DateTime?
+  
+  // Aktuelle Nutzung (wird vom Worker periodisch geupdatet)
+  storageBytesUsed   BigInt   @default(0)
+  bandwidthBytesUsed BigInt   @default(0)  // monatlich, wird zurückgesetzt
+  galleriesCount     Int      @default(0)
+  
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  
+  @@map("billing_subscriptions")
+}
+
+// Einzelne Abrechnungspositionen für überzogene Nutzung (Usage-based Billing)
+model BillingUsageRecord {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String   @db.Uuid
+  
+  kind        String   // storage_overage | bandwidth_overage | extra_user
+  quantity    BigInt   // Einheit je nach kind (Bytes, Anzahl, ...)
+  unitPriceCents Int
+  periodStart DateTime
+  periodEnd   DateTime
+  
+  reportedToStripeAt DateTime?
+  
+  createdAt   DateTime @default(now())
+  
+  @@index([tenantId, periodStart])
+  @@map("billing_usage_records")
+}

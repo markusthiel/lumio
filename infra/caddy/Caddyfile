@@ -1,0 +1,39 @@
+# =============================================================================
+# Lumio — Caddy Configuration
+# =============================================================================
+# Lokal: erreichbar via http://localhost
+# Produktion: Hostnamen anpassen — Caddy holt automatisch ein Let's-Encrypt-Cert.
+#
+# Beispiel Produktion:
+#   photos.example.com {
+#       reverse_proxy /api/*   api:3001
+#       reverse_proxy /health  api:3001
+#       reverse_proxy          frontend:3000
+#   }
+
+{
+    # Globale Optionen
+    admin off
+    # Im Produktiv-Setup: dein E-Mail für Let's Encrypt
+    # email admin@example.com
+}
+
+:80 {
+    # API-Routen
+    reverse_proxy /api/* api:3001
+    reverse_proxy /health api:3001
+    reverse_proxy /ws/* api:3001
+    
+    # Alles andere ans Frontend
+    reverse_proxy frontend:3000
+
+    encode zstd gzip
+
+    # Security headers
+    header {
+        X-Content-Type-Options "nosniff"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        # CSP wird vom Frontend selbst gesetzt, damit es per Route variieren kann
+        -Server
+    }
+}

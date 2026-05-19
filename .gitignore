@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+__pycache__/
+*.pyc
+.venv/
+venv/
+.eggs/
+*.egg-info/
+
+# Builds
+.next/
+dist/
+build/
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Editor / OS
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json.example
+.idea/
+.DS_Store
+Thumbs.db
+
+# Test output
+coverage/
+.coverage
+.pytest_cache/
+.nyc_output/
+playwright-report/
+test-results/
+
+# Local data (Docker volumes mounted as bind, if used)
+data/
+storage/
+
+# Misc
+*.local
+.turbo/
+.cache/
