@@ -137,7 +137,7 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 - [ ] E-Signatures für Modelverträge / Rechte-Freigaben
 - [ ] Online-Shop (Bilder verkaufen, Stripe)
 - [x] 2FA für Studio-Logins (TOTP via otplib + 8 Backup-Codes; WebAuthn folgt später)
-- [ ] Audit-Log-Viewer im Studio
+- [x] Audit-Log-Viewer im Studio (instrumented: login/logout, gallery CRUD, file delete/bulk, share create/delete/unlock, selection.finalize, branding CRUD; /studio/audit mit Galerie/Action/Zeit-Filter + Client-CSV-Export; Server-CSV-Export für große Logs steht noch aus)
 
 ---
 

@@ -18,6 +18,7 @@ import { z } from "zod";
 
 import { prisma } from "../db.js";
 import { presignPut, presignGet, deleteObject } from "../services/storage.js";
+import { logEvent } from "../services/audit.js";
 
 const colorRegex = /^#[0-9a-fA-F]{6}$/;
 
@@ -115,7 +116,7 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
   // POST /brandings
   // -------------------------------------------------------------------------
   app.post("/brandings", async (req, reply) => {
-    req.requireAuth();
+    const s = req.requireAuth();
     const body = createBrandingSchema.parse(req.body);
     const branding = await prisma.branding.create({
       data: {
@@ -128,6 +129,16 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
         footerText: body.footerText ?? null,
         customCss: body.customCss ?? null,
       },
+    });
+    await logEvent({
+      tenantId: req.tenantId,
+      actorType: "user",
+      actorId: s.user.id,
+      action: "branding.create",
+      targetType: "branding",
+      targetId: branding.id,
+      payload: { name: body.name },
+      ipAddress: req.ip,
     });
     return reply.status(201).send({ branding: await serializeBranding(branding) });
   });
@@ -151,7 +162,7 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
   app.patch<{ Params: { id: string } }>(
     "/brandings/:id",
     async (req, reply) => {
-      req.requireAuth();
+      const s = req.requireAuth();
       const existing = await ownBranding(req, req.params.id);
       if (!existing) return reply.status(404).send({ error: "not_found" });
 
@@ -180,6 +191,19 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
             : {}),
         },
       });
+      const changedFields = Object.entries(body)
+        .filter(([, v]) => v !== undefined)
+        .map(([k]) => k);
+      await logEvent({
+        tenantId: req.tenantId,
+        actorType: "user",
+        actorId: s.user.id,
+        action: "branding.update",
+        targetType: "branding",
+        targetId: branding.id,
+        payload: { fields: changedFields },
+        ipAddress: req.ip,
+      });
       return { branding: await serializeBranding(branding) };
     }
   );
@@ -192,7 +216,7 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
   app.delete<{ Params: { id: string } }>(
     "/brandings/:id",
     async (req, reply) => {
-      req.requireAuth();
+      const s = req.requireAuth();
       const existing = await ownBranding(req, req.params.id);
       if (!existing) return reply.status(404).send({ error: "not_found" });
 
@@ -211,6 +235,16 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
       }
 
       await prisma.branding.delete({ where: { id: existing.id } });
+      await logEvent({
+        tenantId: req.tenantId,
+        actorType: "user",
+        actorId: s.user.id,
+        action: "branding.delete",
+        targetType: "branding",
+        targetId: existing.id,
+        payload: { name: existing.name },
+        ipAddress: req.ip,
+      });
       return reply.status(204).send();
     }
   );
@@ -231,6 +265,15 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
       await prisma.tenant.update({
         where: { id: req.tenantId },
         data: { brandingId: existing.id },
+      });
+      await logEvent({
+        tenantId: req.tenantId,
+        actorType: "user",
+        actorId: s.user.id,
+        action: "branding.set_default",
+        targetType: "branding",
+        targetId: existing.id,
+        ipAddress: req.ip,
       });
       return { ok: true };
     }

@@ -36,6 +36,7 @@ import {
 } from "../services/storage.js";
 import { enqueue, Queues } from "../services/queue.js";
 import { publish } from "../services/events.js";
+import { logEvent } from "../services/audit.js";
 
 const MAX_FILES_PER_INIT = 1000;
 
@@ -326,6 +327,17 @@ export async function registerFileRoutes(app: FastifyInstance) {
     await prisma.file.delete({ where: { id: file.id } });
     void abortMultipartUpload;
 
+    await logEvent({
+      tenantId: req.tenantId,
+      actorType: "user",
+      actorId: s.user.id,
+      action: "file.delete",
+      targetType: "file",
+      targetId: file.id,
+      payload: { galleryId: file.galleryId, filename: file.originalFilename },
+      ipAddress: req.ip,
+    });
+
     return reply.status(204).send();
   });
 
@@ -419,6 +431,16 @@ export async function registerFileRoutes(app: FastifyInstance) {
       for (const f of files) {
         publish(gallery.id, { type: "file.deleted", fileId: f.id });
       }
+      await logEvent({
+        tenantId: req.tenantId,
+        actorType: "user",
+        actorId: s.user.id,
+        action: "file.bulk",
+        targetType: "gallery",
+        targetId: gallery.id,
+        payload: { op: "delete", count: result.count },
+        ipAddress: req.ip,
+      });
       return { affected: result.count };
     }
 
@@ -441,6 +463,16 @@ export async function registerFileRoutes(app: FastifyInstance) {
         status: newStatus,
       });
     }
+    await logEvent({
+      tenantId: req.tenantId,
+      actorType: "user",
+      actorId: s.user.id,
+      action: "file.bulk",
+      targetType: "gallery",
+      targetId: gallery.id,
+      payload: { op: body.action, count: result.count },
+      ipAddress: req.ip,
+    });
     return { affected: result.count };
   });
 

@@ -68,6 +68,12 @@ export default function StudioPage() {
               {t("studio.newGallery")}
             </button>
             <Link
+              href="/studio/audit"
+              className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-100 transition"
+            >
+              Audit
+            </Link>
+            <Link
               href="/studio/settings"
               className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-100 transition"
             >

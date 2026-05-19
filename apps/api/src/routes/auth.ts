@@ -36,6 +36,7 @@ import {
   verifyTotpForUser,
   backupCodeCount,
 } from "../services/totp.js";
+import { logEvent } from "../services/audit.js";
 
 const loginSchema = z.object({
   email: z.string().email().toLowerCase(),
@@ -101,6 +102,17 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         : await verifyPassword(DUMMY_HASH, body.password);
 
       if (!user || user.status !== "active" || !validPwd) {
+        // Bei "User existiert nicht": actorId leer, sonst die ID.
+        // Beides ist forensisch wertvoll — wir wollen Brute-Force gegen
+        // bekannte Accounts UND gegen unbekannte sehen.
+        await logEvent({
+          tenantId: req.tenantId,
+          actorType: "user",
+          actorId: user?.id ?? null,
+          action: "auth.login.failed",
+          ipAddress: req.ip,
+          payload: { email: body.email, reason: !user ? "no_user" : "bad_password" },
+        });
         return reply.status(401).send({
           error: "invalid_credentials",
           message: "Invalid email or password",
@@ -128,17 +140,13 @@ export async function registerAuthRoutes(app: FastifyInstance) {
 
       reply.setCookie(SESSION_COOKIE, token, cookieOpts(30));
 
-      await prisma.event
-        .create({
-          data: {
-            tenantId: req.tenantId,
-            actorType: "user",
-            actorId: user.id,
-            action: "auth.login",
-            ipAddress: req.ip,
-          },
-        })
-        .catch(() => {});
+      await logEvent({
+        tenantId: req.tenantId,
+        actorType: "user",
+        actorId: user.id,
+        action: "auth.login",
+        ipAddress: req.ip,
+      });
 
       return {
         user: {
@@ -176,6 +184,13 @@ export async function registerAuthRoutes(app: FastifyInstance) {
 
       const ok = await verifyTotpForUser(claims.uid, body.token);
       if (!ok) {
+        await logEvent({
+          tenantId: req.tenantId,
+          actorType: "user",
+          actorId: claims.uid,
+          action: "auth.login.totp.failed",
+          ipAddress: req.ip,
+        });
         return reply
           .status(401)
           .send({ error: "invalid_token", message: "Code nicht korrekt." });
@@ -196,17 +211,13 @@ export async function registerAuthRoutes(app: FastifyInstance) {
 
       reply.setCookie(SESSION_COOKIE, token, cookieOpts(30));
 
-      await prisma.event
-        .create({
-          data: {
-            tenantId: user.tenantId,
-            actorType: "user",
-            actorId: user.id,
-            action: "auth.login.totp",
-            ipAddress: req.ip,
-          },
-        })
-        .catch(() => {});
+      await logEvent({
+        tenantId: user.tenantId,
+        actorType: "user",
+        actorId: user.id,
+        action: "auth.login.totp",
+        ipAddress: req.ip,
+      });
 
       return {
         user: {
@@ -274,6 +285,15 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     const token = req.cookies?.[SESSION_COOKIE];
     if (token) await deleteSession(token);
     reply.clearCookie(SESSION_COOKIE, { path: "/" });
+    if (req.session) {
+      await logEvent({
+        tenantId: req.session.user.tenantId,
+        actorType: "user",
+        actorId: req.session.user.id,
+        action: "auth.logout",
+        ipAddress: req.ip,
+      });
+    }
     return { ok: true };
   });
 

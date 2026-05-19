@@ -18,6 +18,7 @@ import { z } from "zod";
 import { prisma } from "../db.js";
 import { loadVisitor } from "./galleries.js";
 import { notifyNewComment, notifySelectionFinished } from "../services/notifier.js";
+import { logEvent } from "../services/audit.js";
 
 const selectionSchema = z.object({
   color: z.enum(["red", "yellow", "green"]).nullable().optional(),
@@ -302,6 +303,25 @@ export async function registerProofingRoutes(app: FastifyInstance) {
         galleryId: visitor.galleryId,
         accessId: access.id,
       });
+
+      // Audit-Log — wir brauchen die tenantId der Galerie. Die Selection
+      // ist eine Kunden-Aktion, also actorType="access".
+      const galleryRow = await prisma.gallery.findUnique({
+        where: { id: visitor.galleryId },
+        select: { tenantId: true },
+      });
+      if (galleryRow) {
+        await logEvent({
+          tenantId: galleryRow.tenantId,
+          actorType: "access",
+          actorId: access.id,
+          action: "selection.finalize",
+          targetType: "gallery",
+          targetId: visitor.galleryId,
+          payload: { count },
+          ipAddress: req.ip,
+        });
+      }
 
       return { ok: true, count, finalizedAt: new Date() };
     }

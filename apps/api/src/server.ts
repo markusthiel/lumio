@@ -28,6 +28,7 @@ import { registerSettingsRoutes } from "./routes/settings.js";
 import { registerExportRoutes } from "./routes/export.js";
 import { registerBrandingRoutes } from "./routes/brandings.js";
 import { registerTemplateRoutes } from "./routes/templates.js";
+import { registerAuditRoutes } from "./routes/audit.js";
 import { registerWsRoutes } from "./routes/ws.js";
 
 async function buildServer() {
@@ -68,6 +69,7 @@ async function buildServer() {
       await registerExportRoutes(api);
       await registerBrandingRoutes(api);
       await registerTemplateRoutes(api);
+      await registerAuditRoutes(api);
       if (config.BILLING_ENABLED) {
         await registerBillingRoutes(api);
       }

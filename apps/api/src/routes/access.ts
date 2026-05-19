@@ -18,6 +18,7 @@ import { z } from "zod";
 import { prisma } from "../db.js";
 import { generateAccessToken } from "../services/ids.js";
 import { hashPassword } from "../services/auth.js";
+import { logEvent } from "../services/audit.js";
 
 const createAccessSchema = z.object({
   label: z.string().min(1).max(100),
@@ -109,19 +110,16 @@ export async function registerAccessRoutes(app: FastifyInstance) {
         },
       });
 
-      await prisma.event
-        .create({
-          data: {
-            tenantId: req.tenantId,
-            actorType: "user",
-            actorId: s.user.id,
-            action: "access.create",
-            targetType: "gallery_access",
-            targetId: access.id,
-            payload: { galleryId: gallery.id, label: body.label },
-          },
-        })
-        .catch(() => {});
+      await logEvent({
+        tenantId: req.tenantId,
+        actorType: "user",
+        actorId: s.user.id,
+        action: "share.create",
+        targetType: "gallery_access",
+        targetId: access.id,
+        payload: { galleryId: gallery.id, label: body.label },
+        ipAddress: req.ip,
+      });
 
       return reply.status(201).send({
         access: {
@@ -191,12 +189,22 @@ export async function registerAccessRoutes(app: FastifyInstance) {
   app.delete<{ Params: { id: string; accessId: string } }>(
     "/galleries/:id/access/:accessId",
     async (req, reply) => {
-      req.requireAuth();
+      const s = req.requireAuth();
       const gallery = await loadOwnedGallery(req, req.params.id);
       if (!gallery) return reply.status(404).send({ error: "not_found" });
 
       await prisma.galleryAccess.deleteMany({
         where: { id: req.params.accessId, galleryId: gallery.id },
+      });
+      await logEvent({
+        tenantId: req.tenantId,
+        actorType: "user",
+        actorId: s.user.id,
+        action: "share.delete",
+        targetType: "gallery_access",
+        targetId: req.params.accessId,
+        payload: { galleryId: gallery.id },
+        ipAddress: req.ip,
       });
       return reply.status(204).send();
     }

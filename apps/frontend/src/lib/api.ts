@@ -589,7 +589,40 @@ export const api = {
 
   deleteTemplate: (id: string) =>
     request<void>(`/templates/${id}`, { method: "DELETE" }),
+
+  // Audit Log
+  listAuditEvents: (params: {
+    galleryId?: string;
+    action?: string;
+    since?: string;
+    until?: string;
+    limit?: number;
+    cursor?: string;
+  }) => {
+    const qs = new URLSearchParams();
+    if (params.galleryId) qs.set("galleryId", params.galleryId);
+    if (params.action) qs.set("action", params.action);
+    if (params.since) qs.set("since", params.since);
+    if (params.until) qs.set("until", params.until);
+    if (params.limit) qs.set("limit", String(params.limit));
+    if (params.cursor) qs.set("cursor", params.cursor);
+    return request<{ events: AuditEvent[]; nextCursor: string | null }>(
+      `/events?${qs.toString()}`
+    );
+  },
 };
+
+export interface AuditEvent {
+  id: string;
+  actorType: "user" | "access" | "system";
+  actorId: string | null;
+  action: string;
+  targetType: string | null;
+  targetId: string | null;
+  payload: Record<string, unknown> | null;
+  ipAddress: string | null;
+  createdAt: string;
+}
 
 export interface GalleryTemplate {
   id: string;

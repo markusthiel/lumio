@@ -21,6 +21,7 @@ import { presignGet } from "../services/storage.js";
 import { verifyPassword } from "../services/auth.js";
 import { enqueue, Queues } from "../services/queue.js";
 import { resolveGalleryBranding } from "../services/branding.js";
+import { logEvent } from "../services/audit.js";
 import {
   createVisitorToken,
   verifyVisitorToken,
@@ -206,19 +207,16 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
       },
     });
 
-    await prisma.event
-      .create({
-        data: {
-          tenantId: req.tenantId,
-          actorType: "user",
-          actorId: s.user.id,
-          action: "gallery.create",
-          targetType: "gallery",
-          targetId: gallery.id,
-          payload: { slug, title: body.title },
-        },
-      })
-      .catch(() => {});
+    await logEvent({
+      tenantId: req.tenantId,
+      actorType: "user",
+      actorId: s.user.id,
+      action: "gallery.create",
+      targetType: "gallery",
+      targetId: gallery.id,
+      payload: { slug, title: body.title },
+      ipAddress: req.ip,
+    });
 
     return reply.status(201).send({ gallery });
   });
@@ -374,6 +372,23 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         );
       }
 
+      // Welche Felder wurden eigentlich geändert? Nicht alles ist
+      // Audit-würdig, aber das Set ist klein genug, dass wir's einfach
+      // mitschreiben. Vermeidet späteres Raten "was hat sich geändert".
+      const changedFields = Object.entries(body)
+        .filter(([, v]) => v !== undefined)
+        .map(([k]) => k);
+      await logEvent({
+        tenantId: req.tenantId,
+        actorType: "user",
+        actorId: s.user.id,
+        action: "gallery.update",
+        targetType: "gallery",
+        targetId: gallery.id,
+        payload: { fields: changedFields },
+        ipAddress: req.ip,
+      });
+
       return { gallery };
     }
   );
@@ -399,19 +414,16 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
 
       await prisma.gallery.delete({ where: { id: existing.id } });
 
-      await prisma.event
-        .create({
-          data: {
-            tenantId: req.tenantId,
-            actorType: "user",
-            actorId: s.user.id,
-            action: "gallery.delete",
-            targetType: "gallery",
-            targetId: existing.id,
-            payload: { slug: existing.slug },
-          },
-        })
-        .catch(() => {});
+      await logEvent({
+        tenantId: req.tenantId,
+        actorType: "user",
+        actorId: s.user.id,
+        action: "gallery.delete",
+        targetType: "gallery",
+        targetId: existing.id,
+        payload: { slug: existing.slug },
+        ipAddress: req.ip,
+      });
 
       // TODO: Worker-Job zum Aufräumen der S3-Objekte queuen
       return reply.status(204).send();
@@ -513,6 +525,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         where: { slug: req.params.slug },
         select: {
           id: true,
+          tenantId: true,
           status: true,
           expiresAt: true,
           passwordHash: true,
@@ -538,6 +551,15 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           body.password
         );
         if (!passwordOk) {
+          await logEvent({
+            tenantId: gallery.tenantId,
+            actorType: "system",
+            action: "share.unlock.failed",
+            targetType: "gallery",
+            targetId: gallery.id,
+            payload: { reason: "bad_password" },
+            ipAddress: req.ip,
+          });
           return reply
             .status(401)
             .send({ error: "invalid_password" });
@@ -589,6 +611,17 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         sameSite: "lax",
         secure: req.protocol === "https",
         maxAge: 8 * 60 * 60, // 8h
+      });
+
+      await logEvent({
+        tenantId: gallery.tenantId,
+        actorType: accessId ? "access" : "system",
+        actorId: accessId,
+        action: "share.unlock",
+        targetType: "gallery",
+        targetId: gallery.id,
+        payload: { hasAccessToken: !!accessId, hasPassword: !!gallery.passwordHash },
+        ipAddress: req.ip,
       });
 
       return { ok: true, hasAccessToken: !!accessId };
