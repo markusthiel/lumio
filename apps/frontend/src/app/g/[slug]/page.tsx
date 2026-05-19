@@ -52,23 +52,37 @@ export default function PublicGalleryPage() {
         if (cancelled) return;
         setMeta(gallery);
 
-        // Wenn ein Token in der URL ist und/oder kein Passwort nötig:
-        // direkt unlocken (silent).
+        // Auto-Unlock-Logik:
+        //
+        // - Wenn ein Token in der URL ist, IMMER unlocken — auch wenn schon
+        //   ein Visitor-Cookie existiert. Sonst kommen wir nie aus dem
+        //   "alter anonymer Besuch"-State raus, wenn der Kunde später einen
+        //   personalisierten Link bekommt. Ohne diese Re-Unlock wäre ein
+        //   Wechsel von der nackten /g/<slug>-URL auf /g/<slug>?t=<token>
+        //   bedeutungslos: das Cookie hat accessId=null und der Server
+        //   würde das Token in der URL nie einlösen.
+        //
+        // - Wenn KEIN Token in der URL ist, aber auch kein Cookie da
+        //   (gallery.unlocked === false) und auch kein Passwort gefordert,
+        //   silent als anonymer Besucher unlocken (alter Picdrop-Style).
         const needsPassword = gallery.requiresPassword;
-        if (!gallery.unlocked && (!needsPassword || urlToken)) {
+        const shouldUnlock =
+          !!urlToken || (!gallery.unlocked && !needsPassword);
+        if (shouldUnlock) {
           try {
             await api.unlockGallery(slug, {
               token: urlToken,
               // Passwort kommt aus dem UnlockForm — hier nur Token-Pfad
             });
-            if (!needsPassword) {
-              // Meta neu laden, um unlocked=true zu reflektieren
-              const { gallery: g2 } = await api.getPublicGallery(slug);
-              if (!cancelled) setMeta(g2);
-              if (!cancelled) await loadFiles();
-            }
+            // Meta neu laden, um unlocked=true zu reflektieren
+            const { gallery: g2 } = await api.getPublicGallery(slug);
+            if (!cancelled) setMeta(g2);
+            if (!cancelled) await loadFiles();
           } catch {
-            // Token war ungültig — egal, Anonym-Modus
+            // Token war ungültig oder fehlend — egal, wenn die Galerie
+            // ohne Passwort ist, machen wir mit den vorhandenen Files
+            // weiter (anonymer Modus). Bei passwortgeschützten Galerien
+            // landet der User stattdessen im UnlockForm.
             if (!needsPassword) await loadFiles();
           }
         } else if (gallery.unlocked) {
