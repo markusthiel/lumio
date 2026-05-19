@@ -17,7 +17,7 @@ import { z } from "zod";
 
 import { prisma } from "../db.js";
 import { loadVisitor } from "./galleries.js";
-import { notifyNewComment } from "../services/notifier.js";
+import { notifyNewComment, notifySelectionFinished } from "../services/notifier.js";
 
 const selectionSchema = z.object({
   color: z.enum(["red", "yellow", "green"]).nullable().optional(),
@@ -252,6 +252,58 @@ export async function registerProofingRoutes(app: FastifyInstance) {
       });
 
       return { comments };
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // POST /g/:slug/finalize — Kunde schließt seine Auswahl ab
+  // -------------------------------------------------------------------------
+  // Setzt finalizedAt auf dem Access-Record und triggert eine Mail ans
+  // Studio. Idempotent — erneuter Aufruf setzt das Datum wieder neu.
+  app.post<{ Params: { slug: string } }>(
+    "/g/:slug/finalize",
+    async (req, reply) => {
+      const visitor = await loadVisitor(req);
+      if (!visitor) {
+        return reply.status(401).send({ error: "unlock_required" });
+      }
+      if (!visitor.accessId) {
+        return reply
+          .status(403)
+          .send({ error: "access_token_required" });
+      }
+
+      const access = await prisma.galleryAccess.findFirst({
+        where: { id: visitor.accessId, galleryId: visitor.galleryId },
+        select: { id: true, finalizedAt: true },
+      });
+      if (!access) return reply.status(404).send({ error: "not_found" });
+
+      // Anzahl Picks/Likes prüfen — leerer Abschluss ist nicht sinnvoll
+      const count = await prisma.selection.count({
+        where: {
+          accessId: access.id,
+          OR: [{ liked: true }, { status: "pick" }],
+        },
+      });
+      if (count === 0) {
+        return reply
+          .status(400)
+          .send({ error: "empty_selection", message: "Keine Auswahl getroffen." });
+      }
+
+      await prisma.galleryAccess.update({
+        where: { id: access.id },
+        data: { finalizedAt: new Date() },
+      });
+
+      // Mail ans Studio (fire-and-forget)
+      void notifySelectionFinished({
+        galleryId: visitor.galleryId,
+        accessId: access.id,
+      });
+
+      return { ok: true, count, finalizedAt: new Date() };
     }
   );
 

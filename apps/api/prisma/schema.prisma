@@ -205,6 +205,9 @@ model ZipDownload {
   sizeBytes   BigInt?
   errorMessage String?
   
+  // Wann der Kunde benachrichtigt wurde (Mail). Null = noch nicht.
+  notifiedAt  DateTime?
+  
   expiresAt   DateTime // 7 Tage nach Erstellung
   
   createdAt   DateTime @default(now())
@@ -236,6 +239,9 @@ model GalleryAccess {
   expiresAt     DateTime?
   lastAccessAt  DateTime?
   accessCount   Int      @default(0)
+  
+  // Wenn der Kunde explizit "Auswahl abschließen" geklickt hat
+  finalizedAt   DateTime?
   
   selections    Selection[]
   comments      Comment[]

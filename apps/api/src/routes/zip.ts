@@ -15,6 +15,7 @@ import type { FastifyInstance } from "fastify";
 import { prisma } from "../db.js";
 import { presignGet } from "../services/storage.js";
 import { requestZipDownload } from "../services/zip.js";
+import { notifyZipReadyOnce } from "../services/notifier.js";
 import { loadVisitor } from "./galleries.js";
 
 export async function registerZipRoutes(app: FastifyInstance) {
@@ -169,6 +170,12 @@ export async function registerZipRoutes(app: FastifyInstance) {
           })
           .catch(() => {});
         return reply.redirect(url);
+      }
+
+      // Lazy notify: erster Poll, der "ready" sieht und noch nicht
+      // notifiziert wurde, löst die Mail aus. Idempotent über DB-Flag.
+      if (zip.status === "ready") {
+        void notifyZipReadyOnce({ zipDownloadId: zip.id });
       }
 
       return {

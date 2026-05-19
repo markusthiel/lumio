@@ -645,6 +645,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         string,
         { color: string | null; rating: number | null; liked: boolean }
       > = {};
+      let finalizedAt: Date | null = null;
       if (visitor.accessId) {
         const selections = await prisma.selection.findMany({
           where: { accessId: visitor.accessId },
@@ -656,9 +657,14 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
             { color: s.color, rating: s.rating, liked: s.liked },
           ])
         );
+        const access = await prisma.galleryAccess.findUnique({
+          where: { id: visitor.accessId },
+          select: { finalizedAt: true },
+        });
+        finalizedAt = access?.finalizedAt ?? null;
       }
 
-      return { files: items, mySelections };
+      return { files: items, mySelections, finalizedAt };
     }
   );
 

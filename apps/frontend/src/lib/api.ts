@@ -308,7 +308,14 @@ export const api = {
     request<{
       files: PublicFile[];
       mySelections: Record<string, MySelection>;
+      finalizedAt: string | null;
     }>(`/g/${slug}/files`),
+
+  finalizeSelection: (slug: string) =>
+    request<{ ok: true; count: number; finalizedAt: string }>(
+      `/g/${slug}/finalize`,
+      { method: "POST" }
+    ),
 
   // Proofing (Kunden-Sicht)
   setSelection: (
@@ -381,7 +388,48 @@ export const api = {
 
   xmpExportUrl: (galleryId: string) =>
     `${API_URL}/api/v1/galleries/${galleryId}/export/xmp`,
+
+  // Tenant Settings
+  getTenantSettings: () =>
+    request<{ tenant: TenantSettings }>(`/settings`),
+
+  updateTenantSettings: (patch: { watermarkText?: string | null }) =>
+    request<{ tenant: TenantSettings }>(`/settings`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+
+  initWatermarkImageUpload: (input: {
+    contentType: string;
+    sizeBytes: number;
+  }) =>
+    request<{
+      key: string;
+      uploadUrl: string;
+      headers: Record<string, string>;
+    }>(`/settings/watermark-image`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  completeWatermarkImageUpload: (key: string) =>
+    request<{ ok: true; key: string }>(
+      `/settings/watermark-image/complete`,
+      { method: "POST", body: JSON.stringify({ key }) }
+    ),
+
+  deleteWatermarkImage: () =>
+    request<{ ok: true }>(`/settings/watermark-image`, { method: "DELETE" }),
 };
+
+export interface TenantSettings {
+  id: string;
+  slug: string;
+  name: string;
+  watermarkText: string | null;
+  watermarkImageKey: string | null;
+  customDomain?: string | null;
+}
 
 // -----------------------------------------------------------------------------
 // Proofing Summary types

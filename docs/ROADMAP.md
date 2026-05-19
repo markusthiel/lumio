@@ -52,7 +52,7 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 - [x] Share-Link-Verwaltung im Studio inkl. Tokens und Berechtigungen
 - [x] Visitor-Session via HMAC-Cookie statt Token-in-jeder-URL
 
-### Sprint 4 — Download & Proofing ✅ (großteils)
+### Sprint 4 — Download & Proofing ✅
 
 - [x] Single-File-Download via Presigned URL
 - [x] Kommentare pro Bild
@@ -62,10 +62,10 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 - [x] CSV-Export der Auswahl
 - [x] **XMP-Sidecar-Export für Lightroom Classic / Capture One**
 - [x] Studio-UI für Proofing-Summary mit Stats + per-Access-Tabelle + File-Liste
-- [x] Email-Notifications (neuer Kommentar) — Auswahl-fertig-Trigger fehlt noch
-- [ ] Selection-Abschluss-Button für Kunde mit Email-Notification (Trigger)
-- [ ] Auswahl-ZIP-Notification an Kunde, wenn ready
-- [ ] Watermark-Image-Upload-UI (Endpoint da, Frontend fehlt)
+- [x] Email-Notifications (neuer Kommentar)
+- [x] Selection-Abschluss-Button für Kunde mit Email-Notification
+- [x] Auswahl-ZIP-Notification an Kunde (lazy notify beim ersten ready-Poll)
+- [x] Watermark-Image-Upload-UI im Studio (Presigned PUT direkt zu S3)
 
 ---
 

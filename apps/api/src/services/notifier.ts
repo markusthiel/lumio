@@ -100,6 +100,63 @@ export async function notifySelectionFinished(opts: {
 
 /**
  * Kunde informieren, dass sein ZIP-Download fertig ist.
+ *
+ * Idempotent über zip_downloads.notifiedAt: setzt das Flag transaktional,
+ * sodass mehrere parallele Status-Polls nur EINE Mail auslösen.
+ * Gibt true zurück, wenn diese Anfrage tatsächlich die Mail ausgelöst hat.
+ */
+export async function notifyZipReadyOnce(opts: {
+  zipDownloadId: string;
+}): Promise<boolean> {
+  try {
+    // Conditional update: setzt notifiedAt nur, wenn es noch NULL ist.
+    // updateMany gibt count zurück — wenn 0, hat schon jemand anderes notifiziert.
+    const updated = await prisma.zipDownload.updateMany({
+      where: {
+        id: opts.zipDownloadId,
+        status: "ready",
+        notifiedAt: null,
+      },
+      data: { notifiedAt: new Date() },
+    });
+    if (updated.count === 0) return false;
+
+    // Jetzt die zugehörigen Daten holen
+    const zip = await prisma.zipDownload.findUnique({
+      where: { id: opts.zipDownloadId },
+      select: {
+        id: true,
+        fileCount: true,
+        accessId: true,
+        gallery: { select: { slug: true, title: true } },
+      },
+    });
+    if (!zip || !zip.accessId) return true; // ohne Access = keine Email-Adresse
+
+    const access = await prisma.galleryAccess.findUnique({
+      where: { id: zip.accessId },
+      select: { email: true },
+    });
+    if (!access?.email) return true;
+
+    const downloadUrl = `${config.PUBLIC_URL}/g/${zip.gallery.slug}` +
+      `?zip=${zip.id}`;
+    const tpl = tmplZipReady({
+      galleryTitle: zip.gallery.title,
+      downloadUrl,
+      fileCount: zip.fileCount,
+    });
+    await sendMail({ to: access.email, ...tpl });
+    return true;
+  } catch (err) {
+    logger.warn({ err }, "notifyZipReadyOnce failed");
+    return false;
+  }
+}
+
+/**
+ * Kunde informieren, dass sein ZIP-Download fertig ist (alte Signatur).
+ * @deprecated nutze notifyZipReadyOnce stattdessen
  */
 export async function notifyZipReady(opts: {
   email: string;

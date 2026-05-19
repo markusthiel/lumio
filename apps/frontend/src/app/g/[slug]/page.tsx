@@ -23,6 +23,7 @@ export default function PublicGalleryPage() {
   const [mySelections, setMySelections] = useState<Record<string, MySelection>>(
     {}
   );
+  const [finalizedAt, setFinalizedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,6 +33,7 @@ export default function PublicGalleryPage() {
       const res = await api.listPublicFiles(slug);
       setFiles(res.files);
       setMySelections(res.mySelections ?? {});
+      setFinalizedAt(res.finalizedAt);
     } catch (err) {
       console.error(err);
     }
@@ -131,9 +133,18 @@ export default function PublicGalleryPage() {
         slug={slug}
         files={files ?? []}
         mySelections={mySelections}
+        finalizedAt={finalizedAt}
         onSelectionChange={(fileId, sel) =>
           setMySelections((prev) => ({ ...prev, [fileId]: sel }))
         }
+        onFinalize={async () => {
+          try {
+            const res = await api.finalizeSelection(slug);
+            setFinalizedAt(res.finalizedAt);
+          } catch (err) {
+            console.error(err);
+          }
+        }}
       />
     </GalleryShell>
   );

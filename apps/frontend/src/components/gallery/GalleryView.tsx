@@ -16,7 +16,9 @@ interface Props {
   slug: string;
   files: PublicFile[];
   mySelections: Record<string, MySelection>;
+  finalizedAt: string | null;
   onSelectionChange: (fileId: string, sel: MySelection) => void;
+  onFinalize: () => void | Promise<void>;
 }
 
 type FilterMode = "all" | "liked" | "red" | "yellow" | "green";
@@ -26,10 +28,13 @@ export function GalleryView({
   slug,
   files,
   mySelections,
+  finalizedAt,
   onSelectionChange,
+  onFinalize,
 }: Props) {
   const [filter, setFilter] = useState<FilterMode>("all");
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
+  const [finalizing, setFinalizing] = useState(false);
 
   const filtered = useMemo(() => {
     if (filter === "all") return files;
@@ -65,21 +70,46 @@ export function GalleryView({
           )}
           <div className="text-xs opacity-50 mt-3">
             {stats.total} Files · {stats.liked} liked
+            {finalizedAt && (
+              <span className="ml-2 text-green-400">
+                · Auswahl abgeschlossen
+              </span>
+            )}
           </div>
         </div>
 
-        {meta.downloadEnabled && stats.total > 0 && (
-          <div className="flex flex-wrap gap-2">
-            <ZipDownloadButton slug={slug} variant="all" />
-            {meta.mode === "collaboration" && stats.liked > 0 && (
-              <ZipDownloadButton
-                slug={slug}
-                variant="selection"
-                count={stats.liked}
-              />
+        <div className="flex flex-wrap gap-2">
+          {meta.mode === "collaboration" &&
+            stats.liked > 0 &&
+            !finalizedAt && (
+              <button
+                onClick={async () => {
+                  setFinalizing(true);
+                  try {
+                    await onFinalize();
+                  } finally {
+                    setFinalizing(false);
+                  }
+                }}
+                disabled={finalizing}
+                className="text-xs px-3 py-1.5 rounded bg-brand-accent text-neutral-950 font-medium hover:opacity-90 disabled:opacity-50"
+              >
+                {finalizing ? "Wird abgeschlossen…" : "Auswahl abschließen"}
+              </button>
             )}
-          </div>
-        )}
+          {meta.downloadEnabled && stats.total > 0 && (
+            <>
+              <ZipDownloadButton slug={slug} variant="all" />
+              {meta.mode === "collaboration" && stats.liked > 0 && (
+                <ZipDownloadButton
+                  slug={slug}
+                  variant="selection"
+                  count={stats.liked}
+                />
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       {/* Filter-Toolbar */}

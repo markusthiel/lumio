@@ -65,6 +65,12 @@ export default function StudioPage() {
             >
               Neue Galerie
             </button>
+            <Link
+              href="/studio/settings"
+              className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-100 transition"
+            >
+              Einstellungen
+            </Link>
             <button
               onClick={handleLogout}
               className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-100 transition"
