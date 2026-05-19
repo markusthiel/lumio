@@ -1,52 +1,72 @@
 # =============================================================================
 # Lumio — Caddy Configuration
 # =============================================================================
-# Eine Adresse für alles: Frontend + API hängen am selben Hostname,
-# Caddy routet /api/*, /ws/*, /health an die API, alles andere ans Frontend.
+# Konfiguriert zwei Hostnamen:
 #
-# Hostname kommt aus der LUMIO_HOST ENV-Variable (siehe .env):
-#   LUMIO_HOST=:80                       → erreichbar via http://localhost (lokal)
-#   LUMIO_HOST=galerien.example.com      → automatisches Let's-Encrypt-Cert
-#   LUMIO_HOST=http://galerien.example.com → explizit nur HTTP, kein Cert
+#   LUMIO_HOST     → Frontend + API + WS (die "App"-Domain)
+#   LUMIO_S3_HOST  → MinIO / S3-Object-Storage (separate Subdomain nötig,
+#                    weil MinIO kein Path-Präfix-Rewriting unterstützt)
 #
-# Wenn der Server hinter einem externen Reverse-Proxy steht (z.B. eigener
-# vorgeschalteter Caddy, Traefik, nginx-proxy-manager), setze LUMIO_HOST=:80,
-# leg die CADDY_HTTP_PORT- und CADDY_HTTPS_PORT-Werte in der .env auf freie
-# interne Ports und proxy von außen dorthin. Die trusted_proxies-Direktive
-# unten sorgt dafür, dass X-Forwarded-Proto vom äußeren Proxy respektiert
-# wird — sonst denkt die API, alles wäre HTTP und generiert kaputte Links.
+# Examples:
+#   Lokales Setup (Default-Werte):
+#     LUMIO_HOST=:80
+#     LUMIO_S3_HOST=:80     # auf Subdomain umlenken via /etc/hosts oder DNS
+#
+#   Produktion mit eigener Domain:
+#     LUMIO_HOST=lumio-cloud.de
+#     LUMIO_S3_HOST=s3.lumio-cloud.de
+#
+#   Hinter externem Reverse-Proxy (TLS-Termination woanders):
+#     LUMIO_HOST=:80
+#     LUMIO_S3_HOST=:80
+#     externer Proxy: lumio-cloud.de     → docker-host:CADDY_HTTP_PORT
+#     externer Proxy: s3.lumio-cloud.de  → docker-host:CADDY_HTTP_PORT
+#
+# trusted_proxies sorgt dafür, dass X-Forwarded-Proto eines externen
+# Reverse-Proxies respektiert wird (siehe Kommentar dort).
 
 {
 	admin off
-	# E-Mail für Let's-Encrypt-Account-Recovery (optional):
-	# email admin@example.com
-
-	# Allen privaten IP-Ranges + Docker-Bridge-Ranges vertrauen, damit ein
-	# vorgeschalteter Reverse-Proxy X-Forwarded-Proto: https korrekt
-	# durchreichen kann. In rein öffentlichen Setups (ohne externen Proxy)
-	# ist das nicht schädlich, weil dann eh kein vertrauenswürdiger Hop davor
-	# liegt der diese Header setzen würde.
 	servers {
 		trusted_proxies static private_ranges
 	}
 }
 
+# -----------------------------------------------------------------------------
+# Hauptseite — Frontend + API
+# -----------------------------------------------------------------------------
 {$LUMIO_HOST::80} {
-	# API-Routen
 	reverse_proxy /api/*   api:3001
 	reverse_proxy /health  api:3001
 	reverse_proxy /ws/*    api:3001
 
-	# Alles andere ans Frontend
 	reverse_proxy frontend:3000
 
 	encode zstd gzip
 
-	# Security headers
 	header {
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
-		# CSP wird vom Frontend selbst gesetzt, damit es per Route variieren kann
 		-Server
 	}
+}
+
+# -----------------------------------------------------------------------------
+# S3 / MinIO — separater Hostname
+# -----------------------------------------------------------------------------
+# MinIO unterstützt kein Path-Präfix-Rewriting (die AWS-V4-Signatur wird
+# über den vollen Path inkl. Bucket-Name berechnet). Deshalb läuft S3-Traffic
+# auf einem eigenen Hostname und nicht etwa hinter /s3/ am Hauptdomain.
+#
+# Der Host-Header darf hier NICHT durch Caddy überschrieben werden — die API
+# signiert die presigned URL mit dem Host-Header, den der Browser später
+# sendet (siehe S3_PUBLIC_URL in apps/api/src/services/storage.ts).
+{$LUMIO_S3_HOST::81} {
+	reverse_proxy minio:9000 {
+		header_up Host {host}
+	}
+
+	# CORS für Browser-Uploads (PUT) — MinIO setzt eigene CORS-Header, aber
+	# wir lassen den Block hier als Dokumentation für später, falls MinIO
+	# CORS aus irgendeinem Grund nicht selbst handhabt.
 }

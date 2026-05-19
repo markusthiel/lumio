@@ -27,14 +27,29 @@ import { config } from "../config.js";
 import { logger } from "../logger.js";
 
 // ---------------------------------------------------------------------------
-// Client
+// Clients
 // ---------------------------------------------------------------------------
+// Wir halten ZWEI S3-Clients:
+//
+//   - _client (intern): Endpoint ist die container-interne Adresse, z.B.
+//     http://minio:9000. Wird für Server-zu-Server-Calls verwendet (delete,
+//     head, multipart-complete usw.). Niemals Browser-sichtbar.
+//
+//   - _publicClient (presign): Endpoint ist der public Endpoint, den der
+//     Browser erreicht — typischerweise gleich dem PUBLIC_URL mit einem
+//     /s3-Prefix, das Caddy zu minio:9000 weiterreicht. Wird ausschließlich
+//     zur Erzeugung von presigned URLs verwendet, die anschließend an den
+//     Browser ausgeliefert werden.
+//
+// Wenn S3_PUBLIC_URL nicht gesetzt ist, fällt der Public-Client auf den
+// internen Endpoint zurück. Das ist nur für reine Server-Side-Setups (kein
+// Browser-Upload) oder echtes externes S3 ohne Reverse-Proxy korrekt.
 let _client: S3Client | null = null;
+let _publicClient: S3Client | null = null;
 
-export function getS3Client(): S3Client {
-  if (_client) return _client;
-  _client = new S3Client({
-    endpoint: config.S3_ENDPOINT,
+function makeClient(endpoint: string): S3Client {
+  return new S3Client({
+    endpoint,
     region: config.S3_REGION,
     forcePathStyle: config.S3_FORCE_PATH_STYLE,
     credentials: {
@@ -42,15 +57,31 @@ export function getS3Client(): S3Client {
       secretAccessKey: config.S3_SECRET_KEY,
     },
   });
+}
+
+export function getS3Client(): S3Client {
+  if (_client) return _client;
+  _client = makeClient(config.S3_ENDPOINT);
   logger.info(
     {
       endpoint: config.S3_ENDPOINT,
       bucket: config.S3_BUCKET,
       pathStyle: config.S3_FORCE_PATH_STYLE,
     },
-    "s3 client initialized"
+    "s3 client initialized (internal)"
   );
   return _client;
+}
+
+function getPublicS3Client(): S3Client {
+  if (_publicClient) return _publicClient;
+  const publicEndpoint = config.S3_PUBLIC_URL || config.S3_ENDPOINT;
+  _publicClient = makeClient(publicEndpoint);
+  logger.info(
+    { endpoint: publicEndpoint },
+    "s3 client initialized (public/presign)"
+  );
+  return _publicClient;
 }
 
 export function getBucket(): string {
@@ -117,7 +148,7 @@ export async function presignPut(opts: {
     ContentType: opts.contentType,
     ContentLength: opts.contentLength,
   });
-  return getSignedUrl(getS3Client(), cmd, {
+  return getSignedUrl(getPublicS3Client(), cmd, {
     expiresIn: opts.ttlSeconds ?? PRESIGN_PUT_TTL,
   });
 }
@@ -132,7 +163,7 @@ export async function presignGet(opts: {
     Key: opts.key,
     ResponseContentDisposition: opts.responseContentDisposition,
   });
-  return getSignedUrl(getS3Client(), cmd, {
+  return getSignedUrl(getPublicS3Client(), cmd, {
     expiresIn: opts.ttlSeconds ?? PRESIGN_GET_TTL,
   });
 }
@@ -179,7 +210,7 @@ export async function presignUploadPart(opts: {
     UploadId: opts.uploadId,
     PartNumber: opts.partNumber,
   });
-  return getSignedUrl(getS3Client(), cmd, {
+  return getSignedUrl(getPublicS3Client(), cmd, {
     expiresIn: opts.ttlSeconds ?? PRESIGN_PUT_TTL,
   });
 }
