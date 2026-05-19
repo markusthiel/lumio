@@ -562,6 +562,16 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           const thumb = f.renditions.find((r) => r.kind === "thumb");
           const preview = f.renditions.find((r) => r.kind === "preview");
           const web = f.renditions.find((r) => r.kind === "web");
+          const hls = f.renditions.find((r) => r.kind === "hls");
+
+          // HLS-URL ist KEINE Presigned-URL — sie geht über unseren
+          // HLS-Proxy, weil Playlists relative Segment-Pfade haben.
+          // Wir liefern eine relative API-URL; das Frontend macht den
+          // fetch mit credentials:'include'.
+          const hlsUrl = hls
+            ? `/api/v1/g/${req.params.slug}/files/${f.id}/hls/master.m3u8`
+            : null;
+
           return {
             id: f.id,
             filename: f.originalFilename,
@@ -579,6 +589,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
             webUrl: web
               ? await presignGet({ key: web.storageKey })
               : null,
+            hlsUrl,
             previewWidth: preview?.width ?? null,
             previewHeight: preview?.height ?? null,
           };

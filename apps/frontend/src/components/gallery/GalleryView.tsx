@@ -8,6 +8,7 @@ import {
   type MySelection,
   type Comment,
 } from "@/lib/api";
+import { VideoPlayer } from "./VideoPlayer";
 
 interface Props {
   meta: PublicGalleryMeta;
@@ -108,7 +109,7 @@ export function GalleryView({
         </div>
       ) : (
         <ul className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
-          {filtered.map((f, idx) => (
+          {filtered.map((f) => (
             <GalleryTile
               key={f.id}
               file={f}
@@ -170,7 +171,23 @@ function GalleryTile({
           </div>
         )}
 
-        {/* Selection-Indikatoren als Overlay */}
+        {/* Video-Indikator */}
+        {file.kind === "video" && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="w-10 h-10 bg-black/60 rounded-full flex items-center justify-center text-white text-lg drop-shadow">
+              ▶
+            </div>
+          </div>
+        )}
+
+        {/* RAW-Indikator */}
+        {file.kind === "raw" && (
+          <div className="absolute bottom-1.5 right-1.5 text-[9px] font-mono uppercase bg-black/60 text-white px-1.5 py-0.5 rounded">
+            RAW
+          </div>
+        )}
+
+        {/* Selection-Indikatoren */}
         <div className="absolute top-1.5 left-1.5 flex gap-1">
           {sel?.color && (
             <span
@@ -390,7 +407,13 @@ function Lightbox({
             ›
           </button>
 
-          {file.previewUrl || file.webUrl ? (
+          {file.kind === "video" && file.hlsUrl ? (
+            <VideoPlayer
+              src={file.hlsUrl}
+              poster={file.previewUrl ?? file.thumbUrl}
+              className="max-h-full max-w-full"
+            />
+          ) : file.previewUrl || file.webUrl ? (
             /* eslint-disable-next-line @next/next/no-img-element */
             <img
               src={file.webUrl ?? file.previewUrl ?? ""}

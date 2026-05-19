@@ -143,6 +143,7 @@ export interface PublicFile {
   thumbUrl: string | null;
   previewUrl: string | null;
   webUrl: string | null;
+  hlsUrl: string | null;
   previewWidth: number | null;
   previewHeight: number | null;
 }

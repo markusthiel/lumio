@@ -29,3 +29,6 @@ zipstream-ng==1.8.0      # Streaming-ZIP-Builder
 pyexiv2==2.15.3          # EXIF-Reading + XMP-Sidecar-Erzeugung
 structlog==24.4.0
 python-dotenv==1.0.1
+
+# Test
+pytest==8.3.3

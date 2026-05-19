@@ -22,6 +22,7 @@ import { registerAccessRoutes } from "./routes/access.js";
 import { registerFileRoutes } from "./routes/files.js";
 import { registerProofingRoutes } from "./routes/proofing.js";
 import { registerBillingRoutes } from "./routes/billing.js";
+import { registerHlsRoutes } from "./routes/hls.js";
 
 async function buildServer() {
   const app = Fastify({
@@ -55,6 +56,7 @@ async function buildServer() {
       await registerAccessRoutes(api);
       await registerFileRoutes(api);
       await registerProofingRoutes(api);
+      await registerHlsRoutes(api);
       if (config.BILLING_ENABLED) {
         await registerBillingRoutes(api);
       }

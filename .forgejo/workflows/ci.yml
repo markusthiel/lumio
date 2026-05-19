@@ -114,8 +114,8 @@ jobs:
       - name: Syntax check
         run: python -m compileall -q .
 
-      # - name: Test
-      #   run: pytest
+      - name: Test
+        run: pytest
 
   # ---------------------------------------------------------------------------
   # Shared — Type-Check

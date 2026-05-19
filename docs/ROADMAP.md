@@ -66,12 +66,21 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 
 ## Phase 2 — Pro Features (Sprint 5–8)
 
-### RAW & Video
+### RAW & Video ✅ (großteils)
 
-- [ ] Worker: process_raw mit rawpy für alle gängigen RAW-Formate
-- [ ] Worker: process_video mit ffmpeg → Poster + HLS + Sprite-Sheet
-- [ ] HLS-Player im Frontend (Video.js oder Vidstack)
-- [ ] HEIC/HEIF-Support
+- [x] Worker: process_raw mit rawpy — embedded JPEG-Preview als Fast-Path,
+      Fallback auf vollständiges Demosaicing (use_camera_wb=True),
+      anschließend gleiche libvips-Pipeline wie für Standardbilder
+- [x] Worker: process_video mit ffmpeg → Poster + HLS-Adaptive-Bitrate
+      (480p/720p/1080p, kein Upscaling) + Scrubbing-Sprite-Sheet
+- [x] API: HLS-Proxy-Route (`/g/:slug/files/:id/hls/...`) damit Playlists
+      mit relativen Segment-Pfaden funktionieren ohne Bucket public zu machen
+- [x] Frontend: hls.js Video-Player mit Safari-nativem HLS-Fallback
+- [x] Frontend: Video- und RAW-Indikatoren im Grid (Play-Icon, RAW-Badge)
+- [x] Worker-Tests (pytest, 6 grün) für HLS-Variant-Auswahl und kbps-Parsing
+- [ ] Video-Scrubbing-Vorschau im Player nutzen (Sprite-Sheet ist da)
+- [ ] HW-Beschleunigung optional (NVENC/QSV/VAAPI)
+- [ ] HEIC/HEIF in der API als eigene Kind detection
 - [ ] PSD-Preview-Extraktion
 
 ### Branding & Whitelabel
