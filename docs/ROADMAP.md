@@ -126,7 +126,7 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 
 ## Phase 3 — Polish & Wachstum
 
-- [ ] Lightroom Classic Plugin (Lua) — pullt Auswahl direkt in den Katalog
+- [x] Lightroom Classic Plugin (Lua) — pullt Auswahl direkt in den Katalog (`apps/lightroom-plugin/`)
 - [ ] Capture One Plugin
 - [x] Mehrsprachigkeit Studio + Customer-Seite (DE, EN — weitere folgen via i18n-Dictionary-System; in-Gallery-Locale-Picker für Visitor steht noch aus)
 - [ ] Mobile App (React Native) für iOS/Android — Upload aus der Kamera-Rolle

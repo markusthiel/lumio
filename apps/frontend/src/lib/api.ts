@@ -282,6 +282,22 @@ export const api = {
   deleteWebauthnCredential: (id: string) =>
     request<{ ok: true }>(`/auth/webauthn/${id}`, { method: "DELETE" }),
 
+  // API-Tokens (Plugins/CLI)
+  listApiTokens: () =>
+    request<{ tokens: ApiTokenSummary[] }>("/auth/tokens"),
+  createApiToken: (name: string, expiresAt?: string | null) =>
+    request<{
+      token: string;
+      id: string;
+      name: string;
+      createdAt: string;
+    }>("/auth/tokens", {
+      method: "POST",
+      body: JSON.stringify({ name, expiresAt: expiresAt ?? null }),
+    }),
+  revokeApiToken: (id: string) =>
+    request<{ ok: true }>(`/auth/tokens/${id}`, { method: "DELETE" }),
+
   // Galleries (Studio)
   listGalleries: () => request<{ galleries: Gallery[] }>("/galleries"),
 
@@ -664,6 +680,14 @@ export interface WebauthnCredential {
   label: string;
   createdAt: string;
   lastUsedAt: string | null;
+}
+
+export interface ApiTokenSummary {
+  id: string;
+  name: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+  expiresAt: string | null;
 }
 
 export interface GalleryTemplate {

@@ -29,6 +29,8 @@ import { registerExportRoutes } from "./routes/export.js";
 import { registerBrandingRoutes } from "./routes/brandings.js";
 import { registerTemplateRoutes } from "./routes/templates.js";
 import { registerAuditRoutes } from "./routes/audit.js";
+import { registerTokenRoutes } from "./routes/tokens.js";
+import { registerPluginRoutes } from "./routes/plugin.js";
 import { registerWsRoutes } from "./routes/ws.js";
 
 async function buildServer() {
@@ -70,6 +72,8 @@ async function buildServer() {
       await registerBrandingRoutes(api);
       await registerTemplateRoutes(api);
       await registerAuditRoutes(api);
+      await registerTokenRoutes(api);
+      await registerPluginRoutes(api);
       if (config.BILLING_ENABLED) {
         await registerBillingRoutes(api);
       }

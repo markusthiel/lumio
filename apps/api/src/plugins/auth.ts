@@ -25,6 +25,7 @@ import { config } from "../config.js";
 import { prisma } from "../db.js";
 import { getDefaultTenantId } from "../bootstrap.js";
 import { validateSession, type SessionContext } from "../services/auth.js";
+import { validateApiToken } from "../services/apiToken.js";
 
 export const SESSION_COOKIE = "lumio_session";
 
@@ -57,10 +58,48 @@ async function plugin(app: FastifyInstance) {
   });
 
   app.addHook("preHandler", async (req: FastifyRequest, _reply: FastifyReply) => {
-    // 1. Session aus Cookie auflösen
+    // 1a) Session aus Cookie auflösen
     const token = req.cookies?.[SESSION_COOKIE];
     if (token) {
       req.session = await validateSession(token);
+    }
+
+    // 1b) Bearer-Token (Plugin/CLI) — wenn kein Cookie-Session da ist.
+    //     Cookie hat Priorität, weil Browser-Sessions die Norm sind. Plugins
+    //     schicken nur Authorization, nie Cookies.
+    if (!req.session) {
+      const authHeader = req.headers.authorization;
+      if (authHeader?.startsWith("Bearer ")) {
+        const bearer = authHeader.slice("Bearer ".length).trim();
+        const result = await validateApiToken(bearer);
+        if (result) {
+          // User-Daten holen, damit req.session dieselbe Shape hat wie bei
+          // Cookie-Auth. SessionContext erwartet {user, session} — bei
+          // Bearer-Tokens haben wir keine 'session'-Row, also bauen wir
+          // eine pseudo aus dem ApiToken-Eintrag.
+          const user = await prisma.user.findUnique({
+            where: { id: result.userId },
+          });
+          if (user && user.status === "active") {
+            // Pseudo-Session-Objekt, damit req.session dieselbe Shape hat
+            // wie bei Cookie-Login. Wir haben keine echte sessions-Row,
+            // nutzen die Token-ID stattdessen — die Felder werden in
+            // den Routen entweder gar nicht oder nur als Anzeige verwendet.
+            req.session = {
+              user,
+              session: {
+                id: result.tokenId,
+                userId: user.id,
+                tokenHash: "",
+                expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+                ipAddress: req.ip,
+                userAgent: req.headers["user-agent"] ?? null,
+                createdAt: new Date(),
+              },
+            };
+          }
+        }
+      }
     }
 
     // 2. Tenant auflösen

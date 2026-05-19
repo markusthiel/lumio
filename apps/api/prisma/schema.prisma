@@ -81,6 +81,7 @@ model User {
   galleries    Gallery[]
   sessions     Session[]
   webauthnCredentials WebauthnCredential[]
+  apiTokens    ApiToken[]
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -89,6 +90,22 @@ model User {
   @@unique([tenantId, email])
   @@index([email])
   @@map("users")
+}
+
+model ApiToken {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @db.Uuid
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  name        String   // "Lightroom @ Studio-Mac"
+  tokenHash   String   @unique  // sha256 hex
+  scopes      String   @default("[\"plugin\"]")  // JSON-Array
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+  @@map("api_tokens")
 }
 
 model WebauthnCredential {
