@@ -13,7 +13,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
-    "create-admin": "tsx src/scripts/create-admin.ts"
+    "create-admin": "node dist/scripts/create-admin.js",
+    "create-admin:dev": "tsx src/scripts/create-admin.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.658.0",
