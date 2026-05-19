@@ -61,6 +61,8 @@ def generate_raw_preview(self, file_id: str) -> dict:
         log.exception("process_raw.failed", file_id=file_id, err=str(err))
         try:
             mark_file_failed(file_id, str(err))
+            from events import file_status as _publish_status
+            _publish_status(file_row["gallery_id"], file_id, "failed")
         except Exception:
             pass
         raise self.retry(exc=err)
@@ -109,9 +111,14 @@ def _process(file_row: dict) -> None:
         # nicht zwingend die echte Sensor-Größe. Wir nutzen aus rawpy die
         # tatsächlichen Sensor-Dimensionen.
         orig_w, orig_h = _read_sensor_size(src_path)
-        mark_file_ready(file_id, orig_w or src_w, orig_h or src_h)
+        final_w = orig_w or src_w
+        final_h = orig_h or src_h
+        mark_file_ready(file_id, final_w, final_h)
+        from events import file_status as _publish_status
+        _publish_status(gallery_id, file_id, "ready",
+                        width=final_w, height=final_h)
         log.info("process_raw.complete",
-                 file_id=file_id, width=orig_w or src_w, height=orig_h or src_h)
+                 file_id=file_id, width=final_w, height=final_h)
 
 
 def _extract_or_demosaic(src_path: str, out_jpeg: str) -> str:

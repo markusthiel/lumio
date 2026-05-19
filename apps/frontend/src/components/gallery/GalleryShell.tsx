@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import type { Branding } from "@/lib/api";
-import { useT } from "@/lib/i18n";
+import { useT, useLocale } from "@/lib/i18n";
 
 /**
  * Wrapper für alle Kunden-Galerie-Seiten. Wendet das Branding eines
@@ -46,6 +46,7 @@ export function GalleryShell({
   children: React.ReactNode;
 }) {
   const t = useT();
+  const { locale, setLocale, supported } = useLocale();
   // Favicon dynamisch setzen
   useEffect(() => {
     if (!branding?.faviconUrl) return;
@@ -113,21 +114,62 @@ export function GalleryShell({
 
       <main>{children}</main>
 
-      {branding?.footerText ? (
-        <footer
-          className="p-6 mt-12 border-t text-xs text-center"
-          style={{ borderColor, color: mutedColor }}
-        >
-          {branding.footerText}
-        </footer>
-      ) : (
-        <footer
-          className="p-6 mt-12 text-xs text-center"
-          style={{ color: mutedColor, opacity: 0.7 }}
-        >
-          {t("gallery.poweredBy")}
-        </footer>
-      )}
+      <footer
+        className="p-6 mt-12 text-xs"
+        style={{
+          color: mutedColor,
+          opacity: branding?.footerText ? 1 : 0.7,
+          borderTop: branding?.footerText ? `1px solid ${borderColor}` : "none",
+        }}
+      >
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 flex-wrap">
+          <div className="text-center sm:text-left flex-1 min-w-0">
+            {branding?.footerText ?? t("gallery.poweredBy")}
+          </div>
+          {supported.length > 1 && (
+            <LocaleSwitcher
+              locale={locale}
+              setLocale={setLocale}
+              supported={supported}
+            />
+          )}
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+// Kleiner Toggle-Button für Sprachen. Bewusst klein gehalten — soll dem
+// Branding der Galerie nicht die Schau stehlen, aber jederzeit erreichbar
+// sein. Bei nur einer unterstützten Locale wird er gar nicht gerendert.
+function LocaleSwitcher({
+  locale,
+  setLocale,
+  supported,
+}: {
+  locale: string;
+  setLocale: (l: "en" | "de") => void;
+  supported: readonly ("en" | "de")[];
+}) {
+  return (
+    <div className="flex items-center gap-1 text-[11px]">
+      {supported.map((l, i) => (
+        <span key={l} className="flex items-center gap-1">
+          {i > 0 && <span className="opacity-30">·</span>}
+          <button
+            type="button"
+            onClick={() => setLocale(l)}
+            className={
+              l === locale
+                ? "font-medium underline underline-offset-2"
+                : "hover:underline underline-offset-2 opacity-70"
+            }
+            aria-current={l === locale ? "true" : undefined}
+          >
+            {l === "de" ? "Deutsch" : "English"}
+          </button>
+        </span>
+      ))}
     </div>
   );
 }

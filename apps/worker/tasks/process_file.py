@@ -62,6 +62,8 @@ def generate_renditions(self, file_id: str) -> dict:
         log.exception("process_file.failed", file_id=file_id, err=str(err))
         try:
             mark_file_failed(file_id, str(err))
+            from events import file_status as _publish_status
+            _publish_status(file_row["gallery_id"], file_id, "failed")
         except Exception:
             pass
         # Retry, falls noch Versuche übrig
@@ -100,5 +102,8 @@ def _process(file_row: dict) -> None:
         )
 
         mark_file_ready(file_id, final_w, final_h)
+        from events import file_status as _publish_status
+        _publish_status(gallery_id, file_id, "ready",
+                        width=final_w, height=final_h)
         log.info("process_file.complete", file_id=file_id,
                  width=final_w, height=final_h)

@@ -7,6 +7,7 @@ import { api, type GalleryDetail, type GalleryFile } from "@/lib/api";
 import { uploadFiles, type UploadProgress } from "@/lib/upload";
 import { SharePanel } from "@/components/studio/SharePanel";
 import { useT } from "@/lib/i18n";
+import { useGalleryEvents } from "@/lib/useGalleryEvents";
 
 export default function GalleryDetailPage() {
   const router = useRouter();
@@ -82,9 +83,16 @@ export default function GalleryDetailPage() {
   );
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // Polling-Timer als Fallback — wenn der WebSocket weg ist (z.B. Proxy
+  // wirft uns raus und Reconnect klappt nicht), wollen wir nicht ewig auf
+  // einen festsitzenden processing-Status starren. Polling läuft DESHALB
+  // immer noch, aber mit größerem Intervall (10s) und nur, solange
+  // Files in nicht-finalem Status sind. Bei normalem Betrieb sieht der
+  // User die Updates über den WebSocket schon vorher, das Polling
+  // korrigiert nur den seltenen Edge-Case.
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Initialer Load + Polling während Files in "processing" sind
+  // Initialer Load
   const load = useCallback(async () => {
     try {
       const { gallery } = await api.getGallery(id);
@@ -104,15 +112,49 @@ export default function GalleryDetailPage() {
     void load();
   }, [load]);
 
-  // Wenn Files in processing sind, alle 2s neu laden, bis alle ready/failed
+  // WebSocket-Subscription für Live-Updates
+  useGalleryEvents(gallery?.id, (event) => {
+    if (event.type === "file.status") {
+      setGallery((g) => {
+        if (!g) return g;
+        const idx = g.files.findIndex((f) => f.id === event.fileId);
+        if (idx < 0) {
+          // Unbekanntes File — lieber neu laden als raten
+          void load();
+          return g;
+        }
+        const next = [...g.files];
+        next[idx] = {
+          ...next[idx],
+          status: event.status,
+          width: event.width ?? next[idx].width,
+          height: event.height ?? next[idx].height,
+        };
+        return { ...g, files: next };
+      });
+      // Bei status=ready haben wir noch keine thumbUrl in der Payload —
+      // einmal neu fetchen, damit der Browser die signierte URL bekommt
+      if (event.status === "ready") void load();
+    } else if (event.type === "file.deleted") {
+      setGallery((g) =>
+        g ? { ...g, files: g.files.filter((f) => f.id !== event.fileId) } : g
+      );
+    } else if (event.type === "file.added") {
+      // Vollständiger Reload — wir brauchen die signierte thumbUrl
+      void load();
+    }
+  });
+
+  // Fallback-Polling: nur solange noch Files in transienten Stati hängen,
+  // und nur alle 10 Sekunden (WebSocket liefert die Updates eigentlich).
   useEffect(() => {
     if (!gallery) return;
-    const hasProcessing = gallery.files.some(
+    const hasTransient = gallery.files.some(
       (f) => f.status === "processing" || f.status === "uploading"
     );
-    if (hasProcessing && !pollTimer.current) {
-      pollTimer.current = setInterval(() => void load(), 2_000);
-    } else if (!hasProcessing && pollTimer.current) {
+    if (hasTransient && !pollTimer.current) {
+      pollTimer.current = setInterval(() => void load(), 10_000);
+    } else if (!hasTransient && pollTimer.current) {
       clearInterval(pollTimer.current);
       pollTimer.current = null;
     }

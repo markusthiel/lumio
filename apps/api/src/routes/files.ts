@@ -35,6 +35,7 @@ import {
   deleteObject,
 } from "../services/storage.js";
 import { enqueue, Queues } from "../services/queue.js";
+import { publish } from "../services/events.js";
 
 const MAX_FILES_PER_INIT = 1000;
 
@@ -220,6 +221,11 @@ export async function registerFileRoutes(app: FastifyInstance) {
           where: { id: file.id },
           data: { status: "failed", errorMessage: "multipart_complete_failed" },
         });
+        publish(file.gallery.id, {
+          type: "file.status",
+          fileId: file.id,
+          status: "failed",
+        });
         return reply
           .status(500)
           .send({ error: "multipart_failed", fileId: file.id });
@@ -230,6 +236,11 @@ export async function registerFileRoutes(app: FastifyInstance) {
     await prisma.file.update({
       where: { id: file.id },
       data: { status: "processing" },
+    });
+    publish(file.gallery.id, {
+      type: "file.status",
+      fileId: file.id,
+      status: "processing",
     });
 
     // Worker-Job in passenden Stream legen
@@ -405,6 +416,9 @@ export async function registerFileRoutes(app: FastifyInstance) {
           galleryId: gallery.id,
         },
       });
+      for (const f of files) {
+        publish(gallery.id, { type: "file.deleted", fileId: f.id });
+      }
       return { affected: result.count };
     }
 
@@ -420,6 +434,13 @@ export async function registerFileRoutes(app: FastifyInstance) {
       },
       data: { status: newStatus },
     });
+    for (const f of files) {
+      publish(gallery.id, {
+        type: "file.status",
+        fileId: f.id,
+        status: newStatus,
+      });
+    }
     return { affected: result.count };
   });
 

@@ -38,7 +38,7 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 - [x] Studio-UI: Galerie-Liste, Create-Dialog, Detail-Seite mit Drag&Drop-Upload
 - [x] Stream-basierte Job-Queue (Redis Streams) zwischen API und Worker
 - [x] Polling-basiertes Status-Update im Frontend (alle 2s während processing)
-- [ ] WebSocket-Push für Upload-Progress (Polling reicht für Phase 1)
+- [x] WebSocket-Push für File-Status (ersetzt 2s-Polling im Studio durch /ws/galleries/:id; Polling bleibt als 10s-Fallback drin)
 - [x] Worker-Test: tatsächlich ein Bild end-to-end durchlassen
       (Integration-Test mit testcontainers, läuft in CI mit Postgres+MinIO-Services)
 

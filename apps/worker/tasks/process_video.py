@@ -84,6 +84,8 @@ def transcode_video(self, file_id: str) -> dict:
         log.exception("process_video.ffmpeg_failed", file_id=file_id)
         try:
             mark_file_failed(file_id, msg)
+            from events import file_status as _publish_status
+            _publish_status(file_row["gallery_id"], file_id, "failed")
         except Exception:
             pass
         raise self.retry(exc=err)
@@ -91,6 +93,8 @@ def transcode_video(self, file_id: str) -> dict:
         log.exception("process_video.failed", file_id=file_id)
         try:
             mark_file_failed(file_id, str(err))
+            from events import file_status as _publish_status
+            _publish_status(file_row["gallery_id"], file_id, "failed")
         except Exception:
             pass
         raise self.retry(exc=err)
@@ -183,6 +187,9 @@ def _process(file_row: dict) -> None:
 
         # 5) Status auf ready, Dimensions des Source-Videos
         mark_file_ready(file_id, width, height)
+        from events import file_status as _publish_status
+        _publish_status(gallery_id, file_id, "ready",
+                        width=width, height=height)
         log.info("process_video.complete", file_id=file_id)
 
 

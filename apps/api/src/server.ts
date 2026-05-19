@@ -28,6 +28,7 @@ import { registerSettingsRoutes } from "./routes/settings.js";
 import { registerExportRoutes } from "./routes/export.js";
 import { registerBrandingRoutes } from "./routes/brandings.js";
 import { registerTemplateRoutes } from "./routes/templates.js";
+import { registerWsRoutes } from "./routes/ws.js";
 
 async function buildServer() {
   const app = Fastify({
@@ -73,6 +74,11 @@ async function buildServer() {
     },
     { prefix: "/api/v1" }
   );
+
+  // WebSocket-Routen — bewusst OHNE /api/v1-Prefix, damit der Caddy-
+  // Block /ws/* (siehe infra/caddy/Caddyfile) direkt durchroutet ohne
+  // Path-Rewrite.
+  await registerWsRoutes(app);
 
   app.setErrorHandler((err, _req, reply) => {
     app.log.error({ err }, "request failed");
