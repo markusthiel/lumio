@@ -3,13 +3,13 @@
 # =============================================================================
 # Bringt die nativen Dependencies mit, die rawpy, pyvips und ffmpeg brauchen.
 #
-# Wichtig: explizit auf python:3.12-bookworm-slim gepinnt statt nur
+# Wichtig: explizit auf python:3.12-slim-bookworm gepinnt statt nur
 # python:3.12-slim, weil der :slim-Alias zu Debian Trixie gewechselt ist und
 # dort heißt das exiv2-Paket libexiv2-28 statt libexiv2-27. Mit einem
 # expliziten Suite-Pin baut der Container deterministisch — beim nächsten
 # Debian-Major (Forky) bewusst und kontrolliert umstellen.
 
-FROM python:3.12-bookworm-slim AS base
+FROM python:3.12-slim-bookworm AS base
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \

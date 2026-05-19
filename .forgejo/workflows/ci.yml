@@ -84,7 +84,7 @@ jobs:
   worker:
     runs-on: docker
     container:
-      image: python:3.12-bookworm-slim
+      image: python:3.12-slim-bookworm
     defaults:
       run:
         working-directory: apps/worker
@@ -125,7 +125,7 @@ jobs:
   worker-integration:
     runs-on: docker
     container:
-      image: python:3.12-bookworm-slim
+      image: python:3.12-slim-bookworm
     services:
       postgres:
         image: postgres:16-alpine
