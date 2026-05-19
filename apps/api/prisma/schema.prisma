@@ -49,6 +49,7 @@ model Tenant {
   brandings   Branding[] @relation("TenantBrandings")
   templates   GalleryTemplate[] @relation("TenantTemplates")
   events      Event[]
+  webhooks    Webhook[]
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -598,4 +599,82 @@ model BillingUsageRecord {
   
   @@index([tenantId, periodStart])
   @@map("billing_usage_records")
+}
+
+// -----------------------------------------------------------------------------
+// Webhooks (Outbound)
+// -----------------------------------------------------------------------------
+// Pro Tenant können Studio-User HTTP-Endpunkte hinterlegen, die bei
+// bestimmten Events (gallery.created, selection.finalized, ...) aufgerufen
+// werden. Damit lassen sich Workflows in Zapier, n8n, eigenen Webhook-
+// Receivern oder direkt im Studio-CRM anstoßen, ohne dass Lumio die
+// jeweilige Integration selbst kennen muss.
+//
+// Signatur: jeder Request bekommt einen `X-Lumio-Signature` Header mit
+// HMAC-SHA256(secret, timestamp + "." + body) und `X-Lumio-Timestamp`.
+// Empfänger verifizieren das wie bei Stripe/GitHub. Das Secret wird beim
+// Anlegen einmal angezeigt und ist danach (gehashed) nur noch zur
+// Signatur-Erzeugung im API-Code verfügbar — UI rendert es nicht mehr.
+//
+// Auslieferung: nicht synchron im Request-Pfad! Der Aufrufer publiziert
+// nur in einen Redis-Stream; ein Worker macht den HTTP-POST mit Retries.
+// Sonst würde ein langsamer/down Webhook-Empfänger Studio-Operationen
+// verzögern oder fehlschlagen lassen.
+//
+// Events ist ein String-Array — wir validieren auf Anwendungsebene gegen
+// eine Whitelist, nicht via DB-Enum, damit das Hinzufügen neuer Events
+// keine Migration braucht.
+model Webhook {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String   @db.Uuid
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  label       String   // freie Bezeichnung im Studio, z.B. "Zapier Hochzeit"
+  url         String   // muss https sein (keine Plain-HTTP-Auslieferungen
+                       // in Produktion — Signatur-Headers sind sonst sinnlos)
+  secret      String   // wird mit dem Body signiert (HMAC-SHA256)
+  events      String[] // Whitelist subscriebter Events
+  active      Boolean  @default(true)
+  
+  // Stats für die Studio-UI
+  lastDeliveryAt   DateTime?
+  lastDeliveryOk   Boolean?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  deliveries  WebhookDelivery[]
+  
+  @@index([tenantId])
+  @@map("webhooks")
+}
+
+// Audit-Log der versuchten Auslieferungen.
+// Wir behalten alle Deliveries (auch erfolgreiche) für eine begrenzte
+// Frist, damit das Studio bei Debug-Fragen ("warum hat Zapier den Job
+// nicht gestartet?") nachschauen kann. Aufräumen: Cron-Job, der ältere
+// als 30 Tage entfernt — verfasst, wenn das Volumen das nötig macht.
+model WebhookDelivery {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  webhookId   String   @db.Uuid
+  webhook     Webhook  @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+  
+  eventType   String   // z.B. "gallery.created"
+  payload     Json     // das, was wir als Body gepostet haben
+  
+  // Status der Auslieferung
+  status      String   // pending | sent | failed | dead
+  httpStatus  Int?     // HTTP-Status-Code der Antwort
+  errorMessage String?
+  
+  // Retry-Verwaltung
+  attempts    Int      @default(0)
+  nextAttemptAt DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([webhookId, createdAt])
+  @@index([status, nextAttemptAt])
+  @@map("webhook_deliveries")
 }

@@ -20,6 +20,7 @@ import { loadVisitor } from "./galleries.js";
 import { notifyNewComment, notifySelectionFinished } from "../services/notifier.js";
 import { logEvent } from "../services/audit.js";
 import { checkSelectionLimit } from "../services/selectionLimit.js";
+import { publishEvent } from "../services/webhooks.js";
 
 const selectionSchema = z.object({
   color: z.enum(["red", "yellow", "green"]).nullable().optional(),
@@ -205,6 +206,29 @@ export async function registerProofingRoutes(app: FastifyInstance) {
         body: comment.body,
       });
 
+      // Webhook-Event. tenantId müssen wir uns hier nochmal holen — bei
+      // selection.finalized weiter unten machen wir das gleich. Die
+      // 1-Query-Strafe ist akzeptabel, weil Kommentare seltener sind als
+      // Selection-Edits.
+      const galleryForWh = await prisma.gallery.findUnique({
+        where: { id: visitor.galleryId },
+        select: { tenantId: true, slug: true },
+      });
+      if (galleryForWh) {
+        await publishEvent({
+          tenantId: galleryForWh.tenantId,
+          eventType: "comment.posted",
+          payload: {
+            galleryId: visitor.galleryId,
+            gallerySlug: galleryForWh.slug,
+            fileId: file.id,
+            commentId: comment.id,
+            authorLabel: comment.authorLabel,
+            body: comment.body,
+          },
+        });
+      }
+
       return reply.status(201).send({ comment });
     }
   );
@@ -281,7 +305,7 @@ export async function registerProofingRoutes(app: FastifyInstance) {
 
       const access = await prisma.galleryAccess.findFirst({
         where: { id: visitor.accessId, galleryId: visitor.galleryId },
-        select: { id: true, finalizedAt: true },
+        select: { id: true, label: true, finalizedAt: true },
       });
       if (!access) return reply.status(404).send({ error: "not_found" });
 
@@ -325,6 +349,16 @@ export async function registerProofingRoutes(app: FastifyInstance) {
           targetId: visitor.galleryId,
           payload: { count },
           ipAddress: req.ip,
+        });
+        await publishEvent({
+          tenantId: galleryRow.tenantId,
+          eventType: "selection.finalized",
+          payload: {
+            galleryId: visitor.galleryId,
+            accessId: access.id,
+            accessLabel: access.label,
+            count,
+          },
         });
       }
 

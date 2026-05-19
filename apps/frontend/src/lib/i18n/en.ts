@@ -24,6 +24,7 @@ export const en: Dict = {
     branding: "Branding",
     brandings: "Brandings",
     templates: "Templates",
+    webhooks: "Webhooks",
     audit: "Audit",
     settings: "Settings",
     logout: "Logout",

@@ -31,6 +31,7 @@ import { registerTemplateRoutes } from "./routes/templates.js";
 import { registerAuditRoutes } from "./routes/audit.js";
 import { registerTokenRoutes } from "./routes/tokens.js";
 import { registerPluginRoutes } from "./routes/plugin.js";
+import { registerWebhookRoutes } from "./routes/webhooks.js";
 import { registerWsRoutes } from "./routes/ws.js";
 
 async function buildServer() {
@@ -74,6 +75,7 @@ async function buildServer() {
       await registerAuditRoutes(api);
       await registerTokenRoutes(api);
       await registerPluginRoutes(api);
+      await registerWebhookRoutes(api);
       if (config.BILLING_ENABLED) {
         await registerBillingRoutes(api);
       }

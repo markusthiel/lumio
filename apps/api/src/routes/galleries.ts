@@ -22,6 +22,7 @@ import { verifyPassword } from "../services/auth.js";
 import { enqueue, Queues } from "../services/queue.js";
 import { resolveGalleryBranding } from "../services/branding.js";
 import { logEvent } from "../services/audit.js";
+import { publishEvent } from "../services/webhooks.js";
 import {
   createVisitorToken,
   verifyVisitorToken,
@@ -218,6 +219,18 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
       ipAddress: req.ip,
     });
 
+    await publishEvent({
+      tenantId: req.tenantId,
+      eventType: "gallery.created",
+      payload: {
+        galleryId: gallery.id,
+        slug,
+        title: body.title,
+        mode: gallery.mode,
+        ownerId: s.user.id,
+      },
+    });
+
     return reply.status(201).send({ gallery });
   });
 
@@ -309,12 +322,13 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           tenantId: req.tenantId,
           ownerId: s.user.id,
         },
-        select: { id: true, watermarkEnabled: true },
+        select: { id: true, slug: true, watermarkEnabled: true, status: true },
       });
       if (!existing) return reply.status(404).send({ error: "not_found" });
 
       const turningOnWatermark =
         body.watermarkEnabled === true && !existing.watermarkEnabled;
+      const goingLive = body.status === "live" && existing.status !== "live";
 
       const gallery = await prisma.gallery.update({
         where: { id: existing.id },
@@ -389,6 +403,18 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         ipAddress: req.ip,
       });
 
+      if (goingLive) {
+        await publishEvent({
+          tenantId: req.tenantId,
+          eventType: "gallery.live",
+          payload: {
+            galleryId: gallery.id,
+            slug: existing.slug,
+            title: gallery.title,
+          },
+        });
+      }
+
       return { gallery };
     }
   );
@@ -423,6 +449,12 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         targetId: existing.id,
         payload: { slug: existing.slug },
         ipAddress: req.ip,
+      });
+
+      await publishEvent({
+        tenantId: req.tenantId,
+        eventType: "gallery.deleted",
+        payload: { galleryId: existing.id, slug: existing.slug },
       });
 
       // TODO: Worker-Job zum Aufräumen der S3-Objekte queuen

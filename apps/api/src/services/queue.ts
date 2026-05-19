@@ -36,6 +36,7 @@ export const Queues = {
   FILE_PROCESSING: "lumio:jobs:file_processing",
   VIDEO_PROCESSING: "lumio:jobs:video_processing",
   ZIP_BUILD: "lumio:jobs:zip_build",
+  WEBHOOK_DELIVERY: "lumio:jobs:webhook_delivery",
 } as const;
 export type QueueName = (typeof Queues)[keyof typeof Queues];
 
@@ -63,7 +64,16 @@ export interface ZipBuildJob {
   zipDownloadId: string; // FK auf zip_downloads.id, Worker updated den Status
 }
 
-export type AnyJob = FileProcessingJob | VideoProcessingJob | ZipBuildJob;
+export interface WebhookDeliveryJob {
+  type: "webhook_delivery";
+  deliveryId: string; // FK auf webhook_deliveries.id; alles andere holt der Worker daraus
+}
+
+export type AnyJob =
+  | FileProcessingJob
+  | VideoProcessingJob
+  | ZipBuildJob
+  | WebhookDeliveryJob;
 
 /**
  * Job in den passenden Stream legen. Gibt die Stream-ID zurück (für Logging).

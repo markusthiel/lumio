@@ -75,6 +75,28 @@ export interface UploadInit {
   headers?: Record<string, string>;
 }
 
+export interface WebhookSummary {
+  id: string;
+  label: string;
+  url: string;
+  events: string[];
+  active: boolean;
+  lastDeliveryAt: string | null;
+  lastDeliveryOk: boolean | null;
+  createdAt: string;
+}
+
+export interface WebhookDelivery {
+  id: string;
+  eventType: string;
+  status: "pending" | "sent" | "failed" | "dead";
+  httpStatus: number | null;
+  errorMessage: string | null;
+  attempts: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // -----------------------------------------------------------------------------
 // Core request
 // -----------------------------------------------------------------------------
@@ -299,6 +321,48 @@ export const api = {
     }),
   revokeApiToken: (id: string) =>
     request<{ ok: true }>(`/auth/tokens/${id}`, { method: "DELETE" }),
+
+  // Webhooks (Studio, pro Tenant)
+  listWebhooks: () =>
+    request<{
+      webhooks: WebhookSummary[];
+      supportedEvents: readonly string[];
+    }>("/webhooks"),
+
+  createWebhook: (input: {
+    label: string;
+    url: string;
+    events: string[];
+    active?: boolean;
+  }) =>
+    request<{ webhook: WebhookSummary; secret: string }>("/webhooks", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  updateWebhook: (id: string, patch: {
+    label?: string;
+    url?: string;
+    events?: string[];
+    active?: boolean;
+  }) =>
+    request<{ webhook: WebhookSummary }>(`/webhooks/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+
+  deleteWebhook: (id: string) =>
+    request<void>(`/webhooks/${id}`, { method: "DELETE" }),
+
+  testWebhook: (id: string) =>
+    request<{
+      ok: boolean;
+      httpStatus?: number;
+      errorMessage?: string;
+    }>(`/webhooks/${id}/test`, { method: "POST" }),
+
+  listWebhookDeliveries: (id: string) =>
+    request<{ deliveries: WebhookDelivery[] }>(`/webhooks/${id}/deliveries`),
 
   // Galleries (Studio)
   listGalleries: () => request<{ galleries: Gallery[] }>("/galleries"),

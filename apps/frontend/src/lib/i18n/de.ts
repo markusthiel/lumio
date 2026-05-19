@@ -13,6 +13,8 @@ export const de: Dict = {
     delete: "Löschen",
     create: "Erstellen",
     creating: "Wird erstellt…",
+    edit: "Bearbeiten",
+    done: "Fertig",
     settings: "Einstellungen",
     loading: "Lädt…",
     back: "Zurück",
@@ -24,6 +26,7 @@ export const de: Dict = {
     branding: "Branding",
     brandings: "Brandings",
     templates: "Templates",
+    webhooks: "Webhooks",
     audit: "Audit",
     settings: "Einstellungen",
     logout: "Abmelden",
@@ -89,6 +92,34 @@ export const de: Dict = {
     brandingCreateNow: "jetzt anlegen",
 
     notFound: "Galerie nicht gefunden.",
+
+    // Webhooks
+    webhooksTitle: "Webhooks",
+    webhooksDescription:
+      "Lass externe Tools per HTTP-POST über bestimmte Ereignisse informieren. Jeder Request wird mit deinem Webhook-Secret signiert.",
+    webhooksEmpty: "Noch keine Webhooks angelegt.",
+    webhooksEmptyHint:
+      'Klick auf "Neuer Webhook" und gib eine URL plus die gewünschten Ereignisse ein.',
+    webhookCreate: "Neuer Webhook",
+    webhookCreatedTitle: "Webhook angelegt",
+    webhookLabel: "Bezeichnung",
+    webhookLabelPlaceholder: "z.B. Zapier Hochzeit",
+    webhookEvents: "Ereignisse",
+    webhookSecretIntro:
+      "Notiere dir dieses Secret jetzt — du wirst es danach nie wieder sehen. Es signiert jeden Webhook-Request und ist für den Empfänger zur Verifikation nötig.",
+    webhookSecretWarning:
+      "Bei Verlust musst du den Webhook löschen und neu anlegen.",
+    webhookInactive: "deaktiviert",
+    webhookActivate: "Aktivieren",
+    webhookDeactivate: "Deaktivieren",
+    webhookTest: "Testen",
+    webhookTesting: "Test läuft…",
+    webhookTestOk: "Test erfolgreich — HTTP {status}.",
+    webhookTestFailed: "Test fehlgeschlagen: {detail}",
+    webhookDeliveries: "Letzte Auslieferungen",
+    webhookDeliveriesEmpty: "Noch keine Auslieferungen.",
+    webhookNeverDelivered: "Noch nicht ausgeliefert",
+    webhookConfirmDelete: 'Webhook "{label}" wirklich löschen?',
   },
 
   gallery: {

@@ -40,6 +40,7 @@ STREAMS = {
     "lumio:jobs:file_processing": "file",
     "lumio:jobs:video_processing": "video",
     "lumio:jobs:zip_build": "zip",
+    "lumio:jobs:webhook_delivery": "webhook",
 }
 
 log = structlog.get_logger("lumio.consumer")
@@ -95,6 +96,16 @@ def _dispatch(stream: str, payload: dict) -> None:
                 payload.get("label", "all"),
             ],
         )
+    elif job_type == "webhook_delivery":
+        # Im Gegensatz zu den anderen Tasks reichen wir hier nur die
+        # deliveryId weiter — alles weitere (URL, Secret, Payload, Attempts)
+        # holt der Task aus der webhook_deliveries-Tabelle. Das hält den
+        # Stream-Payload minimal und erleichtert Retries: der API-Code
+        # bzw. der Retry-Scan re-queued mit derselben ID.
+        app.send_task(
+            "tasks.webhook_delivery.deliver",
+            args=[payload.get("deliveryId")],
+        )
     else:
         log.warning("consumer.unknown_job_type",
                     stream=stream, type=job_type)
@@ -111,6 +122,7 @@ def run() -> None:
     for stream in STREAMS:
         _ensure_group(r, stream)
 
+    last_webhook_sweep = 0.0
     while not _stop:
         try:
             # 1) Auf neue Messages warten ('>' bedeutet "alles ab dem letzten
@@ -123,6 +135,16 @@ def run() -> None:
                 count=10,
                 block=BLOCK_MS,
             )
+
+            # Webhook-Retry-Sweep: einmal pro Minute pending-Deliveries mit
+            # erreichtem nextAttemptAt in den Stream legen. Wir hängen das
+            # nach jedem Read-Cycle ein (egal ob Messages kamen oder nicht),
+            # gating per Wall-Clock — sonst würde das in busy-Phasen zu oft
+            # laufen und in idle-Phasen zu selten (BLOCK_MS=5s).
+            now = time.time()
+            if now - last_webhook_sweep >= 60:
+                _trigger_webhook_sweep()
+                last_webhook_sweep = now
 
             if not resp:
                 # Idle: auch hängende Messages anderer Consumer claimen
@@ -141,6 +163,15 @@ def run() -> None:
             time.sleep(1)
 
     log.info("consumer.stopped")
+
+
+def _trigger_webhook_sweep() -> None:
+    """Schickt den Webhook-Retry-Sweep an Celery. Eine async send_task
+    ist günstig, blockiert den Read-Cycle nicht."""
+    try:
+        app.send_task("tasks.webhook_delivery.sweep")
+    except Exception:
+        log.exception("consumer.webhook_sweep_send_failed")
 
 
 def _handle(r: redis.Redis, stream: str, msg_id: str, fields: dict) -> None:

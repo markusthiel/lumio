@@ -46,6 +46,7 @@ app = Celery(
         "tasks.process_watermark",
         "tasks.build_zip",
         "tasks.billing",
+        "tasks.webhook_delivery",
     ],
 )
 
@@ -64,6 +65,7 @@ app.conf.update(
         "tasks.process_video.*": {"queue": "heavy"},
         "tasks.build_zip.*": {"queue": "io"},
         "tasks.billing.*": {"queue": "default"},
+        "tasks.webhook_delivery.*": {"queue": "io"},
     },
     task_default_queue="default",
 )
