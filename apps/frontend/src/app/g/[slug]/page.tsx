@@ -11,12 +11,14 @@ import {
 import { GalleryView } from "@/components/gallery/GalleryView";
 import { UnlockForm } from "@/components/gallery/UnlockForm";
 import { GalleryShell } from "@/components/gallery/GalleryShell";
+import { useT } from "@/lib/i18n";
 
 export default function PublicGalleryPage() {
   const params = useParams<{ slug: string }>();
   const search = useSearchParams();
   const slug = params.slug;
   const urlToken = search.get("t") ?? undefined;
+  const t = useT();
 
   const [meta, setMeta] = useState<PublicGalleryMeta | null>(null);
   const [files, setFiles] = useState<PublicFile[] | null>(null);
@@ -74,10 +76,10 @@ export default function PublicGalleryPage() {
         if (!cancelled) {
           setError(
             err instanceof Error && err.message.includes("not_found")
-              ? "Diese Galerie existiert nicht oder ist nicht mehr verfügbar."
+              ? t("gallery.notAvailableDesc")
               : err instanceof Error
               ? err.message
-              : "Fehler beim Laden"
+              : t("gallery.loadError")
           );
         }
       } finally {
@@ -87,12 +89,14 @@ export default function PublicGalleryPage() {
     return () => {
       cancelled = true;
     };
-  }, [slug, urlToken, loadFiles]);
+  }, [slug, urlToken, loadFiles, t]);
 
   if (loading) {
     return (
       <GalleryShell branding={null}>
-        <div className="text-sm opacity-60 text-center py-20">Lädt…</div>
+        <div className="text-sm opacity-60 text-center py-20">
+          {t("common.loading")}
+        </div>
       </GalleryShell>
     );
   }
@@ -100,9 +104,9 @@ export default function PublicGalleryPage() {
     return (
       <GalleryShell branding={null}>
         <div className="text-center py-20 max-w-md mx-auto">
-          <div className="text-lg font-medium">Nicht verfügbar</div>
+          <div className="text-lg font-medium">{t("gallery.notAvailable")}</div>
           <div className="text-sm opacity-60 mt-2">
-            {error ?? "Galerie konnte nicht geladen werden."}
+            {error ?? t("gallery.loadFailed")}
           </div>
         </div>
       </GalleryShell>

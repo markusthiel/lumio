@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { api, type PublicGalleryMeta } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 export function UnlockForm({
   slug,
@@ -14,6 +15,7 @@ export function UnlockForm({
   urlToken?: string;
   onUnlocked: () => Promise<void> | void;
 }) {
+  const t = useT();
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,12 +31,12 @@ export function UnlockForm({
       });
       await onUnlocked();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Fehler";
+      const msg = err instanceof Error ? err.message : t("gallery.requestFailed");
       setError(
         msg.includes("invalid_password")
-          ? "Passwort ist nicht korrekt."
+          ? t("gallery.passwordIncorrect")
           : msg.includes("password_required")
-          ? "Passwort wird benötigt."
+          ? t("gallery.passwordRequired")
           : msg
       );
     } finally {
@@ -57,14 +59,14 @@ export function UnlockForm({
       >
         <div className="text-sm opacity-80">
           {meta.requiresPassword
-            ? "Diese Galerie ist passwortgeschützt."
-            : "Klicke unten, um die Galerie zu öffnen."}
+            ? t("gallery.locked")
+            : t("gallery.unlockHint")}
         </div>
 
         {meta.requiresPassword && (
           <div className="space-y-1">
             <label htmlFor="pw" className="text-xs font-medium opacity-80">
-              Passwort
+              {t("gallery.password")}
             </label>
             <input
               id="pw"
@@ -74,7 +76,7 @@ export function UnlockForm({
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full rounded-md bg-white/10 border border-white/20 px-3 py-2 text-sm placeholder:opacity-40 focus:outline-none focus:ring-2 focus:ring-brand-accent"
-              placeholder="Passwort eingeben"
+              placeholder={t("gallery.passwordPlaceholder")}
             />
           </div>
         )}
@@ -90,7 +92,7 @@ export function UnlockForm({
           disabled={pending}
           className="w-full bg-brand-accent text-neutral-950 text-sm font-medium rounded-md py-2.5 hover:opacity-90 disabled:opacity-50 transition"
         >
-          {pending ? "Wird geprüft…" : "Galerie öffnen"}
+          {pending ? t("gallery.unlockChecking") : t("gallery.open")}
         </button>
       </form>
     </div>

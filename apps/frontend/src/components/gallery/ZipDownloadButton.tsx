@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type ZipStatus } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 type Variant = "all" | "selection";
 
@@ -20,6 +21,7 @@ export function ZipDownloadButton({
   count = 0,
   disabled = false,
 }: Props) {
+  const t = useT();
   const [zipId, setZipId] = useState<string | null>(null);
   const [status, setStatus] = useState<ZipStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -38,17 +40,17 @@ export function ZipDownloadButton({
       setStatus(res.status);
     } catch (err) {
       const msg =
-        err instanceof Error ? err.message : "Anfrage fehlgeschlagen";
+        err instanceof Error ? err.message : t("gallery.requestFailed");
       setError(
         msg.includes("no_selection")
-          ? "Keine Auswahl getroffen."
+          ? t("gallery.downloadEmpty")
           : msg.includes("downloads_disabled")
-          ? "Download ist für diese Galerie deaktiviert."
+          ? t("gallery.downloadDisabled")
           : msg
       );
       setBuilding(false);
     }
-  }, [variant, slug]);
+  }, [variant, slug, t]);
 
   // Polling für Status
   useEffect(() => {
@@ -89,7 +91,9 @@ export function ZipDownloadButton({
   }
 
   const label =
-    variant === "all" ? "Alle herunterladen" : `Auswahl herunterladen (${count})`;
+    variant === "all"
+      ? t("gallery.downloadAll")
+      : t("gallery.downloadSelection", { count });
 
   if (status === "ready" && zipId) {
     return (
@@ -98,7 +102,7 @@ export function ZipDownloadButton({
         className="text-xs px-3 py-1.5 rounded bg-green-600 text-white hover:bg-green-700 transition"
         onClick={() => setTimeout(reset, 800)}
       >
-        ↓ ZIP herunterladen
+        ↓ {t("gallery.zipDownload")}
       </a>
     );
   }
@@ -110,7 +114,7 @@ export function ZipDownloadButton({
         className="text-xs px-3 py-1.5 rounded bg-white/10 border border-white/20 cursor-wait flex items-center gap-2"
       >
         <span className="inline-block w-3 h-3 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-        ZIP wird erstellt…
+        {t("gallery.zipBuilding")}
       </button>
     );
   }
@@ -120,9 +124,9 @@ export function ZipDownloadButton({
       <button
         onClick={start}
         className="text-xs px-3 py-1.5 rounded border border-red-400/50 text-red-200 hover:bg-red-500/10"
-        title={error ?? "Bitte erneut versuchen"}
+        title={error ?? t("gallery.downloadRetry")}
       >
-        ⚠ Erneut versuchen
+        ⚠ {t("gallery.zipRetry")}
       </button>
     );
   }

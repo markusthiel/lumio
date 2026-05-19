@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import type { Branding } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 /**
  * Wrapper für alle Kunden-Galerie-Seiten. Wendet das Branding eines
@@ -44,6 +45,7 @@ export function GalleryShell({
   branding: Branding | null;
   children: React.ReactNode;
 }) {
+  const t = useT();
   // Favicon dynamisch setzen
   useEffect(() => {
     if (!branding?.faviconUrl) return;
@@ -123,7 +125,7 @@ export function GalleryShell({
           className="p-6 mt-12 text-xs text-center"
           style={{ color: mutedColor, opacity: 0.7 }}
         >
-          Powered by Lumio
+          {t("gallery.poweredBy")}
         </footer>
       )}
     </div>

@@ -10,6 +10,7 @@ import {
 } from "@/lib/api";
 import { VideoPlayer } from "./VideoPlayer";
 import { ZipDownloadButton } from "./ZipDownloadButton";
+import { useT } from "@/lib/i18n";
 
 interface Props {
   meta: PublicGalleryMeta;
@@ -32,6 +33,7 @@ export function GalleryView({
   onSelectionChange,
   onFinalize,
 }: Props) {
+  const t = useT();
   const [filter, setFilter] = useState<FilterMode>("all");
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [finalizing, setFinalizing] = useState(false);
@@ -69,10 +71,10 @@ export function GalleryView({
             </p>
           )}
           <div className="text-xs opacity-50 mt-3">
-            {stats.total} Files · {stats.liked} liked
+            {stats.total} {t("gallery.files")} · {stats.liked} {t("gallery.liked")}
             {finalizedAt && (
               <span className="ml-2 text-green-400">
-                · Auswahl abgeschlossen
+                · {t("gallery.finalized")}
               </span>
             )}
           </div>
@@ -94,7 +96,7 @@ export function GalleryView({
                 disabled={finalizing}
                 className="text-xs px-3 py-1.5 rounded bg-brand-accent text-neutral-950 font-medium hover:opacity-90 disabled:opacity-50"
               >
-                {finalizing ? "Wird abgeschlossen…" : "Auswahl abschließen"}
+                {finalizing ? t("gallery.finalizing") : t("gallery.finalize")}
               </button>
             )}
           {meta.downloadEnabled && stats.total > 0 && (
@@ -118,7 +120,7 @@ export function GalleryView({
           <FilterChip
             active={filter === "all"}
             onClick={() => setFilter("all")}
-            label={`Alle (${stats.total})`}
+            label={t("gallery.filterAll", { count: stats.total })}
           />
           <FilterChip
             active={filter === "liked"}
@@ -150,8 +152,8 @@ export function GalleryView({
       {filtered.length === 0 ? (
         <div className="text-center py-20 opacity-50 text-sm">
           {filter === "all"
-            ? "Noch keine Dateien."
-            : "Keine Dateien mit diesem Filter."}
+            ? t("gallery.noFiles")
+            : t("gallery.noFilesForFilter")}
         </div>
       ) : (
         <ul className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2">
@@ -305,6 +307,7 @@ function Lightbox({
   onNavigate: (idx: number) => void;
   onSelectionChange: (fileId: string, sel: MySelection) => void;
 }) {
+  const t = useT();
   const file = files[index];
   const sel = mySelections[file.id] ?? {
     color: null,
@@ -403,9 +406,9 @@ function Lightbox({
         <button
           onClick={onClose}
           className="px-3 py-1.5 rounded hover:bg-white/10"
-          aria-label="Schließen"
+          aria-label={t("gallery.close")}
         >
-          ✕ Schließen
+          ✕ {t("gallery.close")}
         </button>
         <div className="opacity-60 text-xs">
           {index + 1} / {files.length}
@@ -418,7 +421,7 @@ function Lightbox({
                 showComments ? "bg-white/20" : "hover:bg-white/10"
               }`}
             >
-              Kommentare
+              {t("gallery.comments")}
             </button>
           )}
           {downloadUrl && (
@@ -426,7 +429,7 @@ function Lightbox({
               href={downloadUrl}
               className="px-3 py-1.5 rounded text-xs hover:bg-white/10"
             >
-              ↓ Download
+              ↓ {t("gallery.download")}
             </a>
           )}
         </div>
@@ -440,7 +443,7 @@ function Lightbox({
             disabled={index === 0}
             onClick={() => onNavigate(index - 1)}
             className="absolute left-2 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/5 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed text-2xl"
-            aria-label="Vorheriges Bild"
+            aria-label={t("gallery.previous")}
           >
             ‹
           </button>
@@ -448,7 +451,7 @@ function Lightbox({
             disabled={index === files.length - 1}
             onClick={() => onNavigate(index + 1)}
             className="absolute right-2 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/5 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed text-2xl"
-            aria-label="Nächstes Bild"
+            aria-label={t("gallery.next")}
           >
             ›
           </button>
@@ -469,7 +472,7 @@ function Lightbox({
             />
           ) : (
             <div className="opacity-50 text-sm">
-              Vorschau noch nicht verfügbar.
+              {t("gallery.previewMissing")}
             </div>
           )}
         </div>
@@ -478,13 +481,13 @@ function Lightbox({
         {showComments && meta.commentsEnabled && (
           <aside className="w-80 border-l border-white/10 flex flex-col">
             <div className="p-4 border-b border-white/10 text-sm font-medium">
-              Kommentare
+              {t("gallery.comments")}
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
               {comments === null ? (
-                <div className="text-xs opacity-50">Lädt…</div>
+                <div className="text-xs opacity-50">{t("gallery.commentsLoading")}</div>
               ) : comments.length === 0 ? (
-                <div className="text-xs opacity-50">Noch keine Kommentare.</div>
+                <div className="text-xs opacity-50">{t("gallery.commentsEmpty")}</div>
               ) : (
                 comments.map((c) => (
                   <div key={c.id} className="text-sm">
@@ -492,7 +495,7 @@ function Lightbox({
                       {c.authorLabel}
                       {c.authorIsStudio && (
                         <span className="ml-1 text-[10px] bg-brand-accent/30 px-1 rounded">
-                          Studio
+                          {t("gallery.commentStudioBadge")}
                         </span>
                       )}
                     </div>
@@ -508,7 +511,7 @@ function Lightbox({
               <textarea
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Kommentar schreiben…"
+                placeholder={t("gallery.commentPlaceholder")}
                 rows={2}
                 className="w-full bg-white/5 border border-white/20 rounded p-2 text-sm placeholder:opacity-40 focus:outline-none focus:ring-1 focus:ring-brand-accent"
               />
@@ -517,7 +520,7 @@ function Lightbox({
                 disabled={commentPending || !newComment.trim()}
                 className="w-full text-xs px-3 py-1.5 rounded bg-brand-accent text-neutral-950 font-medium disabled:opacity-50"
               >
-                {commentPending ? "Sende…" : "Senden"}
+                {commentPending ? t("gallery.commentSending") : t("gallery.commentSend")}
               </button>
             </form>
           </aside>
@@ -534,8 +537,8 @@ function Lightbox({
                 ? "bg-red-500 border-white"
                 : "bg-red-500/40 border-transparent hover:bg-red-500/70"
             }`}
-            aria-label="Rot markieren"
-            title="Rot (Taste 1)"
+            aria-label={t("gallery.markRed")}
+            title={t("gallery.markRedTitle")}
           />
           <button
             onClick={() => setColor("yellow")}
@@ -544,8 +547,8 @@ function Lightbox({
                 ? "bg-yellow-500 border-white"
                 : "bg-yellow-500/40 border-transparent hover:bg-yellow-500/70"
             }`}
-            aria-label="Gelb markieren"
-            title="Gelb (Taste 2)"
+            aria-label={t("gallery.markYellow")}
+            title={t("gallery.markYellowTitle")}
           />
           <button
             onClick={() => setColor("green")}
@@ -554,8 +557,8 @@ function Lightbox({
                 ? "bg-green-500 border-white"
                 : "bg-green-500/40 border-transparent hover:bg-green-500/70"
             }`}
-            aria-label="Grün markieren"
-            title="Grün (Taste 3)"
+            aria-label={t("gallery.markGreen")}
+            title={t("gallery.markGreenTitle")}
           />
           <div className="w-px h-6 bg-white/20 mx-2" />
           <button
@@ -565,11 +568,11 @@ function Lightbox({
                 ? "bg-red-500 border-white text-white"
                 : "border-white/30 hover:border-white/60"
             }`}
-            aria-label="Like"
-            title="Like (Leertaste)"
+            aria-label={t("gallery.like")}
+            title={t("gallery.likeTitle")}
           >
             <span>♥</span>
-            <span className="text-xs">Like</span>
+            <span className="text-xs">{t("gallery.like")}</span>
           </button>
         </div>
       )}
