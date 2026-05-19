@@ -5,7 +5,11 @@
 // erzeugt und im Container mit `npm run prisma:deploy` ausgerollt.
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // native = der Host, auf dem prisma generate gerade läuft (Dev-Maschine).
+  // linux-musl-openssl-3.0.x = die Production-Container (node:20-alpine
+  // bringt OpenSSL 3 via 'apk add openssl3' mit; siehe Dockerfile).
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {

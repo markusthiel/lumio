@@ -1,6 +1,12 @@
 # =============================================================================
 # Lumio API — Dockerfile (Multi-stage)
 # =============================================================================
+# Notiz zu OpenSSL: Prisma's Engine ist ein natives Binary, das gegen
+# libssl/libcrypto linkt. node:20-alpine bringt das nicht von Haus aus mit,
+# weshalb `apk add openssl3` in jeder Stage steht, in der Prisma läuft
+# (Builder generiert den Client, Runner führt Migrations + Server aus).
+# Plus binaryTargets in schema.prisma — sonst lädt prisma generate die
+# falsche Engine-Variante runter.
 
 # Stage 1: Dependencies installieren
 FROM node:20-alpine AS deps
@@ -13,6 +19,7 @@ RUN npm ci --omit=dev --no-audit --no-fund && \
 # Stage 2: Build (TypeScript → JS, Prisma Client generieren)
 FROM node:20-alpine AS builder
 WORKDIR /app
+RUN apk add --no-cache openssl3
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate && npm run build
@@ -21,7 +28,7 @@ RUN npx prisma generate && npm run build
 FROM node:20-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-RUN apk add --no-cache tini
+RUN apk add --no-cache tini openssl3
 
 # Nur Production-Dependencies + Build-Output + Prisma Client
 COPY --from=deps /tmp/prod_modules ./node_modules
