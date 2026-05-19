@@ -135,6 +135,7 @@ export const de: Dict = {
     likedOutOf: "{liked} von {limit} ausgewählt",
     selectionLimitReached:
       "Du hast bereits {limit} Bilder ausgewählt. Wähl eins ab, um ein anderes auszuwählen.",
+    viewOnlyHint: "Nur ansehen — für eigene Auswahl brauchst du einen persönlichen Link",
     // Lightbox
     close: "Schließen",
     previous: "Vorheriges Bild",

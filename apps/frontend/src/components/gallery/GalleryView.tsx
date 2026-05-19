@@ -21,6 +21,7 @@ interface Props {
   files: PublicFile[];
   mySelections: Record<string, MySelection>;
   finalizedAt: string | null;
+  canSelect: boolean;
   onSelectionChange: (fileId: string, sel: MySelection) => void;
   onFinalize: () => void | Promise<void>;
 }
@@ -33,6 +34,7 @@ export function GalleryView({
   files,
   mySelections,
   finalizedAt,
+  canSelect,
   onSelectionChange,
   onFinalize,
 }: Props) {
@@ -41,6 +43,14 @@ export function GalleryView({
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [slideshowIdx, setSlideshowIdx] = useState<number | null>(null);
   const [finalizing, setFinalizing] = useState(false);
+
+  // Auswahl-Interaktion ist nur möglich, wenn (a) die Galerie überhaupt im
+  // collaboration-Modus ist und (b) der Visitor einen Access-Token hat,
+  // der canSelect erlaubt. Ohne (b) wäre jeder Like-Versuch eine 403-Falle
+  // gewesen und der Kunde hätte sich gefragt, warum nach Reload alles weg
+  // ist. Wir bündeln das als interactive-Boolean und blenden die Auswahl-UI
+  // aus, wenn es nicht passt.
+  const interactive = meta.mode === "collaboration" && canSelect;
 
   const filtered = useMemo(() => {
     if (filter === "all") return files;
@@ -122,6 +132,18 @@ export function GalleryView({
               </span>
             </>
           )}
+          {/* Read-only-Hinweis: Galerie wäre eigentlich Collaboration-Mode,
+              aber dieser Visitor hat keinen Access-Token mit Auswahl-Recht.
+              Ohne diesen Hinweis würde der Kunde glauben, das UI sei kaputt:
+              Klick aufs Herz, kurz Like-Icon, Reload, weg. */}
+          {meta.mode === "collaboration" && !canSelect && (
+            <>
+              <span className="opacity-30">·</span>
+              <span className="text-ink-tertiary normal-case tracking-normal">
+                {t("gallery.viewOnlyHint")}
+              </span>
+            </>
+          )}
         </div>
       </section>
 
@@ -133,7 +155,7 @@ export function GalleryView({
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-3 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex gap-1.5 flex-wrap">
-            {meta.mode === "collaboration" && stats.total > 0 ? (
+            {interactive && stats.total > 0 ? (
               <>
                 <FilterChip
                   active={filter === "all"}
@@ -184,7 +206,7 @@ export function GalleryView({
                 <span>{t("gallery.slideshowStart")}</span>
               </button>
             )}
-            {meta.mode === "collaboration" &&
+            {interactive &&
               stats.liked > 0 &&
               !finalizedAt && (
                 <button
@@ -205,7 +227,7 @@ export function GalleryView({
             {meta.downloadEnabled && stats.total > 0 && (
               <>
                 <ZipDownloadButton slug={slug} variant="all" />
-                {meta.mode === "collaboration" && stats.liked > 0 && (
+                {interactive && stats.liked > 0 && (
                   <ZipDownloadButton
                     slug={slug}
                     variant="selection"
@@ -256,6 +278,7 @@ export function GalleryView({
           index={lightboxIdx}
           slug={slug}
           meta={meta}
+          interactive={interactive}
           mySelections={mySelections}
           onClose={() => setLightboxIdx(null)}
           onNavigate={(i) => setLightboxIdx(i)}
@@ -426,6 +449,7 @@ function Lightbox({
   index,
   slug,
   meta,
+  interactive,
   mySelections,
   onClose,
   onNavigate,
@@ -435,6 +459,7 @@ function Lightbox({
   index: number;
   slug: string;
   meta: PublicGalleryMeta;
+  interactive: boolean;
   mySelections: Record<string, MySelection>;
   onClose: () => void;
   onNavigate: (idx: number) => void;
@@ -461,12 +486,12 @@ function Lightbox({
       else if (e.key === "ArrowLeft" && index > 0) onNavigate(index - 1);
       else if (e.key === "ArrowRight" && index < files.length - 1)
         onNavigate(index + 1);
-      else if (e.key === " " && meta.mode === "collaboration") {
+      else if (e.key === " " && interactive) {
         e.preventDefault();
         void toggleLike();
       } else if (
         ["1", "2", "3"].includes(e.key) &&
-        meta.mode === "collaboration"
+        interactive
       ) {
         const color =
           e.key === "1" ? "red" : e.key === "2" ? "yellow" : "green";
@@ -476,7 +501,7 @@ function Lightbox({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [index, files, onClose, onNavigate, sel.liked, sel.color]);
+  }, [index, files, onClose, onNavigate, sel.liked, sel.color, interactive]);
 
   // Keyboard-Hints nach 5s ausblenden, damit sie nicht stören
   useEffect(() => {
@@ -655,7 +680,7 @@ function Lightbox({
           )}
 
           {/* Keyboard-Hint-Overlay — verschwindet nach 5s */}
-          {showHints && meta.mode === "collaboration" && (
+          {showHints && interactive && (
             <div
               className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-black/60 backdrop-blur-sm rounded-full text-ui-xs text-white/70 flex items-center gap-3 pointer-events-none animate-fade-in"
               style={{ transition: "opacity 600ms ease-out" }}
@@ -730,8 +755,8 @@ function Lightbox({
         )}
       </div>
 
-      {/* Bottom toolbar — Proofing */}
-      {meta.mode === "collaboration" && (
+      {/* Bottom toolbar — Proofing. Nur bei aktivem Auswahl-Recht. */}
+      {interactive && (
         <div className="border-t border-white/5 px-3 py-3 flex items-center justify-center gap-2">
           <ColorPill
             color="red"

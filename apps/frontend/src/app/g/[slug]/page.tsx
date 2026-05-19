@@ -26,6 +26,7 @@ export default function PublicGalleryPage() {
     {}
   );
   const [finalizedAt, setFinalizedAt] = useState<string | null>(null);
+  const [canSelect, setCanSelect] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,6 +37,7 @@ export default function PublicGalleryPage() {
       setFiles(res.files);
       setMySelections(res.mySelections ?? {});
       setFinalizedAt(res.finalizedAt);
+      setCanSelect(res.canSelect);
     } catch (err) {
       console.error(err);
     }
@@ -138,6 +140,7 @@ export default function PublicGalleryPage() {
         files={files ?? []}
         mySelections={mySelections}
         finalizedAt={finalizedAt}
+        canSelect={canSelect}
         onSelectionChange={(fileId, sel) =>
           setMySelections((prev) => ({ ...prev, [fileId]: sel }))
         }

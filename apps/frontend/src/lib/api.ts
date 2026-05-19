@@ -428,6 +428,7 @@ export const api = {
       files: PublicFile[];
       mySelections: Record<string, MySelection>;
       finalizedAt: string | null;
+      canSelect: boolean;
     }>(`/g/${slug}/files`),
 
   finalizeSelection: (slug: string) =>

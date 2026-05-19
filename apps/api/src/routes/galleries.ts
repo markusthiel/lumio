@@ -753,6 +753,14 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         { color: string | null; rating: number | null; liked: boolean }
       > = {};
       let finalizedAt: Date | null = null;
+      // canSelect signalisiert dem Frontend, ob es Auswahl-UI überhaupt
+      // anzeigen soll. False für anonyme Visitor (kein Access-Token) oder
+      // wenn der Access-Token zwar gültig, aber `canSelect=false` im
+      // GalleryAccess-Eintrag gesetzt ist (z.B. nur-Anschauen-Link). Ohne
+      // dieses Flag wäre ein Like-Klick eine 403-Falle und der Kunde
+      // wüsste nicht warum nichts gespeichert wird — siehe Bugreport
+      // "Markierungen verschwinden nach Reload".
+      let canSelect = false;
       if (visitor.accessId) {
         const selections = await prisma.selection.findMany({
           where: { accessId: visitor.accessId },
@@ -766,12 +774,13 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         );
         const access = await prisma.galleryAccess.findUnique({
           where: { id: visitor.accessId },
-          select: { finalizedAt: true },
+          select: { finalizedAt: true, canSelect: true },
         });
         finalizedAt = access?.finalizedAt ?? null;
+        canSelect = access?.canSelect ?? false;
       }
 
-      return { files: items, mySelections, finalizedAt };
+      return { files: items, mySelections, finalizedAt, canSelect };
     }
   );
 

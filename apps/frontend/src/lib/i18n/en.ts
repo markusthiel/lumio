@@ -134,6 +134,7 @@ export const en: Dict = {
     likedOutOf: "{liked} of {limit} selected",
     selectionLimitReached:
       "You've already selected {limit} photos. Unselect one to pick a different shot.",
+    viewOnlyHint: "View only — ask the photographer for a personal link to make selections",
     // Lightbox
     close: "Close",
     previous: "Previous image",
