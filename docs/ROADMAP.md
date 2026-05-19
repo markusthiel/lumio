@@ -117,7 +117,7 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 ### Workflow
 
 - [x] XMP-Sidecar-Export (Lightroom/Capture One kompatibel)
-- [x] Bulk-Aktionen im Studio: Multi-Select + delete + hide/show + Drag&Drop-Sortierung
+- [x] Bulk-Aktionen im Studio: Multi-Select + delete + hide/show + Drag&Drop-Sortierung (Touch + Keyboard via @dnd-kit)
 - [x] Galerie-Templates / Presets (Mode/Toggles/Branding/Expiry/Default-Description)
 - [x] Email-Notifications (Auswahl fertig, neuer Kommentar)
 - [ ] Presentation Mode (Vollbild, autoplay)

@@ -8,6 +8,23 @@ import { uploadFiles, type UploadProgress } from "@/lib/upload";
 import { SharePanel } from "@/components/studio/SharePanel";
 import { useT } from "@/lib/i18n";
 import { useGalleryEvents } from "@/lib/useGalleryEvents";
+import {
+  DndContext,
+  type DragEndEvent,
+  PointerSensor,
+  TouchSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  rectSortingStrategy,
+  useSortable,
+  sortableKeyboardCoordinates,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 export default function GalleryDetailPage() {
   const router = useRouter();
@@ -25,12 +42,22 @@ export default function GalleryDetailPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkPending, setBulkPending] = useState(false);
 
-  // Drag-and-Drop-Sortierung. dragId merkt sich, was gerade gezogen wird;
-  // overId, welches Tile aktuell als Drop-Ziel hervorgehoben ist. Beim Drop
-  // berechnen wir die neue Reihenfolge optimistisch im UI und feuern dann
-  // den API-Call ab. Bei API-Fehler revertieren wir die Reihenfolge.
-  const [dragId, setDragId] = useState<string | null>(null);
-  const [overId, setOverId] = useState<string | null>(null);
+  // Drag-and-Drop-Sortierung läuft via @dnd-kit. Drei Sensoren:
+  //   - PointerSensor: Mouse + Stylus (desktop default)
+  //   - TouchSensor: Finger. Activation-Constraint 250ms long-press, damit
+  //     normales Scrollen auf dem Phone nicht jedes Tile triggert.
+  //   - KeyboardSensor: Pfeiltasten + Space für Accessibility.
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 5 },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 250, tolerance: 8 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const toggleSelected = useCallback((fileId: string) => {
     setSelected((prev) => {
@@ -49,22 +76,19 @@ export default function GalleryDetailPage() {
     setSelected(new Set());
   }, []);
 
-  // Drop wurde auf overId ausgeführt — verschiebe dragId an die neue Stelle
-  // und persistiere. Wir setzen sortIndex bei ALLEN Files neu, damit wir
-  // nicht mit Lücken oder unklaren Halbzuständen rumärgern.
-  const reorderTo = useCallback(
-    async (dragFileId: string, dropFileId: string) => {
-      if (!gallery || dragFileId === dropFileId) return;
+  // dnd-kit feuert handleDragEnd mit { active, over }; over kann null
+  // sein, wenn der User außerhalb aller Sortable-Items losgelassen hat.
+  // Wir bauen aus arrayMove die neue Reihenfolge, persistieren, und
+  // revertieren bei API-Fehler.
+  const handleDragEnd = useCallback(
+    async (e: DragEndEvent) => {
+      if (!gallery || !e.over || e.active.id === e.over.id) return;
       const files = gallery.files;
-      const fromIdx = files.findIndex((f) => f.id === dragFileId);
-      const toIdx = files.findIndex((f) => f.id === dropFileId);
+      const fromIdx = files.findIndex((f) => f.id === e.active.id);
+      const toIdx = files.findIndex((f) => f.id === e.over!.id);
       if (fromIdx < 0 || toIdx < 0) return;
 
-      const next = [...files];
-      const [moved] = next.splice(fromIdx, 1);
-      next.splice(toIdx, 0, moved);
-
-      // Optimistic Update — UI reagiert sofort
+      const next = arrayMove(files, fromIdx, toIdx);
       const previous = files;
       setGallery({ ...gallery, files: next });
 
@@ -74,7 +98,6 @@ export default function GalleryDetailPage() {
           order: next.map((f, i) => ({ id: f.id, sortIndex: i })),
         });
       } catch (err) {
-        // Revert
         console.error("reorder failed:", err);
         setGallery({ ...gallery, files: previous });
       }
@@ -483,33 +506,25 @@ export default function GalleryDetailPage() {
                 )}
               </div>
             </div>
-            <ul className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-              {gallery.files.map((f) => (
-                <FileTile
-                  key={f.id}
-                  file={f}
-                  selectionMode={selectionMode}
-                  selected={selected.has(f.id)}
-                  onToggle={() => toggleSelected(f.id)}
-                  draggable={!selectionMode}
-                  isDragging={dragId === f.id}
-                  isDropTarget={overId === f.id && dragId !== null && dragId !== f.id}
-                  onDragStart={() => setDragId(f.id)}
-                  onDragEnter={() => {
-                    if (dragId && dragId !== f.id) setOverId(f.id);
-                  }}
-                  onDragEnd={() => {
-                    setDragId(null);
-                    setOverId(null);
-                  }}
-                  onDrop={() => {
-                    if (dragId) void reorderTo(dragId, f.id);
-                    setDragId(null);
-                    setOverId(null);
-                  }}
-                />
-              ))}
-            </ul>
+            <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+              <SortableContext
+                items={gallery.files.map((f) => f.id)}
+                strategy={rectSortingStrategy}
+                disabled={selectionMode}
+              >
+                <ul className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                  {gallery.files.map((f) => (
+                    <FileTile
+                      key={f.id}
+                      file={f}
+                      selectionMode={selectionMode}
+                      selected={selected.has(f.id)}
+                      onToggle={() => toggleSelected(f.id)}
+                    />
+                  ))}
+                </ul>
+              </SortableContext>
+            </DndContext>
           </section>
         ) : (
           <div className="text-sm text-slate-500">
@@ -625,62 +640,54 @@ function FileTile({
   selectionMode,
   selected,
   onToggle,
-  draggable,
-  isDragging,
-  isDropTarget,
-  onDragStart,
-  onDragEnter,
-  onDragEnd,
-  onDrop,
 }: {
   file: GalleryFile;
   selectionMode: boolean;
   selected: boolean;
   onToggle: () => void;
-  draggable: boolean;
-  isDragging: boolean;
-  isDropTarget: boolean;
-  onDragStart: () => void;
-  onDragEnter: () => void;
-  onDragEnd: () => void;
-  onDrop: () => void;
 }) {
   const isHidden = file.status === "hidden";
+
+  // useSortable verkabelt das Tile mit dem äußeren SortableContext.
+  // Die transform/transition-Werte produzieren das CSS für das
+  // smoothe Verschieben während des Drags. listeners enthält die
+  // pointer/touch/keyboard-Event-Handler, die den Drag starten.
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: file.id, disabled: selectionMode });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    // Während des Drags transparent machen — das DragOverlay-Pattern
+    // würde mehr Code kosten, und transparent reicht visuell.
+    opacity: isDragging ? 0.4 : 1,
+    // Während des Drags darüber liegen, damit es nicht hinter anderen
+    // Tiles verschwindet
+    zIndex: isDragging ? 10 : "auto",
+  };
+
   return (
     <li
-      className={`aspect-square rounded-md border bg-slate-50 overflow-hidden relative transition ${
+      ref={setNodeRef}
+      style={style}
+      className={`aspect-square rounded-md border bg-slate-50 overflow-hidden relative ${
         selected
           ? "border-brand-accent ring-2 ring-brand-accent"
-          : isDropTarget
-          ? "border-brand-accent ring-2 ring-brand-accent/60"
           : "border-slate-200"
-      } ${selectionMode ? "cursor-pointer" : draggable ? "cursor-grab active:cursor-grabbing" : ""} ${
-        isDragging ? "opacity-40" : ""
+      } ${
+        selectionMode
+          ? "cursor-pointer"
+          : "cursor-grab active:cursor-grabbing touch-none"
       }`}
       onClick={selectionMode ? onToggle : undefined}
-      draggable={draggable}
-      onDragStart={(e) => {
-        if (!draggable) return;
-        // Manche Browser brauchen DataTransfer, sonst ignorieren sie den Drag
-        e.dataTransfer.effectAllowed = "move";
-        e.dataTransfer.setData("text/plain", file.id);
-        onDragStart();
-      }}
-      onDragEnter={() => {
-        if (!draggable) return;
-        onDragEnter();
-      }}
-      onDragOver={(e) => {
-        // Default-Verhalten ist "nicht droppable" — wir müssen explizit
-        // preventDefault rufen, damit das Element ein gültiges Drop-Ziel wird.
-        if (draggable) e.preventDefault();
-      }}
-      onDrop={(e) => {
-        if (!draggable) return;
-        e.preventDefault();
-        onDrop();
-      }}
-      onDragEnd={onDragEnd}
+      {...(selectionMode ? {} : attributes)}
+      {...(selectionMode ? {} : listeners)}
     >
       {file.thumbUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
