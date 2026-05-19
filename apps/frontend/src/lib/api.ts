@@ -91,13 +91,17 @@ async function request<T>(
   path: string,
   init: RequestInit = {}
 ): Promise<T> {
+  // Wichtig: ...init MUSS vor headers stehen, damit unser zusammengeführtes
+  // headers-Objekt nicht durch init.headers überschrieben wird, wenn der
+  // Aufrufer eigene Headers mitgibt (z.B. x-upload-id beim Multipart-Complete).
+  // Default-Content-Type gewinnt jetzt verlässlich.
   const res = await fetch(`${API_URL}/api/v1${path}`, {
     credentials: "include",
+    ...init,
     headers: {
       "Content-Type": "application/json",
       ...(init.headers ?? {}),
     },
-    ...init,
   });
   const text = await res.text();
   const data = text ? JSON.parse(text) : null;

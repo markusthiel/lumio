@@ -17,7 +17,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 
 import { prisma } from "../db.js";
-import { presignPut, deleteObject } from "../services/storage.js";
+import { presignPut, presignGet, deleteObject } from "../services/storage.js";
 
 const colorRegex = /^#[0-9a-fA-F]{6}$/;
 
@@ -72,6 +72,25 @@ function extensionFor(contentType: string): string {
   return "png";
 }
 
+// Branding-Datensatz mit aufgelösten Asset-URLs anreichern. logoUrl/faviconUrl
+// in der DB sind Storage-Keys (z.B. t/<tenant>/brand/<id>/logo.png) — der
+// Browser braucht aber echte, signierte URLs, um die Bilder zu laden.
+//
+// 24h TTL ist großzügig, weil Studio-Sessions länger laufen können.
+async function serializeBranding<
+  T extends { logoUrl: string | null; faviconUrl: string | null }
+>(branding: T): Promise<T> {
+  const [logoUrl, faviconUrl] = await Promise.all([
+    branding.logoUrl
+      ? presignGet({ key: branding.logoUrl, ttlSeconds: 24 * 3600 })
+      : Promise.resolve(null),
+    branding.faviconUrl
+      ? presignGet({ key: branding.faviconUrl, ttlSeconds: 24 * 3600 })
+      : Promise.resolve(null),
+  ]);
+  return { ...branding, logoUrl, faviconUrl };
+}
+
 export async function registerBrandingRoutes(app: FastifyInstance) {
   // -------------------------------------------------------------------------
   // GET /brandings
@@ -82,14 +101,12 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
       where: { tenantId: req.tenantId },
       orderBy: { createdAt: "asc" },
     });
-    // Tenant-Default mitliefern, damit das UI weiß, welches Profil
-    // markiert werden soll
     const tenant = await prisma.tenant.findUnique({
       where: { id: req.tenantId },
       select: { brandingId: true },
     });
     return {
-      brandings,
+      brandings: await Promise.all(brandings.map(serializeBranding)),
       defaultBrandingId: tenant?.brandingId ?? null,
     };
   });
@@ -112,7 +129,7 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
         customCss: body.customCss ?? null,
       },
     });
-    return reply.status(201).send({ branding });
+    return reply.status(201).send({ branding: await serializeBranding(branding) });
   });
 
   // -------------------------------------------------------------------------
@@ -124,7 +141,7 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
       req.requireAuth();
       const branding = await ownBranding(req, req.params.id);
       if (!branding) return reply.status(404).send({ error: "not_found" });
-      return { branding };
+      return { branding: await serializeBranding(branding) };
     }
   );
 
@@ -163,7 +180,7 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
             : {}),
         },
       });
-      return { branding };
+      return { branding: await serializeBranding(branding) };
     }
   );
 
@@ -276,7 +293,7 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
         where: { id: existing.id },
         data: { [field]: body.key },
       });
-      return { branding };
+      return { branding: await serializeBranding(branding) };
     }
   );
 
@@ -304,7 +321,7 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
         where: { id: existing.id },
         data: { [field]: null },
       });
-      return { branding };
+      return { branding: await serializeBranding(branding) };
     }
   );
 }
