@@ -1,0 +1,494 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { api, type BrandingDetail } from "@/lib/api";
+
+export default function BrandingEditorPage() {
+  const router = useRouter();
+  const params = useParams<{ id: string }>();
+  const id = params.id;
+
+  const [branding, setBranding] = useState<BrandingDetail | null>(null);
+  const [defaultId, setDefaultId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Lokaler Edit-State (debounced auf den Server gesynced)
+  const [name, setName] = useState("");
+  const [primaryColor, setPrimaryColor] = useState("#0f172a");
+  const [accentColor, setAccentColor] = useState("#f59e0b");
+  const [fontFamily, setFontFamily] = useState("Inter");
+  const [introText, setIntroText] = useState("");
+  const [footerText, setFooterText] = useState("");
+  const [customCss, setCustomCss] = useState("");
+
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
+  const faviconInputRef = useRef<HTMLInputElement | null>(null);
+  const [uploadingKind, setUploadingKind] = useState<
+    "logo" | "favicon" | null
+  >(null);
+
+  const load = useCallback(async () => {
+    try {
+      const res = await api.getBranding(id);
+      setBranding(res.branding);
+      setName(res.branding.name);
+      setPrimaryColor(res.branding.primaryColor);
+      setAccentColor(res.branding.accentColor);
+      setFontFamily(res.branding.fontFamily);
+      setIntroText(res.branding.introText ?? "");
+      setFooterText(res.branding.footerText ?? "");
+      setCustomCss(res.branding.customCss ?? "");
+      // Default-Status nachladen
+      const list = await api.listBrandings();
+      setDefaultId(list.defaultBrandingId);
+    } catch (err) {
+      if (err instanceof Error && err.message.includes("401")) {
+        router.replace("/login");
+        return;
+      }
+      setError(err instanceof Error ? err.message : "Fehler");
+    } finally {
+      setLoading(false);
+    }
+  }, [id, router]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+    try {
+      const { branding: updated } = await api.updateBranding(id, {
+        name,
+        primaryColor,
+        accentColor,
+        fontFamily,
+        introText: introText.trim() || null,
+        footerText: footerText.trim() || null,
+        customCss: customCss.trim() || null,
+      });
+      setBranding(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Fehler");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function makeDefault() {
+    await api.setDefaultBranding(id);
+    setDefaultId(id);
+  }
+
+  async function remove() {
+    if (
+      !confirm(
+        "Dieses Branding-Profil löschen? Galerien, die es nutzen, fallen auf das Default zurück."
+      )
+    )
+      return;
+    await api.deleteBranding(id);
+    router.push("/studio/brandings");
+  }
+
+  async function uploadAsset(kind: "logo" | "favicon", file: File) {
+    setUploadingKind(kind);
+    setError(null);
+    try {
+      const init = await api.initBrandingAssetUpload(id, {
+        kind,
+        contentType: file.type,
+        sizeBytes: file.size,
+      });
+      const put = await fetch(init.uploadUrl, {
+        method: "PUT",
+        headers: init.headers,
+        body: file,
+      });
+      if (!put.ok) {
+        throw new Error(`Upload fehlgeschlagen: HTTP ${put.status}`);
+      }
+      const { branding: updated } = await api.completeBrandingAssetUpload(id, {
+        kind,
+        key: init.key,
+      });
+      setBranding(updated);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Fehler");
+    } finally {
+      setUploadingKind(null);
+    }
+  }
+
+  async function removeAsset(kind: "logo" | "favicon") {
+    if (!confirm(kind === "logo" ? "Logo entfernen?" : "Favicon entfernen?"))
+      return;
+    const { branding: updated } = await api.deleteBrandingAsset(id, kind);
+    setBranding(updated);
+  }
+
+  if (loading) {
+    return (
+      <main className="min-h-screen flex items-center justify-center">
+        <div className="text-sm text-slate-500">Lädt…</div>
+      </main>
+    );
+  }
+  if (!branding) {
+    return (
+      <main className="min-h-screen p-8">
+        <div className="text-sm text-red-700">
+          {error ?? "Profil nicht gefunden."}
+        </div>
+      </main>
+    );
+  }
+
+  const isDefault = defaultId === id;
+
+  return (
+    <main className="min-h-screen p-8">
+      <div className="max-w-6xl mx-auto space-y-6">
+        <header className="border-b border-slate-200 pb-4 flex items-end justify-between flex-wrap gap-2">
+          <div>
+            <div className="text-xs">
+              <Link
+                href="/studio/brandings"
+                className="text-slate-500 hover:text-slate-900"
+              >
+                ← Branding
+              </Link>
+            </div>
+            <h1 className="text-2xl font-semibold mt-2">{branding.name}</h1>
+            {isDefault && (
+              <span className="inline-block mt-1 text-[10px] font-medium uppercase tracking-wider bg-green-100 text-green-700 px-1.5 py-0.5 rounded">
+                Tenant-Default
+              </span>
+            )}
+          </div>
+          <div className="flex gap-2">
+            {!isDefault && (
+              <button
+                onClick={makeDefault}
+                className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-100"
+              >
+                Als Default
+              </button>
+            )}
+            <button
+              onClick={remove}
+              className="text-sm px-3 py-1.5 rounded-md border border-red-300 text-red-700 hover:bg-red-50"
+            >
+              Löschen
+            </button>
+            <button
+              onClick={save}
+              disabled={saving}
+              className="text-sm px-3 py-1.5 rounded-md bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50"
+            >
+              {saving ? "Speichert…" : "Speichern"}
+            </button>
+          </div>
+        </header>
+
+        {error && (
+          <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+            {error}
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Form */}
+          <div className="space-y-4">
+            <Field label="Name">
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              />
+            </Field>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Primärfarbe (Hintergrund)">
+                <ColorField value={primaryColor} onChange={setPrimaryColor} />
+              </Field>
+              <Field label="Akzentfarbe (Buttons, Links)">
+                <ColorField value={accentColor} onChange={setAccentColor} />
+              </Field>
+            </div>
+
+            <Field label="Schrift">
+              <select
+                value={fontFamily}
+                onChange={(e) => setFontFamily(e.target.value)}
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm bg-white"
+              >
+                <option value="Inter">Inter (Standard)</option>
+                <option value="Playfair Display">Playfair Display (Serif)</option>
+                <option value="Cormorant Garamond">Cormorant Garamond (Serif)</option>
+                <option value="DM Sans">DM Sans</option>
+                <option value="Lora">Lora (Serif)</option>
+                <option value="Montserrat">Montserrat</option>
+                <option value="Source Sans 3">Source Sans 3</option>
+                <option value="system-ui">System</option>
+              </select>
+            </Field>
+
+            <Field label="Intro-Text (vor der Galerie)">
+              <textarea
+                value={introText}
+                onChange={(e) => setIntroText(e.target.value)}
+                rows={2}
+                placeholder="z.B. Begrüßung des Kunden"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              />
+            </Field>
+
+            <Field label="Footer-Text">
+              <input
+                value={footerText}
+                onChange={(e) => setFooterText(e.target.value)}
+                placeholder="© 2026 Mein Studio · Alle Rechte vorbehalten"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              />
+            </Field>
+
+            {/* Logo & Favicon */}
+            <div className="grid grid-cols-2 gap-3">
+              <AssetField
+                label="Logo"
+                imageUrl={branding.logoUrl}
+                accept="image/png,image/jpeg,image/svg+xml"
+                hint="PNG/JPEG/SVG, transparent empfohlen"
+                uploading={uploadingKind === "logo"}
+                inputRef={logoInputRef}
+                onPick={() => logoInputRef.current?.click()}
+                onFile={(f) => uploadAsset("logo", f)}
+                onRemove={() => removeAsset("logo")}
+              />
+              <AssetField
+                label="Favicon"
+                imageUrl={branding.faviconUrl}
+                accept="image/png,image/x-icon,image/vnd.microsoft.icon"
+                hint="PNG oder ICO, quadratisch"
+                uploading={uploadingKind === "favicon"}
+                inputRef={faviconInputRef}
+                onPick={() => faviconInputRef.current?.click()}
+                onFile={(f) => uploadAsset("favicon", f)}
+                onRemove={() => removeAsset("favicon")}
+              />
+            </div>
+
+            <Field label="Custom CSS (für Power-User)">
+              <textarea
+                value={customCss}
+                onChange={(e) => setCustomCss(e.target.value)}
+                rows={5}
+                placeholder=".lumio-gallery { /* … */ }"
+                className="w-full rounded-md border border-slate-300 px-3 py-2 text-xs font-mono"
+              />
+            </Field>
+          </div>
+
+          {/* Live-Preview */}
+          <div className="space-y-2">
+            <div className="text-sm font-medium">Vorschau</div>
+            <BrandingPreview
+              primaryColor={primaryColor}
+              accentColor={accentColor}
+              fontFamily={fontFamily}
+              logoUrl={branding.logoUrl}
+              introText={introText}
+              footerText={footerText}
+            />
+            <p className="text-xs text-slate-500">
+              Vorschau zeigt das Branding ungefähr so, wie Kunden es sehen.
+              Bilder und Layout passen sich an die echte Galerie an.
+            </p>
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Subcomponents
+// ---------------------------------------------------------------------------
+function Field({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1">
+      <label className="text-xs font-medium text-slate-700">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function ColorField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type="color"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-12 h-9 rounded border border-slate-300 cursor-pointer"
+      />
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-mono"
+        pattern="^#[0-9a-fA-F]{6}$"
+      />
+    </div>
+  );
+}
+
+function AssetField({
+  label,
+  imageUrl,
+  accept,
+  hint,
+  uploading,
+  inputRef,
+  onPick,
+  onFile,
+  onRemove,
+}: {
+  label: string;
+  imageUrl: string | null;
+  accept: string;
+  hint: string;
+  uploading: boolean;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  onPick: () => void;
+  onFile: (file: File) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="space-y-1">
+      <label className="text-xs font-medium text-slate-700">{label}</label>
+      <div className="rounded-md border border-slate-300 bg-slate-50 p-3 space-y-2">
+        <input
+          ref={inputRef}
+          type="file"
+          accept={accept}
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) onFile(f);
+            if (e.target) e.target.value = "";
+          }}
+        />
+        {imageUrl ? (
+          <div className="bg-white border border-slate-200 rounded p-2 flex items-center justify-center min-h-[64px]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={imageUrl}
+              alt=""
+              className="max-h-12 max-w-full object-contain"
+            />
+          </div>
+        ) : (
+          <div className="text-xs text-slate-400 text-center py-3">
+            Noch nichts hochgeladen.
+          </div>
+        )}
+        <div className="flex justify-between items-center gap-2">
+          <button
+            onClick={onPick}
+            disabled={uploading}
+            className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-white disabled:opacity-50"
+          >
+            {uploading ? "…" : imageUrl ? "Ersetzen" : "Hochladen"}
+          </button>
+          {imageUrl && (
+            <button
+              onClick={onRemove}
+              className="text-xs text-red-600 hover:underline"
+            >
+              Entfernen
+            </button>
+          )}
+        </div>
+        <div className="text-[10px] text-slate-500">{hint}</div>
+      </div>
+    </div>
+  );
+}
+
+function BrandingPreview({
+  primaryColor,
+  accentColor,
+  fontFamily,
+  logoUrl,
+  introText,
+  footerText,
+}: {
+  primaryColor: string;
+  accentColor: string;
+  fontFamily: string;
+  logoUrl: string | null;
+  introText: string;
+  footerText: string;
+}) {
+  return (
+    <div
+      className="rounded-lg overflow-hidden border border-slate-200 shadow-sm"
+      style={{ backgroundColor: primaryColor, fontFamily }}
+    >
+      {/* Header */}
+      <div className="p-4 border-b border-white/10">
+        {logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={logoUrl} alt="" className="h-8 max-w-[60%] object-contain" />
+        ) : (
+          <div className="text-white/40 text-xs italic">Logo</div>
+        )}
+      </div>
+
+      {/* Body */}
+      <div className="p-6 space-y-4 text-white">
+        <h2 className="text-xl">Demo-Galerie</h2>
+        {introText && (
+          <p className="text-sm opacity-80 whitespace-pre-wrap">{introText}</p>
+        )}
+        <div className="grid grid-cols-3 gap-2">
+          <div className="aspect-square bg-white/10 rounded" />
+          <div className="aspect-square bg-white/10 rounded" />
+          <div className="aspect-square bg-white/10 rounded" />
+        </div>
+        <button
+          className="text-sm px-3 py-1.5 rounded font-medium"
+          style={{ backgroundColor: accentColor, color: primaryColor }}
+        >
+          Beispiel-Aktion
+        </button>
+      </div>
+
+      {/* Footer */}
+      {footerText && (
+        <div className="p-4 mt-4 border-t border-white/10 text-xs text-white/60 text-center">
+          {footerText}
+        </div>
+      )}
+    </div>
+  );
+}

@@ -88,11 +88,14 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 - [ ] HEIC/HEIF in der API als eigene Kind detection
 - [ ] PSD-Preview-Extraktion
 
-### Branding & Whitelabel
+### Branding & Whitelabel ✅ (Phase 1)
 
-- [ ] Branding-Editor im Studio (Logo, Farben, Custom-CSS)
-- [ ] Pro-Galerie-Branding-Overrides
-- [ ] Custom-Domain-Support mit automatischem TLS
+- [x] Branding-Editor im Studio (Logo, Favicon, Farben, Schrift, Texte, Custom-CSS)
+- [x] Pro-Galerie-Branding-Overrides (mit Tenant-Default-Fallback)
+- [x] Custom-Domain-Eintrag in den Tenant-Settings
+- [x] Branding-Resolver mit Presigned-GET-URLs für Assets (24h Cache)
+- [ ] Automatisches TLS für Custom Domains (aktuell: Caddy muss manuell konfiguriert sein)
+- [ ] DNS-Verifizierung (TXT-Record-Challenge)
 
 ### Multi-Tenancy & Billing (Hosted Mode)
 

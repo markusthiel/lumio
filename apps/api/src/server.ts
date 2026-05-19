@@ -26,6 +26,7 @@ import { registerHlsRoutes } from "./routes/hls.js";
 import { registerZipRoutes } from "./routes/zip.js";
 import { registerSettingsRoutes } from "./routes/settings.js";
 import { registerExportRoutes } from "./routes/export.js";
+import { registerBrandingRoutes } from "./routes/brandings.js";
 
 async function buildServer() {
   const app = Fastify({
@@ -63,6 +64,7 @@ async function buildServer() {
       await registerZipRoutes(api);
       await registerSettingsRoutes(api);
       await registerExportRoutes(api);
+      await registerBrandingRoutes(api);
       if (config.BILLING_ENABLED) {
         await registerBillingRoutes(api);
       }

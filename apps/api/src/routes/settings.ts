@@ -18,6 +18,13 @@ import {
 
 const updateSettingsSchema = z.object({
   watermarkText: z.string().max(200).nullable().optional(),
+  customDomain: z
+    .string()
+    .max(253)
+    // RFC 1035 + dot — sehr permissiv, weil Punycode etc. erlaubt sein soll
+    .regex(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i)
+    .nullable()
+    .optional(),
 });
 
 const initWatermarkUploadSchema = z.object({
@@ -58,11 +65,31 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
       return reply.status(403).send({ error: "forbidden" });
     }
     const body = updateSettingsSchema.parse(req.body);
+
+    // Wenn customDomain gesetzt wird: prüfen, ob's frei ist
+    if (body.customDomain) {
+      const conflict = await prisma.tenant.findFirst({
+        where: {
+          customDomain: body.customDomain,
+          NOT: { id: req.tenantId },
+        },
+        select: { id: true },
+      });
+      if (conflict) {
+        return reply
+          .status(409)
+          .send({ error: "domain_taken" });
+      }
+    }
+
     const tenant = await prisma.tenant.update({
       where: { id: req.tenantId },
       data: {
         ...(body.watermarkText !== undefined
           ? { watermarkText: body.watermarkText }
+          : {}),
+        ...(body.customDomain !== undefined
+          ? { customDomain: body.customDomain }
           : {}),
       },
       select: {
@@ -71,6 +98,7 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
         name: true,
         watermarkText: true,
         watermarkImageKey: true,
+        customDomain: true,
       },
     });
     return { tenant };

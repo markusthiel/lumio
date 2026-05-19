@@ -252,6 +252,13 @@ export default function GalleryDetailPage() {
         {/* Settings */}
         <section className="rounded-lg border border-slate-200 bg-white p-4 space-y-2">
           <h2 className="text-sm font-medium mb-1">Einstellungen</h2>
+          <BrandingPicker
+            currentBrandingId={gallery.brandingId ?? null}
+            onChange={async (v) => {
+              await api.updateGallery(gallery.id, { brandingId: v });
+              await load();
+            }}
+          />
           <SettingToggle
             label="Download für Kunden erlauben"
             value={gallery.downloadEnabled}
@@ -287,6 +294,75 @@ export default function GalleryDetailPage() {
         )}
       </div>
     </main>
+  );
+}
+
+function BrandingPicker({
+  currentBrandingId,
+  onChange,
+}: {
+  currentBrandingId: string | null;
+  onChange: (id: string | null) => void | Promise<void>;
+}) {
+  const [brandings, setBrandings] = useState<
+    { id: string; name: string }[]
+  >([]);
+  const [defaultId, setDefaultId] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await api.listBrandings();
+        setBrandings(
+          res.brandings.map((b) => ({ id: b.id, name: b.name }))
+        );
+        setDefaultId(res.defaultBrandingId);
+      } finally {
+        setLoaded(true);
+      }
+    })();
+  }, []);
+
+  if (!loaded) return null;
+  if (brandings.length === 0) {
+    return (
+      <div className="text-xs text-slate-500 py-1">
+        Noch keine Branding-Profile —{" "}
+        <Link
+          href="/studio/brandings"
+          className="text-brand-accent hover:underline"
+        >
+          jetzt anlegen
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-3 py-1">
+      <label htmlFor="branding-pick" className="text-sm">
+        Branding:
+      </label>
+      <select
+        id="branding-pick"
+        value={currentBrandingId ?? ""}
+        onChange={(e) => void onChange(e.target.value || null)}
+        className="text-sm rounded-md border border-slate-300 px-2 py-1 bg-white"
+      >
+        <option value="">
+          Tenant-Default
+          {defaultId
+            ? ` (${brandings.find((b) => b.id === defaultId)?.name ?? "?"})`
+            : " (Lumio-Defaults)"}
+        </option>
+        {brandings.map((b) => (
+          <option key={b.id} value={b.id}>
+            {b.name}
+          </option>
+        ))}
+      </select>
+    </div>
   );
 }
 

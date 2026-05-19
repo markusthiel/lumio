@@ -20,6 +20,7 @@ import { generateGallerySlug } from "../services/ids.js";
 import { presignGet } from "../services/storage.js";
 import { verifyPassword } from "../services/auth.js";
 import { enqueue, Queues } from "../services/queue.js";
+import { resolveGalleryBranding } from "../services/branding.js";
 import {
   createVisitorToken,
   verifyVisitorToken,
@@ -30,7 +31,7 @@ const createGallerySchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().max(2000).optional(),
   mode: z.enum(["collaboration", "presentation"]).default("collaboration"),
-  brandingId: z.string().uuid().optional(),
+  brandingId: z.string().uuid().nullable().optional(),
   downloadEnabled: z.boolean().default(true),
   watermarkEnabled: z.boolean().default(false),
   commentsEnabled: z.boolean().default(true),
@@ -401,7 +402,8 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         ratingsEnabled: true,
         passwordHash: true,
         expiresAt: true,
-        branding: true,
+        tenantId: true,
+        brandingId: true,
       },
     });
     if (!gallery || gallery.status !== "live") {
@@ -427,6 +429,11 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
       }
     }
 
+    const branding = await resolveGalleryBranding({
+      galleryBrandingId: gallery.brandingId,
+      tenantId: gallery.tenantId,
+    });
+
     return {
       gallery: {
         id: gallery.id,
@@ -444,7 +451,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         // Besucher (keine Selektionen/Kommentare). Studio kann auch
         // entscheiden, ohne Token zu teilen.
         unlocked,
-        branding: gallery.branding,
+        branding,
       },
     };
   });

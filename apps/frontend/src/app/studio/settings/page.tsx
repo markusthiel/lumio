@@ -10,7 +10,9 @@ export default function StudioSettingsPage() {
   const [settings, setSettings] = useState<TenantSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState("");
+  const [domain, setDomain] = useState("");
   const [textSaving, setTextSaving] = useState(false);
+  const [domainSaving, setDomainSaving] = useState(false);
   const [imageSaving, setImageSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement | null>(null);
@@ -20,6 +22,7 @@ export default function StudioSettingsPage() {
       const res = await api.getTenantSettings();
       setSettings(res.tenant);
       setText(res.tenant.watermarkText ?? "");
+      setDomain(res.tenant.customDomain ?? "");
     } catch (err) {
       if (err instanceof Error && err.message.includes("401")) {
         router.replace("/login");
@@ -48,6 +51,26 @@ export default function StudioSettingsPage() {
       setError(err instanceof Error ? err.message : "Fehler");
     } finally {
       setTextSaving(false);
+    }
+  }
+
+  async function saveDomain() {
+    setDomainSaving(true);
+    setError(null);
+    try {
+      const res = await api.updateTenantSettings({
+        customDomain: domain.trim() || null,
+      });
+      setSettings(res.tenant);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Fehler";
+      setError(
+        msg.includes("domain_taken")
+          ? "Diese Domain ist bereits in Benutzung."
+          : msg
+      );
+    } finally {
+      setDomainSaving(false);
     }
   }
 
@@ -123,6 +146,61 @@ export default function StudioSettingsPage() {
             {error}
           </div>
         )}
+
+        {/* Branding-Link */}
+        <section className="rounded-lg border border-slate-200 bg-white p-5 flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-medium">Branding</h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Logo, Farben, Schrift und Texte für deine Kunden-Galerien.
+            </p>
+          </div>
+          <Link
+            href="/studio/brandings"
+            className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-50"
+          >
+            Profile verwalten →
+          </Link>
+        </section>
+
+        {/* Custom Domain */}
+        <section className="rounded-lg border border-slate-200 bg-white p-5 space-y-3">
+          <h2 className="text-sm font-medium">Custom Domain</h2>
+          <p className="text-xs text-slate-500">
+            Eigene Domain für deine Galerien — z.B.{" "}
+            <code className="bg-slate-100 px-1 rounded">bilder.mein-studio.de</code>.
+            Richte einen CNAME oder A-Record auf die Lumio-Instanz, dann
+            trage die Domain hier ein. Galerien sind unter
+            <code className="bg-slate-100 px-1 mx-1 rounded">
+              https://deine-domain/g/&lt;slug&gt;
+            </code>
+            erreichbar.
+          </p>
+          <div className="flex gap-2">
+            <input
+              value={domain}
+              onChange={(e) => setDomain(e.target.value.toLowerCase())}
+              placeholder="z.B. bilder.mein-studio.de"
+              className="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-mono"
+            />
+            <button
+              onClick={saveDomain}
+              disabled={domainSaving}
+              className="text-sm px-3 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50"
+            >
+              {domainSaving ? "Speichert…" : "Speichern"}
+            </button>
+          </div>
+          {settings.customDomain && (
+            <div className="text-xs text-slate-500 bg-amber-50 border border-amber-200 rounded p-2">
+              <strong>Hinweis:</strong> DNS-Änderungen können bis zu 48h
+              dauern, bis sie überall propagiert sind. Stelle sicher, dass
+              ein TLS-Zertifikat für diese Domain bereitsteht (Caddy
+              regelt das automatisch, wenn die Domain auf den Server
+              zeigt).
+            </div>
+          )}
+        </section>
 
         {/* Watermark-Text */}
         <section className="rounded-lg border border-slate-200 bg-white p-5 space-y-3">

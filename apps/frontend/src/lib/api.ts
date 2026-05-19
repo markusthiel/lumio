@@ -33,6 +33,7 @@ export interface Gallery {
   downloadEnabled: boolean;
   watermarkEnabled: boolean;
   commentsEnabled: boolean;
+  brandingId?: string | null;
   fileCount?: number;
   createdAt: string;
   updatedAt: string;
@@ -132,6 +133,7 @@ export interface Branding {
   fontFamily: string;
   introText: string | null;
   footerText: string | null;
+  customCss: string | null;
 }
 
 export interface PublicFile {
@@ -393,7 +395,10 @@ export const api = {
   getTenantSettings: () =>
     request<{ tenant: TenantSettings }>(`/settings`),
 
-  updateTenantSettings: (patch: { watermarkText?: string | null }) =>
+  updateTenantSettings: (patch: {
+    watermarkText?: string | null;
+    customDomain?: string | null;
+  }) =>
     request<{ tenant: TenantSettings }>(`/settings`, {
       method: "PATCH",
       body: JSON.stringify(patch),
@@ -420,7 +425,100 @@ export const api = {
 
   deleteWatermarkImage: () =>
     request<{ ok: true }>(`/settings/watermark-image`, { method: "DELETE" }),
+
+  // Brandings
+  listBrandings: () =>
+    request<{ brandings: BrandingDetail[]; defaultBrandingId: string | null }>(
+      `/brandings`
+    ),
+
+  createBranding: (input: {
+    name: string;
+    primaryColor?: string;
+    accentColor?: string;
+    fontFamily?: string;
+    introText?: string | null;
+    footerText?: string | null;
+    customCss?: string | null;
+  }) =>
+    request<{ branding: BrandingDetail }>(`/brandings`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  getBranding: (id: string) =>
+    request<{ branding: BrandingDetail }>(`/brandings/${id}`),
+
+  updateBranding: (
+    id: string,
+    patch: Partial<{
+      name: string;
+      primaryColor: string;
+      accentColor: string;
+      fontFamily: string;
+      introText: string | null;
+      footerText: string | null;
+      customCss: string | null;
+    }>
+  ) =>
+    request<{ branding: BrandingDetail }>(`/brandings/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+
+  deleteBranding: (id: string) =>
+    request<void>(`/brandings/${id}`, { method: "DELETE" }),
+
+  setDefaultBranding: (id: string) =>
+    request<{ ok: true }>(`/brandings/${id}/default`, { method: "PUT" }),
+
+  initBrandingAssetUpload: (
+    id: string,
+    input: {
+      kind: "logo" | "favicon";
+      contentType: string;
+      sizeBytes: number;
+    }
+  ) =>
+    request<{
+      key: string;
+      uploadUrl: string;
+      headers: Record<string, string>;
+    }>(`/brandings/${id}/assets`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  completeBrandingAssetUpload: (
+    id: string,
+    input: { kind: "logo" | "favicon"; key: string }
+  ) =>
+    request<{ branding: BrandingDetail }>(
+      `/brandings/${id}/assets/complete`,
+      { method: "POST", body: JSON.stringify(input) }
+    ),
+
+  deleteBrandingAsset: (id: string, kind: "logo" | "favicon") =>
+    request<{ branding: BrandingDetail }>(
+      `/brandings/${id}/assets/${kind}`,
+      { method: "DELETE" }
+    ),
 };
+
+export interface BrandingDetail {
+  id: string;
+  name: string;
+  logoUrl: string | null;
+  faviconUrl: string | null;
+  primaryColor: string;
+  accentColor: string;
+  fontFamily: string;
+  introText: string | null;
+  footerText: string | null;
+  customCss: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface TenantSettings {
   id: string;
