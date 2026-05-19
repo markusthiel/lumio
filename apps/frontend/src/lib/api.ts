@@ -15,6 +15,7 @@ export type ApiUser = {
   role: "owner" | "admin" | "member";
   tenantId?: string;
   totpEnabled?: boolean;
+  backupCodesRemaining?: number;
 };
 
 export type GalleryMode = "collaboration" | "presentation";
@@ -196,12 +197,35 @@ export const api = {
   // Auth
   health: () => fetch(`${API_URL}/health`).then((r) => r.json()),
   login: (email: string, password: string) =>
-    request<{ user: ApiUser }>("/auth/login", {
+    request<
+      | { user: ApiUser }
+      | { requiresTotp: true; challenge: string }
+    >("/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     }),
+  loginTotp: (challenge: string, token: string) =>
+    request<{ user: ApiUser }>("/auth/login/totp", {
+      method: "POST",
+      body: JSON.stringify({ challenge, token }),
+    }),
   logout: () => request<{ ok: true }>("/auth/logout", { method: "POST" }),
   me: () => request<{ user: ApiUser }>("/auth/me"),
+
+  setupTotp: () =>
+    request<{ qrDataUrl: string; otpauthUri: string }>("/auth/totp/setup", {
+      method: "POST",
+    }),
+  activateTotp: (token: string) =>
+    request<{ backupCodes: string[] }>("/auth/totp/activate", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    }),
+  disableTotp: (token: string) =>
+    request<{ ok: true }>("/auth/totp/disable", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    }),
 
   // Galleries (Studio)
   listGalleries: () => request<{ galleries: Gallery[] }>("/galleries"),

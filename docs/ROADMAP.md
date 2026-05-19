@@ -127,7 +127,7 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 
 - [ ] Lightroom Classic Plugin (Lua) — pullt Auswahl direkt in den Katalog
 - [ ] Capture One Plugin
-- [ ] Mehrsprachigkeit (DE, EN, FR, ES, IT)
+- [x] Mehrsprachigkeit (DE, EN — weitere folgen via i18n-Dictionary-System)
 - [ ] Mobile App (React Native) für iOS/Android — Upload aus der Kamera-Rolle
 - [ ] Public API mit OAuth2
 - [ ] Webhooks für Studio-Events
@@ -135,7 +135,7 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 - [ ] Optionales KI-Tagging (lokal über Ollama, opt-in)
 - [ ] E-Signatures für Modelverträge / Rechte-Freigaben
 - [ ] Online-Shop (Bilder verkaufen, Stripe)
-- [ ] 2FA für Studio-Logins (TOTP, WebAuthn)
+- [x] 2FA für Studio-Logins (TOTP via otplib + 8 Backup-Codes; WebAuthn folgt später)
 - [ ] Audit-Log-Viewer im Studio
 
 ---

@@ -4,9 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, type TenantSettings } from "@/lib/api";
+import { TwoFactorSection } from "@/components/studio/TwoFactorSection";
+import { useT, useLocale } from "@/lib/i18n";
 
 export default function StudioSettingsPage() {
   const router = useRouter();
+  const t = useT();
+  const { locale, setLocale } = useLocale();
   const [settings, setSettings] = useState<TenantSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState("");
@@ -137,7 +141,7 @@ export default function StudioSettingsPage() {
               ← Studio
             </Link>
           </div>
-          <h1 className="text-2xl font-semibold mt-2">Einstellungen</h1>
+          <h1 className="text-2xl font-semibold mt-2">{t("settings.title")}</h1>
           <p className="text-sm text-slate-500">{settings.name}</p>
         </header>
 
@@ -147,19 +151,40 @@ export default function StudioSettingsPage() {
           </div>
         )}
 
+        {/* Locale */}
+        <section className="rounded-lg border border-slate-200 bg-white p-5 flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-medium">Language / Sprache</h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Studio interface language.
+            </p>
+          </div>
+          <select
+            value={locale}
+            onChange={(e) => setLocale(e.target.value as "en" | "de")}
+            className="text-sm rounded-md border border-slate-300 px-2 py-1 bg-white"
+          >
+            <option value="en">English</option>
+            <option value="de">Deutsch</option>
+          </select>
+        </section>
+
+        {/* 2FA */}
+        <TwoFactorSection />
+
         {/* Branding-Link */}
         <section className="rounded-lg border border-slate-200 bg-white p-5 flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-medium">Branding</h2>
+            <h2 className="text-sm font-medium">{t("settings.branding")}</h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Logo, Farben, Schrift und Texte für deine Kunden-Galerien.
+              {t("settings.brandingDesc")}
             </p>
           </div>
           <Link
             href="/studio/brandings"
             className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-50"
           >
-            Profile verwalten →
+            {t("settings.manage")}
           </Link>
         </section>
 

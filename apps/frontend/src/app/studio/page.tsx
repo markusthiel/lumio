@@ -4,9 +4,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, type ApiUser, type Gallery } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 export default function StudioPage() {
   const router = useRouter();
+  const t = useT();
   const [user, setUser] = useState<ApiUser | null>(null);
   const [galleries, setGalleries] = useState<Gallery[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,19 +65,19 @@ export default function StudioPage() {
               onClick={() => setShowCreate(true)}
               className="text-sm px-3 py-1.5 rounded-md bg-slate-900 text-white hover:bg-slate-800 transition"
             >
-              Neue Galerie
+              {t("studio.newGallery")}
             </button>
             <Link
               href="/studio/settings"
               className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-100 transition"
             >
-              Einstellungen
+              {t("nav.settings")}
             </Link>
             <button
               onClick={handleLogout}
               className="text-sm px-3 py-1.5 rounded-md border border-slate-300 hover:bg-slate-100 transition"
             >
-              Logout
+              {t("nav.logout")}
             </button>
           </div>
         </header>
@@ -83,13 +85,13 @@ export default function StudioPage() {
         {galleries.length === 0 ? (
           <div className="rounded-lg border-2 border-dashed border-slate-200 p-12 text-center">
             <div className="text-slate-500 text-sm">
-              Noch keine Galerien.
+              {t("studio.noGalleries")}
             </div>
             <button
               onClick={() => setShowCreate(true)}
               className="mt-3 text-sm font-medium text-brand-accent hover:underline"
             >
-              Erste Galerie anlegen →
+              {t("studio.firstGallery")}
             </button>
           </div>
         ) : (
