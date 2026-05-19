@@ -624,7 +624,13 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           height: true,
           sortIndex: true,
           renditions: {
-            select: { kind: true, storageKey: true, width: true, height: true },
+            select: {
+              kind: true,
+              storageKey: true,
+              width: true,
+              height: true,
+              metadata: true,
+            },
           },
         },
       });
@@ -651,6 +657,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           const web = f.renditions.find((r) => r.kind === "web");
           const watermarked = f.renditions.find((r) => r.kind === "watermarked");
           const hls = f.renditions.find((r) => r.kind === "hls");
+          const sprite = f.renditions.find((r) => r.kind === "sprite");
 
           const hlsUrl = hls
             ? `/api/v1/g/${req.params.slug}/files/${f.id}/hls/master.m3u8`
@@ -661,6 +668,23 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
             useWatermark && watermarked ? watermarked : web ?? preview;
           const previewRendition =
             useWatermark && watermarked ? watermarked : preview;
+
+          // Sprite-Sheet zum Scrubbing — nur bei Videos, nur wenn der
+          // Worker das tatsächlich erstellt hat (kurze Videos haben keins).
+          const spritePayload =
+            f.kind === "video" && sprite && sprite.metadata
+              ? {
+                  url: await presignGet({ key: sprite.storageKey }),
+                  ...(sprite.metadata as {
+                    interval: number;
+                    cols: number;
+                    rows: number;
+                    tileWidth: number;
+                    tileHeight: number;
+                    frames: number;
+                  }),
+                }
+              : null;
 
           return {
             id: f.id,
@@ -680,6 +704,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
               ? await presignGet({ key: lightboxRendition.storageKey })
               : null,
             hlsUrl,
+            sprite: spritePayload,
             previewWidth: preview?.width ?? null,
             previewHeight: preview?.height ?? null,
           };

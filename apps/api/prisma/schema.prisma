@@ -359,6 +359,10 @@ model Rendition {
   width       Int?
   height      Int?
   sizeBytes   BigInt
+  // Rendition-spezifische Metadaten. Schema je nach kind:
+  //   sprite: { interval: float, cols: int, rows: int,
+  //             tileWidth: int, tileHeight: int, frames: int }
+  metadata    Json?
   
   createdAt   DateTime @default(now())
   

@@ -460,6 +460,7 @@ function Lightbox({
             <VideoPlayer
               src={file.hlsUrl}
               poster={file.previewUrl ?? file.thumbUrl}
+              sprite={file.sprite}
               className="max-h-full max-w-full"
             />
           ) : file.previewUrl || file.webUrl ? (

@@ -171,8 +171,8 @@ def _process(file_row: dict) -> None:
         # 4) Sprite-Sheet — optional, nur wenn Video lang genug
         if duration >= SPRITE_INTERVAL_S * 2:
             sprite_path = tmpdir / "sprite.jpg"
-            _make_sprite(src_path, sprite_path, duration)
-            if sprite_path.exists():
+            sprite_meta = _make_sprite(src_path, sprite_path, duration)
+            if sprite_meta is not None and sprite_path.exists():
                 sprite_key = rendition_key(
                     tenant_id, gallery_id, file_id, "sprite", "jpg"
                 )
@@ -182,7 +182,10 @@ def _process(file_row: dict) -> None:
                 upsert_rendition(
                     file_id=file_id, kind="sprite",
                     storage_key=sprite_key, fmt="jpeg",
-                    width=None, height=None, size_bytes=sprite_size,
+                    width=sprite_meta["cols"] * sprite_meta["tileWidth"],
+                    height=sprite_meta["rows"] * sprite_meta["tileHeight"],
+                    size_bytes=sprite_size,
+                    metadata=sprite_meta,
                 )
 
         # 5) Status auf ready, Dimensions des Source-Videos
@@ -369,9 +372,17 @@ def _upload_hls_tree(local_dir: Path, *, tenant_id: str,
 # ---------------------------------------------------------------------------
 # Sprite
 # ---------------------------------------------------------------------------
-def _make_sprite(src: Path, dest: Path, duration_s: float) -> None:
-    """Sprite-Sheet: 1 Frame alle SPRITE_INTERVAL_S Sekunden,
-    160px breit, gekachelt 10×10."""
+def _make_sprite(src: Path, dest: Path, duration_s: float) -> dict | None:
+    """Sprite-Sheet: 1 Frame alle interval Sekunden, 160px breit, gekachelt
+    bis zu 10×10. Gibt ein Metadaten-Dict zurück, das der Player für
+    Scrubbing braucht, oder None bei ffmpeg-Fehler.
+
+    Schema:
+      { "interval": float (Sekunden zwischen Frames),
+        "cols": int, "rows": int,
+        "tileWidth": int, "tileHeight": int,
+        "frames": int (tatsächlich enthaltene Frames, <= cols*rows) }
+    """
     max_tiles = SPRITE_TILE_COLS * SPRITE_TILE_ROWS
     interval = max(SPRITE_INTERVAL_S, duration_s / max_tiles)
     fps_expr = f"1/{interval:.4f}"
@@ -396,4 +407,34 @@ def _make_sprite(src: Path, dest: Path, duration_s: float) -> None:
         )
     except subprocess.CalledProcessError:
         log.warning("process_video.sprite_failed")
-        # Sprite ist optional — nicht den ganzen Job killen
+        return None  # Sprite ist optional — nicht den ganzen Job killen
+
+    if not dest.exists():
+        return None
+
+    # Tile-Höhe aus dem fertigen Sprite ablesen (ffmpeg-scale ":-2"
+    # gibt das Aspect-Ratio her, das wir vorher nicht exakt kennen)
+    try:
+        out = subprocess.check_output(
+            ["ffprobe", "-v", "error", "-select_streams", "v:0",
+             "-show_entries", "stream=width,height",
+             "-of", "csv=p=0:s=x", str(dest)],
+            text=True,
+        ).strip()
+        sheet_w, sheet_h = (int(x) for x in out.split("x"))
+        tile_h = sheet_h // SPRITE_TILE_ROWS
+    except Exception as err:
+        log.warning("process_video.sprite_probe_failed", err=str(err))
+        return None
+
+    # Anzahl tatsächlich befüllter Frames — bei kurzen Videos rest leer
+    frames = min(max_tiles, max(1, int(duration_s // interval)))
+
+    return {
+        "interval": round(interval, 3),
+        "cols": SPRITE_TILE_COLS,
+        "rows": SPRITE_TILE_ROWS,
+        "tileWidth": SPRITE_TILE_W,
+        "tileHeight": tile_h,
+        "frames": frames,
+    }

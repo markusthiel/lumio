@@ -146,6 +146,16 @@ export interface Branding {
   customCss: string | null;
 }
 
+export interface SpriteSheet {
+  url: string;
+  interval: number;
+  cols: number;
+  rows: number;
+  tileWidth: number;
+  tileHeight: number;
+  frames: number;
+}
+
 export interface PublicFile {
   id: string;
   filename: string;
@@ -158,6 +168,7 @@ export interface PublicFile {
   previewUrl: string | null;
   webUrl: string | null;
   hlsUrl: string | null;
+  sprite: SpriteSheet | null;
   previewWidth: number | null;
   previewHeight: number | null;
 }
