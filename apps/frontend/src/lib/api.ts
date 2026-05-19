@@ -371,6 +371,50 @@ export const api = {
 
   zipDownloadUrl: (slug: string, zipId: string) =>
     `${API_URL}/api/v1/g/${slug}/download/zip/${zipId}?download=1`,
+
+  // Studio Proofing Exports
+  getProofingSummary: (galleryId: string) =>
+    request<ProofingSummary>(`/galleries/${galleryId}/export/summary`),
+
+  csvExportUrl: (galleryId: string) =>
+    `${API_URL}/api/v1/galleries/${galleryId}/export/csv`,
+
+  xmpExportUrl: (galleryId: string) =>
+    `${API_URL}/api/v1/galleries/${galleryId}/export/xmp`,
 };
+
+// -----------------------------------------------------------------------------
+// Proofing Summary types
+// -----------------------------------------------------------------------------
+export interface ProofingSummary {
+  gallery: { id: string; slug: string; title: string };
+  totals: {
+    fileCount: number;
+    withRating: number;
+    withLike: number;
+    byLabel: Record<string, number>;
+  };
+  perAccess: Array<{
+    label: string;
+    picks: number;
+    likes: number;
+    comments: number;
+  }>;
+  files: Array<{
+    fileId: string;
+    filename: string;
+    rating: number | null;
+    label: string | null;
+    liked: boolean;
+    perAccess: Array<{
+      accessLabel: string;
+      color: string | null;
+      rating: number | null;
+      liked: boolean;
+      status: string | null;
+    }>;
+  }>;
+  fileCountTotal: number;
+}
 
 export { API_URL, ApiError };

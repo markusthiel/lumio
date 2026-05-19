@@ -166,6 +166,16 @@ export default function GalleryDetailPage() {
           </div>
         </header>
 
+        {/* Quick-Nav */}
+        <nav className="flex gap-2 text-sm">
+          <Link
+            href={`/studio/${gallery.id}/proofing`}
+            className="px-3 py-1.5 rounded border border-slate-200 hover:bg-slate-50"
+          >
+            Auswahl-Übersicht →
+          </Link>
+        </nav>
+
         {/* Upload-Zone */}
         <section
           onDragOver={(e) => {

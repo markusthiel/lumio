@@ -57,10 +57,15 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 - [x] Single-File-Download via Presigned URL
 - [x] Kommentare pro Bild
 - [x] Studio-Übersicht: welche Files wurden ausgewählt? (`/galleries/:id/proofing/summary`)
-- [ ] Streaming-ZIP-Builder (Worker-Task build_zip) — Stub vorhanden
-- [ ] Watermark-Rendition (wenn Download deaktiviert)
-- [ ] CSV-Export der Auswahl
-- [ ] Studio-UI für Proofing-Summary (gerade nur API)
+- [x] Streaming-ZIP-Builder (Worker-Task build_zip mit S3-Multipart)
+- [x] Watermark-Rendition (wenn Download deaktiviert)
+- [x] CSV-Export der Auswahl
+- [x] **XMP-Sidecar-Export für Lightroom Classic / Capture One**
+- [x] Studio-UI für Proofing-Summary mit Stats + per-Access-Tabelle + File-Liste
+- [x] Email-Notifications (neuer Kommentar) — Auswahl-fertig-Trigger fehlt noch
+- [ ] Selection-Abschluss-Button für Kunde mit Email-Notification (Trigger)
+- [ ] Auswahl-ZIP-Notification an Kunde, wenn ready
+- [ ] Watermark-Image-Upload-UI (Endpoint da, Frontend fehlt)
 
 ---
 
