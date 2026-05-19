@@ -36,6 +36,14 @@ import {
   verifyTotpForUser,
   backupCodeCount,
 } from "../services/totp.js";
+import {
+  startRegistration as webauthnStartRegistration,
+  finishRegistration as webauthnFinishRegistration,
+  startAuthentication as webauthnStartAuthentication,
+  finishAuthentication as webauthnFinishAuthentication,
+  listCredentials as webauthnListCredentials,
+  deleteCredential as webauthnDeleteCredential,
+} from "../services/webauthn.js";
 import { logEvent } from "../services/audit.js";
 
 const loginSchema = z.object({
@@ -119,15 +127,22 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         });
       }
 
-      // 2FA-Zweig
-      if (user.totpEnabled) {
+      // 2FA-Zweig — User kann TOTP oder WebAuthn oder beides aktiv haben.
+      // Wir signalisieren beide Optionen; das Frontend zeigt, was verfügbar
+      // ist, und der User wählt aus.
+      const passkeyCount = await prisma.webauthnCredential.count({
+        where: { userId: user.id },
+      });
+      const has2fa = user.totpEnabled || passkeyCount > 0;
+      if (has2fa) {
         const challenge = createLoginChallenge({
           userId: user.id,
           ipAddress: req.ip,
           userAgent: req.headers["user-agent"] ?? null,
         });
         return {
-          requiresTotp: true,
+          requiresTotp: user.totpEnabled,
+          requiresWebauthn: passkeyCount > 0,
           challenge,
         };
       }
@@ -277,6 +292,183 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     }
     return { ok: true };
   });
+
+  // -------------------------------------------------------------------------
+  // WebAuthn / Passkeys
+  // -------------------------------------------------------------------------
+  // Vier Endpoints für die zwei Lifecycles:
+  //   Registration (eingeloggter User fügt Passkey hinzu):
+  //     POST /auth/webauthn/register/start
+  //     POST /auth/webauthn/register/finish
+  //   Authentication (Login mit Passkey nach Passwort):
+  //     POST /auth/webauthn/login/start
+  //     POST /auth/webauthn/login/finish
+  //
+  //   GET    /auth/webauthn          — Liste der eigenen Credentials
+  //   DELETE /auth/webauthn/:id      — Credential entfernen
+
+  app.post("/auth/webauthn/register/start", async (req, reply) => {
+    const s = req.requireAuth();
+    try {
+      const options = await webauthnStartRegistration(s.user.id);
+      return { options };
+    } catch (err) {
+      app.log.warn({ err }, "webauthn register start failed");
+      return reply.status(500).send({ error: "register_failed" });
+    }
+  });
+
+  const webauthnRegisterFinishSchema = z.object({
+    response: z.any(),
+    label: z.string().min(1).max(100),
+  });
+
+  app.post("/auth/webauthn/register/finish", async (req, reply) => {
+    const s = req.requireAuth();
+    const body = webauthnRegisterFinishSchema.parse(req.body);
+    const result = await webauthnFinishRegistration({
+      userId: s.user.id,
+      response: body.response,
+      label: body.label,
+    });
+    if (!result.ok) {
+      return reply.status(400).send({ error: result.reason ?? "register_failed" });
+    }
+    await logEvent({
+      tenantId: req.tenantId,
+      actorType: "user",
+      actorId: s.user.id,
+      action: "auth.webauthn.register",
+      targetType: "webauthn_credential",
+      targetId: result.credentialId,
+      payload: { label: body.label },
+      ipAddress: req.ip,
+    });
+    return { ok: true, credentialId: result.credentialId };
+  });
+
+  const webauthnLoginStartSchema = z.object({
+    challenge: z.string().min(1),
+  });
+
+  app.post("/auth/webauthn/login/start", async (req, reply) => {
+    const body = webauthnLoginStartSchema.parse(req.body);
+    const claims = verifyLoginChallenge(body.challenge, {
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"] ?? null,
+    });
+    if (!claims) {
+      return reply
+        .status(401)
+        .send({ error: "invalid_challenge", message: "Bitte erneut anmelden." });
+    }
+    try {
+      const { options, challengeId } = await webauthnStartAuthentication(claims.uid);
+      return { options, challengeId };
+    } catch (err) {
+      app.log.warn({ err }, "webauthn login start failed");
+      return reply.status(400).send({ error: "no_credentials" });
+    }
+  });
+
+  const webauthnLoginFinishSchema = z.object({
+    challenge: z.string().min(1),
+    challengeId: z.string().min(1),
+    response: z.any(),
+  });
+
+  app.post(
+    "/auth/webauthn/login/finish",
+    {
+      config: {
+        rateLimit: { max: 20, timeWindow: "1 minute" },
+      },
+    },
+    async (req, reply) => {
+      const body = webauthnLoginFinishSchema.parse(req.body);
+      // Login-Challenge nochmal prüfen, damit nicht jemand die Passwort-
+      // Phase mit einer fremden Challenge überspringt
+      const claims = verifyLoginChallenge(body.challenge, {
+        ipAddress: req.ip,
+        userAgent: req.headers["user-agent"] ?? null,
+      });
+      if (!claims) {
+        return reply.status(401).send({ error: "invalid_challenge" });
+      }
+
+      const result = await webauthnFinishAuthentication({
+        challengeId: body.challengeId,
+        response: body.response,
+      });
+      if (!result.ok || result.userId !== claims.uid) {
+        await logEvent({
+          tenantId: req.tenantId,
+          actorType: "user",
+          actorId: claims.uid,
+          action: "auth.webauthn.login.failed",
+          ipAddress: req.ip,
+          payload: { reason: result.reason },
+        });
+        return reply
+          .status(401)
+          .send({ error: "verification_failed", reason: result.reason });
+      }
+
+      const user = await prisma.user.findUnique({ where: { id: result.userId } });
+      if (!user || user.status !== "active") {
+        return reply.status(401).send({ error: "invalid_credentials" });
+      }
+
+      const { token } = await createSession({
+        userId: user.id,
+        ipAddress: req.ip,
+        userAgent: req.headers["user-agent"] ?? null,
+      });
+      reply.setCookie(SESSION_COOKIE, token, cookieOpts(30));
+
+      await logEvent({
+        tenantId: user.tenantId,
+        actorType: "user",
+        actorId: user.id,
+        action: "auth.webauthn.login",
+        ipAddress: req.ip,
+      });
+
+      return {
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+        },
+      };
+    }
+  );
+
+  app.get("/auth/webauthn", async (req) => {
+    const s = req.requireAuth();
+    const credentials = await webauthnListCredentials(s.user.id);
+    return { credentials };
+  });
+
+  app.delete<{ Params: { id: string } }>(
+    "/auth/webauthn/:id",
+    async (req, reply) => {
+      const s = req.requireAuth();
+      const ok = await webauthnDeleteCredential(s.user.id, req.params.id);
+      if (!ok) return reply.status(404).send({ error: "not_found" });
+      await logEvent({
+        tenantId: req.tenantId,
+        actorType: "user",
+        actorId: s.user.id,
+        action: "auth.webauthn.delete",
+        targetType: "webauthn_credential",
+        targetId: req.params.id,
+        ipAddress: req.ip,
+      });
+      return { ok: true };
+    }
+  );
 
   // -------------------------------------------------------------------------
   // POST /auth/logout

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, type TenantSettings } from "@/lib/api";
 import { TwoFactorSection } from "@/components/studio/TwoFactorSection";
+import { PasskeysSection } from "@/components/studio/PasskeysSection";
 import { useT, useLocale } from "@/lib/i18n";
 
 export default function StudioSettingsPage() {
@@ -171,6 +172,9 @@ export default function StudioSettingsPage() {
 
         {/* 2FA */}
         <TwoFactorSection />
+
+        {/* Passkeys */}
+        <PasskeysSection />
 
         {/* Branding-Link */}
         <section className="rounded-lg border border-slate-200 bg-white p-5 flex items-center justify-between">

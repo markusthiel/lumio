@@ -80,7 +80,8 @@ model User {
   
   galleries    Gallery[]
   sessions     Session[]
-  
+  webauthnCredentials WebauthnCredential[]
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   lastLoginAt  DateTime?
@@ -88,6 +89,26 @@ model User {
   @@unique([tenantId, email])
   @@index([email])
   @@map("users")
+}
+
+model WebauthnCredential {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId        String   @db.Uuid
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  credentialId  String   @unique
+  publicKey     Bytes
+  signCount     BigInt   @default(0)
+  // transports als JSON-Array gespeichert ('usb','nfc','ble','internal','hybrid').
+  // Hilft dem Browser beim Authentifizieren, das richtige Device anzufragen.
+  transports    String?
+  label         String   // "Mein MacBook", "YubiKey #1" — vom User vergeben
+
+  createdAt     DateTime @default(now())
+  lastUsedAt    DateTime?
+
+  @@index([userId])
+  @@map("webauthn_credentials")
 }
 
 model Session {

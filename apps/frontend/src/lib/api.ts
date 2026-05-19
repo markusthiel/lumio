@@ -219,7 +219,11 @@ export const api = {
   login: (email: string, password: string) =>
     request<
       | { user: ApiUser }
-      | { requiresTotp: true; challenge: string }
+      | {
+          requiresTotp: boolean;
+          requiresWebauthn: boolean;
+          challenge: string;
+        }
     >("/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
@@ -246,6 +250,37 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ token }),
     }),
+
+  // WebAuthn
+  listWebauthnCredentials: () =>
+    request<{ credentials: WebauthnCredential[] }>("/auth/webauthn"),
+  webauthnRegisterStart: () =>
+    request<{ options: unknown }>("/auth/webauthn/register/start", {
+      method: "POST",
+    }),
+  webauthnRegisterFinish: (response: unknown, label: string) =>
+    request<{ ok: true; credentialId: string }>(
+      "/auth/webauthn/register/finish",
+      {
+        method: "POST",
+        body: JSON.stringify({ response, label }),
+      }
+    ),
+  webauthnLoginStart: (challenge: string) =>
+    request<{ options: unknown; challengeId: string }>(
+      "/auth/webauthn/login/start",
+      {
+        method: "POST",
+        body: JSON.stringify({ challenge }),
+      }
+    ),
+  webauthnLoginFinish: (challenge: string, challengeId: string, response: unknown) =>
+    request<{ user: ApiUser }>("/auth/webauthn/login/finish", {
+      method: "POST",
+      body: JSON.stringify({ challenge, challengeId, response }),
+    }),
+  deleteWebauthnCredential: (id: string) =>
+    request<{ ok: true }>(`/auth/webauthn/${id}`, { method: "DELETE" }),
 
   // Galleries (Studio)
   listGalleries: () => request<{ galleries: Gallery[] }>("/galleries"),
@@ -622,6 +657,13 @@ export interface AuditEvent {
   payload: Record<string, unknown> | null;
   ipAddress: string | null;
   createdAt: string;
+}
+
+export interface WebauthnCredential {
+  id: string;
+  label: string;
+  createdAt: string;
+  lastUsedAt: string | null;
 }
 
 export interface GalleryTemplate {
