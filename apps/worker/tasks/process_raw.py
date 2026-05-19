@@ -70,7 +70,6 @@ def _process(file_row: dict) -> None:
     """Decodiert RAW → JPEG-Preview → drei Renditions wie bei process_file."""
     import rawpy
     import imageio.v3 as iio
-    import pyvips  # type: ignore
 
     file_id = file_row["id"]
     tenant_id = file_row["tenant_id"]
@@ -89,41 +88,22 @@ def _process(file_row: dict) -> None:
 
         # Aus dem Preview die Renditions ableiten — identische Pipeline
         # wie process_file, nur dass die Quelle bereits ein JPEG ist.
-        img = pyvips.Image.new_from_file(
-            preview_jpeg_path, access="sequential"
-        )
-        img = img.autorot()
+        from imaging import render_webp_sizes
 
-        src_w = img.width
-        src_h = img.height
-        long_edge = max(src_w, src_h)
-
-        for kind, max_edge, quality in RENDITION_SPECS:
-            scale = min(1.0, max_edge / long_edge) if long_edge > 0 else 1.0
-            out_path = os.path.join(tmp, f"{kind}.webp")
-
-            resized = img.resize(scale) if scale < 1.0 else img
-            resized.write_to_file(
-                f"{out_path}[Q={quality},effort=4,strip=true]"
-            )
-
-            key = rendition_key(
-                tenant_id, gallery_id, file_id, kind, "webp"
-            )
+        def _persist(kind: str, out_path: str, w: int, h: int) -> None:
+            key = rendition_key(tenant_id, gallery_id, file_id, kind, "webp")
             size_bytes = upload_file(out_path, key, "image/webp")
             upsert_rendition(
-                file_id=file_id,
-                kind=kind,
-                storage_key=key,
-                fmt="webp",
-                width=resized.width,
-                height=resized.height,
-                size_bytes=size_bytes,
+                file_id=file_id, kind=kind, storage_key=key, fmt="webp",
+                width=w, height=h, size_bytes=size_bytes,
             )
-            log.info("process_raw.rendition_done",
-                     file_id=file_id, kind=kind,
-                     width=resized.width, height=resized.height,
-                     size=size_bytes)
+            log.info("process_raw.rendition_done", file_id=file_id,
+                     kind=kind, width=w, height=h, size=size_bytes)
+
+        src_w, src_h = render_webp_sizes(
+            src_path=preview_jpeg_path, specs=RENDITION_SPECS,
+            out_dir=tmp, on_rendition=_persist,
+        )
 
         # width/height des Originals — beim eingebetteten Preview ist das
         # nicht zwingend die echte Sensor-Größe. Wir nutzen aus rawpy die

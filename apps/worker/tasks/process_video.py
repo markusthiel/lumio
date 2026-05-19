@@ -242,25 +242,24 @@ def _publish_video_image_renditions(
 ) -> None:
     """Aus dem Poster machen wir thumb (400px), preview (1600px), web (2560px)
     als WebPs, damit Video-Tiles in der Galerie wie Bilder erscheinen."""
-    import pyvips  # type: ignore
+    from imaging import render_webp_sizes
 
     SPECS = [("thumb", 400, 75), ("preview", 1600, 82), ("web", 2560, 85)]
-    img = pyvips.Image.new_from_file(str(poster_jpg), access="sequential")
-    long_edge = max(img.width, img.height)
 
-    for kind, max_edge, quality in SPECS:
-        scale = min(1.0, max_edge / long_edge) if long_edge > 0 else 1.0
-        out_path = tmpdir / f"{kind}.webp"
-        resized = img.resize(scale) if scale < 1.0 else img
-        resized.write_to_file(
-            f"{out_path}[Q={quality},effort=4,strip=true]"
-        )
+    def _persist(kind: str, out_path: str, w: int, h: int) -> None:
         key = rendition_key(tenant_id, gallery_id, file_id, kind, "webp")
-        size = upload_file(str(out_path), key, "image/webp")
+        size = upload_file(out_path, key, "image/webp")
         upsert_rendition(
             file_id=file_id, kind=kind, storage_key=key, fmt="webp",
-            width=resized.width, height=resized.height, size_bytes=size,
+            width=w, height=h, size_bytes=size,
         )
+
+    # autorotate=False, weil der Poster-Frame aus ffmpeg eh schon korrekt
+    # orientiert ist (ffmpeg respektiert Video-Rotation via Display Matrix).
+    render_webp_sizes(
+        src_path=poster_jpg, specs=SPECS, out_dir=tmpdir,
+        on_rendition=_persist, autorotate=False,
+    )
 
 
 # ---------------------------------------------------------------------------

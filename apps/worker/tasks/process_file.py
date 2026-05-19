@@ -23,6 +23,7 @@ import structlog
 
 from app import app
 from db import fetch_file, mark_file_ready, mark_file_failed, upsert_rendition
+from imaging import render_webp_sizes
 from storage import (
     download_to_file,
     upload_file,
@@ -70,10 +71,6 @@ def generate_renditions(self, file_id: str) -> dict:
 def _process(file_row: dict) -> None:
     """Lädt das Original, generiert die Renditions, schreibt sie nach S3
     und in die DB."""
-    # Pyvips wird erst beim Task-Aufruf importiert — damit kann der
-    # Worker-Container im CI auch ohne libvips geladen werden.
-    import pyvips  # type: ignore
-
     file_id = file_row["id"]
     tenant_id = file_row["tenant_id"]
     gallery_id = file_row["gallery_id"]
@@ -85,58 +82,22 @@ def _process(file_row: dict) -> None:
         log.info("process_file.downloaded", file_id=file_id,
                  size=os.path.getsize(src_path))
 
-        # Dimensions einmal mit sequential-access ermitteln (billig, keine
-        # Pixel-Operationen). Wir brauchen die für die scale-Berechnung der
-        # Renditions und für den File-Record.
-        probe = pyvips.Image.new_from_file(src_path, access="sequential")
-        probe = probe.autorot()
-        src_w = probe.width
-        src_h = probe.height
-        long_edge = max(src_w, src_h)
-        final_w, final_h = src_w, src_h
-        del probe  # libvips-handle freigeben
-
-        for kind, max_edge, quality in RENDITION_SPECS:
-            scale = min(1.0, max_edge / long_edge) if long_edge > 0 else 1.0
-            out_path = os.path.join(tmp, f"{kind}.webp")
-
-            # Wichtig: für jede Rendition ein FRISCHES Image-Handle. JPEG ist
-            # single-pass, libvips mit access="sequential" kann nicht mehrfach
-            # durchgelesen werden — der zweite resize() crasht mit
-            # "VipsJpeg: out of order read". Wir laden also pro Rendition neu.
-            # JPEG-Decode ist günstig genug; bei 3 Renditions zahlen wir den
-            # Decode-Aufwand 3x, dafür ist der Code robust.
-            img = pyvips.Image.new_from_file(src_path, access="sequential")
-            img = img.autorot()
-
-            if scale < 1.0:
-                resized = img.resize(scale)
-            else:
-                resized = img
-
-            # WebP-Output mit voreingestellter Qualität.
-            resized.write_to_file(
-                f"{out_path}[Q={quality},effort=4,strip=true]"
-            )
-
-            key = rendition_key(
-                tenant_id, gallery_id, file_id, kind, "webp"
-            )
+        def _persist(kind: str, out_path: str, w: int, h: int) -> None:
+            key = rendition_key(tenant_id, gallery_id, file_id, kind, "webp")
             size_bytes = upload_file(out_path, key, "image/webp")
-
             upsert_rendition(
-                file_id=file_id,
-                kind=kind,
-                storage_key=key,
-                fmt="webp",
-                width=resized.width,
-                height=resized.height,
-                size_bytes=size_bytes,
+                file_id=file_id, kind=kind, storage_key=key, fmt="webp",
+                width=w, height=h, size_bytes=size_bytes,
             )
-            log.info("process_file.rendition_done",
-                     file_id=file_id, kind=kind,
-                     width=resized.width, height=resized.height,
-                     size=size_bytes)
+            log.info("process_file.rendition_done", file_id=file_id,
+                     kind=kind, width=w, height=h, size=size_bytes)
+
+        final_w, final_h = render_webp_sizes(
+            src_path=src_path,
+            specs=RENDITION_SPECS,
+            out_dir=tmp,
+            on_rendition=_persist,
+        )
 
         mark_file_ready(file_id, final_w, final_h)
         log.info("process_file.complete", file_id=file_id,
