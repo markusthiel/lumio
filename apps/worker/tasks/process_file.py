@@ -85,25 +85,29 @@ def _process(file_row: dict) -> None:
         log.info("process_file.downloaded", file_id=file_id,
                  size=os.path.getsize(src_path))
 
-        # access="sequential" hält den Speicherbedarf niedrig — libvips
-        # streamt das Bild durch die Pipeline, statt es ganz im RAM zu halten.
-        img = pyvips.Image.new_from_file(src_path, access="sequential")
-
-        # Orientierung aus EXIF anwenden, EXIF dann strippen (für Web-
-        # Renditions ist EXIF-Privacy meist gewünscht; das Original bleibt
-        # unverändert im Storage).
-        img = img.autorot()
-
-        src_w = img.width
-        src_h = img.height
+        # Dimensions einmal mit sequential-access ermitteln (billig, keine
+        # Pixel-Operationen). Wir brauchen die für die scale-Berechnung der
+        # Renditions und für den File-Record.
+        probe = pyvips.Image.new_from_file(src_path, access="sequential")
+        probe = probe.autorot()
+        src_w = probe.width
+        src_h = probe.height
         long_edge = max(src_w, src_h)
-
-        # Endgültige width/height ins File-Record schreiben
         final_w, final_h = src_w, src_h
+        del probe  # libvips-handle freigeben
 
         for kind, max_edge, quality in RENDITION_SPECS:
             scale = min(1.0, max_edge / long_edge) if long_edge > 0 else 1.0
             out_path = os.path.join(tmp, f"{kind}.webp")
+
+            # Wichtig: für jede Rendition ein FRISCHES Image-Handle. JPEG ist
+            # single-pass, libvips mit access="sequential" kann nicht mehrfach
+            # durchgelesen werden — der zweite resize() crasht mit
+            # "VipsJpeg: out of order read". Wir laden also pro Rendition neu.
+            # JPEG-Decode ist günstig genug; bei 3 Renditions zahlen wir den
+            # Decode-Aufwand 3x, dafür ist der Code robust.
+            img = pyvips.Image.new_from_file(src_path, access="sequential")
+            img = img.autorot()
 
             if scale < 1.0:
                 resized = img.resize(scale)
