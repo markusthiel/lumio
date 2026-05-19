@@ -67,6 +67,10 @@ export const de: Dict = {
     settingWatermarkDesc:
       "Wird automatisch generiert. Studio-Watermark-Text in den Tenant-Settings festlegen.",
     settingComments: "Kommentare aktivieren",
+    settingSelectionLimit: "Auswahllimit",
+    settingSelectionLimitDesc:
+      "Maximale Anzahl Bilder, die ein Kunde liken darf. Leer = unbegrenzt.",
+    settingSelectionLimitPlaceholder: "z.B. 30",
 
     noFiles: "Noch keine Dateien hochgeladen.",
     selectFiles: "Auswählen",
@@ -128,6 +132,9 @@ export const de: Dict = {
     slideshowNoImages: "Keine Bilder zum Anzeigen in dieser Galerie.",
     downloadHeicHint:
       "HEIC ist ein Apple-Format. Auf macOS und iOS öffnet sich das direkt; auf Windows brauchst du ggf. einen Codec oder du nutzt unsere Web-Variante.",
+    likedOutOf: "{liked} von {limit} ausgewählt",
+    selectionLimitReached:
+      "Du hast bereits {limit} Bilder ausgewählt. Wähl eins ab, um ein anderes auszuwählen.",
     // Lightbox
     close: "Schließen",
     previous: "Vorheriges Bild",

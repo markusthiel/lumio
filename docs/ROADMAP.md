@@ -111,7 +111,7 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 - [ ] Team-Voting (mehrere Personen pro Access-Token)
 - [ ] Live-Cursor in der Lightbox (WebSocket-Fanout)
 - [ ] Scribbles/Annotationen auf Bild
-- [ ] Selection-Limit ("Kunde darf max. N wählen")
+- [x] Selection-Limit ("Kunde darf max. N wählen") — Galerie-Setting im Studio, Counter "X von Y" in der Customer-Hero, Optimistic-Update-Rollback bei Limit-Verletzung mit Toast
 - [ ] Real-time Sync der Auswahl zwischen Studio und Kunde
 
 ### Workflow

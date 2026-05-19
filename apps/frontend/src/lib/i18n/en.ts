@@ -67,6 +67,10 @@ export const en: Dict = {
     settingWatermarkDesc:
       "Generated automatically. Configure the watermark text in tenant settings.",
     settingComments: "Comments enabled",
+    settingSelectionLimit: "Selection limit",
+    settingSelectionLimitDesc:
+      "Maximum number of photos a client may like. Empty = unlimited.",
+    settingSelectionLimitPlaceholder: "e.g. 30",
 
     noFiles: "No files uploaded yet.",
     selectFiles: "Select",
@@ -127,6 +131,9 @@ export const en: Dict = {
     slideshowNoImages: "No viewable images in this gallery.",
     downloadHeicHint:
       "HEIC is an Apple format. macOS and iOS open it natively; on Windows you may need a codec or use our web version instead.",
+    likedOutOf: "{liked} of {limit} selected",
+    selectionLimitReached:
+      "You've already selected {limit} photos. Unselect one to pick a different shot.",
     // Lightbox
     close: "Close",
     previous: "Previous image",

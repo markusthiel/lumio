@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   api,
+  ApiError,
   type PublicFile,
   type PublicGalleryMeta,
   type MySelection,
@@ -81,14 +82,38 @@ export function GalleryView({
           <span>
             {stats.total} {t("gallery.files")}
           </span>
-          {meta.mode === "collaboration" && stats.liked > 0 && (
-            <>
-              <span className="opacity-30">·</span>
-              <span>
-                {stats.liked} {t("gallery.liked")}
-              </span>
-            </>
-          )}
+          {/* "Liked"-Counter — zeigt entweder nur den Stand oder, wenn der
+              Photograph ein Auswahllimit gesetzt hat, "X von Y". Bei
+              erreichtem Limit hebt sich das Element farblich ab, damit
+              der Kunde sofort sieht: ich kann gerade nichts mehr dazu
+              tun ohne erst was abzuwählen. */}
+          {meta.mode === "collaboration" &&
+            (stats.liked > 0 || meta.selectionLimit !== null) && (
+              <>
+                <span className="opacity-30">·</span>
+                <span
+                  className={
+                    meta.selectionLimit !== null &&
+                    stats.liked >= meta.selectionLimit
+                      ? "text-brand-accent"
+                      : ""
+                  }
+                >
+                  {meta.selectionLimit !== null ? (
+                    <>
+                      {t("gallery.likedOutOf", {
+                        liked: stats.liked,
+                        limit: meta.selectionLimit,
+                      })}
+                    </>
+                  ) : (
+                    <>
+                      {stats.liked} {t("gallery.liked")}
+                    </>
+                  )}
+                </span>
+              </>
+            )}
           {finalizedAt && (
             <>
               <span className="opacity-30">·</span>
@@ -427,6 +452,7 @@ function Lightbox({
   const [showHints, setShowHints] = useState(true);
   const [newComment, setNewComment] = useState("");
   const [commentPending, setCommentPending] = useState(false);
+  const [limitMessage, setLimitMessage] = useState<string | null>(null);
 
   // Tastatur-Navigation
   useEffect(() => {
@@ -477,16 +503,40 @@ function Lightbox({
 
   const updateSelection = useCallback(
     async (patch: Partial<MySelection>) => {
+      // Wir merken uns den vorherigen Stand, damit wir bei Server-Fehler
+      // sauber zurückrollen können. Optimistic-Update bleibt, sonst fühlt
+      // sich der Like-Klick zäh an — aber bei selection_limit_reached
+      // setzen wir den UI-State zurück und zeigen einen kurzen Hinweis.
+      const previous: MySelection = { ...sel };
       const next: MySelection = { ...sel, ...patch };
       onSelectionChange(file.id, next);
       try {
         await api.setSelection(slug, file.id, next);
       } catch (err) {
-        console.error(err);
+        // Rollback
+        onSelectionChange(file.id, previous);
+        if (err instanceof ApiError && err.code === "selection_limit_reached") {
+          // Limit ist in meta.selectionLimit bekannt — der Server schickt's
+          // im Body auch nochmal, aber wir nehmen die UI-Wahrheit.
+          setLimitMessage(
+            t("gallery.selectionLimitReached", {
+              limit: meta.selectionLimit ?? 0,
+            })
+          );
+        } else {
+          console.error(err);
+        }
       }
     },
-    [sel, file.id, slug, onSelectionChange]
+    [sel, file.id, slug, onSelectionChange, meta.selectionLimit, t]
   );
+
+  // Limit-Hinweis nach 3s ausblenden
+  useEffect(() => {
+    if (!limitMessage) return;
+    const id = setTimeout(() => setLimitMessage(null), 3000);
+    return () => clearTimeout(id);
+  }, [limitMessage]);
 
   async function toggleLike() {
     await updateSelection({ liked: !sel.liked });
@@ -614,6 +664,18 @@ function Lightbox({
               <span><Kbd>Space</Kbd> ♥</span>
               <span><Kbd>1</Kbd><Kbd>2</Kbd><Kbd>3</Kbd> ●</span>
               <span><Kbd>Esc</Kbd> ✕</span>
+            </div>
+          )}
+
+          {/* Limit-Reached-Toast: erscheint wenn der Server einen Like
+              wegen erreichtem Auswahllimit ablehnt. Sitzt höher als der
+              Hint, damit beide bei Bedarf gleichzeitig lesbar bleiben. */}
+          {limitMessage && (
+            <div
+              className="absolute bottom-16 left-1/2 -translate-x-1/2 px-4 py-2 bg-semantic-warning/95 text-surface-canvas rounded text-ui-sm font-medium pointer-events-none animate-fade-in shadow-lg"
+              role="status"
+            >
+              {limitMessage}
             </div>
           )}
         </div>

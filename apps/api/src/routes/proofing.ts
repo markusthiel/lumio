@@ -19,6 +19,7 @@ import { prisma } from "../db.js";
 import { loadVisitor } from "./galleries.js";
 import { notifyNewComment, notifySelectionFinished } from "../services/notifier.js";
 import { logEvent } from "../services/audit.js";
+import { checkSelectionLimit } from "../services/selectionLimit.js";
 
 const selectionSchema = z.object({
   color: z.enum(["red", "yellow", "green"]).nullable().optional(),
@@ -71,26 +72,30 @@ export async function registerProofingRoutes(app: FastifyInstance) {
 
       const body = selectionSchema.parse(req.body);
 
-      // Selection-Limit prüfen (nur bei Pick-Status)
-      if (body.status === "pick" || body.liked === true) {
+      // Selection-Limit prüfen (nur bei Pick-Status oder Like-Setzen)
+      const willPick = body.status === "pick" || body.liked === true;
+      if (willPick) {
         const gallery = await prisma.gallery.findUnique({
           where: { id: visitor.galleryId },
           select: { selectionLimit: true },
         });
-        if (gallery?.selectionLimit) {
-          const currentPicks = await prisma.selection.count({
-            where: {
-              accessId: visitor.accessId,
-              OR: [{ status: "pick" }, { liked: true }],
-              NOT: { fileId: file.id }, // den eigenen ausschließen
-            },
+        const currentOtherPicks = await prisma.selection.count({
+          where: {
+            accessId: visitor.accessId,
+            OR: [{ status: "pick" }, { liked: true }],
+            NOT: { fileId: file.id }, // den eigenen ausschließen
+          },
+        });
+        const decision = checkSelectionLimit({
+          willPick: true,
+          limit: gallery?.selectionLimit ?? null,
+          currentOtherPicks,
+        });
+        if (!decision.allowed) {
+          return reply.status(409).send({
+            error: "selection_limit_reached",
+            limit: decision.limit,
           });
-          if (currentPicks >= gallery.selectionLimit) {
-            return reply.status(409).send({
-              error: "selection_limit_reached",
-              limit: gallery.selectionLimit,
-            });
-          }
         }
       }
 

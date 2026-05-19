@@ -452,6 +452,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         watermarkEnabled: true,
         commentsEnabled: true,
         ratingsEnabled: true,
+        selectionLimit: true,
         passwordHash: true,
         expiresAt: true,
         tenantId: true,
@@ -497,6 +498,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         watermarkEnabled: gallery.watermarkEnabled,
         commentsEnabled: gallery.commentsEnabled,
         ratingsEnabled: gallery.ratingsEnabled,
+        selectionLimit: gallery.selectionLimit,
         requiresPassword: !!gallery.passwordHash,
         // Hinweis: ob ein Token nötig ist, sagen wir nicht hier — der Token
         // ist optional. Wenn ein Kunde keinen hat, läuft er als anonymer

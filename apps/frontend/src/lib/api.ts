@@ -39,6 +39,7 @@ export interface Gallery {
   downloadEnabled: boolean;
   watermarkEnabled: boolean;
   commentsEnabled: boolean;
+  selectionLimit: number | null;
   brandingId?: string | null;
   fileCount?: number;
   createdAt: string;
@@ -128,6 +129,7 @@ export interface PublicGalleryMeta {
   watermarkEnabled: boolean;
   commentsEnabled: boolean;
   ratingsEnabled: boolean;
+  selectionLimit: number | null;
   requiresPassword: boolean;
   unlocked: boolean;
   branding: Branding | null;

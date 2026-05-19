@@ -410,6 +410,13 @@ export default function GalleryDetailPage() {
             value={gallery.commentsEnabled}
             onChange={(v) => toggleSetting("commentsEnabled", v)}
           />
+          <SelectionLimitInput
+            value={gallery.selectionLimit}
+            onChange={async (v) => {
+              await api.updateGallery(gallery.id, { selectionLimit: v });
+              await load();
+            }}
+          />
         </section>
 
         {/* Files-Toolbar */}
@@ -613,6 +620,91 @@ function SettingToggle({
         )}
       </div>
     </label>
+  );
+}
+
+/**
+ * Input für `selectionLimit`. Leeres Feld = unbegrenzt (null). Wir speichern
+ * onBlur und nur, wenn sich der Wert wirklich geändert hat — sonst pingt
+ * jedes Klicken auf das Feld unnötig die API. State spiegelt während der
+ * Eingabe den Roh-String wider; konvertiert wird beim Commit.
+ */
+function SelectionLimitInput({
+  value,
+  onChange,
+}: {
+  value: number | null;
+  onChange: (next: number | null) => void | Promise<void>;
+}) {
+  const t = useT();
+  const [raw, setRaw] = useState<string>(value !== null ? String(value) : "");
+  const [pending, setPending] = useState(false);
+
+  // Wenn die Galerie reloaded wird, kann sich `value` extern ändern.
+  // Wir resynchronisieren raw — aber nur, wenn der User gerade nicht
+  // editiert. Eine Detail-State `dirty`-Flag wäre robuster, aber für
+  // dieses simple Feld reicht es, raw nachzuziehen wenn value sich
+  // wirklich ändert.
+  useEffect(() => {
+    setRaw(value !== null ? String(value) : "");
+  }, [value]);
+
+  async function commit() {
+    const trimmed = raw.trim();
+    let parsed: number | null;
+    if (trimmed === "") {
+      parsed = null;
+    } else {
+      const n = Number(trimmed);
+      if (!Number.isInteger(n) || n < 1) {
+        // ungültig — zurücksetzen
+        setRaw(value !== null ? String(value) : "");
+        return;
+      }
+      parsed = n;
+    }
+    if (parsed === value) return; // kein Change
+    setPending(true);
+    try {
+      await onChange(parsed);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div className="flex items-start gap-3 py-1">
+      <div className="mt-1 w-4 flex-shrink-0" /> {/* gleicher Einzug wie die Checkboxes */}
+      <div className="flex-1">
+        <label className="text-ui text-ink-primary block">
+          {t("studio.settingSelectionLimit")}
+        </label>
+        <div className="text-ui-xs text-ink-tertiary mt-0.5 mb-2">
+          {t("studio.settingSelectionLimitDesc")}
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            placeholder={t("studio.settingSelectionLimitPlaceholder")}
+            value={raw}
+            onChange={(e) => setRaw(e.target.value)}
+            onBlur={commit}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+            }}
+            disabled={pending}
+            className="w-24 h-9 px-2.5 rounded bg-surface-sunken border border-line-subtle hover:border-line-strong focus:border-accent text-ui text-ink-primary placeholder:text-ink-tertiary focus:outline-none transition-colors duration-motion disabled:opacity-50"
+          />
+          {pending && (
+            <span className="text-ui-xs text-ink-tertiary">
+              {t("common.saving")}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
