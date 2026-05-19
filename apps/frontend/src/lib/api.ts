@@ -1,9 +1,14 @@
 /**
  * Lumio Frontend — API Client
+ *
+ * API_URL ist normalerweise leer, weil Frontend und API hinter demselben
+ * Caddy laufen — alle /api/v1/...-Calls gehen damit automatisch an denselben
+ * Origin wie das Frontend. Bei einem Split-Deployment (API auf anderer
+ * Domain) kann NEXT_PUBLIC_API_URL gesetzt werden, dann wird absolut
+ * adressiert.
  */
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
 
 // -----------------------------------------------------------------------------
 // Types

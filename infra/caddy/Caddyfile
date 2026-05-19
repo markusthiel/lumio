@@ -1,39 +1,41 @@
 # =============================================================================
 # Lumio — Caddy Configuration
 # =============================================================================
-# Lokal: erreichbar via http://localhost
-# Produktion: Hostnamen anpassen — Caddy holt automatisch ein Let's-Encrypt-Cert.
+# Eine Adresse für alles: Frontend + API hängen am selben Hostname,
+# Caddy routet /api/*, /ws/*, /health an die API, alles andere ans Frontend.
 #
-# Beispiel Produktion:
-#   photos.example.com {
-#       reverse_proxy /api/*   api:3001
-#       reverse_proxy /health  api:3001
-#       reverse_proxy          frontend:3000
-#   }
+# Hostname kommt aus der LUMIO_HOST ENV-Variable (siehe .env):
+#   LUMIO_HOST=:80                       → erreichbar via http://localhost (lokal)
+#   LUMIO_HOST=galerien.example.com      → automatisches Let's-Encrypt-Cert
+#   LUMIO_HOST=http://galerien.example.com → explizit nur HTTP, kein Cert
+#
+# Wenn der Server hinter einem externen Reverse-Proxy steht (z.B. Traefik,
+# nginx-proxy-manager), setze LUMIO_HOST=:80, leg die CADDY_HTTP_PORT- und
+# CADDY_HTTPS_PORT-Werte in der .env auf freie interne Ports und proxy von
+# außen dorthin.
 
 {
-    # Globale Optionen
-    admin off
-    # Im Produktiv-Setup: dein E-Mail für Let's Encrypt
-    # email admin@example.com
+	admin off
+	# E-Mail für Let's-Encrypt-Account-Recovery (optional):
+	# email admin@example.com
 }
 
-:80 {
-    # API-Routen
-    reverse_proxy /api/* api:3001
-    reverse_proxy /health api:3001
-    reverse_proxy /ws/* api:3001
-    
-    # Alles andere ans Frontend
-    reverse_proxy frontend:3000
+{$LUMIO_HOST::80} {
+	# API-Routen
+	reverse_proxy /api/*   api:3001
+	reverse_proxy /health  api:3001
+	reverse_proxy /ws/*    api:3001
 
-    encode zstd gzip
+	# Alles andere ans Frontend
+	reverse_proxy frontend:3000
 
-    # Security headers
-    header {
-        X-Content-Type-Options "nosniff"
-        Referrer-Policy "strict-origin-when-cross-origin"
-        # CSP wird vom Frontend selbst gesetzt, damit es per Route variieren kann
-        -Server
-    }
+	encode zstd gzip
+
+	# Security headers
+	header {
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# CSP wird vom Frontend selbst gesetzt, damit es per Route variieren kann
+		-Server
+	}
 }
