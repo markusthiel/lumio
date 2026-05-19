@@ -117,8 +117,7 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 ### Workflow
 
 - [x] XMP-Sidecar-Export (Lightroom/Capture One kompatibel)
-- [x] Bulk-Aktionen im Studio: Multi-Select + delete + hide/show
-      (sort und move via Drag&Drop stehen noch aus)
+- [x] Bulk-Aktionen im Studio: Multi-Select + delete + hide/show + Drag&Drop-Sortierung
 - [x] Galerie-Templates / Presets (Mode/Toggles/Branding/Expiry/Default-Description)
 - [x] Email-Notifications (Auswahl fertig, neuer Kommentar)
 - [ ] Presentation Mode (Vollbild, autoplay)
@@ -129,7 +128,7 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 
 - [ ] Lightroom Classic Plugin (Lua) — pullt Auswahl direkt in den Katalog
 - [ ] Capture One Plugin
-- [x] Mehrsprachigkeit (DE, EN — weitere folgen via i18n-Dictionary-System)
+- [x] Mehrsprachigkeit Studio + Customer-Seite (DE, EN — weitere folgen via i18n-Dictionary-System; in-Gallery-Locale-Picker für Visitor steht noch aus)
 - [ ] Mobile App (React Native) für iOS/Android — Upload aus der Kamera-Rolle
 - [ ] Public API mit OAuth2
 - [ ] Webhooks für Studio-Events

@@ -24,6 +24,13 @@ export default function GalleryDetailPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkPending, setBulkPending] = useState(false);
 
+  // Drag-and-Drop-Sortierung. dragId merkt sich, was gerade gezogen wird;
+  // overId, welches Tile aktuell als Drop-Ziel hervorgehoben ist. Beim Drop
+  // berechnen wir die neue Reihenfolge optimistisch im UI und feuern dann
+  // den API-Call ab. Bei API-Fehler revertieren wir die Reihenfolge.
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+
   const toggleSelected = useCallback((fileId: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -40,6 +47,39 @@ export default function GalleryDetailPage() {
     setSelectionMode(false);
     setSelected(new Set());
   }, []);
+
+  // Drop wurde auf overId ausgeführt — verschiebe dragId an die neue Stelle
+  // und persistiere. Wir setzen sortIndex bei ALLEN Files neu, damit wir
+  // nicht mit Lücken oder unklaren Halbzuständen rumärgern.
+  const reorderTo = useCallback(
+    async (dragFileId: string, dropFileId: string) => {
+      if (!gallery || dragFileId === dropFileId) return;
+      const files = gallery.files;
+      const fromIdx = files.findIndex((f) => f.id === dragFileId);
+      const toIdx = files.findIndex((f) => f.id === dropFileId);
+      if (fromIdx < 0 || toIdx < 0) return;
+
+      const next = [...files];
+      const [moved] = next.splice(fromIdx, 1);
+      next.splice(toIdx, 0, moved);
+
+      // Optimistic Update — UI reagiert sofort
+      const previous = files;
+      setGallery({ ...gallery, files: next });
+
+      try {
+        await api.reorderFiles({
+          galleryId: gallery.id,
+          order: next.map((f, i) => ({ id: f.id, sortIndex: i })),
+        });
+      } catch (err) {
+        // Revert
+        console.error("reorder failed:", err);
+        setGallery({ ...gallery, files: previous });
+      }
+    },
+    [gallery]
+  );
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -409,6 +449,22 @@ export default function GalleryDetailPage() {
                   selectionMode={selectionMode}
                   selected={selected.has(f.id)}
                   onToggle={() => toggleSelected(f.id)}
+                  draggable={!selectionMode}
+                  isDragging={dragId === f.id}
+                  isDropTarget={overId === f.id && dragId !== null && dragId !== f.id}
+                  onDragStart={() => setDragId(f.id)}
+                  onDragEnter={() => {
+                    if (dragId && dragId !== f.id) setOverId(f.id);
+                  }}
+                  onDragEnd={() => {
+                    setDragId(null);
+                    setOverId(null);
+                  }}
+                  onDrop={() => {
+                    if (dragId) void reorderTo(dragId, f.id);
+                    setDragId(null);
+                    setOverId(null);
+                  }}
                 />
               ))}
             </ul>
@@ -527,23 +583,62 @@ function FileTile({
   selectionMode,
   selected,
   onToggle,
+  draggable,
+  isDragging,
+  isDropTarget,
+  onDragStart,
+  onDragEnter,
+  onDragEnd,
+  onDrop,
 }: {
   file: GalleryFile;
   selectionMode: boolean;
   selected: boolean;
   onToggle: () => void;
+  draggable: boolean;
+  isDragging: boolean;
+  isDropTarget: boolean;
+  onDragStart: () => void;
+  onDragEnter: () => void;
+  onDragEnd: () => void;
+  onDrop: () => void;
 }) {
   const isHidden = file.status === "hidden";
   return (
     <li
-      className={`aspect-square rounded-md border bg-slate-50 overflow-hidden relative ${
+      className={`aspect-square rounded-md border bg-slate-50 overflow-hidden relative transition ${
         selected
           ? "border-brand-accent ring-2 ring-brand-accent"
+          : isDropTarget
+          ? "border-brand-accent ring-2 ring-brand-accent/60"
           : "border-slate-200"
-      } ${
-        selectionMode ? "cursor-pointer" : ""
+      } ${selectionMode ? "cursor-pointer" : draggable ? "cursor-grab active:cursor-grabbing" : ""} ${
+        isDragging ? "opacity-40" : ""
       }`}
       onClick={selectionMode ? onToggle : undefined}
+      draggable={draggable}
+      onDragStart={(e) => {
+        if (!draggable) return;
+        // Manche Browser brauchen DataTransfer, sonst ignorieren sie den Drag
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", file.id);
+        onDragStart();
+      }}
+      onDragEnter={() => {
+        if (!draggable) return;
+        onDragEnter();
+      }}
+      onDragOver={(e) => {
+        // Default-Verhalten ist "nicht droppable" — wir müssen explizit
+        // preventDefault rufen, damit das Element ein gültiges Drop-Ziel wird.
+        if (draggable) e.preventDefault();
+      }}
+      onDrop={(e) => {
+        if (!draggable) return;
+        e.preventDefault();
+        onDrop();
+      }}
+      onDragEnd={onDragEnd}
     >
       {file.thumbUrl ? (
         // eslint-disable-next-line @next/next/no-img-element

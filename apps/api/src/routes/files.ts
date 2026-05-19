@@ -422,4 +422,83 @@ export async function registerFileRoutes(app: FastifyInstance) {
     });
     return { affected: result.count };
   });
+
+  // -------------------------------------------------------------------------
+  // PUT /files/reorder
+  // -------------------------------------------------------------------------
+  // Setzt die Sortierreihenfolge der Files in EINER Galerie. Der Aufrufer
+  // schickt ein Array von { id, sortIndex } — wir validieren, dass alle IDs
+  // tatsächlich zur Galerie gehören (sonst könnte man Files aus fremden
+  // Galerien umordnen), und schreiben dann jeden sortIndex einzeln. Bei
+  // bis zu ~1000 Files pro Galerie ist das günstig genug, dass wir uns
+  // keinen Bulk-Update-Hack mit CASE-WHEN basteln müssen.
+  app.put<{
+    Body: {
+      galleryId: string;
+      order: { id: string; sortIndex: number }[];
+    };
+  }>("/files/reorder", async (req, reply) => {
+    const s = req.requireAuth();
+    const body = req.body;
+
+    if (
+      !body ||
+      typeof body.galleryId !== "string" ||
+      !Array.isArray(body.order) ||
+      body.order.length === 0 ||
+      body.order.length > 5000
+    ) {
+      return reply.status(400).send({ error: "bad_request" });
+    }
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    for (const item of body.order) {
+      if (
+        !item ||
+        typeof item.id !== "string" ||
+        !uuidRe.test(item.id) ||
+        typeof item.sortIndex !== "number" ||
+        !Number.isFinite(item.sortIndex) ||
+        item.sortIndex < 0 ||
+        item.sortIndex > 1_000_000
+      ) {
+        return reply.status(400).send({ error: "bad_order_entry" });
+      }
+    }
+
+    // Ownership-Check über die Galerie
+    const gallery = await prisma.gallery.findFirst({
+      where: {
+        id: body.galleryId,
+        tenantId: req.tenantId,
+        ownerId: s.user.id,
+      },
+      select: { id: true },
+    });
+    if (!gallery) {
+      return reply.status(404).send({ error: "not_found" });
+    }
+
+    // Sicherstellen, dass alle IDs tatsächlich Files dieser Galerie sind.
+    // Falls jemand IDs einer fremden Galerie reinmogeln würde, finden wir sie
+    // hier NICHT und brechen ab — sauberer als stille No-ops.
+    const ids = body.order.map((o) => o.id);
+    const owned = await prisma.file.findMany({
+      where: { id: { in: ids }, galleryId: gallery.id },
+      select: { id: true },
+    });
+    if (owned.length !== ids.length) {
+      return reply.status(400).send({ error: "unknown_file_id" });
+    }
+
+    // Updates parallel — Prisma's $transaction sorgt für Atomarität
+    await prisma.$transaction(
+      body.order.map((item) =>
+        prisma.file.update({
+          where: { id: item.id },
+          data: { sortIndex: item.sortIndex },
+        })
+      )
+    );
+    return { affected: body.order.length };
+  });
 }

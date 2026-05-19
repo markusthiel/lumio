@@ -274,6 +274,15 @@ export const api = {
       body: JSON.stringify(input),
     }),
 
+  reorderFiles: (input: {
+    galleryId: string;
+    order: { id: string; sortIndex: number }[];
+  }) =>
+    request<{ affected: number }>(`/files/reorder`, {
+      method: "PUT",
+      body: JSON.stringify(input),
+    }),
+
   // Access Tokens (Studio)
   listAccesses: (galleryId: string) =>
     request<{ accesses: GalleryAccess[] }>(
