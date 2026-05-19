@@ -10,7 +10,11 @@ import sensible from "@fastify/sensible";
 import rateLimit from "@fastify/rate-limit";
 
 import { config } from "./config.js";
-import { logger } from "./logger.js";
+import { logger, loggerOptions } from "./logger.js";
+import { bootstrap } from "./bootstrap.js";
+import { prisma } from "./db.js";
+
+import authPlugin from "./plugins/auth.js";
 import { registerHealthRoute } from "./routes/health.js";
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerGalleryRoutes } from "./routes/galleries.js";
@@ -20,12 +24,12 @@ import { registerBillingRoutes } from "./routes/billing.js";
 
 async function buildServer() {
   const app = Fastify({
-    logger,
-    bodyLimit: 50 * 1024 * 1024, // 50 MB — eigentliche Uploads gehen direkt zu S3
+    logger: loggerOptions,
+    bodyLimit: 50 * 1024 * 1024,
     trustProxy: true,
   });
 
-  // Plugins
+  // Core-Plugins
   await app.register(sensible);
   await app.register(cookie, { secret: config.SESSION_SECRET });
   await app.register(cors, {
@@ -37,6 +41,9 @@ async function buildServer() {
     timeWindow: "1 minute",
     skipOnError: true,
   });
+
+  // Lumio-Plugins
+  await app.register(authPlugin);
 
   // Routen
   await registerHealthRoute(app);
@@ -53,7 +60,6 @@ async function buildServer() {
     { prefix: "/api/v1" }
   );
 
-  // Globaler Error-Handler
   app.setErrorHandler((err, _req, reply) => {
     app.log.error({ err }, "request failed");
     if (err.validation) {
@@ -74,6 +80,19 @@ async function buildServer() {
 }
 
 async function start() {
+  // 1. DB-Connection prüfen
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    logger.info("database connection ok");
+  } catch (err) {
+    logger.error({ err }, "database connection failed — aborting start");
+    process.exit(1);
+  }
+
+  // 2. Bootstrap (Default-Tenant, Plans seeden)
+  await bootstrap();
+
+  // 3. Server hochfahren
   const app = await buildServer();
   try {
     await app.listen({
@@ -90,10 +109,11 @@ async function start() {
   }
 }
 
-// Graceful Shutdown
+// Graceful Shutdown — wichtig für Docker SIGTERM
 for (const sig of ["SIGTERM", "SIGINT"] as const) {
-  process.on(sig, () => {
+  process.on(sig, async () => {
     logger.info({ signal: sig }, "shutting down");
+    await prisma.$disconnect().catch(() => {});
     process.exit(0);
   });
 }

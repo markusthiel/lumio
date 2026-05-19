@@ -6,9 +6,9 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
-RUN npm install --omit=dev && \
+RUN npm ci --omit=dev --no-audit --no-fund && \
     cp -r node_modules /tmp/prod_modules && \
-    npm install
+    npm ci --no-audit --no-fund
 
 # Stage 2: Build (TypeScript → JS, Prisma Client generieren)
 FROM node:20-alpine AS builder

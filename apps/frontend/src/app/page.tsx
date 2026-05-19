@@ -48,10 +48,16 @@ export default function HomePage() {
 
         <nav className="flex gap-3 text-sm">
           <Link
-            href={`${apiUrl}/health`}
+            href="/login"
             className="px-4 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800 transition"
           >
-            API Health Check
+            Studio Login
+          </Link>
+          <Link
+            href={`${apiUrl}/health`}
+            className="px-4 py-2 rounded-md border border-slate-300 hover:bg-slate-100 transition"
+          >
+            API Health
           </Link>
           <a
             href="https://forgejo.thiel.tools/thiel/lumio"

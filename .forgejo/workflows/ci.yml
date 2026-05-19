@@ -36,7 +36,7 @@ jobs:
         uses: https://code.forgejo.org/actions/checkout@v4
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Generate Prisma Client
         run: npx prisma generate
@@ -50,9 +50,8 @@ jobs:
       - name: Build
         run: npm run build
 
-      # Tests werden aktiviert, sobald die ersten Vitest-Tests vorhanden sind
-      # - name: Test
-      #   run: npm test
+      - name: Test
+        run: npm test
 
   # ---------------------------------------------------------------------------
   # Frontend — Next.js
@@ -71,7 +70,7 @@ jobs:
         uses: https://code.forgejo.org/actions/checkout@v4
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Type check
         run: npx tsc --noEmit
@@ -133,7 +132,7 @@ jobs:
         uses: https://code.forgejo.org/actions/checkout@v4
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: Type check
         run: npm run type-check
