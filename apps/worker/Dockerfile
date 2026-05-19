@@ -2,8 +2,14 @@
 # Lumio Worker — Dockerfile
 # =============================================================================
 # Bringt die nativen Dependencies mit, die rawpy, pyvips und ffmpeg brauchen.
+#
+# Wichtig: explizit auf python:3.12-bookworm-slim gepinnt statt nur
+# python:3.12-slim, weil der :slim-Alias zu Debian Trixie gewechselt ist und
+# dort heißt das exiv2-Paket libexiv2-28 statt libexiv2-27. Mit einem
+# expliziten Suite-Pin baut der Container deterministisch — beim nächsten
+# Debian-Major (Forky) bewusst und kontrolliert umstellen.
 
-FROM python:3.12-slim AS base
+FROM python:3.12-bookworm-slim AS base
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -16,7 +22,8 @@ ENV PYTHONUNBUFFERED=1 \
 #   libheif1       — HEIF/HEIC-Support
 #   ffmpeg         — Video-Verarbeitung
 #   libmagic1      — Mime-Type-Detection (python-magic)
-#   libexiv2       — EXIF/XMP-Reading
+#   libexiv2-27    — EXIF/XMP-Reading (Bookworm-Soversion;
+#                     für Trixie+ ist es libexiv2-28; siehe Fallback unten)
 #   exiftool       — Fallback für ungewöhnliche Metadaten
 #   libpq5         — Postgres-Client (psycopg)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -26,12 +33,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libheif1 \
         ffmpeg \
         libmagic1 \
-        libexiv2-27 \
         exiftool \
         libpq5 \
         tini \
         ca-certificates \
         curl \
+    && (apt-get install -y --no-install-recommends libexiv2-27 \
+        || apt-get install -y --no-install-recommends libexiv2-28) \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

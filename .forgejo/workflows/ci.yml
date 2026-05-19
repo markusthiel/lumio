@@ -84,7 +84,7 @@ jobs:
   worker:
     runs-on: docker
     container:
-      image: python:3.12-slim
+      image: python:3.12-bookworm-slim
     defaults:
       run:
         working-directory: apps/worker
@@ -97,8 +97,10 @@ jobs:
           apt-get update
           apt-get install -y --no-install-recommends \
             libvips42 libraw-bin libheif1 ffmpeg libmagic1 \
-            libexiv2-27 libpq5 build-essential \
+            libpq5 build-essential \
             libvips-dev libraw-dev libheif-dev libexiv2-dev libpq-dev
+          apt-get install -y --no-install-recommends libexiv2-27 \
+            || apt-get install -y --no-install-recommends libexiv2-28
           rm -rf /var/lib/apt/lists/*
 
       - name: Install Python dependencies
@@ -123,7 +125,7 @@ jobs:
   worker-integration:
     runs-on: docker
     container:
-      image: python:3.12-slim
+      image: python:3.12-bookworm-slim
     services:
       postgres:
         image: postgres:16-alpine
@@ -157,8 +159,10 @@ jobs:
           apt-get update
           apt-get install -y --no-install-recommends \
             libvips42 libraw-bin libheif1 ffmpeg libmagic1 \
-            libexiv2-27 libpq5 build-essential \
+            libpq5 build-essential \
             libvips-dev libraw-dev libheif-dev libexiv2-dev libpq-dev
+          apt-get install -y --no-install-recommends libexiv2-27 \
+            || apt-get install -y --no-install-recommends libexiv2-28
           rm -rf /var/lib/apt/lists/*
 
       - name: Install Python dependencies
