@@ -30,13 +30,16 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 - [ ] CLI: `npm run create-admin`
 - [ ] Tenant-Resolver-Middleware (Domain/Subdomain/Slug)
 
-### Sprint 2 — Upload-Pipeline
+### Sprint 2 — Upload-Pipeline ✅ (großteils)
 
-- [ ] Galerie erstellen über die API
-- [ ] Browser → S3-Presigned-PUT mit Multipart
-- [ ] Worker: process_file für JPEG/PNG/WebP (Renditions thumb/preview/web mit libvips)
-- [ ] WebSocket-Push für Upload-Progress
-- [ ] Minimales Studio-UI (Liste der eigenen Galerien, Upload-Dialog)
+- [x] Galerie erstellen über die API
+- [x] Browser → S3-Presigned-PUT mit Multipart-Support
+- [x] Worker: process_file für JPEG/PNG/WebP/TIFF/HEIC (Renditions thumb/preview/web mit libvips)
+- [x] Studio-UI: Galerie-Liste, Create-Dialog, Detail-Seite mit Drag&Drop-Upload
+- [x] Stream-basierte Job-Queue (Redis Streams) zwischen API und Worker
+- [x] Polling-basiertes Status-Update im Frontend (alle 2s während processing)
+- [ ] WebSocket-Push für Upload-Progress (Polling reicht für Phase 1)
+- [ ] Worker-Test: tatsächlich ein Bild end-to-end durchlassen (manuell durchspielen)
 
 ### Sprint 3 — Kunden-Galerie
 

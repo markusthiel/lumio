@@ -50,7 +50,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY . .
+RUN chmod +x entrypoint.sh
 
-# Default-Queue + Heavy + IO bedient
+# Default-Queue + Heavy + IO bedient + Stream-Consumer
 ENTRYPOINT ["/usr/bin/tini", "--"]
-CMD ["sh", "-c", "celery -A app worker -l ${LOG_LEVEL:-info} -c ${WORKER_CONCURRENCY:-4} -Q default,heavy,io"]
+CMD ["./entrypoint.sh"]

@@ -182,6 +182,9 @@ services:
     environment:
       - MINIO_ROOT_USER=${S3_ACCESS_KEY}
       - MINIO_ROOT_PASSWORD=${S3_SECRET_KEY}
+      # CORS für Browser-Upload — siehe docs/DEVELOPMENT.md
+      # In Produktion auf konkrete Origins einschränken.
+      - MINIO_API_CORS_ALLOW_ORIGIN=*
     volumes:
       - minio_data:/data
     ports:

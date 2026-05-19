@@ -129,8 +129,48 @@ cd apps/worker && pytest        # noch nicht eingerichtet
 - **`pyvips` braucht libvips42 im System.** Im Docker-Image ist es da; lokal `apt install libvips42` (Linux) oder `brew install vips` (macOS).
 - **`rawpy` braucht libraw.** Im Docker-Image: `libraw-bin`. Lokal: `apt install libraw-dev` und neu installieren.
 - **MinIO mit `S3_FORCE_PATH_STYLE=true`** — AWS S3 selbst will `false`.
-- **CORS bei lokalem Frontend ohne Caddy:** API muss `PUBLIC_URL=http://localhost:3000` kennen und CORS entsprechend setzen.
+- **CORS bei lokalem Frontend ohne Caddy:** API muss `PUBLIC_URL=http://localhost:3000` kennen und CORS entsprechend setzen. MinIO erlaubt Browser-Uploads via `MINIO_API_CORS_ALLOW_ORIGIN=*` (in `docker-compose.yml` schon gesetzt).
 - **Prisma generate vergessen:** nach Schema-Änderung `npx prisma generate` ausführen, sonst sind die Types veraltet.
+- **Multipart-Upload braucht ETag-Header.** S3/MinIO müssen den `ETag`-Response-Header bei `UploadPart`-Requests **exposen** (CORS `ExposeHeaders`). MinIO macht das mit `MINIO_API_CORS_ALLOW_ORIGIN=*` automatisch; bei AWS S3 muss die Bucket-CORS explizit `<ExposeHeader>ETag</ExposeHeader>` setzen.
+
+## Upload-Pipeline (Datenfluss)
+
+So fließt eine Datei beim Upload durch das System:
+
+```
+Browser (uploadFiles)
+   │
+   │ 1) POST /api/v1/uploads/init  (Filenames + Größen)
+   ▼
+API
+   │ 1a) Gallery-Ownership prüfen, Größenlimit checken
+   │ 1b) Pro File: file-Record (status=uploading) + Storage-Key generieren
+   │ 1c) Presigned PUT-URLs (single oder multipart parts) zurückgeben
+   ▼
+Browser
+   │ 2) PUT direkt zu S3/MinIO mit Progress
+   │ 3) POST /api/v1/uploads/complete  (mit ETag-Liste bei multipart)
+   ▼
+API
+   │ 3a) Multipart-Complete bei S3 (falls multipart)
+   │ 3b) files.status = "processing"
+   │ 3c) Job in Redis-Stream "lumio:jobs:file_processing" pushen
+   ▼
+Worker (Stream-Consumer)
+   │ 4) xreadgroup → empfängt Job
+   │ 5) Celery send_task → process_file.generate_renditions
+   ▼
+Celery Worker
+   │ 6) S3 → /tmp/source laden
+   │ 7) pyvips: autorotate → resize → WebP (thumb/preview/web)
+   │ 8) Renditions nach S3 hochladen, DB-Records anlegen
+   │ 9) files.status = "ready"
+   ▼
+Frontend pollt /api/v1/galleries/:id alle 2s
+   → sobald ready, Thumb-URL im Grid sichtbar
+```
+
+In Phase 2 ersetzen wir das Polling durch WebSocket-Push.
 
 ## Architektur-Entscheidungen (ADRs)
 
