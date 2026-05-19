@@ -206,6 +206,52 @@ docker run --rm \
 
 (Anpassen an deinen Backup-Stack.)
 
+### Hardware-Video-Encoding (optional)
+
+HLS-Transkoding dominiert die Worker-Last bei großen Galerien. Per
+Default nutzt Lumio `libx264` (CPU) — portabel, läuft überall ohne
+Konfiguration. Wer eine GPU hat, kann den Worker auf Hardware-Encoding
+umstellen und je nach Quelle 5–10× schneller transkodieren.
+
+Steuerung über die Env-Variable `LUMIO_HW_ENCODER` im Worker-Container:
+
+| Wert | Bedeutung |
+|---|---|
+| `auto` (default) | Probiert NVENC → QSV → VAAPI, fällt auf Software zurück |
+| `nvenc` | NVIDIA GPU (RTX/Quadro/etc.) |
+| `qsv` | Intel QuickSync |
+| `vaapi` | VA-API (Intel/AMD auf Linux) |
+| `software` | Erzwingt `libx264`, keine Hardware-Probes |
+
+Bei `auto` wird der Worker beim ersten Video probieren, welche Encoder
+das ffmpeg-Binary überhaupt mitbringt (`ffmpeg -encoders`), und das
+Ergebnis cachen.
+
+**Container-seitige Voraussetzungen:**
+
+- **VAAPI** (am einfachsten — Intel-GPU oder AMD-GPU auf Linux-Host):
+  ```yaml
+  worker:
+    devices:
+      - /dev/dri/renderD128:/dev/dri/renderD128
+    group_add:
+      - "render"   # GID der render-Gruppe auf dem Host (cat /etc/group | grep render)
+    environment:
+      LUMIO_HW_ENCODER: "vaapi"
+  ```
+  Das Debian-ffmpeg-Paket im Standard-Worker-Image hat VAAPI bereits drin.
+
+- **NVENC** (NVIDIA-GPU): NVIDIA Container Toolkit installiert + Worker
+  mit `--gpus all` starten. Das Standard-ffmpeg aus Debian-Repos hat
+  **kein** NVENC einkompiliert — du brauchst ein Image mit
+  `jellyfin/ffmpeg` oder selbst gebautes ffmpeg mit `--enable-nvenc`.
+
+- **QSV** (Intel): wie VAAPI, plus zusätzlich `intel-media-va-driver`.
+
+Ohne diese Setup-Schritte funktioniert nur `software`; `auto` erkennt
+das und fällt entsprechend zurück, eine Warnung landet im Worker-Log
+(`encoder.requested_unavailable`).
+
 ## Hybrid: Infra in Docker, Apps lokal
 
 Für schnellen Hot-Reload:

@@ -85,7 +85,7 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 - [x] Frontend: Video- und RAW-Indikatoren im Grid (Play-Icon, RAW-Badge)
 - [x] Worker-Tests (pytest, 6 grün) für HLS-Variant-Auswahl und kbps-Parsing
 - [x] Video-Scrubbing-Vorschau im Player nutzen (Sprite-Sheet ist da; Hover über Progress-Bar zeigt Frame-Thumbnail mit Zeit-Tooltip)
-- [ ] HW-Beschleunigung optional (NVENC/QSV/VAAPI)
+- [x] HW-Beschleunigung optional (NVENC/QSV/VAAPI via LUMIO_HW_ENCODER, fällt auf libx264 zurück; siehe DEVELOPMENT.md)
 - [ ] HEIC/HEIF in der API als eigene Kind detection
 - [ ] PSD-Preview-Extraktion
 

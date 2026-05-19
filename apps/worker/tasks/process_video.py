@@ -7,8 +7,10 @@ Video-Verarbeitung via ffmpeg:
               mit Master-Playlist + Segmenten
   - sprite:   Scrubbing-Sprite-Sheet (1 Frame alle 10s, 10×10 Kacheln)
 
-Codec: libx264 + AAC. Hardware-Beschleunigung (NVENC/QSV/VAAPI) ist in
-einem späteren Sprint geplant; das CPU-Encoding ist überall portabel.
+Codec: H.264 + AAC. Encoder ist konfigurierbar via LUMIO_HW_ENCODER
+(auto/nvenc/qsv/vaapi/software, default 'auto'). 'auto' probiert
+Hardware in der Reihenfolge NVENC → QSV → VAAPI und fällt sonst auf
+libx264 zurück — Self-Hoster ohne GPU müssen nichts konfigurieren.
 
 Storage-Layout:
   renditions/poster.jpg
@@ -278,23 +280,47 @@ def _publish_video_image_renditions(
 def _make_hls(*, src_path: Path, out_dir: Path, source_height: int,
               has_audio: bool) -> None:
     """Erzeugt eine Master-Playlist + variant Playlists. Wir verwenden
-    den eingebauten hls-Muxer von ffmpeg mit `var_stream_map`."""
+    den eingebauten hls-Muxer von ffmpeg mit `var_stream_map`.
+
+    Encoder-Auswahl: software (libx264, default) oder Hardware (NVENC, QSV,
+    VAAPI) je nach LUMIO_HW_ENCODER-Env. Bei Hardware-Encodern haben wir
+    je nach Codec leicht andere Filter- und Encoder-Args, aber die HLS-
+    Muxer-Args bleiben identisch.
+    """
+    from encoder_profile import profile_for
+
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # Welche Varianten machen wir? Nichts upscalen.
     chosen = [v for v in HLS_VARIANTS if v[0] <= source_height]
     if not chosen:
-        # Sehr kleines Quellvideo — wir machen wenigstens eine 480p-Variante
         chosen = [HLS_VARIANTS[0]]
 
-    # ffmpeg-Argumente bauen
-    cmd: list[str] = ["ffmpeg", "-y", "-i", str(src_path)]
+    # Wir nehmen das Profil der ersten (also höchsten) Variante als Vorlage,
+    # weil hwaccel-Init für ALLE Varianten gemeinsam läuft. Codec/Preset
+    # können sich theoretisch pro Variante unterscheiden, in der Praxis
+    # haben aber alle Stufen denselben Encoder.
+    prof = profile_for(chosen[0][0])
+    log.info("process_video.encoder_selected", name=prof.name, codec=prof.codec)
 
-    # filter_complex: split → scale pro Variante
+    # ffmpeg-Argumente bauen
+    cmd: list[str] = ["ffmpeg", "-y"]
+    cmd += prof.extra_input_args
+    cmd += ["-i", str(src_path)]
+
+    # filter_complex: split → scale pro Variante.
+    # VAAPI muss vor dem Scale ein hwupload + format=nv12 machen.
     splits = "".join(f"[v{i}]" for i in range(len(chosen)))
     filter_complex = f"[0:v]split={len(chosen)}{splits};"
     for i, (h, _vbr, _abr, _name) in enumerate(chosen):
-        filter_complex += f"[v{i}]scale=-2:{h}[v{i}out];"
+        if prof.name == "vaapi":
+            # Auf der GPU skalieren — viel schneller als CPU-scale
+            filter_complex += (
+                f"[v{i}]format=nv12,hwupload,"
+                f"scale_vaapi=-2:{h}[v{i}out];"
+            )
+        else:
+            filter_complex += f"[v{i}]scale=-2:{h}[v{i}out];"
     filter_complex = filter_complex.rstrip(";")
     cmd += ["-filter_complex", filter_complex]
 
@@ -303,16 +329,24 @@ def _make_hls(*, src_path: Path, out_dir: Path, source_height: int,
     for i, (h, vbr, abr, name) in enumerate(chosen):
         cmd += [
             "-map", f"[v{i}out]",
-            f"-c:v:{i}", "libx264",
-            f"-preset:v:{i}", "veryfast",
-            f"-profile:v:{i}", "main",
+            f"-c:v:{i}", prof.codec,
+        ]
+        if prof.preset:
+            cmd += [f"-preset:v:{i}", prof.preset]
+        cmd += [
             f"-b:v:{i}", vbr,
             f"-maxrate:v:{i}", str(int(_kbps_to_int(vbr) * 1.07)) + "k",
             f"-bufsize:v:{i}", str(int(_kbps_to_int(vbr) * 1.5)) + "k",
             f"-g:v:{i}", "48",
             f"-keyint_min:v:{i}", "48",
-            f"-sc_threshold:v:{i}", "0",
         ]
+        # sc_threshold gibt's nur bei libx264; NVENC/QSV/VAAPI ignorieren
+        # bzw. brechen damit ab
+        if prof.name == "software":
+            cmd += [
+                f"-profile:v:{i}", "main",
+                f"-sc_threshold:v:{i}", "0",
+            ]
         stream_part = f"v:{i}"
         if has_audio:
             cmd += ["-map", "0:a:0", f"-c:a:{i}", "aac",
@@ -333,7 +367,8 @@ def _make_hls(*, src_path: Path, out_dir: Path, source_height: int,
         str(out_dir / "%v" / "index.m3u8"),
     ]
 
-    log.info("process_video.hls_start", variants=len(chosen))
+    log.info("process_video.hls_start",
+             variants=len(chosen), encoder=prof.name)
     subprocess.run(cmd, check=True)
 
 
