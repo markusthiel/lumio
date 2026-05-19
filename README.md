@@ -50,6 +50,8 @@ Den initialen Admin-Account legst du mit folgendem Befehl an:
 docker compose exec api npm run create-admin -- --email=du@example.com --password=...
 ```
 
+> 💡 Für ein echtes Production-Deployment hinter einer Domain (mit DNS, externem Reverse-Proxy o.ä.) siehe die [Production Deployment Checkliste](docs/DEVELOPMENT.md#production-deployment).
+
 ---
 
 ## Architektur
