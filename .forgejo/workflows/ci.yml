@@ -114,8 +114,75 @@ jobs:
       - name: Syntax check
         run: python -m compileall -q .
 
-      - name: Test
-        run: pytest
+      - name: Test (unit/logic)
+        run: pytest tests/test_video_logic.py
+
+  # ---------------------------------------------------------------------------
+  # Worker-Integration — process_file End-to-End gegen echtes Postgres + MinIO
+  # ---------------------------------------------------------------------------
+  worker-integration:
+    runs-on: docker
+    container:
+      image: python:3.12-slim
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: lumio
+          POSTGRES_PASSWORD: lumio
+          POSTGRES_DB: lumio_test
+      minio:
+        image: minio/minio:latest
+        env:
+          MINIO_ROOT_USER: minio
+          MINIO_ROOT_PASSWORD: minio123
+        cmd: ["server", "/data"]
+    env:
+      # Modus 1: existierende Services über LUMIO_TEST_*-Vars nutzen
+      LUMIO_TEST_DATABASE_URL: postgresql://lumio:lumio@postgres:5432/lumio_test
+      LUMIO_TEST_S3_ENDPOINT: http://minio:9000
+      LUMIO_TEST_S3_ACCESS_KEY: minio
+      LUMIO_TEST_S3_SECRET_KEY: minio123
+      LUMIO_TEST_S3_BUCKET: lumio-test
+      LUMIO_REQUIRE_INTEGRATION: "1"  # Skips sind in CI ein Fehler
+    defaults:
+      run:
+        working-directory: apps/worker
+    steps:
+      - name: Checkout
+        uses: https://code.forgejo.org/actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            libvips42 libraw-bin libheif1 ffmpeg libmagic1 \
+            libexiv2-27 libpq5 build-essential \
+            libvips-dev libraw-dev libheif-dev libexiv2-dev libpq-dev
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Install Python dependencies
+        run: |
+          pip install --no-cache-dir -r requirements.txt -r requirements-test.txt
+
+      - name: Wait for services
+        # Beide Services kurz pollen, damit der Test nicht zu früh anläuft
+        run: |
+          python -c "
+          import socket, time, sys
+          for host, port in [('postgres', 5432), ('minio', 9000)]:
+              for _ in range(30):
+                  try:
+                      with socket.create_connection((host, port), timeout=1):
+                          print(f'{host}:{port} OK'); break
+                  except Exception:
+                      time.sleep(1)
+              else:
+                  print(f'{host}:{port} did not come up', file=sys.stderr); sys.exit(1)
+          "
+
+      - name: Test (integration)
+        run: pytest tests/integration -v
 
   # ---------------------------------------------------------------------------
   # Shared — Type-Check

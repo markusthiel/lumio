@@ -39,7 +39,8 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 - [x] Stream-basierte Job-Queue (Redis Streams) zwischen API und Worker
 - [x] Polling-basiertes Status-Update im Frontend (alle 2s während processing)
 - [ ] WebSocket-Push für Upload-Progress (Polling reicht für Phase 1)
-- [ ] Worker-Test: tatsächlich ein Bild end-to-end durchlassen (manuell durchspielen)
+- [x] Worker-Test: tatsächlich ein Bild end-to-end durchlassen
+      (Integration-Test mit testcontainers, läuft in CI mit Postgres+MinIO-Services)
 
 ### Sprint 3 — Kunden-Galerie ✅ (großteils)
 
@@ -115,10 +116,11 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 
 ### Workflow
 
-- [ ] XMP-Sidecar-Export (Lightroom/Capture One kompatibel)
-- [ ] Bulk-Aktionen im Studio (sort, tag, delete, move)
+- [x] XMP-Sidecar-Export (Lightroom/Capture One kompatibel)
+- [x] Bulk-Aktionen im Studio: Multi-Select + delete + hide/show
+      (sort und move via Drag&Drop stehen noch aus)
 - [ ] Galerie-Templates / Presets
-- [ ] Email-Notifications (Auswahl fertig, neuer Kommentar)
+- [x] Email-Notifications (Auswahl fertig, neuer Kommentar)
 - [ ] Presentation Mode (Vollbild, autoplay)
 
 ---

@@ -303,12 +303,6 @@ export async function registerFileRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: "not_found" });
     }
 
-    // Wenn der Upload noch nicht abgeschlossen ist und es ein Multipart-Upload
-    // ist: best-effort abbrechen. Ohne uploadId aktuell nicht möglich,
-    // das hier zu komplettieren — der S3-Cleanup-Job räumt verwaiste
-    // Multipart-Uploads ohnehin nach n Tagen auf (Bucket-Policy).
-
-    // S3-Objekte löschen (Originale + Renditions)
     await deleteObject(file.storageKey).catch((err) =>
       app.log.warn({ err, key: file.storageKey }, "s3 delete original failed")
     );
@@ -319,10 +313,113 @@ export async function registerFileRoutes(app: FastifyInstance) {
     }
 
     await prisma.file.delete({ where: { id: file.id } });
-
-    // Linter-Hint silencen
     void abortMultipartUpload;
 
     return reply.status(204).send();
+  });
+
+  // -------------------------------------------------------------------------
+  // POST /files/bulk-action
+  // -------------------------------------------------------------------------
+  // Massenoperationen auf File-Sets innerhalb EINER Galerie. Verlangt
+  // immer galleryId + fileIds — wir prüfen den Ownership einmal an der
+  // Galerie statt pro File (deutlich schneller bei großen Sets).
+  //
+  // Actions:
+  //   - delete  : S3-Objekte + DB-Rows löschen
+  //   - hide    : status = 'hidden' (für Kunden unsichtbar, im Studio
+  //               weiterhin sichtbar)
+  //   - show    : status = 'ready' (Re-Aktivierung)
+  app.post<{
+    Body: {
+      galleryId: string;
+      fileIds: string[];
+      action: "delete" | "hide" | "show";
+    };
+  }>("/files/bulk-action", async (req, reply) => {
+    const s = req.requireAuth();
+    const body = req.body;
+
+    if (
+      !body ||
+      typeof body.galleryId !== "string" ||
+      !Array.isArray(body.fileIds) ||
+      body.fileIds.length === 0 ||
+      body.fileIds.length > 500 ||
+      !["delete", "hide", "show"].includes(body.action)
+    ) {
+      return reply.status(400).send({ error: "bad_request" });
+    }
+    // Alle fileIds müssen UUIDs sein, sonst SQL-Injection-Risiko bei
+    // Prisma `in` ist zwar abgedeckt, aber wir wollen auch dumme
+    // Tippfehler abfangen
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!body.fileIds.every((id) => uuidRe.test(id))) {
+      return reply.status(400).send({ error: "bad_file_id" });
+    }
+
+    // Ownership-Check
+    const gallery = await prisma.gallery.findFirst({
+      where: {
+        id: body.galleryId,
+        tenantId: req.tenantId,
+        ownerId: s.user.id,
+      },
+      select: { id: true },
+    });
+    if (!gallery) {
+      return reply.status(404).send({ error: "not_found" });
+    }
+
+    // Nur Files, die zu dieser Galerie gehören — auch wenn jemand
+    // fremde IDs reinmogeln würde, gibt's hier keinen Treffer
+    const files = await prisma.file.findMany({
+      where: {
+        id: { in: body.fileIds },
+        galleryId: gallery.id,
+      },
+      include: {
+        renditions: { select: { storageKey: true } },
+      },
+    });
+    if (files.length === 0) {
+      return { affected: 0 };
+    }
+
+    if (body.action === "delete") {
+      // S3 zuerst, dann DB. Wenn S3 partiell scheitert: DB-Delete läuft
+      // trotzdem (S3-Cleanup-Job räumt Verwaiste später auf).
+      for (const f of files) {
+        await deleteObject(f.storageKey).catch((err) =>
+          app.log.warn({ err, key: f.storageKey }, "bulk: original delete failed")
+        );
+        for (const r of f.renditions) {
+          await deleteObject(r.storageKey).catch((err) =>
+            app.log.warn({ err, key: r.storageKey }, "bulk: rendition delete failed")
+          );
+        }
+      }
+      const result = await prisma.file.deleteMany({
+        where: {
+          id: { in: files.map((f) => f.id) },
+          galleryId: gallery.id,
+        },
+      });
+      return { affected: result.count };
+    }
+
+    // hide / show — nur Status flippen
+    const newStatus = body.action === "hide" ? "hidden" : "ready";
+    const result = await prisma.file.updateMany({
+      where: {
+        id: { in: files.map((f) => f.id) },
+        galleryId: gallery.id,
+        // Bei 'show' nur dort, wo's auch versteckt war, damit wir nicht
+        // 'failed' oder 'pending' auf 'ready' fälschen
+        ...(body.action === "show" ? { status: "hidden" } : {}),
+      },
+      data: { status: newStatus },
+    });
+    return { affected: result.count };
   });
 }

@@ -20,7 +20,7 @@ export type ApiUser = {
 
 export type GalleryMode = "collaboration" | "presentation";
 export type GalleryStatus = "draft" | "live" | "archived";
-export type FileStatus = "uploading" | "processing" | "ready" | "failed";
+export type FileStatus = "uploading" | "processing" | "ready" | "failed" | "hidden";
 export type FileKind = "image" | "raw" | "video" | "other";
 export type ZipStatus = "pending" | "building" | "ready" | "failed";
 
@@ -253,6 +253,16 @@ export const api = {
 
   deleteGallery: (id: string) =>
     request<void>(`/galleries/${id}`, { method: "DELETE" }),
+
+  bulkFileAction: (input: {
+    galleryId: string;
+    fileIds: string[];
+    action: "delete" | "hide" | "show";
+  }) =>
+    request<{ affected: number }>(`/files/bulk-action`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
 
   // Access Tokens (Studio)
   listAccesses: (galleryId: string) =>

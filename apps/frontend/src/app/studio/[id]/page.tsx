@@ -16,6 +16,29 @@ export default function GalleryDetailPage() {
   const [uploads, setUploads] = useState<Record<string, UploadProgress>>({});
   const [dragOver, setDragOver] = useState(false);
   const [togglingStatus, setTogglingStatus] = useState(false);
+
+  // Bulk-Selection
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkPending, setBulkPending] = useState(false);
+
+  const toggleSelected = useCallback((fileId: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(fileId)) {
+        next.delete(fileId);
+      } else {
+        next.add(fileId);
+      }
+      return next;
+    });
+  }, []);
+
+  const exitSelectionMode = useCallback(() => {
+    setSelectionMode(false);
+    setSelected(new Set());
+  }, []);
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -98,6 +121,37 @@ export default function GalleryDetailPage() {
     if (!gallery) return;
     await api.updateGallery(gallery.id, { [key]: next });
     await load();
+  }
+
+  async function runBulk(action: "delete" | "hide" | "show") {
+    if (!gallery || selected.size === 0) return;
+    const count = selected.size;
+    if (action === "delete") {
+      if (
+        !confirm(
+          count === 1
+            ? "1 Datei löschen?"
+            : `${count} Dateien löschen?`
+        )
+      ) {
+        return;
+      }
+    }
+    setBulkPending(true);
+    try {
+      await api.bulkFileAction({
+        galleryId: gallery.id,
+        fileIds: Array.from(selected),
+        action,
+      });
+      exitSelectionMode();
+      await load();
+    } catch (err) {
+      console.error(err);
+      alert(err instanceof Error ? err.message : "Fehler");
+    } finally {
+      setBulkPending(false);
+    }
   }
 
   if (loading) {
@@ -280,10 +334,80 @@ export default function GalleryDetailPage() {
         {/* File-Grid */}
         {gallery.files.length > 0 ? (
           <section>
-            <h2 className="text-sm font-medium mb-2">Dateien</h2>
+            <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+              <h2 className="text-sm font-medium">
+                Dateien
+                {selectionMode && selected.size > 0 && (
+                  <span className="ml-2 text-xs text-slate-500 font-normal">
+                    · {selected.size} ausgewählt
+                  </span>
+                )}
+              </h2>
+              <div className="flex items-center gap-2">
+                {selectionMode ? (
+                  <>
+                    <button
+                      onClick={() =>
+                        setSelected(new Set(gallery.files.map((f) => f.id)))
+                      }
+                      className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50"
+                    >
+                      Alle
+                    </button>
+                    <button
+                      onClick={() => setSelected(new Set())}
+                      className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50"
+                      disabled={selected.size === 0}
+                    >
+                      Keine
+                    </button>
+                    <button
+                      onClick={() => runBulk("hide")}
+                      disabled={bulkPending || selected.size === 0}
+                      className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50 disabled:opacity-50"
+                    >
+                      Verstecken
+                    </button>
+                    <button
+                      onClick={() => runBulk("show")}
+                      disabled={bulkPending || selected.size === 0}
+                      className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50 disabled:opacity-50"
+                    >
+                      Anzeigen
+                    </button>
+                    <button
+                      onClick={() => runBulk("delete")}
+                      disabled={bulkPending || selected.size === 0}
+                      className="text-xs px-2 py-1 rounded bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                    >
+                      Löschen
+                    </button>
+                    <button
+                      onClick={exitSelectionMode}
+                      className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50"
+                    >
+                      ✕
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setSelectionMode(true)}
+                    className="text-xs px-2 py-1 rounded border border-slate-300 hover:bg-slate-50"
+                  >
+                    Auswählen
+                  </button>
+                )}
+              </div>
+            </div>
             <ul className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
               {gallery.files.map((f) => (
-                <FileTile key={f.id} file={f} />
+                <FileTile
+                  key={f.id}
+                  file={f}
+                  selectionMode={selectionMode}
+                  selected={selected.has(f.id)}
+                  onToggle={() => toggleSelected(f.id)}
+                />
               ))}
             </ul>
           </section>
@@ -395,15 +519,37 @@ function SettingToggle({
   );
 }
 
-function FileTile({ file }: { file: GalleryFile }) {
+function FileTile({
+  file,
+  selectionMode,
+  selected,
+  onToggle,
+}: {
+  file: GalleryFile;
+  selectionMode: boolean;
+  selected: boolean;
+  onToggle: () => void;
+}) {
+  const isHidden = file.status === "hidden";
   return (
-    <li className="aspect-square rounded-md border border-slate-200 bg-slate-50 overflow-hidden relative">
+    <li
+      className={`aspect-square rounded-md border bg-slate-50 overflow-hidden relative ${
+        selected
+          ? "border-brand-accent ring-2 ring-brand-accent"
+          : "border-slate-200"
+      } ${
+        selectionMode ? "cursor-pointer" : ""
+      }`}
+      onClick={selectionMode ? onToggle : undefined}
+    >
       {file.thumbUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={file.thumbUrl}
           alt={file.originalFilename}
-          className="w-full h-full object-cover"
+          className={`w-full h-full object-cover ${
+            isHidden ? "opacity-40" : ""
+          }`}
           loading="lazy"
         />
       ) : (
@@ -419,11 +565,34 @@ function FileTile({ file }: { file: GalleryFile }) {
                 ? "Wird hochgeladen…"
                 : file.status === "failed"
                 ? "Fehler"
+                : file.status === "hidden"
+                ? "Versteckt"
                 : file.originalFilename}
             </div>
           </div>
         </div>
       )}
+
+      {/* Selection-Checkbox */}
+      {selectionMode && (
+        <div
+          className={`absolute top-1.5 left-1.5 w-5 h-5 rounded border-2 flex items-center justify-center text-[10px] font-bold ${
+            selected
+              ? "bg-brand-accent border-brand-accent text-neutral-950"
+              : "bg-white/80 border-white shadow"
+          }`}
+        >
+          {selected ? "✓" : ""}
+        </div>
+      )}
+
+      {/* Hidden-Badge */}
+      {isHidden && (
+        <div className="absolute top-1.5 right-1.5 text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-500 text-white font-medium">
+          versteckt
+        </div>
+      )}
+
       <div className="absolute bottom-0 inset-x-0 p-1.5 bg-gradient-to-t from-black/60 to-transparent text-white text-[10px] truncate">
         {file.originalFilename}
       </div>
