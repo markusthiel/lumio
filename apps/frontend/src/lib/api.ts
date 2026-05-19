@@ -26,7 +26,7 @@ export type ApiUser = {
 export type GalleryMode = "collaboration" | "presentation";
 export type GalleryStatus = "draft" | "live" | "archived";
 export type FileStatus = "uploading" | "processing" | "ready" | "failed" | "hidden";
-export type FileKind = "image" | "raw" | "video" | "other";
+export type FileKind = "image" | "heic" | "raw" | "video" | "other";
 export type ZipStatus = "pending" | "building" | "ready" | "failed";
 
 export interface Gallery {

@@ -332,10 +332,14 @@ function GalleryTile({
           </div>
         )}
 
-        {/* RAW-Indikator */}
-        {file.kind === "raw" && (
+        {/* Format-Indikator für RAW + HEIC. Beide kommen aus
+            Pro/Smartphone-Workflows, in beiden Fällen rendert Lumio dem
+            Kunden eine Web-Variante (WebP) — das Original wäre auf
+            Windows ohne Codec eh schwierig. Das Badge ist Information,
+            nicht Warnung. */}
+        {(file.kind === "raw" || file.kind === "heic") && (
           <div className="absolute bottom-2 right-2 text-ui-xs font-mono uppercase bg-black/60 backdrop-blur-sm text-white px-1.5 py-0.5 rounded-xs">
-            RAW
+            {file.kind === "raw" ? "RAW" : "HEIC"}
           </div>
         )}
 
@@ -541,8 +545,18 @@ function Lightbox({
             <a
               href={downloadUrl}
               className="h-8 px-3 rounded text-ui-xs inline-flex items-center text-white/70 hover:text-white hover:bg-white/10 transition-colors duration-motion"
+              title={
+                file.kind === "heic"
+                  ? t("gallery.downloadHeicHint")
+                  : undefined
+              }
             >
               ↓ {t("gallery.download")}
+              {file.kind === "heic" && (
+                <span className="ml-1.5 font-mono text-[10px] opacity-70">
+                  HEIC
+                </span>
+              )}
             </a>
           )}
         </div>

@@ -126,6 +126,8 @@ export const de: Dict = {
     slideshowPause: "Pausieren",
     slideshowInterval: "{sec} Sekunden pro Bild",
     slideshowNoImages: "Keine Bilder zum Anzeigen in dieser Galerie.",
+    downloadHeicHint:
+      "HEIC ist ein Apple-Format. Auf macOS und iOS öffnet sich das direkt; auf Windows brauchst du ggf. einen Codec oder du nutzt unsere Web-Variante.",
     // Lightbox
     close: "Schließen",
     previous: "Vorheriges Bild",

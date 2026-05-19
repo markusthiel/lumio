@@ -338,7 +338,7 @@ export default function GalleryDetailPage() {
             Dateien hier ablegen oder klicken zum Auswählen
           </div>
           <div className="text-ui-xs text-ink-tertiary mt-1">
-            JPEG, PNG, WebP, RAW (CR2/NEF/ARW…), MP4, MOV — bis 2 GiB pro File
+            JPEG, PNG, WebP, HEIC, RAW (CR2/NEF/ARW…), MP4, MOV — bis 2 GiB pro File
           </div>
         </section>
 
@@ -716,6 +716,23 @@ function FileTile({
       {isHidden && (
         <div className="absolute top-1.5 right-1.5 text-ui-xs uppercase tracking-wider px-1.5 py-0.5 rounded-xs bg-semantic-warning/90 text-surface-canvas font-medium">
           versteckt
+        </div>
+      )}
+
+      {/* Format-Badge für RAW + HEIC. Nicht für reguläres image/video — dort
+          wäre das nur visueller Lärm. Sitzt unten-rechts, damit es sich nicht
+          mit der Selection-Checkbox (oben-links) oder dem Hidden-Badge
+          (oben-rechts) prügelt. */}
+      {(file.kind === "raw" || file.kind === "heic") && (
+        <div
+          className="absolute bottom-1.5 right-1.5 text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-xs bg-black/60 backdrop-blur-sm text-white/85"
+          title={
+            file.kind === "raw"
+              ? "Camera RAW"
+              : "HEIC/HEIF (iPhone-Format)"
+          }
+        >
+          {file.kind === "raw" ? "RAW" : "HEIC"}
         </div>
       )}
 
