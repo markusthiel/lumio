@@ -1,28 +1,48 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { api, type ApiUser, type Gallery, type GalleryTemplate } from "@/lib/api";
+import {
+  api,
+  type ApiUser,
+  type Gallery,
+  type GalleryTemplate,
+  type TagSummary,
+} from "@/lib/api";
 import { useT } from "@/lib/i18n";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { Button, Input, Textarea, Select } from "@/components/ui";
+import { TagChip } from "@/components/studio/TagPicker";
 
 export default function StudioPage() {
   const router = useRouter();
   const t = useT();
   const [user, setUser] = useState<ApiUser | null>(null);
   const [galleries, setGalleries] = useState<Gallery[]>([]);
+  const [allTags, setAllTags] = useState<TagSummary[]>([]);
+  const [tagFilter, setTagFilter] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+
+  const refresh = useCallback(async () => {
+    const list = await api.listGalleries({
+      tagIds: Array.from(tagFilter),
+    });
+    setGalleries(list.galleries);
+  }, [tagFilter]);
 
   useEffect(() => {
     (async () => {
       try {
         const me = await api.me();
         setUser(me.user);
-        const list = await api.listGalleries();
+        const [list, tagsRes] = await Promise.all([
+          api.listGalleries(),
+          api.listTags(),
+        ]);
         setGalleries(list.galleries);
+        setAllTags(tagsRes.tags);
       } catch {
         router.replace("/login");
       } finally {
@@ -31,9 +51,20 @@ export default function StudioPage() {
     })();
   }, [router]);
 
-  async function refresh() {
-    const list = await api.listGalleries();
-    setGalleries(list.galleries);
+  // Bei jeder Filter-Änderung neu laden
+  useEffect(() => {
+    if (loading) return;
+    void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tagFilter]);
+
+  function toggleTag(id: string) {
+    setTagFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   }
 
   if (loading) {
@@ -58,16 +89,58 @@ export default function StudioPage() {
       />
 
       <div className="px-6 sm:px-8 py-6">
+        {allTags.length > 0 && (
+          <div className="mb-4 flex flex-wrap gap-1.5 items-center">
+            <span className="text-ui-xs uppercase tracking-[0.12em] text-ink-tertiary mr-2">
+              {t("studio.tagsFilterBy")}
+            </span>
+            {allTags.map((tag) => {
+              const active = tagFilter.has(tag.id);
+              return (
+                <button
+                  key={tag.id}
+                  type="button"
+                  onClick={() => toggleTag(tag.id)}
+                  className="inline-flex items-center gap-1 h-6 px-2 rounded-xs text-ui-xs transition-all duration-motion"
+                  style={{
+                    backgroundColor: active
+                      ? tag.color
+                      : tag.color + "22",
+                    color: active ? "#fff" : tag.color,
+                    border: `1px solid ${tag.color}${active ? "" : "44"}`,
+                  }}
+                >
+                  {tag.name}
+                </button>
+              );
+            })}
+            {tagFilter.size > 0 && (
+              <button
+                type="button"
+                onClick={() => setTagFilter(new Set())}
+                className="text-ui-xs text-ink-tertiary hover:text-ink-secondary ml-2"
+              >
+                {t("studio.tagsFilterClear")}
+              </button>
+            )}
+          </div>
+        )}
         {galleries.length === 0 ? (
           <div className="rounded-md border border-dashed border-line-subtle bg-surface-sunken p-12 text-center">
-            <p className="text-ink-tertiary text-ui">{t("studio.noGalleries")}</p>
-            <button
-              type="button"
-              onClick={() => setShowCreate(true)}
-              className="mt-3 text-ui-sm font-medium text-accent hover:text-accent-hover transition-colors duration-motion"
-            >
-              {t("studio.firstGallery")}
-            </button>
+            <p className="text-ink-tertiary text-ui">
+              {tagFilter.size > 0
+                ? t("studio.noGalleriesForFilter")
+                : t("studio.noGalleries")}
+            </p>
+            {tagFilter.size === 0 && (
+              <button
+                type="button"
+                onClick={() => setShowCreate(true)}
+                className="mt-3 text-ui-sm font-medium text-accent hover:text-accent-hover transition-colors duration-motion"
+              >
+                {t("studio.firstGallery")}
+              </button>
+            )}
           </div>
         ) : (
           <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -91,6 +164,13 @@ export default function StudioPage() {
                     <p className="text-ui-sm text-ink-tertiary mt-1.5 line-clamp-2">
                       {g.description}
                     </p>
+                  )}
+                  {g.tags && g.tags.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {g.tags.map((tag) => (
+                        <TagChip key={tag.id} tag={tag} />
+                      ))}
+                    </div>
                   )}
                   <div className="text-ui-xs text-ink-tertiary mt-4 flex items-center gap-2">
                     <span>{g.fileCount ?? 0} Files</span>

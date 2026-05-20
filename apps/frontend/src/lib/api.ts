@@ -29,6 +29,18 @@ export type FileStatus = "uploading" | "processing" | "ready" | "failed" | "hidd
 export type FileKind = "image" | "heic" | "raw" | "video" | "other";
 export type ZipStatus = "pending" | "building" | "ready" | "failed";
 
+export interface Tag {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export interface TagSummary extends Tag {
+  parentId: string | null;
+  galleryCount: number;
+  fileCount: number;
+}
+
 export interface Gallery {
   id: string;
   slug: string;
@@ -42,6 +54,7 @@ export interface Gallery {
   selectionLimit: number | null;
   brandingId?: string | null;
   fileCount?: number;
+  tags?: Tag[];
   createdAt: string;
   updatedAt: string;
 }
@@ -58,10 +71,12 @@ export interface GalleryFile {
   sortIndex: number;
   createdAt: string;
   thumbUrl: string | null;
+  tags?: Tag[];
 }
 
 export interface GalleryDetail extends Gallery {
   files: GalleryFile[];
+  tags: Tag[];
 }
 
 export interface UploadInit {
@@ -365,7 +380,51 @@ export const api = {
     request<{ deliveries: WebhookDelivery[] }>(`/webhooks/${id}/deliveries`),
 
   // Galleries (Studio)
-  listGalleries: () => request<{ galleries: Gallery[] }>("/galleries"),
+  listGalleries: (filter?: { tagIds?: string[] }) =>
+    request<{ galleries: Gallery[] }>(
+      filter?.tagIds && filter.tagIds.length > 0
+        ? `/galleries?tag=${filter.tagIds.join(",")}`
+        : "/galleries"
+    ),
+
+  // Tags
+  listTags: () => request<{ tags: TagSummary[] }>("/tags"),
+  createTag: (input: {
+    name: string;
+    color?: string;
+    parentId?: string | null;
+  }) =>
+    request<{ tag: TagSummary }>("/tags", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  updateTag: (
+    id: string,
+    patch: { name?: string; color?: string; parentId?: string | null }
+  ) =>
+    request<{ tag: TagSummary }>(`/tags/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+  deleteTag: (id: string) =>
+    request<void>(`/tags/${id}`, { method: "DELETE" }),
+
+  assignTagToGallery: (galleryId: string, tagId: string) =>
+    request<void>(`/galleries/${galleryId}/tags`, {
+      method: "POST",
+      body: JSON.stringify({ tagId }),
+    }),
+  removeTagFromGallery: (galleryId: string, tagId: string) =>
+    request<void>(`/galleries/${galleryId}/tags/${tagId}`, {
+      method: "DELETE",
+    }),
+  assignTagToFile: (fileId: string, tagId: string) =>
+    request<void>(`/files/${fileId}/tags`, {
+      method: "POST",
+      body: JSON.stringify({ tagId }),
+    }),
+  removeTagFromFile: (fileId: string, tagId: string) =>
+    request<void>(`/files/${fileId}/tags/${tagId}`, { method: "DELETE" }),
 
   createGallery: (input: {
     title: string;

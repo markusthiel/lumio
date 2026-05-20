@@ -7,6 +7,7 @@ import { api, type GalleryDetail, type GalleryFile } from "@/lib/api";
 import { uploadFiles, type UploadProgress } from "@/lib/upload";
 import { SharePanel } from "@/components/studio/SharePanel";
 import { PageHeader } from "@/components/studio/PageHeader";
+import { TagPicker } from "@/components/studio/TagPicker";
 import { Button } from "@/components/ui";
 import { useT } from "@/lib/i18n";
 import { useGalleryEvents } from "@/lib/useGalleryEvents";
@@ -385,6 +386,24 @@ export default function GalleryDetailPage() {
         <span className="capitalize text-ink-secondary">{gallery.mode}</span>
         <span className="text-ink-tertiary/40">·</span>
         <span>{gallery.files.length} Files</span>
+      </div>
+
+      {/* Tags */}
+      <div className="px-6 sm:px-8 py-3 border-b border-line-subtle flex items-center gap-3 flex-wrap">
+        <span className="text-ui-xs uppercase tracking-[0.12em] text-ink-tertiary">
+          {t("studio.tagsLabel")}
+        </span>
+        <TagPicker
+          current={gallery.tags ?? []}
+          onAssign={async (tagId) => {
+            await api.assignTagToGallery(gallery.id, tagId);
+            void load();
+          }}
+          onRemove={async (tagId) => {
+            await api.removeTagFromGallery(gallery.id, tagId);
+            void load();
+          }}
+        />
       </div>
 
       <div className="px-6 sm:px-8 py-6 space-y-6 max-w-7xl">

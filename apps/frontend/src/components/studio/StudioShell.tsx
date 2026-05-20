@@ -37,6 +37,7 @@ const NAV: NavItem[] = [
   { href: "/studio",            labelKey: "nav.galleries",  fallback: "Galerien",      prefix: "/studio" },
   { href: "/studio/brandings",  labelKey: "nav.brandings",  fallback: "Branding",      prefix: "/studio/brandings" },
   { href: "/studio/templates",  labelKey: "nav.templates",  fallback: "Templates",     prefix: "/studio/templates" },
+  { href: "/studio/tags",       labelKey: "nav.tags",       fallback: "Tags",          prefix: "/studio/tags" },
   { href: "/studio/webhooks",   labelKey: "nav.webhooks",   fallback: "Webhooks",      prefix: "/studio/webhooks" },
   { href: "/studio/audit",      labelKey: "nav.audit",      fallback: "Audit",         prefix: "/studio/audit" },
   { href: "/studio/settings",   labelKey: "nav.settings",   fallback: "Einstellungen", prefix: "/studio/settings" },

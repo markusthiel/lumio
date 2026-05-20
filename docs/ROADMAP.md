@@ -144,7 +144,7 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 ## Phase 4 — Enterprise / DAM-Light
 
 - [x] Globale Suche über alle Galerien eines Tenants (Cmd/Ctrl+K Command-Palette mit Live-Suche über Galerien, Files, Brandings, Templates; ILIKE-Backend, 4 parallele Queries in einem Roundtrip)
-- [ ] Tagging-System mit Hierarchie
+- [x] Tagging-System mit Hierarchie (tenant-weite Tags mit Parent-Beziehung, Farbe, Galerie-Zuordnung mit AND-Filter in der Liste, TagPicker-Komponente mit Inline-Chips; File-Tag-API bereit, UI dafür folgt mit File-Bulk-Actions)
 - [ ] Smart Collections / gespeicherte Filter
 - [ ] Approval-Workflows (mehrere Reviewer in Sequenz)
 - [ ] SSO (SAML, OIDC)

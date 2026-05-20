@@ -50,6 +50,7 @@ model Tenant {
   templates   GalleryTemplate[] @relation("TenantTemplates")
   events      Event[]
   webhooks    Webhook[]
+  tags        Tag[]
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -258,6 +259,7 @@ model Gallery {
   accessTokens    GalleryAccess[]
   downloadLogs    DownloadLog[]
   zipDownloads    ZipDownload[]
+  tags            GalleryTag[]
   
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -377,6 +379,7 @@ model File {
   selections      Selection[]
   comments        Comment[]
   downloadLogs    DownloadLog[]
+  tags            FileTag[]
   
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -677,4 +680,74 @@ model WebhookDelivery {
   @@index([webhookId, createdAt])
   @@index([status, nextAttemptAt])
   @@map("webhook_deliveries")
+}
+
+// -----------------------------------------------------------------------------
+// Tags
+// -----------------------------------------------------------------------------
+// Hierarchisches Label-System pro Tenant. Tags lassen sich an Galleries
+// und Files heften und im Studio zum Filtern verwenden. Hierarchie über
+// parentId — ein Tag kann ein anderes als Parent haben, was die UI als
+// breadcrumb ("Event / Hochzeit") darstellt. DB-seitig kein cycle-check;
+// das Erstellungs-Endpoint validiert das.
+//
+// name ist innerhalb desselben Parent unique (case-insensitive auf
+// Application-Seite — DB-collation würden wir extra konfigurieren
+// müssen, lohnt nicht).
+//
+// color als HEX-String ("#RRGGBB"). Wir validieren das Format auf
+// API-Seite; DB nimmt jeden String.
+//
+// onDelete: Cascade auf den Joins, damit ein gelöschter Tag automatisch
+// aus allen Galerien/Files verschwindet.
+model Tag {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String   @db.Uuid
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  name        String
+  color       String   @default("#94a3b8")  // slate-400 als neutraler default
+  parentId    String?  @db.Uuid
+  parent      Tag?     @relation("TagHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Tag[]    @relation("TagHierarchy")
+  
+  galleries   GalleryTag[]
+  files       FileTag[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([tenantId])
+  @@index([tenantId, parentId])
+  @@map("tags")
+}
+
+// Many-to-Many: Gallery ↔ Tag
+// Wir nutzen kein Prisma-implizites "@relation(...)" mit doppelseitigen
+// arrays, sondern eine explizite Join-Tabelle. Das macht Inserts/Deletes
+// klarer und gibt uns optional ein createdAt für "wann wurde das Tag
+// gesetzt" — nice für Audit, kostet nichts.
+model GalleryTag {
+  galleryId   String   @db.Uuid
+  tagId       String   @db.Uuid
+  gallery     Gallery  @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+  tag         Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  
+  @@id([galleryId, tagId])
+  @@index([tagId])
+  @@map("gallery_tags")
+}
+
+// Many-to-Many: File ↔ Tag
+model FileTag {
+  fileId      String   @db.Uuid
+  tagId       String   @db.Uuid
+  file        File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  tag         Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  
+  @@id([fileId, tagId])
+  @@index([tagId])
+  @@map("file_tags")
 }

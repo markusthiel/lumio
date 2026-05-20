@@ -101,33 +101,74 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
   // -------------------------------------------------------------------------
   // GET /galleries — Liste eigener Galerien
   // -------------------------------------------------------------------------
-  app.get("/galleries", async (req) => {
-    const s = req.requireAuth();
-    const galleries = await prisma.gallery.findMany({
-      where: { tenantId: req.tenantId, ownerId: s.user.id },
-      orderBy: { updatedAt: "desc" },
-      select: {
-        id: true,
-        slug: true,
-        title: true,
-        description: true,
-        mode: true,
-        status: true,
-        downloadEnabled: true,
-        watermarkEnabled: true,
-        createdAt: true,
-        updatedAt: true,
-        _count: { select: { files: true } },
-      },
-    });
-    return {
-      galleries: galleries.map((g) => ({
-        ...g,
-        fileCount: g._count.files,
-        _count: undefined,
-      })),
-    };
-  });
+  // Optionaler Filter: ?tag=<uuid>[,<uuid>...] — Galerien, die JEDEN
+  // der angegebenen Tags tragen ("AND"-Semantik). Wir gehen mit AND statt
+  // OR, weil das Studio damit zielführend einschränkt; OR-Filter
+  // ("zeige Hochzeit ODER Portrait") hat selten praktischen Wert, der
+  // den Mental-Load wert wäre.
+  app.get<{ Querystring: { tag?: string } }>(
+    "/galleries",
+    async (req) => {
+      const s = req.requireAuth();
+      const tagFilterIds = (req.query.tag ?? "")
+        .split(",")
+        .map((t) => t.trim())
+        .filter((t) => /^[0-9a-f-]{36}$/i.test(t));
+
+      const galleries = await prisma.gallery.findMany({
+        where: {
+          tenantId: req.tenantId,
+          ownerId: s.user.id,
+          // AND-Semantik: für jeden geforderten Tag muss ein GalleryTag
+          // existieren. Prisma's "AND: [...]" + "some" baut genau das.
+          ...(tagFilterIds.length > 0
+            ? {
+                AND: tagFilterIds.map((tagId) => ({
+                  tags: { some: { tagId } },
+                })),
+              }
+            : {}),
+        },
+        orderBy: { updatedAt: "desc" },
+        select: {
+          id: true,
+          slug: true,
+          title: true,
+          description: true,
+          mode: true,
+          status: true,
+          downloadEnabled: true,
+          watermarkEnabled: true,
+          createdAt: true,
+          updatedAt: true,
+          _count: { select: { files: true } },
+          tags: {
+            select: {
+              tag: {
+                select: { id: true, name: true, color: true },
+              },
+            },
+          },
+        },
+      });
+      return {
+        galleries: galleries.map((g) => ({
+          id: g.id,
+          slug: g.slug,
+          title: g.title,
+          description: g.description,
+          mode: g.mode,
+          status: g.status,
+          downloadEnabled: g.downloadEnabled,
+          watermarkEnabled: g.watermarkEnabled,
+          createdAt: g.createdAt,
+          updatedAt: g.updatedAt,
+          fileCount: g._count.files,
+          tags: g.tags.map((gt) => gt.tag),
+        })),
+      };
+    }
+  );
 
   // -------------------------------------------------------------------------
   // POST /galleries — neue Galerie anlegen
@@ -264,6 +305,16 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
               renditions: {
                 select: { kind: true, storageKey: true, format: true },
               },
+              tags: {
+                select: {
+                  tag: { select: { id: true, name: true, color: true } },
+                },
+              },
+            },
+          },
+          tags: {
+            select: {
+              tag: { select: { id: true, name: true, color: true } },
             },
           },
           _count: { select: { files: true } },
@@ -292,6 +343,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
             sortIndex: f.sortIndex,
             createdAt: f.createdAt,
             thumbUrl,
+            tags: f.tags.map((ft) => ft.tag),
           };
         })
       );
@@ -301,6 +353,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           ...gallery,
           files,
           fileCount: gallery._count.files,
+          tags: gallery.tags.map((gt) => gt.tag),
           _count: undefined,
         },
       };
