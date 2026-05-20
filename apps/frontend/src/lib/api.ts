@@ -129,15 +129,27 @@ async function request<T>(
   path: string,
   init: RequestInit = {}
 ): Promise<T> {
-  // Wichtig: ...init MUSS vor headers stehen, damit unser zusammengeführtes
+  // Default-Headers nur setzen, wenn sie sinnvoll sind:
+  //   - Content-Type: application/json nur, wenn ein Body mitgeschickt
+  //     wird. Sonst sieht der Server "Content-Type: json + Length: 0" und
+  //     wirft FST_ERR_CTP_EMPTY_JSON_BODY (400 Bad Request) — was bisher
+  //     z.B. requestZipAll/requestZipSelection bei jedem Klick auf
+  //     "Alle herunterladen" hat scheitern lassen, ohne dass der Frontend-
+  //     Code etwas davon mitbekommen hat.
+  //
+  // Wichtig: init MUSS vor headers stehen, damit unser zusammengeführtes
   // headers-Objekt nicht durch init.headers überschrieben wird, wenn der
   // Aufrufer eigene Headers mitgibt (z.B. x-upload-id beim Multipart-Complete).
-  // Default-Content-Type gewinnt jetzt verlässlich.
+  const hasBody =
+    init.body !== undefined && init.body !== null && init.body !== "";
+  const defaultHeaders: Record<string, string> = hasBody
+    ? { "Content-Type": "application/json" }
+    : {};
   const res = await fetch(`${API_URL}/api/v1${path}`, {
     credentials: "include",
     ...init,
     headers: {
-      "Content-Type": "application/json",
+      ...defaultHeaders,
       ...(init.headers ?? {}),
     },
   });
