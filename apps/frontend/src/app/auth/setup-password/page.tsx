@@ -16,7 +16,7 @@
  * Sicherheits-Setups (TOTP, Webauthn) macht der Owner aus dem Studio
  * heraus.
  */
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 
@@ -33,7 +33,25 @@ type CheckResult =
   | { state: "tenant_inactive" }
   | { state: "no_token" };
 
+// Next.js 16 verlangt einen <Suspense>-Boundary um useSearchParams() —
+// sonst kann die Page nicht prerendert werden. Wir rendern den Loader
+// extrem schlicht (ein dezentes "Lädt…"), weil die echte Page sowieso
+// einen eigenen "checking"-State zeigt.
 export default function SetupPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-surface-canvas">
+          <div className="text-ui text-ink-tertiary">Lädt…</div>
+        </div>
+      }
+    >
+      <SetupPasswordInner />
+    </Suspense>
+  );
+}
+
+function SetupPasswordInner() {
   const router = useRouter();
   const params = useSearchParams();
   const token = params.get("token") ?? "";
