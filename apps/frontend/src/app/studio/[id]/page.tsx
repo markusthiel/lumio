@@ -386,6 +386,15 @@ export default function GalleryDetailPage() {
         <span className="capitalize text-ink-secondary">{gallery.mode}</span>
         <span className="text-ink-tertiary/40">·</span>
         <span>{gallery.files.length} Files</span>
+        {gallery.files.filter((f) => f.status === "failed").length > 0 && (
+          <>
+            <span className="text-ink-tertiary/40">·</span>
+            <span className="text-semantic-danger">
+              {gallery.files.filter((f) => f.status === "failed").length}{" "}
+              {t("studio.failedCount")}
+            </span>
+          </>
+        )}
       </div>
 
       {/* Tags */}
@@ -817,6 +826,7 @@ function FileTile({
   onToggle: () => void;
 }) {
   const isHidden = file.status === "hidden";
+  const isFailed = file.status === "failed";
 
   const {
     attributes,
@@ -846,6 +856,8 @@ function FileTile({
       className={`group aspect-square rounded-sm overflow-hidden relative bg-surface-sunken border animate-reveal ${
         selected
           ? "border-accent ring-1 ring-accent"
+          : isFailed
+          ? "border-semantic-danger/40 hover:border-semantic-danger/70"
           : "border-line-subtle hover:border-line-strong"
       } ${
         selectionMode
@@ -853,15 +865,23 @@ function FileTile({
           : "cursor-grab active:cursor-grabbing touch-none"
       } transition-colors duration-motion`}
       onClick={selectionMode ? onToggle : undefined}
+      title={isFailed ? file.errorMessage ?? "Verarbeitung fehlgeschlagen" : undefined}
       {...(selectionMode ? {} : attributes)}
       {...(selectionMode ? {} : listeners)}
     >
       {file.thumbUrl ? (
+        // Bei failed: Thumbnail trotzdem anzeigen wenn vorhanden, aber stark
+        // abgedunkelt und mit klarem Failed-Badge oben rechts. Das nimmt der
+        // UI die "alles ok"-Illusion, die uns beim events-Import-Bug Stunden
+        // gekostet hat. Studio-Detail-Seite blieb damals zeigend, weil
+        // thumb-Renditions vor dem Status-Fail geschrieben wurden.
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={file.thumbUrl}
           alt={file.originalFilename}
-          className={`w-full h-full object-cover ${isHidden ? "opacity-40" : ""}`}
+          className={`w-full h-full object-cover ${
+            isHidden ? "opacity-40" : isFailed ? "opacity-30 grayscale" : ""
+          }`}
           loading="lazy"
           draggable={false}
         />
@@ -899,8 +919,16 @@ function FileTile({
         </div>
       )}
 
-      {/* Hidden-Badge */}
-      {isHidden && (
+      {/* Failed-Badge — überlagert ggf. den Hidden-Badge, weil failed das
+          spezifischere Problem ist */}
+      {isFailed && (
+        <div className="absolute top-1.5 right-1.5 text-ui-xs uppercase tracking-wider px-1.5 py-0.5 rounded-xs bg-semantic-danger/90 text-surface-canvas font-medium">
+          Fehler
+        </div>
+      )}
+
+      {/* Hidden-Badge (nur wenn nicht failed — sonst Doppel-Badge) */}
+      {isHidden && !isFailed && (
         <div className="absolute top-1.5 right-1.5 text-ui-xs uppercase tracking-wider px-1.5 py-0.5 rounded-xs bg-semantic-warning/90 text-surface-canvas font-medium">
           versteckt
         </div>

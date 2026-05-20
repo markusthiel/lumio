@@ -66,6 +66,7 @@ export interface GalleryFile {
   sizeBytes: number;
   kind: FileKind;
   status: FileStatus;
+  errorMessage?: string | null;
   width: number | null;
   height: number | null;
   sortIndex: number;

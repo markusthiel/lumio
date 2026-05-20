@@ -122,6 +122,7 @@ export const de: Dict = {
     tagCountFiles: "Files",
     tagConfirmDelete: 'Tag "{name}" wirklich löschen? Bestehende Zuordnungen werden entfernt.',
     tagsLabel: "Tags:",
+    failedCount: "fehlerhaft",
     tagAdd: "Tag hinzufügen",
     tagPickerNoneYet: "Noch keine Tags angelegt — siehe Studio → Tags.",
     tagPickerAllAssigned: "Alle Tags bereits zugewiesen.",

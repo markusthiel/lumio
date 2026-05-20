@@ -122,6 +122,7 @@ export const en: Dict = {
     tagCountFiles: "files",
     tagConfirmDelete: 'Really delete tag "{name}"? Existing assignments will be removed.',
     tagsLabel: "Tags:",
+    failedCount: "failed",
     tagAdd: "Add tag",
     tagPickerNoneYet: "No tags created yet — see Studio → Tags.",
     tagPickerAllAssigned: "All tags already assigned.",
