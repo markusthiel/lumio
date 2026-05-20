@@ -29,54 +29,98 @@ Jeder Tenant bekommt automatisch `<slug>.lumio-cloud.de` als Studio-URL.
 Customer-Galerien sind weiter unter beliebigen URLs erreichbar (siehe
 KONZEPT.md), aber das Studio liegt klar pro Tenant.
 
-### DNS
+### Drei Stellen, die zusammenspielen müssen
+
+Setup an drei Punkten, damit ein Request bei `markus.lumio-cloud.de`
+auch wirklich bei Tenant `markus` landet:
+
+1. **DNS** — Wildcard-A-Record `*.lumio-cloud.de` → IP des Proxy-Hosts
+2. **Vorgeschalteter Caddy** (TLS-Terminierung, deine externe Instanz)
+   bekommt einen Wildcard-Block neben dem bestehenden
+   `lumio-cloud.de`-Block
+3. **Interner Lumio-Caddy** (im docker-compose) bekommt einen
+   Wildcard-Block, der die gleichen reverse_proxy-Regeln wie die
+   Hauptdomain anwendet — sonst fällt der Request beim
+   Host-Header-Matching durch
+
+### 1. DNS
 
 Wildcard-Eintrag bei deinem DNS-Provider:
 
 ```
-*.lumio-cloud.de    A    <IP von docker5>
+*.lumio-cloud.de    A    <IP deines Caddy-Hosts>
 ```
 
-(Bei Cloudflare ein „Proxied" + ein A-Record für `*`.)
+### 2. Vorgeschalteter Caddy
 
-### Caddy
-
-In deinem bestehenden Caddyfile (oder caddy.yaml) einen Wildcard-Block
-ergänzen. Beispiel:
+Aktuell siehst du in deinem Caddyfile wahrscheinlich sowas:
 
 ```caddyfile
-*.lumio-cloud.de, lumio-cloud.de {
-    tls {
-        # DNS-Challenge für das Wildcard-Cert, sonst kein *.cert möglich.
-        # Für Cloudflare:
-        dns cloudflare {env.CLOUDFLARE_API_TOKEN}
-    }
+lumio-cloud.de {
+    reverse_proxy 192.168.178.90:32080
+}
 
-    reverse_proxy /api/* docker5:3001
-    reverse_proxy /ws/* docker5:3001
-    reverse_proxy * docker5:3000
+s3.lumio-cloud.de {
+    reverse_proxy 192.168.178.90:32080
 }
 ```
 
-Wichtig: das Wildcard-Cert braucht eine DNS-Challenge (HTTP-Challenge
-kann keine `*.domain` validieren). Für Cloudflare nutze das offizielle
-Caddy-DNS-Plugin.
+Ergänzen um einen Wildcard. Caddy matched spezifische Host-Blöcke
+(`s3.lumio-cloud.de`) immer **vor** Wildcards, also kollidiert
+der neue Block nicht mit dem S3-Subdomain-Eintrag.
 
-### API-Env
+```caddyfile
+*.lumio-cloud.de {
+    tls {
+        # Wildcard-Zertifikate brauchen DNS-Challenge —
+        # HTTP-Challenge kann *.domain nicht validieren.
+        # Hier den passenden Block für deinen DNS-Provider:
+        #
+        #   dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+        #   dns hetzner    {env.HETZNER_API_TOKEN}
+        #   dns inwx       {env.INWX_USER} {env.INWX_PASSWORD}
+        #
+        # caddy-dns-Plugins: https://github.com/caddy-dns
+        # Plugin muss ins Caddy-Image kompiliert sein (xcaddy build).
+    }
+    reverse_proxy 192.168.178.90:32080
+}
+```
 
-In der `docker-compose.yml` (oder `.env`) für den API-Container:
+### 3. Interner Lumio-Caddy
+
+In der `.env` (oder direkt im docker-compose):
+
+```
+LUMIO_WILDCARD_HOST=*.lumio-cloud.de:80
+```
+
+Der interne Caddy ist hinter dem vorgeschalteten Proxy, hört nur auf
+:80 (kein TLS hier). `infra/caddy/Caddyfile` enthält bereits einen
+Wildcard-Block, der nur aktiv wird wenn `LUMIO_WILDCARD_HOST` gesetzt
+ist.
+
+### 4. API-Env
 
 ```
 LUMIO_DOMAIN_BASE=lumio-cloud.de
 PUBLIC_URL=https://lumio-cloud.de
 ```
 
-Dann ist `<slug>.lumio-cloud.de/login` automatisch der Studio-Login für
-jeden Tenant. Setup-Links in Einladungs-Mails zeigen weiter auf die
-Hauptdomain (`PUBLIC_URL/auth/setup-password?token=...`) — nach dem
-Passwort-Setzen ist der User eingeloggt, die Session enthält die
-Tenant-ID, alle weiteren Requests landen beim richtigen Tenant
-unabhängig von der URL.
+`LUMIO_DOMAIN_BASE` aktiviert in der API die Subdomain-basierte
+Tenant-Auflösung. Ohne diese Variable ignoriert die API den
+Subdomain-Teil und fällt auf den Header- oder Custom-Domain-Resolver
+zurück.
+
+### Test
+
+```bash
+curl -H "Host: markus.lumio-cloud.de" http://192.168.178.90:32080/health
+# sollte 200 zurückgeben
+
+# Im Browser: https://markus.lumio-cloud.de/login
+# → Studio-Login für Tenant 'markus'
+```
 
 ## Verfahren B: Custom-Domains (für White-Label)
 

@@ -15,6 +15,12 @@ services:
     environment:
       - LUMIO_HOST=${LUMIO_HOST:-:80}
       - LUMIO_S3_HOST=${LUMIO_S3_HOST:-:81}
+      # Optional: Wildcard-Hostname für Tenant-Subdomains. Default ist
+      # ein internes Pseudo-Host (127.0.0.1:9), das niemals von außen
+      # erreichbar ist — der Caddy-Block matched dann nichts, und der
+      # Hauptdomain-Block bleibt der einzige aktive.
+      # Aktivieren in .env mit z.B. LUMIO_WILDCARD_HOST=*.lumio-cloud.de:80
+      - LUMIO_WILDCARD_HOST=${LUMIO_WILDCARD_HOST:-127.0.0.1:9}
     ports:
       - "${CADDY_HTTP_PORT:-80}:80"
       - "${CADDY_HTTPS_PORT:-443}:443"

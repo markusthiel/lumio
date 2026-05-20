@@ -52,6 +52,39 @@
 }
 
 # -----------------------------------------------------------------------------
+# Tenant-Subdomains — <slug>.lumio-cloud.de
+# -----------------------------------------------------------------------------
+# Wildcard-Block, der die gleichen Reverse-Proxy-Regeln wie die Hauptdomain
+# anwendet. Tenant-Auflösung passiert in der API über den Host-Header
+# (siehe apps/api/src/plugins/auth.ts, resolveTenant Schritt "Subdomain").
+#
+# Konfiguration über LUMIO_WILDCARD_HOST:
+#   LUMIO_WILDCARD_HOST=*.lumio-cloud.de:80
+#
+# TLS macht der vorgeschaltete Caddy/Proxy — hier nur HTTP. Wenn dieser
+# interne Caddy direkt aus dem Internet erreichbar wäre, müsste hier ein
+# DNS-Challenge-TLS-Block stehen.
+#
+# Wenn die Wildcard nicht aktiv sein soll, einfach LUMIO_WILDCARD_HOST
+# leer/ungesetzt lassen — Caddy ignoriert dann den Block (matched
+# nichts), und der Hauptdomain-Block oben bleibt der einzige.
+{$LUMIO_WILDCARD_HOST} {
+	reverse_proxy /api/*   api:3001
+	reverse_proxy /health  api:3001
+	reverse_proxy /ws/*    api:3001
+
+	reverse_proxy frontend:3000
+
+	encode zstd gzip
+
+	header {
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}
+
+# -----------------------------------------------------------------------------
 # S3 / MinIO — separater Hostname
 # -----------------------------------------------------------------------------
 # MinIO unterstützt kein Path-Präfix-Rewriting (die AWS-V4-Signatur wird
