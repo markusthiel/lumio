@@ -73,6 +73,37 @@ export function GalleryView({
     });
   }, [files, mySelections, filter]);
 
+  // Die Lightbox und der Click-Handler müssen die GLEICHE Reihenfolge
+  // sehen wie das Galerie-Grid — sonst springt der "Weiter"-Pfeil zu
+  // unerwarteten Bildern (vorher: filtered + Sections wurden angezeigt,
+  // aber Lightbox kriegte die globale files-Liste).
+  //
+  // Drei Anzeige-Modi:
+  //   - keine Sections, oder Filter aktiv → ein flaches Grid mit
+  //     `filtered` in der globalen Sortier-Reihenfolge.
+  //   - Sections + filter=all → Default-Bucket (sectionId=null) zuerst,
+  //     dann pro Section in deren sortIndex-Reihenfolge.
+  //
+  // Wir spiegeln genau das hier, damit Lightbox und Grid synchron sind.
+  const orderedFiles = useMemo(() => {
+    const sectionsActive = meta.sections.length > 0 && filter === "all";
+    if (!sectionsActive) return filtered;
+    const out: PublicFile[] = [];
+    // Default-Bucket: alle Files ohne sectionId, in ihrer globalen
+    // Reihenfolge (filtered ist schon nach sortIndex aus dem Backend
+    // sortiert).
+    for (const f of filtered) {
+      if (f.sectionId === null) out.push(f);
+    }
+    // Dann pro Section (in der Reihenfolge wie meta.sections):
+    for (const section of meta.sections) {
+      for (const f of filtered) {
+        if (f.sectionId === section.id) out.push(f);
+      }
+    }
+    return out;
+  }, [filtered, meta.sections, filter]);
+
   const stats = useMemo(() => {
     const sels = Object.values(mySelections);
     return {
@@ -307,7 +338,7 @@ export function GalleryView({
             mode={meta.gridLayout}
             mySelections={mySelections}
             onOpen={(f) =>
-              setLightboxIdx(files.findIndex((ff) => ff.id === f.id))
+              setLightboxIdx(orderedFiles.findIndex((ff) => ff.id === f.id))
             }
           />
         ) : (
@@ -336,7 +367,7 @@ export function GalleryView({
                         mySelections={mySelections}
                         onOpen={(f) =>
                           setLightboxIdx(
-                            files.findIndex((ff) => ff.id === f.id)
+                            orderedFiles.findIndex((ff) => ff.id === f.id)
                           )
                         }
                       />
@@ -354,7 +385,7 @@ export function GalleryView({
                           mySelections={mySelections}
                           onOpen={(f) =>
                             setLightboxIdx(
-                              files.findIndex((ff) => ff.id === f.id)
+                              orderedFiles.findIndex((ff) => ff.id === f.id)
                             )
                           }
                         />
@@ -368,10 +399,13 @@ export function GalleryView({
         )}
       </section>
 
-      {/* Lightbox */}
+      {/* Lightbox — bekommt die identisch sortierte Liste wie das
+          Galerie-Grid, damit "Weiter"/"Zurück" der erwarteten
+          Reihenfolge folgt (vorher: globale files-Liste, was bei
+          Sections oder Filter zu Sprüngen führte). */}
       {lightboxIdx !== null && (
         <Lightbox
-          files={files}
+          files={orderedFiles}
           index={lightboxIdx}
           slug={slug}
           meta={meta}
@@ -772,7 +806,16 @@ function Lightbox({
   onSelectionChange: (fileId: string, sel: MySelection) => void;
 }) {
   const t = useT();
+  // Defensiv: wenn `index` aus der Range fällt (z.B. weil der User die
+  // Liste gefiltert hat und das letzte sichtbare Bild war weiter
+  // hinten), schließen wir die Lightbox lautlos. Vor dem Fix war der
+  // Crash 'cannot read properties of undefined (id)'.
   const file = files[index];
+  useEffect(() => {
+    if (!file) onClose();
+  }, [file, onClose]);
+  if (!file) return null;
+
   const sel = mySelections[file.id] ?? {
     color: null,
     rating: null,
