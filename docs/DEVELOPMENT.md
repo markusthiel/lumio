@@ -328,6 +328,111 @@ Forgejo unter `Settings → Actions → Secrets`:
 Damit bleiben die letzten 5 SHA-Builds plus alle Release-Tags und der
 Branch-Pointer; ältere SHA-Tags werden automatisch entfernt.
 
+### Outbound-Webhooks (Studio → externe Tools)
+
+Pro Tenant lassen sich HTTPS-Endpoints hinterlegen, die bei bestimmten
+Ereignissen mit signiertem POST aufgerufen werden. Konfiguration im
+Studio unter `/studio/webhooks`. Aktuelle Event-Whitelist (kommt aus
+`apps/api/src/services/webhooks.ts`):
+
+| Event | Wann |
+|---|---|
+| `gallery.created` | Neue Galerie angelegt |
+| `gallery.live` | Galerie-Status wechselt zu `live` |
+| `gallery.deleted` | Galerie endgültig gelöscht |
+| `selection.finalized` | Kunde hat seine Auswahl finalisiert |
+| `comment.posted` | Kommentar auf einem File |
+| `file.uploaded` / `file.failed` | reserviert, derzeit nicht gefeuert |
+
+**Request-Format:** JSON-Body
+`{ "event": "<typ>", "timestamp": "<iso>", "data": { ... } }`
+Headers:
+
+```
+Content-Type:      application/json
+X-Lumio-Event:     gallery.created
+X-Lumio-Timestamp: 1730000000
+X-Lumio-Signature: sha256=<hex>
+User-Agent:        Lumio-Webhook/1.0
+```
+
+**Signatur:** HMAC-SHA256 über `<timestamp>.<body>` mit dem
+Webhook-Secret. Identisches Schema zu GitHub/Stripe. Beispiel-
+Verifikation auf Empfänger-Seite:
+
+**Node/Express:**
+
+```js
+const crypto = require("node:crypto");
+const SECRET = process.env.LUMIO_WEBHOOK_SECRET;
+app.post("/lumio-hook",
+  express.raw({ type: "application/json" }),
+  (req, res) => {
+    const ts = req.header("X-Lumio-Timestamp");
+    const sig = req.header("X-Lumio-Signature");
+    const expected = "sha256=" + crypto
+      .createHmac("sha256", SECRET)
+      .update(`${ts}.${req.body.toString("utf-8")}`)
+      .digest("hex");
+    if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
+      return res.status(401).end();
+    }
+    // Replay-Schutz: timestamp prüfen (z.B. max 5 min alt)
+    const age = Math.abs(Date.now() / 1000 - Number(ts));
+    if (age > 300) return res.status(401).end();
+
+    const event = JSON.parse(req.body);
+    // ... process ...
+    res.status(204).end();
+  });
+```
+
+**Python/Flask:**
+
+```python
+import hashlib, hmac, time
+from flask import request, abort
+
+SECRET = b"..."
+
+@app.post("/lumio-hook")
+def hook():
+    ts = request.headers["X-Lumio-Timestamp"]
+    sig = request.headers["X-Lumio-Signature"]
+    body = request.get_data()
+    expected = "sha256=" + hmac.new(
+        SECRET, f"{ts}.".encode() + body, hashlib.sha256
+    ).hexdigest()
+    if not hmac.compare_digest(sig, expected):
+        abort(401)
+    if abs(time.time() - int(ts)) > 300:
+        abort(401)
+    payload = request.get_json()
+    # ... process ...
+    return "", 204
+```
+
+**Retry-Verhalten:** Bei 2xx ist die Auslieferung abgeschlossen. Bei
+4xx (außer 408/429) gibt der Worker direkt auf — der Empfänger hat
+signalisiert, dass die Anfrage so nicht passt. Bei 5xx, Timeout
+oder Netzwerk-Fehler retry'd der Worker mit Exponential-Backoff
+(5s, 25s, 2min, 10min, 1h, danach final dead). Empfänger müssen
+also nicht 100 %-uptime liefern, aber die Behandlung sollte
+idempotent sein — derselbe Event kann mehrfach ankommen, wenn der
+erste Versuch ein 5xx war und der Retry trotzdem durchkam.
+
+**Audit:** im Studio unter `/studio/webhooks` → Webhook auswählen →
+"Letzte Auslieferungen" listet die letzten 50 Versuche mit
+HTTP-Status und Fehlertext. Erfolgreich = grün, dead = rot,
+pending = gelb. Per `POST /webhooks/:id/test` (im UI als
+"Testen"-Button) lässt sich ein `test.ping`-Event sofort senden,
+um die Empfänger-Verifikation zu prüfen, ohne auf einen echten
+Trigger warten zu müssen.
+
+**Secret-Lifecycle:** Beim Anlegen wird einmalig generiert und im
+Create-Response zurückgegeben. Spätere GETs liefern das Secret
+nicht mehr. Bei Verlust: Webhook löschen, neu anlegen.
+
 ## Hybrid: Infra in Docker, Apps lokal
 
 Für schnellen Hot-Reload:

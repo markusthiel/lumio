@@ -13,6 +13,8 @@ export const en: Dict = {
     delete: "Delete",
     create: "Create",
     creating: "Creating…",
+    edit: "Edit",
+    done: "Done",
     settings: "Settings",
     loading: "Loading…",
     back: "Back",
@@ -90,6 +92,34 @@ export const en: Dict = {
     brandingCreateNow: "create now",
 
     notFound: "Gallery not found.",
+
+    // Webhooks
+    webhooksTitle: "Webhooks",
+    webhooksDescription:
+      "Notify external tools via HTTP POST about specific events. Every request is signed with your webhook secret.",
+    webhooksEmpty: "No webhooks configured yet.",
+    webhooksEmptyHint:
+      'Click "New webhook" and enter a URL plus the events you want delivered.',
+    webhookCreate: "New webhook",
+    webhookCreatedTitle: "Webhook created",
+    webhookLabel: "Label",
+    webhookLabelPlaceholder: "e.g. Zapier wedding workflow",
+    webhookEvents: "Events",
+    webhookSecretIntro:
+      "Note this secret now — you'll never see it again. It signs every webhook request and your endpoint needs it to verify the request.",
+    webhookSecretWarning:
+      "If you lose it, you'll need to delete and recreate the webhook.",
+    webhookInactive: "inactive",
+    webhookActivate: "Activate",
+    webhookDeactivate: "Deactivate",
+    webhookTest: "Test",
+    webhookTesting: "Testing…",
+    webhookTestOk: "Test succeeded — HTTP {status}.",
+    webhookTestFailed: "Test failed: {detail}",
+    webhookDeliveries: "Recent deliveries",
+    webhookDeliveriesEmpty: "No deliveries yet.",
+    webhookNeverDelivered: "Never delivered",
+    webhookConfirmDelete: 'Really delete webhook "{label}"?',
   },
 
   gallery: {

@@ -131,7 +131,7 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 - [x] Mehrsprachigkeit Studio + Customer-Seite (DE, EN — weitere folgen via i18n-Dictionary-System; in-Gallery-Locale-Picker für Visitor steht noch aus)
 - [ ] Mobile App (React Native) für iOS/Android — Upload aus der Kamera-Rolle
 - [ ] Public API mit OAuth2
-- [ ] Webhooks für Studio-Events
+- [x] Webhooks für Studio-Events (HMAC-SHA256-signiert, async-Delivery mit Exponential-Backoff-Retry, /studio/webhooks-UI mit Test-Button und Delivery-Log)
 - [ ] Detaillierte Galerie-Statistiken (Aufrufe, Downloads pro Bild, Heatmaps)
 - [ ] Optionales KI-Tagging (lokal über Ollama, opt-in)
 - [ ] E-Signatures für Modelverträge / Rechte-Freigaben
