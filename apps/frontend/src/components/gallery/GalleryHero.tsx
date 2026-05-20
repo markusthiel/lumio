@@ -88,7 +88,7 @@ function MinimalHero({ meta, children }: Props) {
         </>
       )}
 
-      <div className="relative px-4 sm:px-6 md:px-12 pt-14 pb-10 sm:pt-20 sm:pb-14 max-w-7xl mx-auto animate-fade-in flex flex-col justify-end h-full">
+      <div className="relative px-4 sm:px-6 md:px-12 pt-14 pb-10 sm:pt-20 sm:pb-14 max-w-7xl mx-auto animate-fade-in">
         <EventLogo url={h.eventLogoUrl} size="md" align="start" />
         <h1 className="text-display-lg sm:text-display-xl font-medium tracking-tight">
           {meta.title}

@@ -590,7 +590,7 @@ function HeroLayoutPicker({
       id: "minimal",
       label: t("studio.heroLayoutMinimal"),
       sketch: (
-        <div className="w-full h-full p-1.5 flex flex-col justify-end gap-1">
+        <div className="w-full h-full p-1.5 flex flex-col gap-1">
           <div className="h-1 w-3/4 rounded-sm bg-ink-primary/60" />
           <div className="h-0.5 w-1/2 rounded-sm bg-ink-primary/30" />
         </div>
