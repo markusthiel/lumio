@@ -361,6 +361,7 @@ model Gallery {
   downloadLogs    DownloadLog[]
   zipDownloads    ZipDownload[]
   tags            GalleryTag[]
+  sections        GallerySection[]
   
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -369,6 +370,49 @@ model Gallery {
   @@index([ownerId])
   @@index([slug])
   @@map("galleries")
+}
+
+// -----------------------------------------------------------------------------
+// Galerie-Sections / Kapitel
+// -----------------------------------------------------------------------------
+// Optionales Gruppierungs-Layer für eine Galerie. Sections sind
+// Kapitel wie "Vorbereitung", "Trauung", "Feier" für eine
+// Hochzeitsgalerie. Files können einer Section zugeordnet werden;
+// Files ohne Section bleiben im Default-Bucket und werden im Customer-
+// View oberhalb der Sections gerendert.
+//
+// Sortierung über sortIndex (kleinster zuerst), nicht alphabetisch —
+// das Studio entscheidet die Reihenfolge bewusst (chronologisch
+// passend zum Event-Ablauf).
+//
+// Cover-Bild ist optional. Wenn gesetzt, zeigt der Section-Renderer
+// im Customer-View ein größeres Banner mit dem Cover; sonst nur einen
+// Titel-Trennbalken.
+model GallerySection {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  galleryId   String   @db.Uuid
+  gallery     Gallery  @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+  
+  title       String   @db.VarChar(120)
+  // Optional: Beschreibung als Plain-Text-Untertitel (kein Markdown
+  // hier — Section-Beschreibungen sind kurz und einzeilig in der
+  // Customer-Anzeige; Markdown wäre Overkill).
+  description String?  @db.VarChar(400)
+  
+  // Cover-File: muss zur SELBEN Galerie gehören. Wenn das File
+  // gelöscht wird, setzen wir das Cover zurück auf null (SetNull),
+  // damit die Section bestehen bleibt.
+  coverFileId String?  @db.Uuid
+  
+  sortIndex   Int      @default(0)
+  
+  files       File[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([galleryId, sortIndex])
+  @@map("gallery_sections")
 }
 
 // -----------------------------------------------------------------------------
@@ -481,6 +525,13 @@ model File {
   
   sortIndex       Int      @default(0)
   
+  // Optional einer Section/Kapitel zugeordnet. Null = File erscheint
+  // im Default-Bucket der Galerie (Pre-Section-Verhalten). Section
+  // gehört IMMER zur selben Galerie wie das File — wir prüfen das
+  // anwendungsseitig (kein zusammengesetzter FK in Postgres).
+  sectionId       String?  @db.Uuid
+  section         GallerySection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
+  
   renditions      Rendition[]
   selections      Selection[]
   comments        Comment[]
@@ -493,6 +544,7 @@ model File {
   @@index([galleryId, sortIndex])
   @@index([galleryId, status])
   @@index([sha256])
+  @@index([sectionId])
   @@map("files")
 }
 

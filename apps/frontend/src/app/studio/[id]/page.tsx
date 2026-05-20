@@ -7,6 +7,7 @@ import { api, type GalleryDetail, type GalleryFile } from "@/lib/api";
 import { uploadFiles, type UploadProgress } from "@/lib/upload";
 import { SharePanel } from "@/components/studio/SharePanel";
 import { GalleryHeaderEditor } from "@/components/studio/GalleryHeaderEditor";
+import { SectionsEditor } from "@/components/studio/SectionsEditor";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { TagPicker } from "@/components/studio/TagPicker";
 import { Button } from "@/components/ui";
@@ -498,6 +499,20 @@ export default function GalleryDetailPage() {
             id: f.id,
             filename: f.originalFilename,
             thumbUrl: f.thumbUrl ?? null,
+          }))}
+          onChanged={async () => {
+            await load();
+          }}
+        />
+
+        {/* Kapitel/Sections — optional, ordnet Files zu Kapiteln zu */}
+        <SectionsEditor
+          galleryId={gallery.id}
+          files={gallery.files.map((f) => ({
+            id: f.id,
+            filename: f.originalFilename,
+            thumbUrl: f.thumbUrl ?? null,
+            sectionId: f.sectionId ?? null,
           }))}
           onChanged={async () => {
             await load();

@@ -6,6 +6,7 @@ import {
   ApiError,
   type PublicFile,
   type PublicGalleryMeta,
+  type PublicSection,
   type MySelection,
   type Comment,
 } from "@/lib/api";
@@ -267,6 +268,20 @@ export function GalleryView({
         </div>
       </div>
 
+      {/* Sticky Sections-Navi — nur wenn die Galerie Sections hat
+          UND der User nicht gefiltert hat (Section-Anker mit aktivem
+          Like/Color-Filter wäre verwirrend). Wir zählen die Sections
+          mit Files; eine leere Section wird nicht in die Navi
+          aufgenommen. Plus optional ein "Übersicht"-Anker für den
+          Default-Bucket wenn der existiert. */}
+      {meta.sections.length > 0 && filter === "all" && (
+        <SectionsNav
+          sections={meta.sections}
+          files={filtered}
+          hasDefaultBucket={filtered.some((f) => f.sectionId === null)}
+        />
+      )}
+
       {/* Grid */}
       <section className="px-4 sm:px-6 md:px-12 pt-6 pb-16 max-w-7xl mx-auto">
         {filtered.length === 0 ? (
@@ -275,72 +290,72 @@ export function GalleryView({
               ? t("gallery.noFiles")
               : t("gallery.noFilesForFilter")}
           </div>
-        ) : meta.gridLayout === "equal" ? (
-          /* Equal-Grid: alle Tiles quadratisch, fixe Spaltenzahl.
-             Sehr clean für Portrait-Sessions wo die Tiles eh
-             ähnliche Ausrichtung haben. */
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {filtered.map((f, i) => (
-              <GalleryTile
-                key={f.id}
-                file={f}
-                index={i}
-                sel={mySelections[f.id]}
-                mode="equal"
-                onOpen={() =>
-                  setLightboxIdx(files.findIndex((ff) => ff.id === f.id))
-                }
-              />
-            ))}
-          </div>
-        ) : meta.gridLayout === "justified" ? (
-          /* Justified-Grid (Flickr-Style): flex-wrap-Reihen, Bilder
-             skalieren sich mit flex-grow so dass jede Reihe gleich
-             hoch wird. Trick: jedes Tile bekommt eine Basis-Breite
-             proportional zu seinem Aspect-Ratio, dann growen alle
-             auf die Reihen-Breite hoch. Ist nicht 100% optimal wie
-             ein JS-Justified-Algorithmus (z.B. flickr-justified-
-             gallery), aber pure CSS und ohne Layout-Shift.
-
-             Wichtig: die Tile-Komponente macht im Justified-Mode
-             KEIN aspect-ratio mehr — die Höhe kommt aus der Reihe,
-             die Breite aus flex-basis. */
-          <div className="flex flex-wrap gap-2 sm:gap-3">
-            {filtered.map((f, i) => (
-              <GalleryTile
-                key={f.id}
-                file={f}
-                index={i}
-                sel={mySelections[f.id]}
-                mode="justified"
-                onOpen={() =>
-                  setLightboxIdx(files.findIndex((ff) => ff.id === f.id))
-                }
-              />
-            ))}
-            {/* Spacer-Element: nimmt überschüssige Platz in der letzten
-                Reihe so dass die echten Tiles nicht auf 100% Breite
-                aufgepumpt werden. Ohne den würde das letzte Bild
-                allein in der Reihe sehr breit gezogen. */}
-            <i className="grow-[10] block" aria-hidden="true" />
-          </div>
+        ) : meta.sections.length === 0 || filter !== "all" ? (
+          /* Klassisches Hauptraster: keine Sections angelegt ODER
+             aktiver Filter (in dem Fall ignorieren wir Sections,
+             damit der Filter sinnvoll bleibt). */
+          <FilesGrid
+            files={filtered}
+            mode={meta.gridLayout}
+            mySelections={mySelections}
+            onOpen={(f) =>
+              setLightboxIdx(files.findIndex((ff) => ff.id === f.id))
+            }
+          />
         ) : (
-          /* Masonry (Default) via CSS columns. Vorteile gegenüber
-             JS-Masonry: kein Layout-Shift, kein zusätzliches JS,
-             Reihenfolge folgt der DOM-Reihenfolge. */
-          <div className="columns-2 sm:columns-3 lg:columns-4 gap-3 [column-fill:_balance]">
-            {filtered.map((f, i) => (
-              <GalleryTile
-                key={f.id}
-                file={f}
-                index={i}
-                sel={mySelections[f.id]}
-                mode="masonry"
-                onOpen={() =>
-                  setLightboxIdx(files.findIndex((ff) => ff.id === f.id))
+          /* Sections-Modus: Default-Bucket zuerst, dann pro Section
+             ein Trennband mit Cover und Titel, dann die Section-Files.
+             Files behalten ihre globale Reihenfolge innerhalb des
+             Buckets. */
+          <div className="space-y-12">
+            {(() => {
+              const defaultFiles = filtered.filter((f) => f.sectionId === null);
+              const filesBySection = new Map<string, typeof filtered>();
+              for (const f of filtered) {
+                if (f.sectionId) {
+                  const arr = filesBySection.get(f.sectionId) ?? [];
+                  arr.push(f);
+                  filesBySection.set(f.sectionId, arr);
                 }
-              />
-            ))}
+              }
+              return (
+                <>
+                  {defaultFiles.length > 0 && (
+                    <div id="section-default">
+                      <FilesGrid
+                        files={defaultFiles}
+                        mode={meta.gridLayout}
+                        mySelections={mySelections}
+                        onOpen={(f) =>
+                          setLightboxIdx(
+                            files.findIndex((ff) => ff.id === f.id)
+                          )
+                        }
+                      />
+                    </div>
+                  )}
+                  {meta.sections.map((section) => {
+                    const sectionFiles = filesBySection.get(section.id) ?? [];
+                    if (sectionFiles.length === 0) return null;
+                    return (
+                      <div key={section.id} id={`section-${section.id}`}>
+                        <SectionDivider section={section} />
+                        <FilesGrid
+                          files={sectionFiles}
+                          mode={meta.gridLayout}
+                          mySelections={mySelections}
+                          onOpen={(f) =>
+                            setLightboxIdx(
+                              files.findIndex((ff) => ff.id === f.id)
+                            )
+                          }
+                        />
+                      </div>
+                    );
+                  })}
+                </>
+              );
+            })()}
           </div>
         )}
       </section>
@@ -389,6 +404,187 @@ function PlayMiniIcon() {
 // -----------------------------------------------------------------------------
 // Tile — IntersectionObserver für Reveal-Animation
 // -----------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Sub-Komponenten: FilesGrid + SectionsNav + SectionDivider
+// ---------------------------------------------------------------------------
+
+/** Rendert eine Liste von Files im gewählten Grid-Layout. War früher
+ *  inline in GalleryView; extrahiert weil Sections-Modus dieselbe
+ *  Rendering-Logik mehrfach braucht (Default-Bucket + ein Aufruf pro
+ *  Section).
+ *
+ *  Wichtig zur Lightbox-Navigation: der `onOpen`-Callback bekommt die
+ *  File übergeben und der Caller mappt zurück auf den Index in der
+ *  GLOBALEN files-Liste — so kann die Lightbox section-übergreifend
+ *  navigieren ohne dass sie überhaupt von Sections wissen muss. */
+function FilesGrid({
+  files,
+  mode,
+  mySelections,
+  onOpen,
+}: {
+  files: PublicFile[];
+  mode: "masonry" | "justified" | "equal";
+  mySelections: Record<string, MySelection>;
+  onOpen: (f: PublicFile) => void;
+}) {
+  if (mode === "equal") {
+    return (
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+        {files.map((f, i) => (
+          <GalleryTile
+            key={f.id}
+            file={f}
+            index={i}
+            sel={mySelections[f.id]}
+            mode="equal"
+            onOpen={() => onOpen(f)}
+          />
+        ))}
+      </div>
+    );
+  }
+  if (mode === "justified") {
+    return (
+      <div className="flex flex-wrap gap-2 sm:gap-3">
+        {files.map((f, i) => (
+          <GalleryTile
+            key={f.id}
+            file={f}
+            index={i}
+            sel={mySelections[f.id]}
+            mode="justified"
+            onOpen={() => onOpen(f)}
+          />
+        ))}
+        <i className="grow-[10] block" aria-hidden="true" />
+      </div>
+    );
+  }
+  // masonry (default)
+  return (
+    <div className="columns-2 sm:columns-3 lg:columns-4 gap-3 [column-fill:_balance]">
+      {files.map((f, i) => (
+        <GalleryTile
+          key={f.id}
+          file={f}
+          index={i}
+          sel={mySelections[f.id]}
+          mode="masonry"
+          onOpen={() => onOpen(f)}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Sticky-Bar mit Section-Titeln als Anker-Links. Versteckt sich
+ *  wenn nur eine Section + kein Default-Bucket existieren (Navi wäre
+ *  redundant). */
+function SectionsNav({
+  sections,
+  files,
+  hasDefaultBucket,
+}: {
+  sections: PublicSection[];
+  files: PublicFile[];
+  hasDefaultBucket: boolean;
+}) {
+  const t = useT();
+  // Nur Sections mit mindestens einem File im aktuellen filtered-Set
+  // anzeigen — leere Sections in der Navi sind verwirrend.
+  const usedSectionIds = new Set(
+    files.map((f) => f.sectionId).filter((id): id is string => !!id)
+  );
+  const visible = sections.filter((s) => usedSectionIds.has(s.id));
+
+  // Wenn nichts zu zeigen ist (alles im Default-Bucket oder gar
+  // nichts), Navi unterdrücken.
+  if (visible.length === 0) return null;
+
+  // Smooth-Scroll-Handler. Statt nativer Anker-Sprünge nutzen wir
+  // scrollIntoView mit smooth-Behavior und einem kleinen Offset für
+  // den Sticky-Header.
+  const onJump = (id: string) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    const target = document.getElementById(id);
+    if (!target) return;
+    const offset = 80; // ungefähr der Platz für den Sticky-Header
+    const top = target.getBoundingClientRect().top + window.scrollY - offset;
+    window.scrollTo({ top, behavior: "smooth" });
+  };
+
+  return (
+    <nav className="sticky top-0 z-20 backdrop-blur bg-[color:rgb(0_0_0/0.15)] border-b border-white/10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-2 flex items-center gap-1 overflow-x-auto">
+        {hasDefaultBucket && (
+          <a
+            href="#section-default"
+            onClick={onJump("section-default")}
+            className="text-ui-sm px-2.5 h-8 rounded inline-flex items-center hover:bg-white/10 whitespace-nowrap transition-colors duration-motion"
+          >
+            {t("gallery.sectionDefault")}
+          </a>
+        )}
+        {visible.map((section) => (
+          <a
+            key={section.id}
+            href={`#section-${section.id}`}
+            onClick={onJump(`section-${section.id}`)}
+            className="text-ui-sm px-2.5 h-8 rounded inline-flex items-center hover:bg-white/10 whitespace-nowrap transition-colors duration-motion"
+          >
+            {section.title}
+          </a>
+        ))}
+      </div>
+    </nav>
+  );
+}
+
+/** Trennband im Grid: optional Cover-Bild als Banner, dann Titel und
+ *  Description. */
+function SectionDivider({ section }: { section: PublicSection }) {
+  return (
+    <div className="pt-4">
+      {section.coverThumbUrl ? (
+        /* Mit Cover: 25vh hoher Banner, Titel im unteren Drittel mit
+           Gradient für Lesbarkeit. */
+        <div className="relative h-[25vh] min-h-[160px] sm:min-h-[200px] rounded-lg overflow-hidden mb-6">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={section.coverThumbUrl}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+          <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 text-white">
+            <h2 className="text-display-md sm:text-display-lg font-medium tracking-tight">
+              {section.title}
+            </h2>
+            {section.description && (
+              <p className="text-ui-md opacity-90 mt-1 max-w-2xl">
+                {section.description}
+              </p>
+            )}
+          </div>
+        </div>
+      ) : (
+        /* Ohne Cover: dezenter Texttrenner. */
+        <div className="border-t border-white/10 pt-6 mb-6">
+          <h2 className="text-display-md font-medium tracking-tight">
+            {section.title}
+          </h2>
+          {section.description && (
+            <p className="text-ui-md opacity-70 mt-1 max-w-2xl">
+              {section.description}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function GalleryTile({
   file,
   index,

@@ -153,6 +153,7 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 - [x] Grid-Layout-Varianten (Masonry/Justified/Equal — CSS-only, kein JS-Layout)
 - [x] Slideshow-Ausbau (drei Übergangseffekte: Fade/Slide/Ken-Burns mit 4 Pan-Richtungen, prefers-reduced-motion respektiert)
 - [x] Slideshow-Hintergrundmusik (Audio-Upload pro Galerie MP3/AAC/OGG max 30 MB, Auto-Play in Slideshow weil User-Geste, Loop, Volume-Slider mit localStorage-Persistierung)
+- [x] Galerie-Kapitel/Sections (optionales Gruppierungs-Layer, Files behalten Default-Bucket-Verhalten wenn keine Section, Customer-View bekommt Sticky-Anker-Navi + Trennbänder mit optionalem Cover-Bild, Studio-Editor mit Reorder + Bulk-File-Picker)
 - [ ] Smart Collections / gespeicherte Filter
 - [ ] Approval-Workflows (mehrere Reviewer in Sequenz)
 - [ ] SSO (SAML, OIDC)

@@ -92,6 +92,9 @@ export interface GalleryFile {
   width: number | null;
   height: number | null;
   sortIndex: number;
+  /** Optional einer Section zugeordnet (Galerie-Kapitel). Null =
+   *  im Default-Bucket. */
+  sectionId: string | null;
   createdAt: string;
   thumbUrl: string | null;
   tags?: Tag[];
@@ -245,6 +248,9 @@ export interface PublicGalleryMeta {
   /** Optionaler Hintergrund-Musik-URL für die Slideshow (relativer
    *  API-Pfad inkl. Cache-Buster). Null wenn keine Musik gesetzt. */
   slideshowAudioUrl: string | null;
+  /** Galerie-Sections (Kapitel). Leeres Array wenn keine angelegt
+   *  sind — Customer-View rendert dann klassisches Hauptraster. */
+  sections: PublicSection[];
 }
 
 export interface Branding {
@@ -278,6 +284,9 @@ export interface PublicFile {
   kind: FileKind;
   width: number | null;
   height: number | null;
+  /** Section/Kapitel-Zugehörigkeit. Null = File ist im Default-
+   *  Bucket der Galerie (oberhalb der Sections im Customer-View). */
+  sectionId: string | null;
   thumbUrl: string | null;
   previewUrl: string | null;
   webUrl: string | null;
@@ -285,6 +294,28 @@ export interface PublicFile {
   sprite: SpriteSheet | null;
   previewWidth: number | null;
   previewHeight: number | null;
+}
+
+/** Section/Kapitel einer Galerie. Customer-Sicht. */
+export interface PublicSection {
+  id: string;
+  title: string;
+  description: string | null;
+  /** Cover-Thumb (presigned URL) oder null wenn keins gesetzt ist. */
+  coverThumbUrl: string | null;
+  sortIndex: number;
+}
+
+/** Section in der Studio-Sicht — wie Public, aber mit coverFileId
+ *  (zum Editieren) und ohne Presigned-URL (Studio bekommt die Thumb-
+ *  URL über die Files-Liste). Plus fileCount für UI. */
+export interface StudioSection {
+  id: string;
+  title: string;
+  description: string | null;
+  coverFileId: string | null;
+  sortIndex: number;
+  fileCount: number;
 }
 
 export interface MySelection {
@@ -613,6 +644,69 @@ export const api = {
 
   deleteGallery: (id: string) =>
     request<void>(`/galleries/${id}`, { method: "DELETE" }),
+
+  // ---------------------------------------------------------------------------
+  // Sections (Studio) — Kapitel-Verwaltung einer Galerie
+  // ---------------------------------------------------------------------------
+  listSections: (galleryId: string) =>
+    request<{ sections: StudioSection[] }>(
+      `/galleries/${galleryId}/sections`
+    ),
+
+  createSection: (
+    galleryId: string,
+    input: { title: string; description?: string | null; coverFileId?: string | null }
+  ) =>
+    request<{ section: StudioSection }>(
+      `/galleries/${galleryId}/sections`,
+      { method: "POST", body: JSON.stringify(input) }
+    ),
+
+  updateSection: (
+    galleryId: string,
+    sectionId: string,
+    input: {
+      title?: string;
+      description?: string | null;
+      coverFileId?: string | null;
+      sortIndex?: number;
+    }
+  ) =>
+    request<{ section: StudioSection }>(
+      `/galleries/${galleryId}/sections/${sectionId}`,
+      { method: "PATCH", body: JSON.stringify(input) }
+    ),
+
+  deleteSection: (galleryId: string, sectionId: string) =>
+    request<{ ok: true }>(
+      `/galleries/${galleryId}/sections/${sectionId}`,
+      { method: "DELETE" }
+    ),
+
+  reorderSections: (galleryId: string, order: string[]) =>
+    request<{ ok: true }>(
+      `/galleries/${galleryId}/sections/reorder`,
+      { method: "POST", body: JSON.stringify({ order }) }
+    ),
+
+  /** Bulk-Zuweisung: Files in eine Section verschieben. */
+  assignFilesToSection: (
+    galleryId: string,
+    sectionId: string,
+    fileIds: string[]
+  ) =>
+    request<{ assigned: number }>(
+      `/galleries/${galleryId}/sections/${sectionId}/files`,
+      { method: "POST", body: JSON.stringify({ fileIds }) }
+    ),
+
+  /** Bulk-Entfernen: Files aus ihren Sections in den Default-Bucket
+   *  zurücklegen. */
+  unassignFilesFromSection: (galleryId: string, fileIds: string[]) =>
+    request<{ removed: number }>(
+      `/galleries/${galleryId}/sections/files`,
+      { method: "DELETE", body: JSON.stringify({ fileIds }) }
+    ),
 
   bulkFileAction: (input: {
     galleryId: string;

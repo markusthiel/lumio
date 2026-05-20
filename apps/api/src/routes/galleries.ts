@@ -345,6 +345,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
               width: true,
               height: true,
               sortIndex: true,
+              sectionId: true,
               createdAt: true,
               renditions: {
                 select: { kind: true, storageKey: true, format: true },
@@ -386,6 +387,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
             width: f.width,
             height: f.height,
             sortIndex: f.sortIndex,
+            sectionId: f.sectionId,
             createdAt: f.createdAt,
             thumbUrl,
             tags: f.tags.map((ft) => ft.tag),
@@ -603,6 +605,268 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
 
       // TODO: Worker-Job zum Aufräumen der S3-Objekte queuen
       return reply.status(204).send();
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // Section-CRUD (Kapitel-Verwaltung pro Galerie)
+  // -------------------------------------------------------------------------
+  // Sections sind optionale Kapitel innerhalb einer Galerie. Eine
+  // Section gehört genau einer Galerie; Files gehören optional einer
+  // Section (sectionId null = im Default-Bucket der Galerie). Sortier-
+  // Reihenfolge über sortIndex (kleinster oben).
+  //
+  // Routes:
+  //   GET    /galleries/:id/sections                — alle Sections + File-Counts
+  //   POST   /galleries/:id/sections                — neue Section anlegen
+  //   PATCH  /galleries/:id/sections/:sectionId     — Section bearbeiten
+  //   DELETE /galleries/:id/sections/:sectionId     — Section löschen
+  //                                                   (Files fallen zurück in Default)
+  //   POST   /galleries/:id/sections/reorder        — sortIndex-Bulk-Update
+  //   POST   /galleries/:id/sections/:sectionId/files — Files zuweisen (bulk)
+  //   DELETE /galleries/:id/sections/files          — sectionId von Files entfernen
+
+  const sectionCreateSchema = z.object({
+    title: z.string().min(1).max(120),
+    description: z.string().max(400).nullable().optional(),
+    coverFileId: z.string().uuid().nullable().optional(),
+  });
+
+  const sectionUpdateSchema = z.object({
+    title: z.string().min(1).max(120).optional(),
+    description: z.string().max(400).nullable().optional(),
+    coverFileId: z.string().uuid().nullable().optional(),
+    sortIndex: z.number().int().min(0).max(10_000).optional(),
+  });
+
+  const sectionReorderSchema = z.object({
+    // Liste von Section-IDs in gewünschter Reihenfolge. Wir setzen
+    // sortIndex = position * 10 (Lücken für künftige Insert-Operationen
+    // ohne Full-Reorder).
+    order: z.array(z.string().uuid()).min(1).max(100),
+  });
+
+  const sectionAssignSchema = z.object({
+    fileIds: z.array(z.string().uuid()).min(1).max(500),
+  });
+
+  /** Helfer: prüft Ownership der Galerie und gibt die Galerie-ID
+   *  zurück. Wenn der User nicht der Owner ist oder die Galerie nicht
+   *  im aktuellen Tenant liegt, returnt null (Caller schickt 404). */
+  async function findOwnedGallery(req: FastifyRequest, galleryId: string) {
+    const s = req.requireAuth();
+    return prisma.gallery.findFirst({
+      where: { id: galleryId, tenantId: req.tenantId, ownerId: s.user.id },
+      select: { id: true },
+    });
+  }
+
+  // GET /galleries/:id/sections
+  app.get<{ Params: { id: string } }>(
+    "/galleries/:id/sections",
+    async (req, reply) => {
+      const gallery = await findOwnedGallery(req, req.params.id);
+      if (!gallery) return reply.status(404).send({ error: "not_found" });
+
+      const sections = await prisma.gallerySection.findMany({
+        where: { galleryId: gallery.id },
+        orderBy: { sortIndex: "asc" },
+        select: {
+          id: true,
+          title: true,
+          description: true,
+          coverFileId: true,
+          sortIndex: true,
+          _count: { select: { files: true } },
+        },
+      });
+      return {
+        sections: sections.map((s) => ({
+          id: s.id,
+          title: s.title,
+          description: s.description,
+          coverFileId: s.coverFileId,
+          sortIndex: s.sortIndex,
+          fileCount: s._count.files,
+        })),
+      };
+    }
+  );
+
+  // POST /galleries/:id/sections
+  app.post<{ Params: { id: string } }>(
+    "/galleries/:id/sections",
+    async (req, reply) => {
+      const gallery = await findOwnedGallery(req, req.params.id);
+      if (!gallery) return reply.status(404).send({ error: "not_found" });
+      const body = sectionCreateSchema.parse(req.body);
+
+      // coverFileId muss zur selben Galerie gehören (anwendungsseitiger
+      // Check, weil das Schema keinen Composite-Constraint hat).
+      if (body.coverFileId) {
+        const f = await prisma.file.findFirst({
+          where: { id: body.coverFileId, galleryId: gallery.id },
+          select: { id: true },
+        });
+        if (!f) return reply.status(400).send({ error: "invalid_cover_file" });
+      }
+
+      // sortIndex auf max+10 setzen, damit neue Section ans Ende kommt
+      const last = await prisma.gallerySection.findFirst({
+        where: { galleryId: gallery.id },
+        orderBy: { sortIndex: "desc" },
+        select: { sortIndex: true },
+      });
+      const sortIndex = (last?.sortIndex ?? -10) + 10;
+
+      const section = await prisma.gallerySection.create({
+        data: {
+          galleryId: gallery.id,
+          title: body.title,
+          description: body.description ?? null,
+          coverFileId: body.coverFileId ?? null,
+          sortIndex,
+        },
+      });
+      return { section };
+    }
+  );
+
+  // PATCH /galleries/:id/sections/:sectionId
+  app.patch<{ Params: { id: string; sectionId: string } }>(
+    "/galleries/:id/sections/:sectionId",
+    async (req, reply) => {
+      const gallery = await findOwnedGallery(req, req.params.id);
+      if (!gallery) return reply.status(404).send({ error: "not_found" });
+      const body = sectionUpdateSchema.parse(req.body);
+
+      const section = await prisma.gallerySection.findFirst({
+        where: { id: req.params.sectionId, galleryId: gallery.id },
+        select: { id: true },
+      });
+      if (!section) return reply.status(404).send({ error: "not_found" });
+
+      if (body.coverFileId) {
+        const f = await prisma.file.findFirst({
+          where: { id: body.coverFileId, galleryId: gallery.id },
+          select: { id: true },
+        });
+        if (!f) return reply.status(400).send({ error: "invalid_cover_file" });
+      }
+
+      const updated = await prisma.gallerySection.update({
+        where: { id: section.id },
+        data: {
+          ...(body.title !== undefined ? { title: body.title } : {}),
+          ...(body.description !== undefined
+            ? { description: body.description }
+            : {}),
+          ...(body.coverFileId !== undefined
+            ? { coverFileId: body.coverFileId }
+            : {}),
+          ...(body.sortIndex !== undefined ? { sortIndex: body.sortIndex } : {}),
+        },
+      });
+      return { section: updated };
+    }
+  );
+
+  // DELETE /galleries/:id/sections/:sectionId
+  app.delete<{ Params: { id: string; sectionId: string } }>(
+    "/galleries/:id/sections/:sectionId",
+    async (req, reply) => {
+      const gallery = await findOwnedGallery(req, req.params.id);
+      if (!gallery) return reply.status(404).send({ error: "not_found" });
+
+      const section = await prisma.gallerySection.findFirst({
+        where: { id: req.params.sectionId, galleryId: gallery.id },
+        select: { id: true },
+      });
+      if (!section) return reply.status(404).send({ error: "not_found" });
+
+      // ON DELETE SET NULL auf files.sectionId — Files fallen
+      // automatisch in den Default-Bucket zurück.
+      await prisma.gallerySection.delete({ where: { id: section.id } });
+      return { ok: true };
+    }
+  );
+
+  // POST /galleries/:id/sections/reorder
+  app.post<{ Params: { id: string } }>(
+    "/galleries/:id/sections/reorder",
+    async (req, reply) => {
+      const gallery = await findOwnedGallery(req, req.params.id);
+      if (!gallery) return reply.status(404).send({ error: "not_found" });
+      const body = sectionReorderSchema.parse(req.body);
+
+      // Alle Sections der Galerie holen und gegen die übergebene Liste
+      // matchen. Sections die nicht in der Reorder-Liste stehen, werden
+      // ignoriert (kann passieren wenn der Studio-Client veraltete
+      // Daten hat).
+      const existing = await prisma.gallerySection.findMany({
+        where: { galleryId: gallery.id },
+        select: { id: true },
+      });
+      const known = new Set(existing.map((s) => s.id));
+
+      // sortIndex = position * 10 — gibt Lücken für künftige Insertions
+      // ohne dass wir alles neu nummerieren müssen.
+      const updates = body.order
+        .filter((id) => known.has(id))
+        .map((id, idx) =>
+          prisma.gallerySection.update({
+            where: { id },
+            data: { sortIndex: idx * 10 },
+          })
+        );
+      await prisma.$transaction(updates);
+      return { ok: true };
+    }
+  );
+
+  // POST /galleries/:id/sections/:sectionId/files — Files in Section assignen
+  app.post<{ Params: { id: string; sectionId: string } }>(
+    "/galleries/:id/sections/:sectionId/files",
+    async (req, reply) => {
+      const gallery = await findOwnedGallery(req, req.params.id);
+      if (!gallery) return reply.status(404).send({ error: "not_found" });
+      const body = sectionAssignSchema.parse(req.body);
+
+      const section = await prisma.gallerySection.findFirst({
+        where: { id: req.params.sectionId, galleryId: gallery.id },
+        select: { id: true },
+      });
+      if (!section) return reply.status(404).send({ error: "not_found" });
+
+      // updateMany mit Filter auf galleryId — verhindert dass Files
+      // anderer Galerien per ID-Manipulation eingehängt werden.
+      const res = await prisma.file.updateMany({
+        where: {
+          id: { in: body.fileIds },
+          galleryId: gallery.id,
+        },
+        data: { sectionId: section.id },
+      });
+      return { assigned: res.count };
+    }
+  );
+
+  // DELETE /galleries/:id/sections/files — sectionId der gegebenen Files entfernen
+  app.delete<{ Params: { id: string } }>(
+    "/galleries/:id/sections/files",
+    async (req, reply) => {
+      const gallery = await findOwnedGallery(req, req.params.id);
+      if (!gallery) return reply.status(404).send({ error: "not_found" });
+      const body = sectionAssignSchema.parse(req.body);
+
+      const res = await prisma.file.updateMany({
+        where: {
+          id: { in: body.fileIds },
+          galleryId: gallery.id,
+        },
+        data: { sectionId: null },
+      });
+      return { removed: res.count };
     }
   );
 
@@ -926,6 +1190,60 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
       ? `/api/v1/g/${gallery.slug}/assets/audio${cacheBust(gallery.slideshowAudioUrl)}`
       : null;
 
+    // Sections (Kapitel) der Galerie. Wenn keine Sections angelegt
+    // sind, returnen wir ein leeres Array — das Frontend rendert
+    // dann den klassischen Hauptraster-Modus. Cover-File-Thumb wird
+    // mit signiertem URL durchgereicht, damit das Customer-View
+    // Section-Header mit Bildern rendern kann.
+    const sectionRows = await prisma.gallerySection.findMany({
+      where: { galleryId: gallery.id },
+      orderBy: { sortIndex: "asc" },
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        coverFileId: true,
+        sortIndex: true,
+      },
+    });
+    // Cover-Thumb-URLs für alle Cover-File-IDs vorab in einer
+    // Query holen, dann pro Section zuordnen — vermeidet N+1.
+    const coverFileIds = sectionRows
+      .map((s) => s.coverFileId)
+      .filter((id): id is string => !!id);
+    let coverThumbByFileId = new Map<string, string>();
+    if (coverFileIds.length > 0) {
+      const covers = await prisma.file.findMany({
+        where: { id: { in: coverFileIds }, galleryId: gallery.id },
+        select: {
+          id: true,
+          renditions: {
+            where: { kind: "thumb" },
+            select: { storageKey: true },
+            take: 1,
+          },
+        },
+      });
+      for (const c of covers) {
+        const thumb = c.renditions[0];
+        if (thumb) {
+          coverThumbByFileId.set(
+            c.id,
+            await presignGet({ key: thumb.storageKey })
+          );
+        }
+      }
+    }
+    const sections = sectionRows.map((s) => ({
+      id: s.id,
+      title: s.title,
+      description: s.description,
+      coverThumbUrl: s.coverFileId
+        ? coverThumbByFileId.get(s.coverFileId) ?? null
+        : null,
+      sortIndex: s.sortIndex,
+    }));
+
     return {
       gallery: {
         id: gallery.id,
@@ -969,6 +1287,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         gridLayout: gallery.gridLayout,
         slideshowTransition: gallery.slideshowTransition,
         slideshowAudioUrl: slideshowAudioPublicUrl,
+        sections,
       },
     };
   });
@@ -1121,6 +1440,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           width: true,
           height: true,
           sortIndex: true,
+          sectionId: true,
           renditions: {
             select: {
               kind: true,
@@ -1192,6 +1512,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
             kind: f.kind,
             width: f.width,
             height: f.height,
+            sectionId: f.sectionId,
             thumbUrl: thumb
               ? await presignGet({ key: thumb.storageKey })
               : null,
