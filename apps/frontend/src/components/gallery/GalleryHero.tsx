@@ -3,28 +3,33 @@
 /**
  * GalleryHero — der personalisierbare Header der Customer-Galerie.
  *
- * Zwei Schichten:
- *   1. Backdrop — Hero-Bild ODER Solid-Hintergrundfarbe.
- *      Bei Hero-Bild kann zusätzlich ein Overlay-Farbe (RGBA) drüber
- *      gelegt werden für Lesbarkeit.
+ * Vier Render-Varianten, gewählt über `meta.header.layout`:
  *
- *   2. Content — Event-Logo (klein, optional) + Titel + Welcome-Block
- *      (Markdown, optional) + Description (Fallback).
+ *   - minimal       Aktueller Default. Kompakter Text-Block oben links,
+ *                   Hero-Bild oder Background-Farbe als Backdrop.
+ *                   Hero-Höhe 60-70vh wenn Bild da ist.
  *
- * Wenn nichts customisiert ist, sieht das aus wie der bisherige Hero
- * (Plain-Dark mit minimalem Text), damit existierende Galerien sich
- * nicht ändern.
+ *   - splash        Vollbild-Hero (100vh), Inhalt zentriert (horizontal
+ *                   und vertikal), dezenter Scroll-Hint am unteren Rand.
+ *                   Dramatischer Auftritt für Hochzeit/Event.
  *
- * Implementierungshinweis: wir verwenden bewusst plain <img>-Tags
- * statt next/image, weil:
- *   - Hero kann ein relativer API-Pfad sein (/api/v1/g/.../assets/hero
- *     der server-seitig auf S3 redirected) — next/image kann mit
- *     dieser Indirektion umgehen, aber präsentiert dabei manchmal
- *     leere Bilder bevor der Redirect aufgelöst ist.
- *   - Wir wollen Browser-Caching, nicht Next-Image-Optimizer-Caching,
- *     weil unsere Asset-URLs schon präsignierte S3-Links sind und
- *     Next's Optimizer keine Optimierung mehr drüberlegen kann.
- *   - eslint-Warnung dafür unterdrückt — bewusste Entscheidung.
+ *   - side_by_side  Editorial-Layout: links der Text-Block (Logo, Titel,
+ *                   Welcome), rechts das Hero-Bild als eigenständiges
+ *                   Element. Kein Backdrop-Bild. Mobile: stack vertikal.
+ *
+ *   - centered      Magazin-Style: Logo + Titel + Welcome ZENTRIERT in
+ *                   einem ruhigen oberen Bereich, darunter das Hero-Bild
+ *                   als Banner mit fester Höhe. Wirkt feierlich.
+ *
+ * Die Felder sind in allen Varianten dieselben — nur die Anordnung
+ * ändert sich. Was eine Variante nicht braucht, ignoriert sie still
+ * (z.B. nutzt `side_by_side` die Overlay-Farbe nicht, weil kein
+ * Backdrop existiert).
+ *
+ * Implementierungshinweis: plain <img>-Tags statt next/image, weil die
+ * Asset-URL ein API-Redirect auf eine Presigned-S3-URL sein kann —
+ * next/image's Optimizer steht damit auf Kriegsfuß. Bewusste
+ * Entscheidung, eslint-Warnung wird inline unterdrückt.
  */
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -37,13 +42,28 @@ interface Props {
 }
 
 export function GalleryHero({ meta, children }: Props) {
+  switch (meta.header.layout) {
+    case "splash":
+      return <SplashHero meta={meta}>{children}</SplashHero>;
+    case "side_by_side":
+      return <SideBySideHero meta={meta}>{children}</SideBySideHero>;
+    case "centered":
+      return <CenteredHero meta={meta}>{children}</CenteredHero>;
+    case "minimal":
+    default:
+      return <MinimalHero meta={meta}>{children}</MinimalHero>;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Variant: Minimal
+// ---------------------------------------------------------------------------
+// Original-Default. Text linksbündig, Hero-Bild als Backdrop wenn da.
+function MinimalHero({ meta, children }: Props) {
   const h = meta.header;
   const hasHeroImage = !!h.heroImageUrl;
   const hasOverlay = hasHeroImage && !!h.overlayColor;
   const hasBgColor = !hasHeroImage && !!h.backgroundColor;
-
-  // Wenn ein Hero-Bild da ist, machen wir den Hero deutlich höher (für
-  // den Bilder-Eindruck). Sonst bleibt's beim ursprünglichen Format.
   const minHeight = hasHeroImage ? "min-h-[60vh] sm:min-h-[70vh]" : "";
 
   return (
@@ -51,7 +71,6 @@ export function GalleryHero({ meta, children }: Props) {
       className={`relative isolate overflow-hidden ${minHeight}`}
       style={hasBgColor ? { backgroundColor: h.backgroundColor! } : undefined}
     >
-      {/* Backdrop: Hero-Bild */}
       {hasHeroImage && (
         <>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -70,44 +89,237 @@ export function GalleryHero({ meta, children }: Props) {
       )}
 
       <div className="relative px-4 sm:px-6 md:px-12 pt-14 pb-10 sm:pt-20 sm:pb-14 max-w-7xl mx-auto animate-fade-in flex flex-col justify-end h-full">
-        {/* Event-Logo: zarte Präsenz oberhalb des Titels, max 200px breit */}
-        {h.eventLogoUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={h.eventLogoUrl}
-            alt=""
-            className="h-16 sm:h-20 w-auto mb-6 object-contain self-start"
-          />
-        )}
-
+        <EventLogo url={h.eventLogoUrl} size="md" align="start" />
         <h1 className="text-display-lg sm:text-display-xl font-medium tracking-tight">
           {meta.title}
         </h1>
-
-        {h.welcomeMarkdown ? (
-          <div className="prose prose-invert prose-sm sm:prose-base mt-4 max-w-2xl opacity-90">
-            <ReactMarkdown
-              remarkPlugins={[remarkGfm]}
-              // Sicherheits-Setup: react-markdown ist by-default sicher
-              // (kein HTML, keine raw scripts). remark-gfm bringt
-              // Tables/Strikethrough/Task-Lists ohne raw-html zu
-              // erlauben. Wir whitelisten KEINE custom-components,
-              // damit nichts unerwartetes durchkommt.
-              skipHtml
-            >
-              {h.welcomeMarkdown}
-            </ReactMarkdown>
-          </div>
-        ) : (
-          meta.description && (
-            <p className="text-ui-lg sm:text-ui-md opacity-70 mt-4 max-w-2xl leading-relaxed">
-              {meta.description}
-            </p>
-          )
-        )}
-
+        <WelcomeBlock meta={meta} maxWidth="2xl" align="start" />
         {children}
       </div>
     </section>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Variant: Splash
+// ---------------------------------------------------------------------------
+// Vollbild-Hero. Inhalt zentriert in der Mitte. Dezenter Scroll-Hint unten.
+function SplashHero({ meta, children }: Props) {
+  const h = meta.header;
+  const hasHeroImage = !!h.heroImageUrl;
+  const hasOverlay = hasHeroImage && !!h.overlayColor;
+  const hasBgColor = !hasHeroImage && !!h.backgroundColor;
+
+  return (
+    <section
+      className="relative isolate overflow-hidden min-h-screen flex items-center justify-center"
+      style={hasBgColor ? { backgroundColor: h.backgroundColor! } : undefined}
+    >
+      {hasHeroImage && (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={h.heroImageUrl!}
+            alt=""
+            className="absolute inset-0 -z-10 w-full h-full object-cover"
+          />
+          {hasOverlay && (
+            <div
+              className="absolute inset-0 -z-10"
+              style={{ backgroundColor: h.overlayColor! }}
+            />
+          )}
+        </>
+      )}
+
+      <div className="relative px-4 sm:px-6 md:px-12 max-w-3xl mx-auto text-center animate-fade-in flex flex-col items-center">
+        <EventLogo url={h.eventLogoUrl} size="lg" align="center" />
+        <h1 className="text-display-lg sm:text-display-xl font-medium tracking-tight">
+          {meta.title}
+        </h1>
+        <WelcomeBlock meta={meta} maxWidth="2xl" align="center" />
+        {children}
+      </div>
+
+      {/* Scroll-Hint: nur sinnvoll wenn der Hero wirklich vollbildig ist,
+          d.h. wenn der Splash ein Bild oder eine Background-Farbe hat,
+          sonst wäre der gesamte Hintergrund die normale Surface und der
+          Hint wäre verwirrend. */}
+      {(hasHeroImage || hasBgColor) && (
+        <div className="absolute bottom-6 left-0 right-0 flex justify-center pointer-events-none">
+          <div className="text-ui-xs uppercase tracking-[0.2em] opacity-60 flex flex-col items-center gap-1.5">
+            <span>scroll</span>
+            <svg
+              viewBox="0 0 24 24"
+              className="w-4 h-4 animate-bounce"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Variant: Side-by-Side
+// ---------------------------------------------------------------------------
+// Editorial. Text links (Logo, Titel, Welcome, Stats), rechts das Hero-Bild
+// als eigenständiges Element. Mobile: stack vertikal, Bild oben.
+function SideBySideHero({ meta, children }: Props) {
+  const h = meta.header;
+  const hasHeroImage = !!h.heroImageUrl;
+
+  return (
+    <section className="relative px-4 sm:px-6 md:px-12 pt-12 pb-10 sm:pt-16 sm:pb-14 max-w-7xl mx-auto animate-fade-in">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12 items-center">
+        {/* Bild rechts (auf Mobile oben). Wenn kein Bild da, lassen wir
+            die Spalte einfach leer — der Text füllt sich nicht voll bis
+            rechts, aber das ist OK weil dann eh nichts magazinmäßig
+            wirken kann. */}
+        {hasHeroImage && (
+          <div className="order-first md:order-last aspect-[4/5] sm:aspect-[3/4] rounded-md overflow-hidden bg-surface-sunken">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={h.heroImageUrl!}
+              alt=""
+              className="w-full h-full object-cover"
+            />
+          </div>
+        )}
+
+        <div className="flex flex-col justify-center">
+          <EventLogo url={h.eventLogoUrl} size="md" align="start" />
+          <h1 className="text-display-lg sm:text-display-xl font-medium tracking-tight">
+            {meta.title}
+          </h1>
+          <WelcomeBlock meta={meta} maxWidth="md" align="start" />
+          {children}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Variant: Centered (Magazin)
+// ---------------------------------------------------------------------------
+// Logo + Titel + Welcome zentriert in ruhigem Topbereich, dann Hero-Bild
+// als breiter Banner unten dran.
+function CenteredHero({ meta, children }: Props) {
+  const h = meta.header;
+  const hasHeroImage = !!h.heroImageUrl;
+  const hasBgColor = !hasHeroImage && !!h.backgroundColor;
+
+  return (
+    <section
+      style={hasBgColor ? { backgroundColor: h.backgroundColor! } : undefined}
+    >
+      {/* Top-Block: ruhig, zentriert */}
+      <div className="px-4 sm:px-6 md:px-12 pt-16 pb-12 sm:pt-24 sm:pb-16 max-w-3xl mx-auto text-center animate-fade-in flex flex-col items-center">
+        <EventLogo url={h.eventLogoUrl} size="md" align="center" />
+        <h1 className="text-display-lg sm:text-display-xl font-medium tracking-tight">
+          {meta.title}
+        </h1>
+        <WelcomeBlock meta={meta} maxWidth="2xl" align="center" />
+        {children}
+      </div>
+
+      {/* Hero-Banner unter dem Top-Block. Nur wenn ein Bild gewählt
+          ist — sonst spart sich diese Variante das Banner und sieht
+          aus wie eine zentrierte Minimal-Version. */}
+      {hasHeroImage && (
+        <div className="relative h-[40vh] sm:h-[55vh] overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={h.heroImageUrl!}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+          {h.overlayColor && (
+            <div
+              className="absolute inset-0"
+              style={{ backgroundColor: h.overlayColor }}
+            />
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Bausteine
+// ---------------------------------------------------------------------------
+
+function EventLogo({
+  url,
+  size,
+  align,
+}: {
+  url: string | null;
+  size: "md" | "lg";
+  align: "start" | "center";
+}) {
+  if (!url) return null;
+  const heightClass =
+    size === "lg" ? "h-20 sm:h-28" : "h-16 sm:h-20";
+  const alignClass = align === "center" ? "self-center" : "self-start";
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={url}
+      alt=""
+      className={`${heightClass} w-auto mb-6 object-contain ${alignClass}`}
+    />
+  );
+}
+
+function WelcomeBlock({
+  meta,
+  maxWidth,
+  align,
+}: {
+  meta: PublicGalleryMeta;
+  maxWidth: "md" | "2xl";
+  align: "start" | "center";
+}) {
+  const h = meta.header;
+  const widthClass = maxWidth === "md" ? "max-w-md" : "max-w-2xl";
+  const alignClass = align === "center" ? "mx-auto" : "";
+
+  if (h.welcomeMarkdown) {
+    return (
+      <div
+        className={`prose prose-invert prose-sm sm:prose-base mt-4 ${widthClass} ${alignClass} opacity-90`}
+      >
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          // Sicherheits-Setup: react-markdown ist by-default sicher
+          // (kein HTML, keine raw scripts). remark-gfm bringt
+          // Tables/Strikethrough/Task-Lists ohne raw-html zu
+          // erlauben. Wir whitelisten KEINE custom-components.
+          skipHtml
+        >
+          {h.welcomeMarkdown}
+        </ReactMarkdown>
+      </div>
+    );
+  }
+  if (meta.description) {
+    return (
+      <p
+        className={`text-ui-lg sm:text-ui-md opacity-70 mt-4 ${widthClass} ${alignClass} leading-relaxed`}
+      >
+        {meta.description}
+      </p>
+    );
+  }
+  return null;
 }

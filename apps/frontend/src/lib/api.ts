@@ -61,6 +61,7 @@ export interface Gallery {
   heroBackgroundColor: string | null;
   eventLogoUrl: string | null;
   welcomeMarkdown: string | null;
+  heroLayout: "minimal" | "splash" | "side_by_side" | "centered";
   // Footer + Galerie-Farben
   footerMarkdown: string | null;
   colorBackground: string | null;
@@ -197,6 +198,8 @@ export interface PublicGalleryMeta {
   unlocked: boolean;
   branding: Branding | null;
   header: {
+    /** Hero-Layout-Variante: bestimmt wie der Header gerendert wird. */
+    layout: "minimal" | "splash" | "side_by_side" | "centered";
     /** Absoluter Presigned-S3-URL (Hero aus Galerie) ODER relativer
      *  Pfad /g/<slug>/assets/hero (Upload). Frontend kann das direkt
      *  als <img src> nutzen — relative Pfade landen auf der API. */

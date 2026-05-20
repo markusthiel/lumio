@@ -292,6 +292,15 @@ model Gallery {
   // den Customer-View.
   welcomeMarkdown  String?
   
+  // Hero-Layout-Variante. Bestimmt, wie der Customer-Header gerendert wird:
+  //   "minimal"      — aktuelle Default-Ansicht, Text auf Backdrop (mit oder
+  //                    ohne Hero-Bild)
+  //   "splash"       — Vollbild-Hero, Titel zentriert, dezenter Scroll-Hint
+  //   "side_by_side" — Editorial-Layout, Text links + Bild rechts
+  //   "centered"     — Magazin-Style, Logo+Titel zentriert, Hero darunter klein
+  // Default "minimal" → existierende Galerien sehen identisch aus.
+  heroLayout       String   @default("minimal")
+  
   // Galerie-spezifisches Footer-Markdown. Wird am Ende der Customer-
   // Seite unterhalb des File-Grids gerendert. Typischerweise:
   // Dankeschön-Text, Kontaktdaten, Social-Media-Links. Wenn null wird

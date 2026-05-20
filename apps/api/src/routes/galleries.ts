@@ -69,6 +69,9 @@ const updateGallerySchema = createGallerySchema.partial().extend({
     .optional(),
   eventLogoUrl: z.string().max(500).nullable().optional(),
   welcomeMarkdown: z.string().max(20_000).nullable().optional(),
+  heroLayout: z
+    .enum(["minimal", "splash", "side_by_side", "centered"])
+    .optional(),
   footerMarkdown: z.string().max(20_000).nullable().optional(),
   colorBackground: z
     .string()
@@ -469,6 +472,9 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           ...(body.welcomeMarkdown !== undefined
             ? { welcomeMarkdown: body.welcomeMarkdown }
             : {}),
+          ...(body.heroLayout !== undefined
+            ? { heroLayout: body.heroLayout }
+            : {}),
           ...(body.footerMarkdown !== undefined
             ? { footerMarkdown: body.footerMarkdown }
             : {}),
@@ -802,6 +808,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         heroBackgroundColor: true,
         eventLogoUrl: true,
         welcomeMarkdown: true,
+        heroLayout: true,
         footerMarkdown: true,
         colorBackground: true,
         colorAccent: true,
@@ -896,6 +903,8 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         branding,
         // Header-Customization durchreichen
         header: {
+          // Render-Variante: minimal | splash | side_by_side | centered
+          layout: gallery.heroLayout,
           // heroImageUrl: relativer URL zum Bild (entweder File-Rendition
           // oder Upload-Asset) — Frontend baut mit api-base zusammen.
           heroImageUrl: heroFileUrl ?? heroUploadUrl,

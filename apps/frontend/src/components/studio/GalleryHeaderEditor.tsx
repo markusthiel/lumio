@@ -98,6 +98,17 @@ export function GalleryHeaderEditor({ gallery, files, onChanged }: Props) {
 
       {expanded && (
         <div className="px-5 pb-5 space-y-6">
+          {/* Hero-Layout-Variante */}
+          <Field
+            label={t("studio.heroLayout")}
+            hint={t("studio.heroLayoutHint")}
+          >
+            <HeroLayoutPicker
+              value={gallery.heroLayout}
+              onChange={(v) => patch({ heroLayout: v })}
+            />
+          </Field>
+
           {/* Event-Logo */}
           <Field
             label={t("studio.eventLogo")}
@@ -554,6 +565,99 @@ function RgbaPicker({
           {t("studio.clear")}
         </button>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+/** Radio-Card-Picker für Hero-Layout-Varianten. Jede Karte ist ein
+ *  Mini-Diagramm aus Divs, damit der Studio-User vor dem Klick sieht
+ *  wie sich der Customer-Header anordnet. */
+function HeroLayoutPicker({
+  value,
+  onChange,
+}: {
+  value: "minimal" | "splash" | "side_by_side" | "centered";
+  onChange: (v: "minimal" | "splash" | "side_by_side" | "centered") => Promise<unknown> | unknown;
+}) {
+  const t = useT();
+  const options: {
+    id: "minimal" | "splash" | "side_by_side" | "centered";
+    label: string;
+    sketch: React.ReactNode;
+  }[] = [
+    {
+      id: "minimal",
+      label: t("studio.heroLayoutMinimal"),
+      sketch: (
+        <div className="w-full h-full p-1.5 flex flex-col justify-end gap-1">
+          <div className="h-1 w-3/4 rounded-sm bg-ink-primary/60" />
+          <div className="h-0.5 w-1/2 rounded-sm bg-ink-primary/30" />
+        </div>
+      ),
+    },
+    {
+      id: "splash",
+      label: t("studio.heroLayoutSplash"),
+      sketch: (
+        <div className="w-full h-full p-1.5 flex flex-col items-center justify-center gap-1">
+          <div className="h-1.5 w-2/3 rounded-sm bg-ink-primary/60" />
+          <div className="h-0.5 w-1/2 rounded-sm bg-ink-primary/30" />
+        </div>
+      ),
+    },
+    {
+      id: "side_by_side",
+      label: t("studio.heroLayoutSideBySide"),
+      sketch: (
+        <div className="w-full h-full p-1.5 grid grid-cols-2 gap-1.5 items-center">
+          <div className="flex flex-col gap-1">
+            <div className="h-1 w-3/4 rounded-sm bg-ink-primary/60" />
+            <div className="h-0.5 w-1/2 rounded-sm bg-ink-primary/30" />
+          </div>
+          <div className="h-full rounded-sm bg-ink-primary/25" />
+        </div>
+      ),
+    },
+    {
+      id: "centered",
+      label: t("studio.heroLayoutCentered"),
+      sketch: (
+        <div className="w-full h-full p-1.5 flex flex-col gap-1">
+          <div className="flex flex-col items-center gap-0.5 pt-0.5">
+            <div className="h-1 w-2/3 rounded-sm bg-ink-primary/60" />
+            <div className="h-0.5 w-1/2 rounded-sm bg-ink-primary/30" />
+          </div>
+          <div className="flex-1 mt-1 rounded-sm bg-ink-primary/25" />
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      {options.map((opt) => {
+        const active = value === opt.id;
+        return (
+          <button
+            key={opt.id}
+            type="button"
+            onClick={() => onChange(opt.id)}
+            className={`rounded border p-2 text-left transition-colors duration-motion ${
+              active
+                ? "border-accent bg-accent/10"
+                : "border-line-subtle bg-surface-sunken hover:border-line-strong"
+            }`}
+          >
+            <div className="aspect-[4/3] w-full rounded-sm bg-surface-overlay/40 overflow-hidden">
+              {opt.sketch}
+            </div>
+            <div className="mt-2 text-ui-xs font-medium text-ink-primary">
+              {opt.label}
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 }

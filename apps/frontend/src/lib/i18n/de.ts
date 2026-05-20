@@ -152,6 +152,13 @@ export const de: Dict = {
     headerEditor: "Header-Gestaltung",
     headerEditorHint:
       "Hero-Bild, Event-Logo und Begrüßungstext für den Customer-View dieser Galerie.",
+    heroLayout: "Layout",
+    heroLayoutHint:
+      "Wie der Header aussieht. Die einzelnen Felder (Bild, Logo, Begrüßung) bleiben gleich — nur die Anordnung ändert sich.",
+    heroLayoutMinimal: "Minimal",
+    heroLayoutSplash: "Splash",
+    heroLayoutSideBySide: "Side-by-Side",
+    heroLayoutCentered: "Zentriert",
     eventLogo: "Event-Logo",
     eventLogoHint:
       "Klein über dem Galerie-Titel sichtbar. Z.B. Hochzeitsmonogramm oder Event-Branding. PNG mit transparentem Hintergrund empfohlen.",
