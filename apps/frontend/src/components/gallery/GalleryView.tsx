@@ -503,9 +503,18 @@ function FilesGrid({
       </div>
     );
   }
-  // masonry (default)
+  // masonry: NICHT mehr CSS-columns (das stapelte Bilder spaltenweise
+  // von oben nach unten, was die visuelle Lese-Reihenfolge mit der
+  // Lightbox-DOM-Reihenfolge zerriss — "Weiter"-Pfeil sprang zum
+  // Bild UNTER dem aktuellen statt rechts daneben).
+  //
+  // Stattdessen: zeilenweise Flex-Layout mit drei Spalten (responsive)
+  // und natürlicher Aspect-Ratio pro Tile. Sieht nah am alten Masonry
+  // aus, weil hohe Bilder hoch und breite Bilder breit bleiben — aber
+  // die DOM-Order ist links→rechts→nächste-Zeile, exakt wie die
+  // Augen lesen.
   return (
-    <div className="columns-2 sm:columns-3 lg:columns-4 gap-3 [column-fill:_balance]">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
       {files.map((f, i) => (
         <GalleryTile
           key={f.id}
@@ -642,10 +651,8 @@ function GalleryTile({
 }) {
   const { ref, revealed } = useReveal<HTMLDivElement>();
   // Aspect-Ratio aus den File-Dimensionen, mit sicherem Fallback.
-  // Wir geben dem Tile-Container die echte Höhe (im masonry/equal-Modus),
-  // damit der Reveal nicht erst nach Bild-Load springt.
-  const aspectStr =
-    file.width && file.height ? `${file.width} / ${file.height}` : "1 / 1";
+  // Nur fürs justified-Layout relevant — masonry und equal sind
+  // quadratisch und nutzen aspect-square.
   const aspectRatio =
     file.width && file.height ? file.width / file.height : 1;
 
@@ -685,8 +692,15 @@ function GalleryTile({
     // Equal: quadratisch, object-cover macht den Rest.
     wrapperClass = "relative overflow-hidden rounded aspect-square";
   } else {
-    // Masonry (Default)
-    wrapperClass = "mb-3 break-inside-avoid";
+    // Masonry: gilt jetzt als "intelligenter Default" und rendert
+    // identisch zu equal — gleichgroße quadratische Kacheln in
+    // zeilenweise Anordnung. Das war eine bewusste Vereinfachung:
+    // echtes CSS-Columns-Masonry zerriss die visuelle Lese-Reihenfolge
+    // gegen die Lightbox-Navigation, weil Bilder spaltenweise oben→
+    // unten gestapelt wurden statt zeilenweise links→rechts. Die
+    // Lightbox lief in DOM-Order, was nicht mehr der angezeigten
+    // Reihenfolge entsprach.
+    wrapperClass = "relative overflow-hidden rounded aspect-square";
   }
 
   return (
@@ -694,7 +708,6 @@ function GalleryTile({
       <button
         onClick={onOpen}
         className="block w-full h-full overflow-hidden rounded bg-white/5 relative group focus:outline-none"
-        style={mode === "masonry" ? { aspectRatio: aspectStr } : undefined}
       >
         {file.thumbUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */
