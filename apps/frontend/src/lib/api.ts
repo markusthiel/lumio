@@ -533,27 +533,46 @@ export const api = {
    * Anschließend muss der Caller updateGallery mit eventLogoUrl bzw.
    * heroUrl = storageKey aufrufen, um das Asset persistent an die
    * Galerie zu binden.
+   *
+   * Vor dem Upload wird das Bild client-side resized:
+   *   - Hero: max 2560×2560, JPEG-Q85 (oder Original wenn klein)
+   *   - Logo: max 800×800, PNG-Erhalt für Transparenz
+   * Spart Bandbreite und passt das Bild auf Display-Größen an.
+   * Wenn das Resize-Decoding fehlschlägt, wird der Original-File
+   * unverändert hochgeladen — Backend lehnt dann ggf. Files >10MB ab.
    */
   uploadGalleryAsset: async (
     galleryId: string,
     kind: "logo" | "hero",
     file: File
   ): Promise<{ storageKey: string }> => {
+    // Dynamic-Import, damit der ImageResize-Code nicht in Studio-
+    // Bundles auftaucht die kein Asset hochladen.
+    const { resizeImage } = await import("./imageResize");
+    let optimized: File;
+    try {
+      optimized = await resizeImage(file, kind);
+    } catch {
+      // Decoding-Failure → Original verwenden. Backend-seitige
+      // Größen-/Type-Limits fangen Edge-Cases ab.
+      optimized = file;
+    }
+
     const presign = await request<{ uploadUrl: string; storageKey: string }>(
       `/galleries/${galleryId}/assets/presign`,
       {
         method: "POST",
         body: JSON.stringify({
           kind,
-          contentType: file.type,
-          contentLength: file.size,
+          contentType: optimized.type,
+          contentLength: optimized.size,
         }),
       }
     );
     const putRes = await fetch(presign.uploadUrl, {
       method: "PUT",
-      body: file,
-      headers: { "Content-Type": file.type },
+      body: optimized,
+      headers: { "Content-Type": optimized.type },
     });
     if (!putRes.ok) {
       throw new Error(`Upload failed (${putRes.status})`);
@@ -561,9 +580,28 @@ export const api = {
     return { storageKey: presign.storageKey };
   },
 
-  /** Public-URL für ein Galerie-Asset (für Customer-View und OG-Tags) */
-  galleryAssetUrl: (slug: string, kind: "logo" | "hero") =>
-    `${API_URL}/api/v1/g/${slug}/assets/${kind}`,
+  /** Public-URL für ein Galerie-Asset (für Customer-View und OG-Tags).
+   *  Akzeptiert einen optionalen Cache-Buster (typisch der storageKey
+   *  oder ein Teil davon) — wechselt der Key, wechselt die URL, und
+   *  der Browser holt das neue Bild ohne 5-Minuten-Cache-Wartezeit. */
+  galleryAssetUrl: (
+    slug: string,
+    kind: "logo" | "hero",
+    cacheBust?: string | null
+  ) => {
+    const base = `${API_URL}/api/v1/g/${slug}/assets/${kind}`;
+    if (!cacheBust) return base;
+    // Wir hashen client-side mit einem schnellen Hash, damit Studio-
+    // Vorschau und Customer-URL denselben Wert produzieren. Das Studio
+    // bekommt den storageKey vom Backend (gallery.heroUrl); kurze
+    // Hash-Funktion reicht — keine kryptographische Anforderung, nur
+    // "verschiedene Keys → verschiedene Hashes".
+    let h = 0;
+    for (let i = 0; i < cacheBust.length; i++) {
+      h = ((h << 5) - h + cacheBust.charCodeAt(i)) | 0;
+    }
+    return `${base}?v=${(h >>> 0).toString(16)}`;
+  },
 
   deleteGallery: (id: string) =>
     request<void>(`/galleries/${id}`, { method: "DELETE" }),

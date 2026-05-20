@@ -21,24 +21,50 @@
  *                   einem ruhigen oberen Bereich, darunter das Hero-Bild
  *                   als Banner mit fester Höhe. Wirkt feierlich.
  *
- * Die Felder sind in allen Varianten dieselben — nur die Anordnung
- * ändert sich. Was eine Variante nicht braucht, ignoriert sie still
- * (z.B. nutzt `side_by_side` die Overlay-Farbe nicht, weil kein
- * Backdrop existiert).
- *
- * Implementierungshinweis: plain <img>-Tags statt next/image, weil die
- * Asset-URL ein API-Redirect auf eine Presigned-S3-URL sein kann —
- * next/image's Optimizer steht damit auf Kriegsfuß. Bewusste
- * Entscheidung, eslint-Warnung wird inline unterdrückt.
+ * Textfarbe (light/dark) wird via heroTextColor() aus Overlay+Background
+ * berechnet — heller Overlay über Hero → dunkler Text, sonst hell. Bei
+ * Hero-Bild ohne Overlay nutzen wir hellen Text mit Text-Shadow.
  */
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { PublicGalleryMeta } from "@/lib/api";
+import { heroTextColor } from "@/lib/color";
 
 interface Props {
   meta: PublicGalleryMeta;
   /** Inhalt-Suffix unter Titel/Welcome — typisch der Stats-Block. */
   children?: React.ReactNode;
+}
+
+/**
+ * Liefert die Inline-Style-Properties für die Hero-Text-Farbe, plus
+ * den Side-by-Side-Spezialfall, der den Galerie-Surface-Text erbt.
+ */
+function heroTextStyle(meta: PublicGalleryMeta, sideBySide = false): React.CSSProperties {
+  if (sideBySide) {
+    // Side-by-Side hat keinen eigenen Backdrop — der Text steht auf der
+    // normalen Galerie-Surface, dort sorgt der GalleryShell schon für
+    // korrekten Kontrast.
+    return {};
+  }
+  const tone = heroTextColor({
+    hasHeroImage: !!meta.header.heroImageUrl,
+    backgroundColor: meta.header.backgroundColor,
+    overlayColor: meta.header.overlayColor,
+  });
+  if (tone === "dark") {
+    return { color: "#0a0a0a" };
+  }
+  // Hell — bei Hero-Bild ohne starkes Overlay noch einen leichten
+  // Text-Shadow, damit auch helle Bildregionen lesbar bleiben.
+  const needsShadow =
+    !!meta.header.heroImageUrl &&
+    (!meta.header.overlayColor ||
+      parseInt((meta.header.overlayColor ?? "#00000000").slice(7, 9) || "00", 16) / 255 < 0.3);
+  return {
+    color: "#ffffff",
+    textShadow: needsShadow ? "0 1px 12px rgba(0,0,0,0.45)" : undefined,
+  };
 }
 
 export function GalleryHero({ meta, children }: Props) {
@@ -88,7 +114,10 @@ function MinimalHero({ meta, children }: Props) {
         </>
       )}
 
-      <div className="relative px-4 sm:px-6 md:px-12 pt-14 pb-10 sm:pt-20 sm:pb-14 max-w-7xl mx-auto animate-fade-in">
+      <div
+        className="relative px-4 sm:px-6 md:px-12 pt-14 pb-10 sm:pt-20 sm:pb-14 max-w-7xl mx-auto animate-fade-in"
+        style={heroTextStyle(meta)}
+      >
         <EventLogo url={h.eventLogoUrl} size="md" align="start" />
         <h1 className="text-display-lg sm:text-display-xl font-medium tracking-tight">
           {meta.title}
@@ -132,7 +161,10 @@ function SplashHero({ meta, children }: Props) {
         </>
       )}
 
-      <div className="relative px-4 sm:px-6 md:px-12 max-w-3xl mx-auto text-center animate-fade-in flex flex-col items-center">
+      <div
+        className="relative px-4 sm:px-6 md:px-12 max-w-3xl mx-auto text-center animate-fade-in flex flex-col items-center"
+        style={heroTextStyle(meta)}
+      >
         <EventLogo url={h.eventLogoUrl} size="lg" align="center" />
         <h1 className="text-display-lg sm:text-display-xl font-medium tracking-tight">
           {meta.title}
@@ -194,12 +226,12 @@ function SideBySideHero({ meta, children }: Props) {
           </div>
         )}
 
-        <div className="flex flex-col justify-center">
+        <div className="flex flex-col justify-center" style={heroTextStyle(meta, true)}>
           <EventLogo url={h.eventLogoUrl} size="md" align="start" />
           <h1 className="text-display-lg sm:text-display-xl font-medium tracking-tight">
             {meta.title}
           </h1>
-          <WelcomeBlock meta={meta} maxWidth="md" align="start" />
+          <WelcomeBlock meta={meta} maxWidth="md" align="start" sideBySide />
           {children}
         </div>
       </div>
@@ -222,7 +254,10 @@ function CenteredHero({ meta, children }: Props) {
       style={hasBgColor ? { backgroundColor: h.backgroundColor! } : undefined}
     >
       {/* Top-Block: ruhig, zentriert */}
-      <div className="px-4 sm:px-6 md:px-12 pt-16 pb-12 sm:pt-24 sm:pb-16 max-w-3xl mx-auto text-center animate-fade-in flex flex-col items-center">
+      <div
+        className="px-4 sm:px-6 md:px-12 pt-16 pb-12 sm:pt-24 sm:pb-16 max-w-3xl mx-auto text-center animate-fade-in flex flex-col items-center"
+        style={heroTextStyle(meta)}
+      >
         <EventLogo url={h.eventLogoUrl} size="md" align="center" />
         <h1 className="text-display-lg sm:text-display-xl font-medium tracking-tight">
           {meta.title}
@@ -285,28 +320,37 @@ function WelcomeBlock({
   meta,
   maxWidth,
   align,
+  sideBySide = false,
 }: {
   meta: PublicGalleryMeta;
   maxWidth: "md" | "2xl";
   align: "start" | "center";
+  /** Side-by-Side hat keinen Backdrop → Tone wird vom Shell vererbt. */
+  sideBySide?: boolean;
 }) {
   const h = meta.header;
   const widthClass = maxWidth === "md" ? "max-w-md" : "max-w-2xl";
   const alignClass = align === "center" ? "mx-auto" : "";
 
+  // Prose-Tone: dunkel auf hellem Hero (helles Overlay/Bg) → normaler
+  // prose, sonst prose-invert für hellen Text. Side-by-side hat keinen
+  // eigenen Backdrop, dort vererben wir vom Shell.
+  let proseTone = "prose-invert";
+  if (!sideBySide) {
+    const tone = heroTextColor({
+      hasHeroImage: !!h.heroImageUrl,
+      backgroundColor: h.backgroundColor,
+      overlayColor: h.overlayColor,
+    });
+    if (tone === "dark") proseTone = "";
+  }
+
   if (h.welcomeMarkdown) {
     return (
       <div
-        className={`prose prose-invert prose-sm sm:prose-base mt-4 ${widthClass} ${alignClass} opacity-90`}
+        className={`prose ${proseTone} prose-sm sm:prose-base mt-4 ${widthClass} ${alignClass} opacity-90`}
       >
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          // Sicherheits-Setup: react-markdown ist by-default sicher
-          // (kein HTML, keine raw scripts). remark-gfm bringt
-          // Tables/Strikethrough/Task-Lists ohne raw-html zu
-          // erlauben. Wir whitelisten KEINE custom-components.
-          skipHtml
-        >
+        <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml>
           {h.welcomeMarkdown}
         </ReactMarkdown>
       </div>

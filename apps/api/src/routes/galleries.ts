@@ -14,7 +14,7 @@
  */
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { randomBytes } from "node:crypto";
+import { randomBytes, createHash } from "node:crypto";
 
 import { prisma } from "../db.js";
 import { generateGallerySlug } from "../services/ids.js";
@@ -900,11 +900,22 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
     // setzt) ohne weitere URL-Manipulation lädt. Wir verwenden den
     // gleichen Same-Origin-Pfad wie Frontend-fetch — kein NEXT_PUBLIC-
     // Resolving nötig.
+    //
+    // Cache-Buster (?v=<hash>): die Asset-Route schickt
+    // Cache-Control: max-age=300, weil mehrfaches Aufrufen des
+    // gleichen Hero/Logo nicht jedes Mal eine neue Signatur braucht.
+    // Aber: wenn das Studio einen NEUEN Hero hochlädt, ändert sich
+    // der Storage-Key. Damit der Customer-Browser nicht 5 Minuten
+    // das alte Bild aus seinem Cache zeigt, hängen wir einen kurzen
+    // Hash des Storage-Keys an die URL — wechselt der Key, wechselt
+    // der URL, und der Browser holt das neue Bild sofort.
+    const cacheBust = (key: string) =>
+      "?v=" + createHash("sha1").update(key).digest("hex").slice(0, 8);
     const heroUploadUrl = gallery.heroUrl
-      ? `/api/v1/g/${gallery.slug}/assets/hero`
+      ? `/api/v1/g/${gallery.slug}/assets/hero${cacheBust(gallery.heroUrl)}`
       : null;
     const eventLogoPublicUrl = gallery.eventLogoUrl
-      ? `/api/v1/g/${gallery.slug}/assets/logo`
+      ? `/api/v1/g/${gallery.slug}/assets/logo${cacheBust(gallery.eventLogoUrl)}`
       : null;
 
     return {

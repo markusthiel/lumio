@@ -59,7 +59,7 @@ export function GalleryHeaderEditor({ gallery, files, onChanged }: Props) {
   // Routes (sind dieselben, die Customer auch sehen), damit der Studio-
   // User exakt sieht was der Kunde sehen wird.
   const logoPreviewUrl = gallery.eventLogoUrl
-    ? api.galleryAssetUrl(gallery.slug, "logo")
+    ? api.galleryAssetUrl(gallery.slug, "logo", gallery.eventLogoUrl)
     : null;
 
   // Hero-Vorschau: wenn heroFileId, suchen wir die thumbUrl der File,
@@ -70,7 +70,7 @@ export function GalleryHeaderEditor({ gallery, files, onChanged }: Props) {
   const heroPreviewUrl = heroFile?.thumbUrl
     ? heroFile.thumbUrl
     : gallery.heroUrl
-    ? api.galleryAssetUrl(gallery.slug, "hero")
+    ? api.galleryAssetUrl(gallery.slug, "hero", gallery.heroUrl)
     : null;
 
   return (

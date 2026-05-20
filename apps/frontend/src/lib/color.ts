@@ -57,3 +57,57 @@ export function mutedTextOn(bg: string): string {
   if (l === null) return "rgba(255,255,255,0.7)";
   return l > 0.5 ? "rgba(10,10,10,0.65)" : "rgba(255,255,255,0.7)";
 }
+
+/**
+ * Spezialfall Hero-Sektion: berechnet die Textfarbe für einen Header,
+ * der aus Hero-Bild + Overlay ODER reiner Hintergrundfarbe besteht.
+ *
+ * Drei Fälle:
+ *   1. Solid-Background (kein Hero-Bild): Textfarbe rein aus dem Bg
+ *      ableiten, wie readableTextOn.
+ *   2. Hero-Bild OHNE Overlay: wir wissen nicht ob das Bild hell oder
+ *      dunkel ist. Default-Annahme: Bild kann beides sein → wir geben
+ *      hell zurück (klassischer Foto-Hero auf dunklem Tone) und der
+ *      Caller fügt optional einen Text-Shadow hinzu.
+ *   3. Hero-Bild MIT Overlay: das Overlay deckt das Bild mehr oder
+ *      weniger ab. Bei kräftigem Overlay (Alpha > 60%) gewinnt die
+ *      Overlay-Farbe, und wir nutzen die zur Berechnung. Bei schwachem
+ *      Overlay (< 30%) gewinnt noch das Bild — Default-Hell. Im
+ *      Übergangsbereich nehmen wir die Overlay-Farbe als Indikator,
+ *      weil sie meist das visuelle Statement bestimmt.
+ */
+export function heroTextColor({
+  hasHeroImage,
+  backgroundColor,
+  overlayColor,
+}: {
+  hasHeroImage: boolean;
+  backgroundColor: string | null;
+  /** Hex #RRGGBBAA, das letzte Paar ist Alpha. */
+  overlayColor: string | null;
+}): "light" | "dark" {
+  if (!hasHeroImage) {
+    if (!backgroundColor) return "light";
+    const l = luminance(backgroundColor);
+    if (l === null) return "light";
+    return l > 0.5 ? "dark" : "light";
+  }
+
+  // Hero-Bild da. Wenn ein Overlay drüberliegt, bestimmt das den Look.
+  if (overlayColor) {
+    const alphaHex = overlayColor.length === 9 ? overlayColor.slice(7, 9) : "ff";
+    const alpha = parseInt(alphaHex, 16) / 255;
+    // Bei kräftigem Overlay: Overlay-Farbe gewinnt
+    if (alpha >= 0.3) {
+      const hex6 = overlayColor.slice(0, 7);
+      const l = luminance(hex6);
+      if (l === null) return "light";
+      return l > 0.5 ? "dark" : "light";
+    }
+  }
+  // Bild ohne (oder mit nur sehr schwachem) Overlay: wir nehmen die
+  // sichere "Hell + Text-Shadow"-Variante. Hero-Bilder sind oft
+  // visuell komplex und ein heller Text mit Schatten ist
+  // universeller lesbar als ein dunkler ohne Schatten.
+  return "light";
+}
