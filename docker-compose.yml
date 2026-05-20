@@ -13,7 +13,14 @@ services:
     container_name: lumio_caddy
     restart: unless-stopped
     environment:
-      - LUMIO_HOST=${LUMIO_HOST:-:80}
+      # LUMIO_HOST: bewusst KEIN Default. Wenn nicht gesetzt, fällt
+      # das Caddyfile auf einen unerreichbaren Loopback-Host zurück
+      # (127.0.0.1:9), der spezifische Hauptdomain-Block ist dann tot,
+      # und der http:// Catch-All-Block bedient alles auf Port 80. Das
+      # ist genau das gewünschte Verhalten für lokales Dev und für
+      # Custom-Domain-fähige Produktion ohne Hauptdomain. Falls eine
+      # Hauptdomain gewünscht ist, in .env: LUMIO_HOST=lumio-cloud.de
+      - LUMIO_HOST=${LUMIO_HOST:-}
       - LUMIO_S3_HOST=${LUMIO_S3_HOST:-:81}
       # Optional: Wildcard-Hostname für Tenant-Subdomains. Default ist
       # ein internes Pseudo-Host (127.0.0.1:9), das niemals von außen

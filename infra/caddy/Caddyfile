@@ -1,26 +1,33 @@
 # =============================================================================
 # Lumio — Caddy Configuration
 # =============================================================================
-# Konfiguriert zwei Hostnamen:
+# Konfiguriert drei Site-Adressen mit identischem Verhalten:
 #
-#   LUMIO_HOST     → Frontend + API + WS (die "App"-Domain)
-#   LUMIO_S3_HOST  → MinIO / S3-Object-Storage (separate Subdomain nötig,
-#                    weil MinIO kein Path-Präfix-Rewriting unterstützt)
+#   1. LUMIO_HOST         → Haupt-App-Domain (Frontend + API + WS)
+#   2. LUMIO_WILDCARD_HOST → Tenant-Subdomains (opt-in, default leer)
+#   3. http://             → Catch-All für Custom-Domains der Kunden
+#
+# Und einen vierten Block für S3:
+#   4. LUMIO_S3_HOST       → MinIO / S3
 #
 # Examples:
-#   Lokales Setup (Default-Werte):
-#     LUMIO_HOST=:80
-#     LUMIO_S3_HOST=:80     # auf Subdomain umlenken via /etc/hosts oder DNS
+#   Lokales Setup (Default-Werte) — LUMIO_HOST unset, Catch-All
+#   bedient lokalen Traffic auf Port 80:
+#     LUMIO_HOST=                 # nicht setzen
+#     LUMIO_S3_HOST=:81
 #
-#   Produktion mit eigener Domain:
+#   Produktion mit eigener Domain — LUMIO_HOST ist eine echte
+#   Hostname, der Catch-All fängt Custom-Domains der Kunden ab:
 #     LUMIO_HOST=lumio-cloud.de
 #     LUMIO_S3_HOST=s3.lumio-cloud.de
 #
 #   Hinter externem Reverse-Proxy (TLS-Termination woanders):
-#     LUMIO_HOST=:80
-#     LUMIO_S3_HOST=:80
+#     LUMIO_HOST=lumio-cloud.de   # Host bleibt nötig für spezifischen Block
+#     LUMIO_S3_HOST=s3.lumio-cloud.de
 #     externer Proxy: lumio-cloud.de     → docker-host:CADDY_HTTP_PORT
 #     externer Proxy: s3.lumio-cloud.de  → docker-host:CADDY_HTTP_PORT
+#     externer Proxy: foto-kunde.de      → docker-host:CADDY_HTTP_PORT
+#     (Custom-Domains werden ohne Env-Änderung vom Catch-All bedient)
 #
 # trusted_proxies sorgt dafür, dass X-Forwarded-Proto eines externen
 # Reverse-Proxies respektiert wird (siehe Kommentar dort).
@@ -32,10 +39,10 @@
 	}
 }
 
-# -----------------------------------------------------------------------------
-# Hauptseite — Frontend + API
-# -----------------------------------------------------------------------------
-{$LUMIO_HOST::80} {
+# Gemeinsamer Block-Inhalt für alle App-Blöcke (Hauptdomain, Wildcard,
+# Custom-Domain-Catch-All). Snippets in Caddy v2 werden mit & am Anfang
+# referenziert und mit `import` eingebunden.
+(lumio_app) {
 	reverse_proxy /api/*   api:3001
 	reverse_proxy /health  api:3001
 	reverse_proxy /ws/*    api:3001
@@ -52,36 +59,57 @@
 }
 
 # -----------------------------------------------------------------------------
-# Tenant-Subdomains — <slug>.lumio-cloud.de
+# Hauptseite — Frontend + API
 # -----------------------------------------------------------------------------
-# Wildcard-Block, der die gleichen Reverse-Proxy-Regeln wie die Hauptdomain
-# anwendet. Tenant-Auflösung passiert in der API über den Host-Header
-# (siehe apps/api/src/plugins/auth.ts, resolveTenant Schritt "Subdomain").
+# In Produktion ist LUMIO_HOST=lumio-cloud.de gesetzt → spezifischer
+# Block, greift vor dem Catch-All darunter. In lokalem Dev ohne
+# LUMIO_HOST entfällt dieser Block (Default 127.0.0.1:9 = unerreichbar,
+# Caddy startet ohne Fehler), und der http://-Catch-All bedient alles.
 #
-# Konfiguration über LUMIO_WILDCARD_HOST:
+# Wichtig: wir können hier NICHT `:80` als Default verwenden — das
+# kollidierte mit dem http://-Block darunter, weil beide auf Port 80
+# lauschen wollen.
+{$LUMIO_HOST:127.0.0.1:9} {
+	import lumio_app
+}
+
+# -----------------------------------------------------------------------------
+# Tenant-Subdomains — <slug>.lumio-cloud.de (opt-in)
+# -----------------------------------------------------------------------------
+# Konfiguration über LUMIO_WILDCARD_HOST, z.B.:
 #   LUMIO_WILDCARD_HOST=*.lumio-cloud.de:80
 #
-# TLS macht der vorgeschaltete Caddy/Proxy — hier nur HTTP. Wenn dieser
-# interne Caddy direkt aus dem Internet erreichbar wäre, müsste hier ein
-# DNS-Challenge-TLS-Block stehen.
+# Wenn die Wildcard nicht aktiv sein soll, LUMIO_WILDCARD_HOST einfach
+# unverändert auf dem Default lassen — der Block fällt dann auf einen
+# unerreichbaren Loopback-Port (127.0.0.1:9), Caddy startet ohne Fehler
+# und der Block matcht nichts.
+{$LUMIO_WILDCARD_HOST:127.0.0.1:9} {
+	import lumio_app
+}
+
+# -----------------------------------------------------------------------------
+# Custom-Domains — Catch-All
+# -----------------------------------------------------------------------------
+# Greift wenn der Host-Header keiner der spezifischeren Blöcke darüber
+# matched. Praktischer Fall: ein Kunde lässt foto-kunde.de auf unsere
+# IP zeigen, trägt im Studio den Custom-Domain ein, der externe Caddy
+# leitet den Request hierher.
 #
-# Wenn die Wildcard nicht aktiv sein soll, einfach LUMIO_WILDCARD_HOST
-# leer/ungesetzt lassen — Caddy ignoriert dann den Block (matched
-# nichts), und der Hauptdomain-Block oben bleibt der einzige.
-{$LUMIO_WILDCARD_HOST} {
-	reverse_proxy /api/*   api:3001
-	reverse_proxy /health  api:3001
-	reverse_proxy /ws/*    api:3001
-
-	reverse_proxy frontend:3000
-
-	encode zstd gzip
-
-	header {
-		X-Content-Type-Options "nosniff"
-		Referrer-Policy "strict-origin-when-cross-origin"
-		-Server
-	}
+# Ohne diesen Block würde Caddy v2 für unbekannte Hosts entweder 404
+# senden oder (bei aktivem auto_https) einen 308 nach https:// — was
+# in einem externen-Caddy-+-internen-Caddy-Setup einen Endless-Redirect-
+# Loop produziert (ERR_TOO_MANY_REDIRECTS im Browser).
+#
+# Tenant-Auflösung passiert in der API über den Host-Header
+# (resolveTenant Schritt "Custom Domain" in apps/api/src/plugins/auth.ts).
+# Wenn die Domain in tenants.customDomain steht: alles läuft. Wenn nicht:
+# Default-Tenant oder 404 (kein Loop).
+#
+# `http://` ohne Host-Spec ist ein Catch-All. In Caddy v2 sind benannte
+# Hosts spezifischer und werden zuerst gematcht — dieser Block greift
+# nur wenn keine andere Site den Request übernehmen kann.
+http:// {
+	import lumio_app
 }
 
 # -----------------------------------------------------------------------------

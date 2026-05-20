@@ -33,17 +33,17 @@ Sobald du den zweiten Tenant anlegst, fällt Schritt 5 weg — du musst
 
 Jeder Kunde bekommt seine eigene Domain wie `studio-mueller.de` oder
 eine schöne Subdomain wie `mueller.lumio.app`. Pro Domain ein
-Caddyfile-Block, Cert wird per HTTP-Challenge automatisch geholt — kein
-DNS-Plugin nötig, läuft mit dem Stock-Caddy.
+Caddyfile-Block (am externen Caddy), Cert wird per HTTP-Challenge
+automatisch geholt — kein DNS-Plugin nötig, läuft mit dem Stock-Caddy.
 
 ### Schritte für einen neuen Kunden
 
 1. **DNS-Eintrag** — Kunde (oder du) zeigt seine Domain auf deine IP:
    ```
-   studio-mueller.de    A    <IP des Caddy-Hosts>
+   studio-mueller.de    A    <IP des externen Caddy-Hosts>
    ```
 
-2. **Vorgeschalteter Caddy** — Block ergänzen:
+2. **Externer Caddy** — Block ergänzen:
    ```caddyfile
    studio-mueller.de {
        reverse_proxy 192.168.178.90:32080
@@ -65,6 +65,20 @@ DNS-Plugin nötig, läuft mit dem Stock-Caddy.
 Galerie-Links sind unabhängig davon — die nutzen den Galerie-Slug,
 nicht den Tenant-Slug, und funktionieren auf der jeweiligen
 Tenant-Domain (`studio-mueller.de/g/<gallery-slug>`).
+
+### Wichtig: Interner Caddy hat einen Catch-All
+
+Der interne Caddy (`infra/caddy/Caddyfile`) ist so konfiguriert dass
+er einen `http://`-Catch-All-Block enthält, der für **jeden Host**
+gilt der nicht spezifischer gematcht wird. Das ist genau das was
+Custom-Domains brauchen — sonst würde Caddy für unbekannte Hosts
+einen 308 nach `https://` schicken und damit (in Verbindung mit dem
+externen Caddy) einen `ERR_TOO_MANY_REDIRECTS` produzieren.
+
+**Du musst am internen Caddy NICHTS pro Kunde anpassen.** Der
+Tenant-Auflösungs-Code in `apps/api/src/plugins/auth.ts` matcht
+über den Host-Header gegen `tenants.customDomain`. Wenn die Domain
+dort eingetragen ist, läuft alles automatisch.
 
 ### Wenn du noch keine Custom-Domain hast
 
