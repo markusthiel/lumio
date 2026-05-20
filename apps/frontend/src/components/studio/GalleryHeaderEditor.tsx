@@ -788,36 +788,24 @@ function GridLayoutPicker({
   value,
   onChange,
 }: {
-  value: "masonry" | "justified" | "equal";
-  onChange: (v: "masonry" | "justified" | "equal") => Promise<unknown> | unknown;
+  value: "justified" | "equal";
+  onChange: (v: "justified" | "equal") => Promise<unknown> | unknown;
 }) {
   const t = useT();
   const options: {
-    id: "masonry" | "justified" | "equal";
+    id: "justified" | "equal";
     label: string;
     sketch: React.ReactNode;
   }[] = [
     {
-      id: "masonry",
-      label: t("studio.gridMasonry"),
-      // Drei Spalten mit variabel hohen Rechtecken — wie Pinterest
+      id: "equal",
+      label: t("studio.gridEqual"),
+      // Striktes Quadrat-Raster
       sketch: (
-        <div className="w-full h-full p-1.5 grid grid-cols-3 gap-1">
-          <div className="flex flex-col gap-1">
-            <div className="h-3 rounded-sm bg-ink-primary/40" />
-            <div className="h-5 rounded-sm bg-ink-primary/40" />
-            <div className="h-2 rounded-sm bg-ink-primary/40" />
-          </div>
-          <div className="flex flex-col gap-1">
-            <div className="h-5 rounded-sm bg-ink-primary/40" />
-            <div className="h-2 rounded-sm bg-ink-primary/40" />
-            <div className="h-3 rounded-sm bg-ink-primary/40" />
-          </div>
-          <div className="flex flex-col gap-1">
-            <div className="h-2 rounded-sm bg-ink-primary/40" />
-            <div className="h-4 rounded-sm bg-ink-primary/40" />
-            <div className="h-4 rounded-sm bg-ink-primary/40" />
-          </div>
+        <div className="w-full h-full p-1.5 grid grid-cols-3 grid-rows-3 gap-1">
+          {Array.from({ length: 9 }).map((_, i) => (
+            <div key={i} className="rounded-sm bg-ink-primary/40" />
+          ))}
         </div>
       ),
     },
@@ -845,22 +833,10 @@ function GridLayoutPicker({
         </div>
       ),
     },
-    {
-      id: "equal",
-      label: t("studio.gridEqual"),
-      // Striktes Quadrat-Raster
-      sketch: (
-        <div className="w-full h-full p-1.5 grid grid-cols-3 grid-rows-3 gap-1">
-          {Array.from({ length: 9 }).map((_, i) => (
-            <div key={i} className="rounded-sm bg-ink-primary/40" />
-          ))}
-        </div>
-      ),
-    },
   ];
 
   return (
-    <div className="grid grid-cols-3 gap-2">
+    <div className="grid grid-cols-2 gap-2">
       {options.map((opt) => {
         const active = value === opt.id;
         return (

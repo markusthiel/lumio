@@ -466,26 +466,10 @@ function FilesGrid({
   onOpen,
 }: {
   files: PublicFile[];
-  mode: "masonry" | "justified" | "equal";
+  mode: "justified" | "equal";
   mySelections: Record<string, MySelection>;
   onOpen: (f: PublicFile) => void;
 }) {
-  if (mode === "equal") {
-    return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-        {files.map((f, i) => (
-          <GalleryTile
-            key={f.id}
-            file={f}
-            index={i}
-            sel={mySelections[f.id]}
-            mode="equal"
-            onOpen={() => onOpen(f)}
-          />
-        ))}
-      </div>
-    );
-  }
   if (mode === "justified") {
     return (
       <div className="flex flex-wrap gap-2 sm:gap-3">
@@ -503,16 +487,11 @@ function FilesGrid({
       </div>
     );
   }
-  // masonry: NICHT mehr CSS-columns (das stapelte Bilder spaltenweise
-  // von oben nach unten, was die visuelle Lese-Reihenfolge mit der
-  // Lightbox-DOM-Reihenfolge zerriss — "Weiter"-Pfeil sprang zum
-  // Bild UNTER dem aktuellen statt rechts daneben).
-  //
-  // Stattdessen: zeilenweise Flex-Layout mit drei Spalten (responsive)
-  // und natürlicher Aspect-Ratio pro Tile. Sieht nah am alten Masonry
-  // aus, weil hohe Bilder hoch und breite Bilder breit bleiben — aber
-  // die DOM-Order ist links→rechts→nächste-Zeile, exakt wie die
-  // Augen lesen.
+  // Default: equal — gleichgroße quadratische Tiles in zeilenweise
+  // Anordnung. Das war historisch der "masonry"-Modus seit Commit
+  // 0b61a86 und ist jetzt der Standard. Echtes CSS-Columns-Masonry
+  // ist entfernt weil es die Lese-Reihenfolge gegen die Lightbox-
+  // Navigation zerriss (Spalten oben→unten statt Reihen links→rechts).
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
       {files.map((f, i) => (
@@ -521,7 +500,7 @@ function FilesGrid({
           file={f}
           index={i}
           sel={mySelections[f.id]}
-          mode="masonry"
+          mode="equal"
           onOpen={() => onOpen(f)}
         />
       ))}
@@ -646,7 +625,7 @@ function GalleryTile({
   file: PublicFile;
   index: number;
   sel: MySelection | undefined;
-  mode: "masonry" | "justified" | "equal";
+  mode: "justified" | "equal";
   onOpen: () => void;
 }) {
   const { ref, revealed } = useReveal<HTMLDivElement>();
@@ -688,18 +667,8 @@ function GalleryTile({
       flexBasis: `${240 * aspectRatio}px`,
       flexGrow: aspectRatio,
     };
-  } else if (mode === "equal") {
-    // Equal: quadratisch, object-cover macht den Rest.
-    wrapperClass = "relative overflow-hidden rounded aspect-square";
   } else {
-    // Masonry: gilt jetzt als "intelligenter Default" und rendert
-    // identisch zu equal — gleichgroße quadratische Kacheln in
-    // zeilenweise Anordnung. Das war eine bewusste Vereinfachung:
-    // echtes CSS-Columns-Masonry zerriss die visuelle Lese-Reihenfolge
-    // gegen die Lightbox-Navigation, weil Bilder spaltenweise oben→
-    // unten gestapelt wurden statt zeilenweise links→rechts. Die
-    // Lightbox lief in DOM-Order, was nicht mehr der angezeigten
-    // Reihenfolge entsprach.
+    // Equal: quadratisch, object-cover macht den Rest.
     wrapperClass = "relative overflow-hidden rounded aspect-square";
   }
 

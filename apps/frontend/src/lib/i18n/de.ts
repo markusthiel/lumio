@@ -162,7 +162,6 @@ export const de: Dict = {
     gridLayout: "Bilder-Anordnung",
     gridLayoutHint:
       "Wie die Bilder im Grid angeordnet werden.",
-    gridMasonry: "Masonry",
     gridJustified: "Reihen",
     gridEqual: "Quadrate",
     slideshowTransition: "Slideshow-Übergang",

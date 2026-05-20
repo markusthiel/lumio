@@ -70,7 +70,7 @@ export interface Gallery {
   fontHeading: string | null;
   fontBody: string | null;
   // Grid-Layout (masonry | justified | equal)
-  gridLayout: "masonry" | "justified" | "equal";
+  gridLayout: "justified" | "equal";
   // Slideshow-Übergangseffekt
   slideshowTransition: "fade" | "slide" | "kenburns";
   // Slideshow-Hintergrund-Musik (S3-Storage-Key)
@@ -246,7 +246,7 @@ export interface PublicGalleryMeta {
     body: string | null;
   };
   /** Grid-Layout für das File-Grid auf der Customer-Seite. */
-  gridLayout: "masonry" | "justified" | "equal";
+  gridLayout: "justified" | "equal";
   /** Slideshow-Übergangseffekt. */
   slideshowTransition: "fade" | "slide" | "kenburns";
   /** Optionaler Hintergrund-Musik-URL für die Slideshow (relativer

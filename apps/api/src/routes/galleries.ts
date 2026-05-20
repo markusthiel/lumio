@@ -74,7 +74,7 @@ const updateGallerySchema = createGallerySchema.partial().extend({
     .optional(),
   fontHeading: z.string().max(40).nullable().optional(),
   fontBody: z.string().max(40).nullable().optional(),
-  gridLayout: z.enum(["masonry", "justified", "equal"]).optional(),
+  gridLayout: z.enum(["justified", "equal"]).optional(),
   slideshowTransition: z
     .enum(["fade", "slide", "kenburns"])
     .optional(),

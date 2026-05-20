@@ -302,11 +302,16 @@ model Gallery {
   heroLayout       String   @default("minimal")
   
   // Grid-Layout-Variante für das File-Grid auf der Customer-Seite:
-  //   "masonry"   — aktueller Default. CSS-columns, variable Höhen.
+  //   "equal"     — alle Tiles exakt gleich (Quadrate). Default.
   //   "justified" — Reihen-basiert, Bilder einer Reihe gleich hoch
   //                 (flex-wrap + flex-grow Trick, kein JS-Layout).
-  //   "equal"     — alle Tiles exakt gleich (Quadrate).
-  gridLayout       String   @default("masonry")
+  //
+  // Historische Werte: "masonry" existierte als CSS-columns-Layout,
+  // wurde aber entfernt weil es die Lese-Reihenfolge gegenüber der
+  // Lightbox-Navigation kaputtmachte (Bilder spaltenweise gestapelt
+  // statt zeilenweise). Die Migration setzt vorhandene
+  // gridLayout='masonry' auf 'equal' um.
+  gridLayout       String   @default("equal")
   
   // Slideshow-Übergangseffekt:
   //   "fade"    aktueller Default — Cross-Fade ~600ms zwischen Bildern
