@@ -159,6 +159,12 @@ export const de: Dict = {
     heroLayoutSplash: "Splash",
     heroLayoutSideBySide: "Side-by-Side",
     heroLayoutCentered: "Zentriert",
+    gridLayout: "Bilder-Anordnung",
+    gridLayoutHint:
+      "Wie die Bilder im Grid angeordnet werden.",
+    gridMasonry: "Masonry",
+    gridJustified: "Reihen",
+    gridEqual: "Quadrate",
     eventLogo: "Event-Logo",
     eventLogoHint:
       "Klein über dem Galerie-Titel sichtbar. Z.B. Hochzeitsmonogramm oder Event-Branding. PNG mit transparentem Hintergrund empfohlen.",

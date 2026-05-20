@@ -69,6 +69,8 @@ export interface Gallery {
   // Galerie-Schriftarten (IDs aus dem Frontend-Katalog)
   fontHeading: string | null;
   fontBody: string | null;
+  // Grid-Layout (masonry | justified | equal)
+  gridLayout: "masonry" | "justified" | "equal";
   fileCount?: number;
   tags?: Tag[];
   createdAt: string;
@@ -232,6 +234,8 @@ export interface PublicGalleryMeta {
     heading: string | null;
     body: string | null;
   };
+  /** Grid-Layout für das File-Grid auf der Customer-Seite. */
+  gridLayout: "masonry" | "justified" | "equal";
 }
 
 export interface Branding {

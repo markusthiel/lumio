@@ -74,6 +74,7 @@ const updateGallerySchema = createGallerySchema.partial().extend({
     .optional(),
   fontHeading: z.string().max(40).nullable().optional(),
   fontBody: z.string().max(40).nullable().optional(),
+  gridLayout: z.enum(["masonry", "justified", "equal"]).optional(),
   footerMarkdown: z.string().max(20_000).nullable().optional(),
   colorBackground: z
     .string()
@@ -483,6 +484,9 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           ...(body.fontBody !== undefined
             ? { fontBody: body.fontBody }
             : {}),
+          ...(body.gridLayout !== undefined
+            ? { gridLayout: body.gridLayout }
+            : {}),
           ...(body.footerMarkdown !== undefined
             ? { footerMarkdown: body.footerMarkdown }
             : {}),
@@ -822,6 +826,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         colorAccent: true,
         fontHeading: true,
         fontBody: true,
+        gridLayout: true,
         tenant: { select: { status: true } },
       },
     });
@@ -935,6 +940,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           heading: gallery.fontHeading,
           body: gallery.fontBody,
         },
+        gridLayout: gallery.gridLayout,
       },
     };
   });

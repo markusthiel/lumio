@@ -110,6 +110,17 @@ export function GalleryHeaderEditor({ gallery, files, onChanged }: Props) {
             />
           </Field>
 
+          {/* Grid-Layout-Variante */}
+          <Field
+            label={t("studio.gridLayout")}
+            hint={t("studio.gridLayoutHint")}
+          >
+            <GridLayoutPicker
+              value={gallery.gridLayout}
+              onChange={(v) => patch({ gridLayout: v })}
+            />
+          </Field>
+
           {/* Event-Logo */}
           <Field
             label={t("studio.eventLogo")}
@@ -734,6 +745,113 @@ function FontSelect({
           The quick brown fox · 1234567890
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+/** Radio-Card-Picker für Grid-Layout-Varianten. Drei Mini-Diagramme
+ *  aus Divs, damit der Studio-User vor dem Klick sieht wie sich die
+ *  Bilder anordnen werden. */
+function GridLayoutPicker({
+  value,
+  onChange,
+}: {
+  value: "masonry" | "justified" | "equal";
+  onChange: (v: "masonry" | "justified" | "equal") => Promise<unknown> | unknown;
+}) {
+  const t = useT();
+  const options: {
+    id: "masonry" | "justified" | "equal";
+    label: string;
+    sketch: React.ReactNode;
+  }[] = [
+    {
+      id: "masonry",
+      label: t("studio.gridMasonry"),
+      // Drei Spalten mit variabel hohen Rechtecken — wie Pinterest
+      sketch: (
+        <div className="w-full h-full p-1.5 grid grid-cols-3 gap-1">
+          <div className="flex flex-col gap-1">
+            <div className="h-3 rounded-sm bg-ink-primary/40" />
+            <div className="h-5 rounded-sm bg-ink-primary/40" />
+            <div className="h-2 rounded-sm bg-ink-primary/40" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <div className="h-5 rounded-sm bg-ink-primary/40" />
+            <div className="h-2 rounded-sm bg-ink-primary/40" />
+            <div className="h-3 rounded-sm bg-ink-primary/40" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <div className="h-2 rounded-sm bg-ink-primary/40" />
+            <div className="h-4 rounded-sm bg-ink-primary/40" />
+            <div className="h-4 rounded-sm bg-ink-primary/40" />
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "justified",
+      label: t("studio.gridJustified"),
+      // Reihen-basiert: pro Reihe gleich hoch, variable Breiten
+      sketch: (
+        <div className="w-full h-full p-1.5 flex flex-col gap-1">
+          <div className="flex gap-1 h-1/3">
+            <div className="flex-[3] rounded-sm bg-ink-primary/40" />
+            <div className="flex-[2] rounded-sm bg-ink-primary/40" />
+            <div className="flex-[2] rounded-sm bg-ink-primary/40" />
+          </div>
+          <div className="flex gap-1 h-1/3">
+            <div className="flex-[2] rounded-sm bg-ink-primary/40" />
+            <div className="flex-[3] rounded-sm bg-ink-primary/40" />
+            <div className="flex-[2] rounded-sm bg-ink-primary/40" />
+          </div>
+          <div className="flex gap-1 h-1/3">
+            <div className="flex-[3] rounded-sm bg-ink-primary/40" />
+            <div className="flex-[2] rounded-sm bg-ink-primary/40" />
+            <div className="flex-[3] rounded-sm bg-ink-primary/40" />
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "equal",
+      label: t("studio.gridEqual"),
+      // Striktes Quadrat-Raster
+      sketch: (
+        <div className="w-full h-full p-1.5 grid grid-cols-3 grid-rows-3 gap-1">
+          {Array.from({ length: 9 }).map((_, i) => (
+            <div key={i} className="rounded-sm bg-ink-primary/40" />
+          ))}
+        </div>
+      ),
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {options.map((opt) => {
+        const active = value === opt.id;
+        return (
+          <button
+            key={opt.id}
+            type="button"
+            onClick={() => onChange(opt.id)}
+            className={`rounded border p-2 text-left transition-colors duration-motion ${
+              active
+                ? "border-accent bg-accent/10"
+                : "border-line-subtle bg-surface-sunken hover:border-line-strong"
+            }`}
+          >
+            <div className="aspect-[4/3] w-full rounded-sm bg-surface-overlay/40 overflow-hidden">
+              {opt.sketch}
+            </div>
+            <div className="mt-2 text-ui-xs font-medium text-ink-primary">
+              {opt.label}
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 }

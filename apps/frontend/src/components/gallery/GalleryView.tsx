@@ -275,13 +275,59 @@ export function GalleryView({
               ? t("gallery.noFiles")
               : t("gallery.noFilesForFilter")}
           </div>
+        ) : meta.gridLayout === "equal" ? (
+          /* Equal-Grid: alle Tiles quadratisch, fixe Spaltenzahl.
+             Sehr clean für Portrait-Sessions wo die Tiles eh
+             ähnliche Ausrichtung haben. */
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {filtered.map((f, i) => (
+              <GalleryTile
+                key={f.id}
+                file={f}
+                index={i}
+                sel={mySelections[f.id]}
+                mode="equal"
+                onOpen={() =>
+                  setLightboxIdx(files.findIndex((ff) => ff.id === f.id))
+                }
+              />
+            ))}
+          </div>
+        ) : meta.gridLayout === "justified" ? (
+          /* Justified-Grid (Flickr-Style): flex-wrap-Reihen, Bilder
+             skalieren sich mit flex-grow so dass jede Reihe gleich
+             hoch wird. Trick: jedes Tile bekommt eine Basis-Breite
+             proportional zu seinem Aspect-Ratio, dann growen alle
+             auf die Reihen-Breite hoch. Ist nicht 100% optimal wie
+             ein JS-Justified-Algorithmus (z.B. flickr-justified-
+             gallery), aber pure CSS und ohne Layout-Shift.
+
+             Wichtig: die Tile-Komponente macht im Justified-Mode
+             KEIN aspect-ratio mehr — die Höhe kommt aus der Reihe,
+             die Breite aus flex-basis. */
+          <div className="flex flex-wrap gap-2 sm:gap-3">
+            {filtered.map((f, i) => (
+              <GalleryTile
+                key={f.id}
+                file={f}
+                index={i}
+                sel={mySelections[f.id]}
+                mode="justified"
+                onOpen={() =>
+                  setLightboxIdx(files.findIndex((ff) => ff.id === f.id))
+                }
+              />
+            ))}
+            {/* Spacer-Element: nimmt überschüssige Platz in der letzten
+                Reihe so dass die echten Tiles nicht auf 100% Breite
+                aufgepumpt werden. Ohne den würde das letzte Bild
+                allein in der Reihe sehr breit gezogen. */}
+            <i className="grow-[10] block" aria-hidden="true" />
+          </div>
         ) : (
-          /* Masonry via CSS columns. Vorteile gegenüber JS-Masonry:
-             - kein Layout-Shift
-             - kein zusätzliches JS
-             - Reihenfolge folgt der DOM-Reihenfolge, nicht der visuellen.
-               Letzteres ist normalerweise ok, weil Bilder eh nach Sortierung
-               eingestellt werden und der Scroll-Weg vertikal bleibt. */
+          /* Masonry (Default) via CSS columns. Vorteile gegenüber
+             JS-Masonry: kein Layout-Shift, kein zusätzliches JS,
+             Reihenfolge folgt der DOM-Reihenfolge. */
           <div className="columns-2 sm:columns-3 lg:columns-4 gap-3 [column-fill:_balance]">
             {filtered.map((f, i) => (
               <GalleryTile
@@ -289,6 +335,7 @@ export function GalleryView({
                 file={f}
                 index={i}
                 sel={mySelections[f.id]}
+                mode="masonry"
                 onOpen={() =>
                   setLightboxIdx(files.findIndex((ff) => ff.id === f.id))
                 }
@@ -344,44 +391,70 @@ function GalleryTile({
   file,
   index,
   sel,
+  mode,
   onOpen,
 }: {
   file: PublicFile;
   index: number;
   sel: MySelection | undefined;
+  mode: "masonry" | "justified" | "equal";
   onOpen: () => void;
 }) {
   const { ref, revealed } = useReveal<HTMLDivElement>();
   // Aspect-Ratio aus den File-Dimensionen, mit sicherem Fallback.
-  // Wir geben dem Tile-Container die echte Höhe, damit der Reveal nicht
-  // erst nach Bild-Load springt (Layout-Shift vermeiden).
-  const aspect =
+  // Wir geben dem Tile-Container die echte Höhe (im masonry/equal-Modus),
+  // damit der Reveal nicht erst nach Bild-Load springt.
+  const aspectStr =
     file.width && file.height ? `${file.width} / ${file.height}` : "1 / 1";
+  const aspectRatio =
+    file.width && file.height ? file.width / file.height : 1;
 
   // Reveal-Distanz wird per CSS-Var gesteuert (motion-Setting),
   // hier nur das Delay je nach Index. Cap bei 24, sonst gefühlt zu lang.
   const delay = `${Math.min(index, 24) * 30}ms`;
 
+  // Wrapper-Styling pro Mode.
+  let wrapperClass: string;
+  let wrapperStyle: React.CSSProperties = {
+    opacity: revealed ? 1 : 0,
+    transform: revealed
+      ? "translateY(0)"
+      : "translateY(var(--motion-reveal-y, 8px))",
+    transition:
+      "opacity var(--motion-reveal, 280ms) var(--motion-ease) " +
+      delay +
+      ", transform var(--motion-reveal, 280ms) var(--motion-ease) " +
+      delay,
+  };
+
+  if (mode === "justified") {
+    // Justified: feste Reihen-Höhe (ca. 200-260px je nach Viewport),
+    // Breite proportional zum Aspect-Ratio, flex-grow erlaubt das
+    // Aufpumpen pro Reihe.
+    wrapperClass = "relative overflow-hidden rounded";
+    wrapperStyle = {
+      ...wrapperStyle,
+      height: "240px",
+      // flex-basis = height * aspect = die "natürliche" Breite
+      // für diese Höhe. flex-grow lässt CSS die Bilder pro Reihe
+      // aufstrecken bis die Reihe voll ist.
+      flexBasis: `${240 * aspectRatio}px`,
+      flexGrow: aspectRatio,
+    };
+  } else if (mode === "equal") {
+    // Equal: quadratisch, object-cover macht den Rest.
+    wrapperClass = "relative overflow-hidden rounded aspect-square";
+  } else {
+    // Masonry (Default)
+    wrapperClass = "mb-3 break-inside-avoid";
+  }
+
   return (
-    <div
-      ref={ref}
-      className="mb-3 break-inside-avoid"
-      style={{
-        opacity: revealed ? 1 : 0,
-        transform: revealed
-          ? "translateY(0)"
-          : "translateY(var(--motion-reveal-y, 8px))",
-        transition:
-          "opacity var(--motion-reveal, 280ms) var(--motion-ease) " +
-          delay +
-          ", transform var(--motion-reveal, 280ms) var(--motion-ease) " +
-          delay,
-      }}
-    >
+    <div ref={ref} className={wrapperClass} style={wrapperStyle}>
       <button
         onClick={onOpen}
-        className="block w-full overflow-hidden rounded bg-white/5 relative group focus:outline-none"
-        style={{ aspectRatio: aspect }}
+        className="block w-full h-full overflow-hidden rounded bg-white/5 relative group focus:outline-none"
+        style={mode === "masonry" ? { aspectRatio: aspectStr } : undefined}
       >
         {file.thumbUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */

@@ -301,6 +301,13 @@ model Gallery {
   // Default "minimal" → existierende Galerien sehen identisch aus.
   heroLayout       String   @default("minimal")
   
+  // Grid-Layout-Variante für das File-Grid auf der Customer-Seite:
+  //   "masonry"   — aktueller Default. CSS-columns, variable Höhen.
+  //   "justified" — Reihen-basiert, Bilder einer Reihe gleich hoch
+  //                 (flex-wrap + flex-grow Trick, kein JS-Layout).
+  //   "equal"     — alle Tiles exakt gleich (Quadrate).
+  gridLayout       String   @default("masonry")
+  
   // Galerie-spezifische Schriftarten — überschreiben die Branding-
   // Schriftart nur für diese Galerie. Beide Felder sind kurze IDs
   // aus einer kuratierten Liste (siehe lib/fonts.ts im Frontend),
