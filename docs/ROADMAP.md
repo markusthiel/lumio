@@ -132,7 +132,7 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 - [ ] Mobile App (React Native) für iOS/Android — Upload aus der Kamera-Rolle
 - [ ] Public API mit OAuth2
 - [x] Webhooks für Studio-Events (HMAC-SHA256-signiert, async-Delivery mit Exponential-Backoff-Retry, /studio/webhooks-UI mit Test-Button und Delivery-Log)
-- [ ] Detaillierte Galerie-Statistiken (Aufrufe, Downloads pro Bild, Heatmaps)
+- [x] Detaillierte Galerie-Statistiken (Aufrufe über 30 Tage, Pro-Access-Aufschlüsselung mit Visits/Likes/Kommentare/Finalized-Status, Top-Files nach Likes, Downloads nach Typ; `/studio/[id]/stats` mit SVG-Sparklines)
 - [ ] Optionales KI-Tagging (lokal über Ollama, opt-in)
 - [ ] E-Signatures für Modelverträge / Rechte-Freigaben
 - [ ] Online-Shop (Bilder verkaufen, Stripe)

@@ -383,6 +383,9 @@ export const api = {
   getGallery: (id: string) =>
     request<{ gallery: GalleryDetail }>(`/galleries/${id}`),
 
+  getGalleryStats: (id: string) =>
+    request<GalleryStats>(`/galleries/${id}/stats`),
+
   updateGallery: (id: string, patch: Partial<Gallery>) =>
     request<{ gallery: Gallery }>(`/galleries/${id}`, {
       method: "PATCH",
@@ -842,6 +845,28 @@ export interface ProofingSummary {
     }>;
   }>;
   fileCountTotal: number;
+}
+
+export interface GalleryStats {
+  dailyVisits: Array<{ day: string; count: number }>;
+  anonymousVisits: number;
+  accessStats: Array<{
+    accessId: string;
+    label: string;
+    visits: number;
+    likes: number;
+    comments: number;
+    finalized: boolean;
+  }>;
+  topLikedFiles: Array<{
+    fileId: string;
+    filename: string;
+    kind: string;
+    likes: number;
+  }>;
+  downloadsByKind: Array<{ kind: string; count: number }>;
+  downloadsTotal: number;
+  dailyDownloads: Array<{ day: string; count: number }>;
 }
 
 export { API_URL, ApiError };

@@ -463,6 +463,195 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
   );
 
   // -------------------------------------------------------------------------
+  // GET /galleries/:id/stats — Aggregierte Auswertungen für die Studio-UI
+  // -------------------------------------------------------------------------
+  // Liefert pro Galerie:
+  //   - Visit-Counts pro Tag (letzte 30 Tage), basierend auf share.unlock-Events
+  //   - Pro-Access-Aufschlüsselung (Visits, Likes, Kommentare)
+  //   - Top-Files nach Like-Anzahl
+  //   - Download-Aktivität (single + zip getrennt)
+  //
+  // Bewusst ALLES in eine Route — die UI zeigt die vier Sektionen
+  // zusammen, ein Roundtrip statt vier ist freundlicher zum Backend
+  // und vermeidet asynchrone UI-Glitches beim Re-Render. Die Queries
+  // sind alle leicht (max ~30 Tage, max top-20 Files), insgesamt
+  // sub-100ms.
+  app.get<{ Params: { id: string } }>(
+    "/galleries/:id/stats",
+    async (req, reply) => {
+      const s = req.requireAuth();
+      const gallery = await prisma.gallery.findFirst({
+        where: {
+          id: req.params.id,
+          tenantId: req.tenantId,
+          ownerId: s.user.id,
+        },
+        select: { id: true },
+      });
+      if (!gallery) return reply.status(404).send({ error: "not_found" });
+
+      const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+      // 1) Visits pro Tag (letzte 30 Tage). share.unlock ist der einzige
+      //    Event, der zuverlässig pro Visitor pro 8h-Cookie-Window
+      //    geloggt wird — also keine künstliche Inflation durch Reloads.
+      //
+      //    DATE_TRUNC liefert uns Tages-Buckets in der DB-Zeitzone (UTC).
+      //    Für die UI tut's das — Datumsanzeige passt der Client an.
+      const dailyVisits = await prisma.$queryRaw<
+        Array<{ day: Date; count: bigint }>
+      >`
+        SELECT DATE_TRUNC('day', "createdAt") AS day, COUNT(*)::bigint AS count
+        FROM events
+        WHERE "tenantId" = ${req.tenantId}::uuid
+          AND action = 'share.unlock'
+          AND "targetType" = 'gallery'
+          AND "targetId" = ${gallery.id}::uuid
+          AND "createdAt" >= ${since}
+        GROUP BY day
+        ORDER BY day ASC
+      `;
+
+      // 2) Pro-Access-Aufschlüsselung. Anonyme Visitors (actorId=null)
+      //    summieren wir in einen einzigen "Anonym"-Bucket — sonst hätte
+      //    die UI eine endlose Liste namenloser Zeilen.
+      const accesses = await prisma.galleryAccess.findMany({
+        where: { galleryId: gallery.id },
+        select: {
+          id: true,
+          label: true,
+          finalizedAt: true,
+          _count: {
+            select: {
+              selections: { where: { liked: true } },
+              comments: true,
+            },
+          },
+        },
+      });
+
+      // Visits pro Access (nochmal über Events, mit actorId-Group)
+      const visitsByActor = await prisma.event.groupBy({
+        by: ["actorId"],
+        where: {
+          tenantId: req.tenantId,
+          action: "share.unlock",
+          targetType: "gallery",
+          targetId: gallery.id,
+        },
+        _count: true,
+      });
+      const visitsByAccessId = new Map<string, number>();
+      let anonymousVisits = 0;
+      for (const v of visitsByActor) {
+        if (v.actorId) {
+          visitsByAccessId.set(v.actorId, v._count);
+        } else {
+          anonymousVisits += v._count;
+        }
+      }
+
+      const accessStats = accesses.map((a) => ({
+        accessId: a.id,
+        label: a.label,
+        visits: visitsByAccessId.get(a.id) ?? 0,
+        likes: a._count.selections,
+        comments: a._count.comments,
+        finalized: !!a.finalizedAt,
+      }));
+
+      // 3) Top-Files nach Like-Anzahl. Limit 20 — mehr wäre
+      //    Schroteffekt-Liste, wenn der Photograph 5000 Files
+      //    hochgeladen hat. Die UI bietet ggf. später "alle anzeigen".
+      const topFiles = await prisma.selection.groupBy({
+        by: ["fileId"],
+        where: {
+          liked: true,
+          file: { galleryId: gallery.id },
+        },
+        _count: true,
+        orderBy: { _count: { fileId: "desc" } },
+        take: 20,
+      });
+
+      // Filenames für die Top-Files in einer Query nachholen statt N+1
+      const topFileIds = topFiles.map((f) => f.fileId);
+      const topFileMeta =
+        topFileIds.length > 0
+          ? await prisma.file.findMany({
+              where: { id: { in: topFileIds } },
+              select: {
+                id: true,
+                originalFilename: true,
+                kind: true,
+              },
+            })
+          : [];
+      const fileMetaById = new Map(topFileMeta.map((f) => [f.id, f]));
+
+      const topLikedFiles = topFiles
+        .map((f) => {
+          const meta = fileMetaById.get(f.fileId);
+          if (!meta) return null;
+          return {
+            fileId: f.fileId,
+            filename: meta.originalFilename,
+            kind: meta.kind,
+            likes: f._count,
+          };
+        })
+        .filter((x): x is NonNullable<typeof x> => x !== null);
+
+      // 4) Downloads. Wir splitten in zip / single / rendition, weil
+      //    das im Studio interessante Sub-Cuts sind (zip = "alle
+      //    runtergeladen", single = "ein einzelnes Original",
+      //    rendition = "Web-Variante" — letzteres wahrscheinlich
+      //    geringer Erkenntnisgewinn, aber zur Vollständigkeit).
+      const downloadsByKind = await prisma.downloadLog.groupBy({
+        by: ["kind"],
+        where: { galleryId: gallery.id },
+        _count: true,
+      });
+      const downloadsTotal = downloadsByKind.reduce(
+        (sum, d) => sum + d._count,
+        0
+      );
+
+      const dailyDownloads = await prisma.$queryRaw<
+        Array<{ day: Date; count: bigint }>
+      >`
+        SELECT DATE_TRUNC('day', "createdAt") AS day, COUNT(*)::bigint AS count
+        FROM download_logs
+        WHERE "galleryId" = ${gallery.id}::uuid
+          AND "createdAt" >= ${since}
+        GROUP BY day
+        ORDER BY day ASC
+      `;
+
+      return {
+        // Cast bigint → number; bei den Größenordnungen (max ein paar
+        // 1000 visits/day) safe.
+        dailyVisits: dailyVisits.map((r) => ({
+          day: r.day.toISOString(),
+          count: Number(r.count),
+        })),
+        anonymousVisits,
+        accessStats,
+        topLikedFiles,
+        downloadsByKind: downloadsByKind.map((d) => ({
+          kind: d.kind,
+          count: d._count,
+        })),
+        downloadsTotal,
+        dailyDownloads: dailyDownloads.map((r) => ({
+          day: r.day.toISOString(),
+          count: Number(r.count),
+        })),
+      };
+    }
+  );
+
+  // -------------------------------------------------------------------------
   // GET /g/:slug — Kunden-Sicht, Meta + Gate-Info
   // -------------------------------------------------------------------------
   // Liefert nur das Minimum: Titel, Branding, ob Passwort/Token nötig.

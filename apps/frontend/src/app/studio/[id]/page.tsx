@@ -262,6 +262,12 @@ export default function GalleryDetailPage() {
         actions={
           <>
             <Link
+              href={`/studio/${gallery.id}/stats`}
+              className="text-ui-sm text-ink-secondary hover:text-ink-primary transition-colors duration-motion"
+            >
+              {t("studio.statsLink")}
+            </Link>
+            <Link
               href={`/studio/${gallery.id}/proofing`}
               className="text-ui-sm text-ink-secondary hover:text-ink-primary transition-colors duration-motion"
             >
