@@ -24,6 +24,7 @@ import structlog
 
 from app import app
 from db import fetch_file, mark_file_ready, mark_file_failed, upsert_rendition
+from rt import file_status as _publish_status
 from storage import download_to_file, upload_file, rendition_key
 
 
@@ -61,7 +62,6 @@ def generate_raw_preview(self, file_id: str) -> dict:
         log.exception("process_raw.failed", file_id=file_id, err=str(err))
         try:
             mark_file_failed(file_id, str(err))
-            from events import file_status as _publish_status
             _publish_status(file_row["gallery_id"], file_id, "failed")
         except Exception:
             pass
@@ -114,7 +114,6 @@ def _process(file_row: dict) -> None:
         final_w = orig_w or src_w
         final_h = orig_h or src_h
         mark_file_ready(file_id, final_w, final_h)
-        from events import file_status as _publish_status
         _publish_status(gallery_id, file_id, "ready",
                         width=final_w, height=final_h)
         log.info("process_raw.complete",
