@@ -53,18 +53,23 @@ export function SectionsEditor({ galleryId, files, onChanged }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // Initial-Load und Reload nach jeder Section-Mutation.
-  async function reload() {
-    setLoading(true);
+  // Initial-Load setzt `loading=true`, damit der initiale Render-
+  // Cycle den Spinner-Stub zeigt statt einer leeren Liste. Spätere
+  // Reloads (nach Mutationen wie File-Zuordnung) machen das NICHT —
+  // sonst wird der ganze SectionRow-Baum unmounted und der lokale
+  // showAssign-State der Zeile geht verloren, das Picker-Panel
+  // klappt unerwartet zu, sobald man ein Bild zugeordnet hat.
+  async function reload(opts?: { initial?: boolean }) {
+    if (opts?.initial) setLoading(true);
     try {
       const res = await api.listSections(galleryId);
       setSections(res.sections);
     } finally {
-      setLoading(false);
+      if (opts?.initial) setLoading(false);
     }
   }
   useEffect(() => {
-    void reload();
+    void reload({ initial: true });
     // galleryId-only — wir reloaden Sections nur bei Galerie-Wechsel,
     // file-Updates kommen vom Parent via onChanged → reload.
     // eslint-disable-next-line react-hooks/exhaustive-deps
