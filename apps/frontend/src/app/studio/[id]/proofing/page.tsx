@@ -112,10 +112,10 @@ export default function ProofingPage() {
                       )}
                       {hasLike && (
                         <span
-                          className="w-4 h-4 rounded-full bg-red-500 text-white text-[10px] inline-flex items-center justify-center"
-                          aria-label="Geliked"
+                          className="w-4 h-4 rounded-full bg-amber-400 text-neutral-900 text-[10px] inline-flex items-center justify-center"
+                          aria-label="In Auswahl"
                         >
-                          ♥
+                          ★
                         </span>
                       )}
                     </div>
@@ -265,7 +265,7 @@ export default function ProofingPage() {
                   </td>
                   <td className="text-center px-4 py-2">
                     {f.liked ? (
-                      <span className="text-red-500">♥</span>
+                      <span className="text-amber-400">★</span>
                     ) : (
                       "—"
                     )}

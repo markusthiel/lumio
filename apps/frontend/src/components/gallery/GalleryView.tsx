@@ -167,7 +167,7 @@ export function GalleryView({
                 <FilterChip
                   active={filter === "liked"}
                   onClick={() => setFilter("liked")}
-                  label={`♥ ${stats.liked}`}
+                  label={`★ ${stats.liked}`}
                 />
                 <FilterChip
                   active={filter === "green"}
@@ -712,8 +712,8 @@ function GalleryTile({
           </div>
         )}
         {sel?.liked && (
-          <div className="absolute top-2 right-2 text-red-400 text-lg drop-shadow-lg">
-            ♥
+          <div className="absolute top-2 right-2 text-amber-300 text-lg drop-shadow-lg">
+            ★
           </div>
         )}
       </button>
@@ -795,6 +795,12 @@ function Lightbox({
   // das Tool wieder ausschalten durch nochmaligen Klick auf das aktive.
   const [annotationTool, setAnnotationTool] =
     useState<AnnotationTool | null>("freehand");
+
+  // Zwei Bedienmodi am unteren Rand: 'pick' = Farb-Tags + Auswahl-Stern,
+  // 'mark' = Annotation-Werkzeuge (Stift/Pfeil + 3 Farben). Default
+  // 'pick' weil das der häufigere Workflow ist (Kunde wählt Bilder),
+  // 'mark' ist für detailliertes Feedback.
+  const [bottomMode, setBottomMode] = useState<"pick" | "mark">("pick");
   const [annotationColor, setAnnotationColor] =
     useState<AnnotationColor>("red");
   const [myStrokes, setMyStrokes] = useState<AnnotationStroke[]>([]);
@@ -1057,7 +1063,7 @@ function Lightbox({
           <button
             disabled={index === 0}
             onClick={() => onNavigate(index - 1)}
-            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/5 hover:bg-white/20 disabled:opacity-20 disabled:cursor-not-allowed text-2xl text-white/80 flex items-center justify-center transition-colors duration-motion"
+            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 disabled:opacity-20 disabled:cursor-not-allowed text-2xl text-white/90 flex items-center justify-center transition-colors duration-motion z-20 backdrop-blur-sm"
             aria-label={t("gallery.previous")}
           >
             ‹
@@ -1065,7 +1071,7 @@ function Lightbox({
           <button
             disabled={index === files.length - 1}
             onClick={() => onNavigate(index + 1)}
-            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/5 hover:bg-white/20 disabled:opacity-20 disabled:cursor-not-allowed text-2xl text-white/80 flex items-center justify-center transition-colors duration-motion"
+            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 disabled:opacity-20 disabled:cursor-not-allowed text-2xl text-white/90 flex items-center justify-center transition-colors duration-motion z-20 backdrop-blur-sm"
             aria-label={t("gallery.next")}
           >
             ›
@@ -1102,14 +1108,27 @@ function Lightbox({
                 key={file.id}
               />
               {/* Annotation-Overlay deckt das Bild exakt ab (gleiche
-                  width/height über inset-0). */}
+                  width/height über inset-0). Editor-Modus aktiv nur
+                  wenn der User unten 'Markieren' gewählt hat — sonst
+                  bleibt der Cursor normal und Klicks aufs Bild tun
+                  nichts. */}
               {meta.commentsEnabled && (
                 <AnnotationOverlay
                   existing={existingAnnotations}
                   value={myStrokes}
-                  onChange={interactive ? setMyStrokes : undefined}
-                  author={interactive ? "customer" : null}
-                  tool={interactive ? annotationTool : null}
+                  onChange={
+                    interactive && bottomMode === "mark"
+                      ? setMyStrokes
+                      : undefined
+                  }
+                  author={
+                    interactive && bottomMode === "mark" ? "customer" : null
+                  }
+                  tool={
+                    interactive && bottomMode === "mark"
+                      ? annotationTool
+                      : null
+                  }
                   color={annotationColor}
                 />
               )}
@@ -1120,40 +1139,46 @@ function Lightbox({
             </div>
           )}
 
-          {/* Annotation-Toolbar — unten am Bildrand, ein zentriertes
-              Pill. Nur wenn interactive (Auswahl/Kommentar erlaubt)
-              UND commentsEnabled (Studio hat Comments für die Galerie
-              freigegeben). Toolbar ist auch ohne aktivem Tool sichtbar
-              — der User soll wissen DASS er zeichnen kann. */}
-          {interactive && meta.commentsEnabled && (
+          {/* Schwebende Werkzeug-Toolbar — Position oben am unteren
+              Bildrand, je nach Mode entweder Annotation-Pill oder
+              Selection-Pill (Farben + Auswahl-Stern). Nur sichtbar
+              wenn der Visitor Auswahl-Rechte hat. */}
+          {interactive && (
             <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10">
-              <AnnotationToolbar
-                tool={annotationTool}
-                setTool={setAnnotationTool}
-                color={annotationColor}
-                setColor={setAnnotationColor}
-                hasMine={myStrokes.length > 0}
-                onUndo={() =>
-                  setMyStrokes((arr) => arr.slice(0, -1))
-                }
-                onClear={() => setMyStrokes([])}
-              />
+              {bottomMode === "mark" && meta.commentsEnabled ? (
+                <AnnotationToolbar
+                  tool={annotationTool}
+                  setTool={setAnnotationTool}
+                  color={annotationColor}
+                  setColor={setAnnotationColor}
+                  hasMine={myStrokes.length > 0}
+                  onUndo={() =>
+                    setMyStrokes((arr) => arr.slice(0, -1))
+                  }
+                  onClear={() => setMyStrokes([])}
+                />
+              ) : (
+                <SelectionPill
+                  selColor={sel.color}
+                  liked={sel.liked}
+                  onSetColor={setColor}
+                  onToggleLike={toggleLike}
+                  t={t}
+                />
+              )}
             </div>
           )}
 
-          {/* Keyboard-Hint-Overlay — verschwindet nach 5s */}
           {/* Keyboard-Hint-Overlay — verschwindet nach 5s. Sitzt
-              höher wenn Annotation-Toolbar sichtbar ist, damit beide
-              gleichzeitig lesbar bleiben. */}
+              höher weil die schwebende Werkzeug-Toolbar immer da
+              ist (Selection ODER Markieren). */}
           {showHints && interactive && (
             <div
-              className={`absolute ${
-                meta.commentsEnabled ? "bottom-16" : "bottom-3"
-              } left-1/2 -translate-x-1/2 px-3 py-1.5 bg-black/60 backdrop-blur-sm rounded-full text-ui-xs text-white/70 flex items-center gap-3 pointer-events-none animate-fade-in z-10`}
+              className="absolute bottom-16 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-black/60 backdrop-blur-sm rounded-full text-ui-xs text-white/70 flex items-center gap-3 pointer-events-none animate-fade-in z-10"
               style={{ transition: "opacity 600ms ease-out" }}
             >
               <span><Kbd>←</Kbd> <Kbd>→</Kbd> {t("gallery.hintNavigate")}</span>
-              <span><Kbd>Space</Kbd> ♥</span>
+              <span><Kbd>Space</Kbd> ★</span>
               <span><Kbd>1</Kbd><Kbd>2</Kbd><Kbd>3</Kbd> ●</span>
               <span><Kbd>Esc</Kbd> ✕</span>
             </div>
@@ -1222,44 +1247,29 @@ function Lightbox({
         )}
       </div>
 
-      {/* Bottom toolbar — Proofing. Nur bei aktivem Auswahl-Recht. */}
+      {/* Bottom-Bar — Mode-Umschalter zwischen Auswahl (Farb-Tags +
+          Stern) und Markieren (Annotation-Werkzeuge). Die jeweilige
+          Werkzeug-Leiste erscheint dann auf dem Bild oben drauf
+          (siehe SelectionPill / AnnotationToolbar weiter oben).
+          Markieren-Tab nur sichtbar wenn die Galerie Kommentare/
+          Annotationen erlaubt — sonst ergibt das Werkzeug keinen
+          Sinn weil's nicht persistieren könnte. */}
       {interactive && (
-        <div className="border-t border-white/5 px-3 py-3 flex items-center justify-center gap-2">
-          <ColorPill
-            color="red"
-            active={sel.color === "red"}
-            onClick={() => setColor("red")}
-            label={t("gallery.markRed")}
-            title={t("gallery.markRedTitle")}
+        <div className="border-t border-white/5 px-3 py-2 flex items-center justify-center gap-2">
+          <ModeTab
+            active={bottomMode === "pick"}
+            onClick={() => setBottomMode("pick")}
+            label={t("gallery.modePick")}
+            icon={<StarIcon filled={sel.liked} />}
           />
-          <ColorPill
-            color="yellow"
-            active={sel.color === "yellow"}
-            onClick={() => setColor("yellow")}
-            label={t("gallery.markYellow")}
-            title={t("gallery.markYellowTitle")}
-          />
-          <ColorPill
-            color="green"
-            active={sel.color === "green"}
-            onClick={() => setColor("green")}
-            label={t("gallery.markGreen")}
-            title={t("gallery.markGreenTitle")}
-          />
-          <div className="w-px h-6 bg-white/15 mx-2" />
-          <button
-            onClick={toggleLike}
-            className={`h-9 px-4 rounded-full border transition-all duration-motion ease-out flex items-center gap-2 ${
-              sel.liked
-                ? "bg-red-500/90 border-red-400 text-white"
-                : "border-white/20 text-white/70 hover:text-white hover:border-white/50"
-            }`}
-            aria-label={t("gallery.like")}
-            title={t("gallery.likeTitle")}
-          >
-            <span className="text-base leading-none">♥</span>
-            <span className="text-ui-xs">{t("gallery.like")}</span>
-          </button>
+          {meta.commentsEnabled && (
+            <ModeTab
+              active={bottomMode === "mark"}
+              onClick={() => setBottomMode("mark")}
+              label={t("gallery.modeMark")}
+              icon={<PencilIcon />}
+            />
+          )}
         </div>
       )}
     </div>
@@ -1303,5 +1313,129 @@ function Kbd({ children }: { children: React.ReactNode }) {
     <kbd className="font-mono px-1 py-0.5 mx-px text-[10px] rounded border border-white/20 bg-white/5">
       {children}
     </kbd>
+  );
+}
+
+/** Schwebende Werkzeug-Pille für den Auswahl-Modus: drei Farb-Tags +
+ *  Auswahl-Stern. Sitzt über dem Bild und ersetzt die alte fest-am-
+ *  Boden-Bar — der Boden ist jetzt für die Mode-Tabs reserviert. */
+function SelectionPill({
+  selColor,
+  liked,
+  onSetColor,
+  onToggleLike,
+  t,
+}: {
+  selColor: string | null;
+  liked: boolean;
+  onSetColor: (c: "red" | "yellow" | "green") => void;
+  onToggleLike: () => void;
+  t: ReturnType<typeof useT>;
+}) {
+  return (
+    <div className="inline-flex items-center gap-2 bg-black/60 backdrop-blur rounded-full px-2 py-1.5">
+      <ColorPill
+        color="red"
+        active={selColor === "red"}
+        onClick={() => onSetColor("red")}
+        label={t("gallery.markRed")}
+        title={t("gallery.markRedTitle")}
+      />
+      <ColorPill
+        color="yellow"
+        active={selColor === "yellow"}
+        onClick={() => onSetColor("yellow")}
+        label={t("gallery.markYellow")}
+        title={t("gallery.markYellowTitle")}
+      />
+      <ColorPill
+        color="green"
+        active={selColor === "green"}
+        onClick={() => onSetColor("green")}
+        label={t("gallery.markGreen")}
+        title={t("gallery.markGreenTitle")}
+      />
+      <span className="w-px h-6 bg-white/15 mx-1" aria-hidden />
+      <button
+        onClick={onToggleLike}
+        className={`h-9 px-4 rounded-full border transition-all duration-motion ease-out flex items-center gap-2 ${
+          liked
+            ? "bg-amber-400 border-amber-300 text-neutral-950"
+            : "border-white/20 text-white/80 hover:text-white hover:border-white/50"
+        }`}
+        aria-label={t("gallery.like")}
+        title={t("gallery.likeTitle")}
+      >
+        <StarIcon filled={liked} />
+        <span className="text-ui-xs font-medium">{t("gallery.like")}</span>
+      </button>
+    </div>
+  );
+}
+
+/** Tab-Button für die Mode-Umschaltung am unteren Rand. Bewusst groß
+ *  und mit Label+Icon — das ist die zentrale Bedien-Entscheidung des
+ *  Kunden, soll nicht versteckt sein. */
+function ModeTab({
+  active,
+  onClick,
+  label,
+  icon,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+  icon: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`h-10 px-5 rounded-full inline-flex items-center gap-2 text-ui-sm font-medium transition-colors duration-motion ${
+        active
+          ? "bg-white text-neutral-950"
+          : "text-white/70 hover:text-white hover:bg-white/10"
+      }`}
+    >
+      {icon}
+      <span>{label}</span>
+    </button>
+  );
+}
+
+/** Stern-Icon — gefüllt wenn der Visitor das Bild in seine Auswahl
+ *  aufgenommen hat, hohl sonst. Stern statt Herz weil "Herz" emotional
+ *  ist, "Stern" eindeutiger ein Auswahl-Marker. */
+function StarIcon({ filled }: { filled: boolean }) {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinejoin="round"
+    >
+      <path d="M8 1.5l1.93 3.91 4.32.63-3.13 3.05.74 4.3L8 11.36l-3.86 2.03.74-4.3L1.75 6.04l4.32-.63L8 1.5z" />
+    </svg>
+  );
+}
+
+/** Stift-Icon für den Markieren-Mode-Tab. */
+function PencilIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M11.5 2 L14 4.5 L5 13.5 L1.5 14.5 L2.5 11 Z" />
+    </svg>
   );
 }

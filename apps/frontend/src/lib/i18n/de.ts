@@ -374,8 +374,10 @@ export const de: Dict = {
     markYellowTitle: "Gelb (Taste 2)",
     markGreen: "Grün markieren",
     markGreenTitle: "Grün (Taste 3)",
-    like: "Like",
-    likeTitle: "Like (Leertaste)",
+    like: "Auswahl",
+    likeTitle: "Zur Auswahl hinzufügen (Leertaste)",
+    modePick: "Auswahl",
+    modeMark: "Markieren",
     poweredBy: "Powered by Lumio",
   },
 

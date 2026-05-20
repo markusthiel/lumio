@@ -208,7 +208,7 @@ export default function StatsPage() {
                     </span>
                   )}
                   <span className="text-ui-sm font-mono text-ink-secondary tabular-nums">
-                    ♥ {f.likes}
+                    ★ {f.likes}
                   </span>
                 </li>
               ))}

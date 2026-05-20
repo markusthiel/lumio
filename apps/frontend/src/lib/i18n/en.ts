@@ -373,8 +373,10 @@ export const en: Dict = {
     markYellowTitle: "Yellow (key 2)",
     markGreen: "Mark green",
     markGreenTitle: "Green (key 3)",
-    like: "Like",
-    likeTitle: "Like (spacebar)",
+    like: "Pick",
+    likeTitle: "Add to selection (spacebar)",
+    modePick: "Selection",
+    modeMark: "Mark",
     poweredBy: "Powered by Lumio",
   },
 
