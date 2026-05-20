@@ -925,7 +925,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         WHERE "tenantId" = ${req.tenantId}::uuid
           AND action = 'share.unlock'
           AND "targetType" = 'gallery'
-          AND "targetId" = ${gallery.id}::uuid
+          AND "targetId" = ${gallery.id}
           AND "createdAt" >= ${since}
         GROUP BY day
         ORDER BY day ASC
