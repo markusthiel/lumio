@@ -171,6 +171,10 @@ export const de: Dict = {
     slideshowFade: "Fade",
     slideshowSlide: "Slide",
     slideshowKenburns: "Ken Burns",
+    slideshowAudio: "Slideshow-Musik",
+    slideshowAudioHint:
+      "Hintergrund-Musik für die Vollbild-Slideshow. MP3/AAC/OGG, max 30 MB. Spielt nur wenn der Kunde die Slideshow startet.",
+    slideshowAudioUpload: "Musik hochladen",
     eventLogo: "Event-Logo",
     eventLogoHint:
       "Klein über dem Galerie-Titel sichtbar. Z.B. Hochzeitsmonogramm oder Event-Branding. PNG mit transparentem Hintergrund empfohlen.",

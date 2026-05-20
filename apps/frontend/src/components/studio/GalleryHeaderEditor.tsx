@@ -132,6 +132,26 @@ export function GalleryHeaderEditor({ gallery, files, onChanged }: Props) {
             />
           </Field>
 
+          {/* Slideshow-Musik */}
+          <Field
+            label={t("studio.slideshowAudio")}
+            hint={t("studio.slideshowAudioHint")}
+          >
+            <SlideshowAudioField
+              slug={gallery.slug}
+              audioKey={gallery.slideshowAudioUrl}
+              onUpload={async (file) => {
+                const { storageKey } = await api.uploadGalleryAsset(
+                  gallery.id,
+                  "audio",
+                  file
+                );
+                await patch({ slideshowAudioUrl: storageKey });
+              }}
+              onRemove={() => patch({ slideshowAudioUrl: null })}
+            />
+          </Field>
+
           {/* Event-Logo */}
           <Field
             label={t("studio.eventLogo")}
@@ -905,6 +925,80 @@ function SlideshowTransitionPicker({
           </button>
         );
       })}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+/** Audio-Upload + Vorschau-Player für die Slideshow-Musik. Zeigt den
+ *  aktuellen Track als HTML5-Audio-Element zum Reinhören und einen
+ *  "Entfernen"-Button. Der eigentliche Upload-Path geht über
+ *  api.uploadGalleryAsset(galleryId, 'audio', file). */
+function SlideshowAudioField({
+  slug,
+  audioKey,
+  onUpload,
+  onRemove,
+}: {
+  slug: string;
+  audioKey: string | null;
+  onUpload: (file: File) => Promise<void> | void;
+  onRemove: () => Promise<void> | void;
+}) {
+  const t = useT();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <div className="space-y-2">
+      {audioKey && (
+        <audio
+          src={api.galleryAssetUrl(slug, "audio", audioKey)}
+          controls
+          preload="none"
+          className="w-full max-w-md h-10"
+        />
+      )}
+      <div className="flex items-center gap-2 flex-wrap">
+        <input
+          ref={inputRef}
+          type="file"
+          accept="audio/mpeg,audio/mp4,audio/aac,audio/ogg,audio/webm,audio/*"
+          className="hidden"
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            setBusy(true);
+            try {
+              await onUpload(file);
+            } finally {
+              setBusy(false);
+              if (inputRef.current) inputRef.current.value = "";
+            }
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={busy}
+          className="h-8 px-3 rounded border border-line-strong text-ui-sm text-ink-secondary hover:text-ink-primary hover:bg-surface-overlay disabled:opacity-50 transition-colors duration-motion"
+        >
+          {busy
+            ? "…"
+            : audioKey
+            ? t("studio.replace")
+            : t("studio.slideshowAudioUpload")}
+        </button>
+        {audioKey && (
+          <button
+            type="button"
+            onClick={() => onRemove()}
+            className="text-ui-sm text-semantic-danger hover:underline"
+          >
+            {t("studio.remove")}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

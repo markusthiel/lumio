@@ -314,6 +314,15 @@ model Gallery {
   //   "kenburns" langsamer Zoom + Pan auf jedem Bild (Slideshow-Klassiker)
   slideshowTransition String @default("fade")
   
+  // Optional Hintergrund-Musik für die Slideshow. S3-Storage-Key
+  // (z.B. "t/<tenant>/galleries/<gallery>/audio/bg-<rand>.mp3").
+  // Spielt NUR im Slideshow-Modus, nicht im normalen Browse — der
+  // Customer hat dort schon eine User-Geste gemacht (Slideshow-Start),
+  // damit ist Auto-Play durch Browser-Policies erlaubt.
+  // Loopt automatisch, Volume-Default 70 %, im Slideshow-UI per
+  // Slider justierbar (clientseitig, nicht persistiert).
+  slideshowAudioUrl String?
+  
   // Galerie-spezifische Schriftarten — überschreiben die Branding-
   // Schriftart nur für diese Galerie. Beide Felder sind kurze IDs
   // aus einer kuratierten Liste (siehe lib/fonts.ts im Frontend),

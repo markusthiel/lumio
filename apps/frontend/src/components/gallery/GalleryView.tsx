@@ -370,6 +370,7 @@ export function GalleryView({
           files={files}
           startIndex={slideshowIdx}
           transition={meta.slideshowTransition}
+          audioUrl={meta.slideshowAudioUrl}
           onClose={() => setSlideshowIdx(null)}
         />
       )}

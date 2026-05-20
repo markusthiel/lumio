@@ -73,6 +73,8 @@ export interface Gallery {
   gridLayout: "masonry" | "justified" | "equal";
   // Slideshow-Übergangseffekt
   slideshowTransition: "fade" | "slide" | "kenburns";
+  // Slideshow-Hintergrund-Musik (S3-Storage-Key)
+  slideshowAudioUrl: string | null;
   fileCount?: number;
   tags?: Tag[];
   createdAt: string;
@@ -240,6 +242,9 @@ export interface PublicGalleryMeta {
   gridLayout: "masonry" | "justified" | "equal";
   /** Slideshow-Übergangseffekt. */
   slideshowTransition: "fade" | "slide" | "kenburns";
+  /** Optionaler Hintergrund-Musik-URL für die Slideshow (relativer
+   *  API-Pfad inkl. Cache-Buster). Null wenn keine Musik gesetzt. */
+  slideshowAudioUrl: string | null;
 }
 
 export interface Branding {
@@ -543,19 +548,22 @@ export const api = {
    */
   uploadGalleryAsset: async (
     galleryId: string,
-    kind: "logo" | "hero",
+    kind: "logo" | "hero" | "audio",
     file: File
   ): Promise<{ storageKey: string }> => {
-    // Dynamic-Import, damit der ImageResize-Code nicht in Studio-
-    // Bundles auftaucht die kein Asset hochladen.
-    const { resizeImage } = await import("./imageResize");
-    let optimized: File;
-    try {
-      optimized = await resizeImage(file, kind);
-    } catch {
-      // Decoding-Failure → Original verwenden. Backend-seitige
-      // Größen-/Type-Limits fangen Edge-Cases ab.
-      optimized = file;
+    // Image-Assets vor Upload resizen. Audio (kind === 'audio') wird
+    // unverändert hochgeladen — wir machen kein Transcoding hier;
+    // moderne Browsers spielen MP3/AAC/OGG/Opus alle nativ.
+    let optimized: File = file;
+    if (kind === "logo" || kind === "hero") {
+      try {
+        const { resizeImage } = await import("./imageResize");
+        optimized = await resizeImage(file, kind);
+      } catch {
+        // Decoding-Failure → Original verwenden. Backend-seitige
+        // Größen-/Type-Limits fangen Edge-Cases ab.
+        optimized = file;
+      }
     }
 
     const presign = await request<{ uploadUrl: string; storageKey: string }>(
@@ -586,7 +594,7 @@ export const api = {
    *  der Browser holt das neue Bild ohne 5-Minuten-Cache-Wartezeit. */
   galleryAssetUrl: (
     slug: string,
-    kind: "logo" | "hero",
+    kind: "logo" | "hero" | "audio",
     cacheBust?: string | null
   ) => {
     const base = `${API_URL}/api/v1/g/${slug}/assets/${kind}`;

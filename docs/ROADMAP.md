@@ -152,6 +152,7 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 - [x] Galerie-Schriftarten (Heading + Body separat aus kuratierter Liste von 8 Fonts wählbar — 4 sans + 4 serif, DSGVO-konform via Bunny Fonts CDN, Live-Preview im Studio)
 - [x] Grid-Layout-Varianten (Masonry/Justified/Equal — CSS-only, kein JS-Layout)
 - [x] Slideshow-Ausbau (drei Übergangseffekte: Fade/Slide/Ken-Burns mit 4 Pan-Richtungen, prefers-reduced-motion respektiert)
+- [x] Slideshow-Hintergrundmusik (Audio-Upload pro Galerie MP3/AAC/OGG max 30 MB, Auto-Play in Slideshow weil User-Geste, Loop, Volume-Slider mit localStorage-Persistierung)
 - [ ] Smart Collections / gespeicherte Filter
 - [ ] Approval-Workflows (mehrere Reviewer in Sequenz)
 - [ ] SSO (SAML, OIDC)

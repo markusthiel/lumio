@@ -32,6 +32,10 @@ interface Props {
   startIndex?: number;
   /** Übergangseffekt zwischen Bildern. Wenn nicht gesetzt: 'fade'. */
   transition?: "fade" | "slide" | "kenburns";
+  /** Optionale Hintergrund-Musik-URL. Wenn gesetzt, wird sie beim
+   *  Slideshow-Start (Auto-Play OK weil User-Geste vom Slideshow-Button)
+   *  abgespielt, looped automatisch. Volume per UI-Slider justierbar. */
+  audioUrl?: string | null;
   onClose: () => void;
 }
 
@@ -39,8 +43,15 @@ const INTERVALS = [3, 5, 8, 12] as const;
 type Interval = (typeof INTERVALS)[number];
 
 const STORAGE_KEY_INTERVAL = "lumio_slideshow_interval";
+const STORAGE_KEY_VOLUME = "lumio_slideshow_volume";
 
-export function Slideshow({ files, startIndex = 0, transition = "fade", onClose }: Props) {
+export function Slideshow({
+  files,
+  startIndex = 0,
+  transition = "fade",
+  audioUrl,
+  onClose,
+}: Props) {
   const t = useT();
 
   // Nur anzeigbare Files — Slideshow lässt Videos aus
@@ -57,6 +68,15 @@ export function Slideshow({ files, startIndex = 0, transition = "fade", onClose 
   const [playing, setPlaying] = useState(true);
   const [interval, setInterval] = useState<Interval>(() => readStoredInterval());
   const [toolbarVisible, setToolbarVisible] = useState(true);
+
+  // Audio-State. Volume wird in localStorage persistiert damit der
+  // User nicht jedes Mal neu einstellen muss. Muted-State NICHT
+  // persistiert — wer Musik will, will sie jedes Mal (auto-play in
+  // der Slideshow ist legal weil der Slideshow-Start eine User-Geste
+  // ist).
+  const [volume, setVolume] = useState(() => readStoredVolume());
+  const [muted, setMuted] = useState(false);
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   // Refs für Timer
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -153,6 +173,34 @@ export function Slideshow({ files, startIndex = 0, transition = "fade", onClose 
     }
   }, [interval]);
 
+  // Volume persistieren
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(STORAGE_KEY_VOLUME, String(volume));
+    } catch {
+      /* private mode */
+    }
+    if (audioRef.current) {
+      audioRef.current.volume = muted ? 0 : volume;
+    }
+  }, [volume, muted]);
+
+  // Audio Play/Pause an Slideshow-Play/Pause koppeln. Wenn der User
+  // die Slideshow pausiert, soll auch die Musik pausen. Beim Resume
+  // wieder weiterspielen — Browser handhabt das nativ via .play().
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !audioUrl) return;
+    if (playing) {
+      // play() returnt ein Promise das rejecten kann (z.B. wenn der
+      // Browser doch noch Autoplay blockiert). Wir catchen und tun
+      // nichts — die Slideshow läuft trotzdem, nur eben still.
+      audio.play().catch(() => {});
+    } else {
+      audio.pause();
+    }
+  }, [playing, audioUrl]);
+
   if (playable.length === 0) {
     return (
       <div
@@ -182,6 +230,26 @@ export function Slideshow({ files, startIndex = 0, transition = "fade", onClose 
       ref={containerRef}
       className={`fixed inset-0 z-50 bg-black overflow-hidden ${cursor}`}
     >
+      {/* Audio-Element: nur wenn audioUrl gesetzt. autoPlay startet
+          beim Mount; das funktioniert weil der Slideshow-Start eine
+          User-Geste war (Button-Klick). loop=true, preload=auto.
+          Wir setzen den Volume per useEffect oben statt im JSX, damit
+          die initialen Volume- und Mute-Werte greifen ohne dass das
+          Audio-Element doppelt re-rendert. */}
+      {audioUrl && (
+        <audio
+          ref={audioRef}
+          src={audioUrl}
+          autoPlay
+          loop
+          preload="auto"
+          className="hidden"
+          // playsinline für iOS Safari — sonst öffnet Audio den
+          // nativen Player Vollbild
+          playsInline
+        />
+      )}
+
       {/* Render-Layer pro Übergangs-Modus. Alle drei nutzen die gleiche
           prev/current-Layer-Strategie, aber die Layer-Komponente selbst
           unterscheidet sich. Wir geben den Layern explizite keys, damit
@@ -238,6 +306,42 @@ export function Slideshow({ files, startIndex = 0, transition = "fade", onClose 
                 </button>
               ))}
             </div>
+
+            {/* Volume-Control — nur wenn Audio gesetzt. Mute-Button +
+                Slider. Volume bleibt zwischen Slideshows erhalten
+                (localStorage), Mute nicht. */}
+            {audioUrl && (
+              <div className="flex items-center gap-1.5 bg-white/5 rounded px-1.5 h-9">
+                <button
+                  type="button"
+                  onClick={() => setMuted((m) => !m)}
+                  className="text-white/80 hover:text-white inline-flex items-center justify-center h-7 w-7"
+                  aria-label={
+                    muted ? t("gallery.slideshowUnmute") : t("gallery.slideshowMute")
+                  }
+                  title={
+                    muted ? t("gallery.slideshowUnmute") : t("gallery.slideshowMute")
+                  }
+                >
+                  {muted || volume === 0 ? <SpeakerMutedIcon /> : <SpeakerIcon />}
+                </button>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={muted ? 0 : volume}
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    setVolume(v);
+                    if (v > 0) setMuted(false);
+                  }}
+                  className="w-20 accent-white"
+                  aria-label={t("gallery.slideshowVolume")}
+                />
+              </div>
+            )}
+
             <button
               onClick={() => setPlaying((p) => !p)}
               className="h-9 w-9 rounded inline-flex items-center justify-center text-white/80 hover:text-white hover:bg-white/10 transition-colors duration-motion"
@@ -307,6 +411,20 @@ function readStoredInterval(): Interval {
     /* SSR oder private mode */
   }
   return 5;
+}
+
+function readStoredVolume(): number {
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY_VOLUME);
+    if (raw !== null) {
+      const v = Number(raw);
+      if (!isNaN(v) && v >= 0 && v <= 1) return v;
+    }
+  } catch {
+    /* SSR oder private mode */
+  }
+  return 0.7; // Default 70 % — laut genug damit der Customer was hört,
+              // nicht so laut dass es bei Kopfhörern wehtut.
 }
 
 function SlideImage({
@@ -404,6 +522,36 @@ function PauseIcon() {
     <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden>
       <rect x="3" y="2.5" width="3" height="9" />
       <rect x="8" y="2.5" width="3" height="9" />
+    </svg>
+  );
+}
+
+function SpeakerIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden>
+      <path d="M6 2.5L3 5H1v4h2l3 2.5v-9z" />
+      <path
+        d="M8.5 4.5a3 3 0 010 5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function SpeakerMutedIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor" aria-hidden>
+      <path d="M6 2.5L3 5H1v4h2l3 2.5v-9z" />
+      <path
+        d="M9 5l3 3M12 5l-3 3"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinecap="round"
+      />
     </svg>
   );
 }

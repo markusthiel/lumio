@@ -78,6 +78,7 @@ const updateGallerySchema = createGallerySchema.partial().extend({
   slideshowTransition: z
     .enum(["fade", "slide", "kenburns"])
     .optional(),
+  slideshowAudioUrl: z.string().max(500).nullable().optional(),
   footerMarkdown: z.string().max(20_000).nullable().optional(),
   colorBackground: z
     .string()
@@ -493,6 +494,9 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           ...(body.slideshowTransition !== undefined
             ? { slideshowTransition: body.slideshowTransition }
             : {}),
+          ...(body.slideshowAudioUrl !== undefined
+            ? { slideshowAudioUrl: body.slideshowAudioUrl }
+            : {}),
           ...(body.footerMarkdown !== undefined
             ? { footerMarkdown: body.footerMarkdown }
             : {}),
@@ -834,6 +838,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         fontBody: true,
         gridLayout: true,
         slideshowTransition: true,
+        slideshowAudioUrl: true,
         tenant: { select: { status: true } },
       },
     });
@@ -917,6 +922,9 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
     const eventLogoPublicUrl = gallery.eventLogoUrl
       ? `/api/v1/g/${gallery.slug}/assets/logo${cacheBust(gallery.eventLogoUrl)}`
       : null;
+    const slideshowAudioPublicUrl = gallery.slideshowAudioUrl
+      ? `/api/v1/g/${gallery.slug}/assets/audio${cacheBust(gallery.slideshowAudioUrl)}`
+      : null;
 
     return {
       gallery: {
@@ -960,6 +968,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         },
         gridLayout: gallery.gridLayout,
         slideshowTransition: gallery.slideshowTransition,
+        slideshowAudioUrl: slideshowAudioPublicUrl,
       },
     };
   });
@@ -1357,18 +1366,20 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
   // ---------------------------------------------------------------------------
   // POST /galleries/:id/assets/presign — Logo / Hero-Upload vorbereiten
   // ---------------------------------------------------------------------------
-  // Studio-Client uploadet Header-Assets (Event-Logo, Hero-Bild) direkt
-  // zu S3. Diese Route gibt eine kurzlebige PUT-URL zurück und den
-  // späteren Storage-Key, den der Client beim PATCH der Galerie als
-  // eventLogoUrl bzw. heroUrl einträgt.
+  // Studio-Client uploadet Header-Assets (Event-Logo, Hero-Bild) UND
+  // optional Slideshow-Musik direkt zu S3. Diese Route gibt eine
+  // kurzlebige PUT-URL zurück und den späteren Storage-Key, den der
+  // Client beim PATCH der Galerie als eventLogoUrl/heroUrl/
+  // slideshowAudioUrl einträgt.
   //
-  // Wir limitieren bewusst auf Bilder (image/*) und 10 MB. Logos sind
-  // typisch <500kB, Hero-Bilder <5MB. RAW-Files wären hier nicht
-  // sinnvoll (keine Rendition-Pipeline für Asset-Files).
+  // Limits:
+  //   logo, hero  → image/*, max 10 MB
+  //   audio       → audio/*, max 30 MB (3-5 min MP3 ist meist <10 MB,
+  //                 längere Tracks knapp drüber)
   app.post<{
     Params: { id: string };
     Body: {
-      kind: "logo" | "hero";
+      kind: "logo" | "hero" | "audio";
       contentType: string;
       contentLength?: number;
     };
@@ -1376,16 +1387,30 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
     const s = req.requireAuth();
 
     const schema = z.object({
-      kind: z.enum(["logo", "hero"]),
-      contentType: z.string().regex(/^image\//, "must be image/*"),
-      contentLength: z
-        .number()
-        .int()
-        .positive()
-        .max(10 * 1024 * 1024) // 10 MB
-        .optional(),
+      kind: z.enum(["logo", "hero", "audio"]),
+      contentType: z.string().min(1).max(100),
+      contentLength: z.number().int().positive().optional(),
     });
     const body = schema.parse(req.body);
+
+    // Pro Asset-Kind separate Validation. Wir machen das hier statt
+    // im zod-Schema, damit die Fehlermeldung passt ("audio darf bis
+    // 30 MB" vs "image bis 10 MB").
+    if (body.kind === "audio") {
+      if (!/^audio\//.test(body.contentType)) {
+        return reply.status(400).send({ error: "must be audio/*" });
+      }
+      if (body.contentLength && body.contentLength > 30 * 1024 * 1024) {
+        return reply.status(400).send({ error: "audio too large (max 30 MB)" });
+      }
+    } else {
+      if (!/^image\//.test(body.contentType)) {
+        return reply.status(400).send({ error: "must be image/*" });
+      }
+      if (body.contentLength && body.contentLength > 10 * 1024 * 1024) {
+        return reply.status(400).send({ error: "image too large (max 10 MB)" });
+      }
+    }
 
     const gallery = await prisma.gallery.findFirst({
       where: {
@@ -1397,7 +1422,8 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
     });
     if (!gallery) return reply.status(404).send({ error: "not_found" });
 
-    // Storage-Key-Schema: t/<tenant>/galleries/<gallery>/assets/<kind>-<rand>.<ext>
+    // Storage-Key-Schema:
+    //   t/<tenant>/galleries/<gallery>/assets/<kind>-<rand>.<ext>
     // Die Random-Komponente verhindert Browser-Cache-Probleme nach
     // Re-Upload (alte URL ist tot, neue lebt — kein "alter Cache zeigt
     // altes Logo"-Effekt).
@@ -1429,7 +1455,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
   // signieren nicht den storageKey direkt zum Public-Cache, damit
   // wir später Asset-Caching/CDN dazwischenschalten können ohne die
   // Customer-URLs zu ändern.
-  app.get<{ Params: { slug: string; kind: "logo" | "hero" } }>(
+  app.get<{ Params: { slug: string; kind: "logo" | "hero" | "audio" } }>(
     "/g/:slug/assets/:kind",
     async (req, reply) => {
       const gallery = await prisma.gallery.findUnique({
@@ -1438,6 +1464,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           status: true,
           eventLogoUrl: true,
           heroUrl: true,
+          slideshowAudioUrl: true,
           tenant: { select: { status: true } },
         },
       });
@@ -1449,7 +1476,13 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
       }
 
       const key =
-        req.params.kind === "logo" ? gallery.eventLogoUrl : gallery.heroUrl;
+        req.params.kind === "logo"
+          ? gallery.eventLogoUrl
+          : req.params.kind === "hero"
+          ? gallery.heroUrl
+          : req.params.kind === "audio"
+          ? gallery.slideshowAudioUrl
+          : null;
       if (!key) return reply.status(404).send({ error: "not_set" });
 
       // Wenn ein absoluter URL drinsteht (z.B. CDN), direkt durchreichen.
@@ -1460,7 +1493,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
 
       const url = await presignGet({
         key,
-        ttlSeconds: 60 * 15, // 15 Min reicht für Page-Load + Bildlade-Time
+        ttlSeconds: 60 * 15, // 15 Min reicht für Page-Load + Asset-Time
       });
       // Browser-Cache: Asset ändert sich selten, also 5 Min cachen lassen.
       // Nicht länger weil Presigned-URLs nach 15 Min eh tot sind.
