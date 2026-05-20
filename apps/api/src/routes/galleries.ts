@@ -738,10 +738,21 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         expiresAt: true,
         tenantId: true,
         brandingId: true,
+        tenant: { select: { status: true } },
       },
     });
     if (!gallery || gallery.status !== "live") {
       return reply.status(404).send({ error: "not_found" });
+    }
+    if (gallery.tenant.status !== "active") {
+      // Tenant pausiert/archiviert → Customer-Sicht gibt 503 mit klarem
+      // Code zurück. Frontend kann das in eine "Galerie momentan nicht
+      // verfügbar"-Seite rendern. Wir nutzen 503 statt 404, damit
+      // legitime Kunden mit gespeichertem Link einen verständlichen
+      // Hinweis bekommen statt 'Galerie existiert nicht'.
+      return reply
+        .status(503)
+        .send({ error: "tenant_unavailable" });
     }
     if (gallery.expiresAt && gallery.expiresAt < new Date()) {
       return reply.status(410).send({ error: "expired" });

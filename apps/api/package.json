@@ -14,7 +14,9 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "create-admin": "node dist/scripts/create-admin.js",
-    "create-admin:dev": "tsx src/scripts/create-admin.ts"
+    "create-admin:dev": "tsx src/scripts/create-admin.ts",
+    "create-super-admin": "node dist/scripts/create-super-admin.js",
+    "create-super-admin:dev": "tsx src/scripts/create-super-admin.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.658.0",

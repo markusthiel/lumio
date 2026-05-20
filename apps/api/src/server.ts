@@ -34,7 +34,10 @@ import { registerPluginRoutes } from "./routes/plugin.js";
 import { registerWebhookRoutes } from "./routes/webhooks.js";
 import { registerSearchRoutes } from "./routes/search.js";
 import { registerTagRoutes } from "./routes/tags.js";
+import { registerSuperAuthRoutes } from "./routes/super-auth.js";
+import { registerSuperTenantRoutes } from "./routes/super-tenants.js";
 import { registerWsRoutes } from "./routes/ws.js";
+import superAdminPlugin from "./plugins/super-admin.js";
 
 async function buildServer() {
   const app = Fastify({
@@ -58,6 +61,7 @@ async function buildServer() {
 
   // Lumio-Plugins
   await app.register(authPlugin);
+  await app.register(superAdminPlugin);
 
   // Routen
   await registerHealthRoute(app);
@@ -80,6 +84,11 @@ async function buildServer() {
       await registerWebhookRoutes(api);
       await registerSearchRoutes(api);
       await registerTagRoutes(api);
+      await registerSuperAuthRoutes(api);
+      // Super-Admin-Tenant-Routes haben einen internen preHandler-Guard,
+      // sind aber bewusst eingekapselt damit ihr Guard nicht auf andere
+      // Routes des selben Scopes wirkt.
+      await api.register(registerSuperTenantRoutes);
       if (config.BILLING_ENABLED) {
         await registerBillingRoutes(api);
       }

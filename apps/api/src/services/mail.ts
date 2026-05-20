@@ -116,3 +116,31 @@ export function tmplZipReady(opts: {
       `— Lumio`,
   };
 }
+
+/**
+ * Mail für neu angelegte Tenant-Owner. Der Super-Admin hat einen
+ * Account vorbereitet und ein Setup-Token vergeben; per Link landet
+ * der neue Owner im Frontend bei /auth/setup-password?token=...
+ * und setzt dort sein eigenes Passwort.
+ */
+export function tmplOwnerSetup(opts: {
+  displayName: string;
+  tenantName: string;
+  setupUrl: string;
+  invitedBy: string;
+  validHours: number;
+}): { subject: string; text: string } {
+  return {
+    subject: `Dein Lumio-Studio "${opts.tenantName}" ist bereit`,
+    text:
+      `Hallo ${opts.displayName},\n\n` +
+      `${opts.invitedBy} hat ein Lumio-Studio für dich angelegt:\n` +
+      `  ${opts.tenantName}\n\n` +
+      `Klick auf den folgenden Link, um dein Passwort zu setzen und ` +
+      `direkt loszulegen:\n\n` +
+      `${opts.setupUrl}\n\n` +
+      `Der Link ist ${opts.validHours} Stunden gültig. Falls die Frist ` +
+      `abläuft, melde dich bei ${opts.invitedBy}.\n\n` +
+      `— Lumio`,
+  };
+}

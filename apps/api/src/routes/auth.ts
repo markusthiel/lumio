@@ -22,9 +22,14 @@ import { config } from "../config.js";
 import {
   createSession,
   deleteSession,
+  hashPassword,
   verifyPassword,
 } from "../services/auth.js";
 import { SESSION_COOKIE } from "../plugins/auth.js";
+import {
+  consumeSetupToken,
+  lookupSetupToken,
+} from "../services/setupToken.js";
 import {
   createLoginChallenge,
   verifyLoginChallenge,
@@ -103,23 +108,38 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         where: {
           tenantId_email: { tenantId: req.tenantId, email: body.email },
         },
+        include: { tenant: { select: { status: true } } },
       });
 
       const validPwd = user
         ? await verifyPassword(user.passwordHash, body.password)
         : await verifyPassword(DUMMY_HASH, body.password);
 
-      if (!user || user.status !== "active" || !validPwd) {
-        // Bei "User existiert nicht": actorId leer, sonst die ID.
-        // Beides ist forensisch wertvoll — wir wollen Brute-Force gegen
-        // bekannte Accounts UND gegen unbekannte sehen.
+      // Login nur erfolgreich wenn:
+      //   - User existiert + Status active
+      //   - Passwort korrekt
+      //   - Tenant aktiv (nicht suspended/archived)
+      // Bei suspended/archived behandeln wir das wie disabled — keine extra
+      // Fehlermeldung, damit man von außen Tenant-Status nicht enumerieren
+      // kann. Ein Super-Admin sieht ja sowieso direkt was los ist.
+      const tenantActive = user?.tenant?.status === "active";
+      if (!user || user.status !== "active" || !validPwd || !tenantActive) {
         await logEvent({
           tenantId: req.tenantId,
           actorType: "user",
           actorId: user?.id ?? null,
           action: "auth.login.failed",
           ipAddress: req.ip,
-          payload: { email: body.email, reason: !user ? "no_user" : "bad_password" },
+          payload: {
+            email: body.email,
+            reason: !user
+              ? "no_user"
+              : user.status !== "active"
+              ? "user_inactive"
+              : !tenantActive
+              ? "tenant_inactive"
+              : "bad_password",
+          },
         });
         return reply.status(401).send({
           error: "invalid_credentials",
@@ -213,8 +233,13 @@ export async function registerAuthRoutes(app: FastifyInstance) {
 
       const user = await prisma.user.findUnique({
         where: { id: claims.uid },
+        include: { tenant: { select: { status: true } } },
       });
-      if (!user || user.status !== "active") {
+      if (
+        !user ||
+        user.status !== "active" ||
+        user.tenant.status !== "active"
+      ) {
         return reply.status(401).send({ error: "invalid_credentials" });
       }
 
@@ -414,8 +439,15 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           .send({ error: "verification_failed", reason: result.reason });
       }
 
-      const user = await prisma.user.findUnique({ where: { id: result.userId } });
-      if (!user || user.status !== "active") {
+      const user = await prisma.user.findUnique({
+        where: { id: result.userId },
+        include: { tenant: { select: { status: true } } },
+      });
+      if (
+        !user ||
+        user.status !== "active" ||
+        user.tenant.status !== "active"
+      ) {
         return reply.status(401).send({ error: "invalid_credentials" });
       }
 
@@ -512,4 +544,122 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       },
     };
   });
+
+  // -------------------------------------------------------------------------
+  // GET /auth/setup-password/check?token=...
+  // -------------------------------------------------------------------------
+  // Vorab-Lookup vom Frontend, damit die Setup-Page direkt anzeigen kann,
+  // ob der Link noch gültig ist (+ wessen Mail dazu gehört, damit der
+  // User sieht "ja, das bin ich"). Wir liefern bewusst minimale Daten —
+  // genug zum Anzeigen, nichts zum Identitäts-Enumerieren.
+  app.get<{ Querystring: { token?: string } }>(
+    "/auth/setup-password/check",
+    async (req, reply) => {
+      const token = req.query.token;
+      if (!token) {
+        return reply.status(400).send({ error: "missing_token" });
+      }
+      const found = await lookupSetupToken(token);
+      if (!found) {
+        return reply.status(404).send({ error: "invalid_or_expired" });
+      }
+      const user = await prisma.user.findUnique({
+        where: { id: found.userId },
+        include: { tenant: { select: { name: true, status: true } } },
+      });
+      if (!user) return reply.status(404).send({ error: "invalid_or_expired" });
+      if (user.tenant.status !== "active") {
+        return reply.status(409).send({ error: "tenant_inactive" });
+      }
+      return {
+        email: user.email,
+        name: user.name,
+        tenantName: user.tenant.name,
+        expiresAt: found.expiresAt,
+      };
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // POST /auth/setup-password
+  // -------------------------------------------------------------------------
+  // Token einlösen, neues Passwort setzen, User-Status auf "active"
+  // bringen, sofort eingeloggt landen lassen (Session-Cookie).
+  app.post<{ Body: { token: string; password: string } }>(
+    "/auth/setup-password",
+    {
+      config: { rateLimit: { max: 10, timeWindow: "5 minutes" } },
+    },
+    async (req, reply) => {
+      const body = z
+        .object({
+          token: z.string().min(1).max(500),
+          password: z.string().min(12).max(500),
+        })
+        .parse(req.body);
+
+      const found = await lookupSetupToken(body.token);
+      if (!found) {
+        return reply.status(404).send({ error: "invalid_or_expired" });
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: found.userId },
+        include: { tenant: { select: { status: true } } },
+      });
+      if (!user) return reply.status(404).send({ error: "invalid_or_expired" });
+      if (user.tenant.status !== "active") {
+        return reply.status(409).send({ error: "tenant_inactive" });
+      }
+
+      // Passwort setzen, Status auf active, Token verbrauchen — alles
+      // in einer Transaktion, damit nicht eine Hälfte greift wenn was
+      // schiefgeht.
+      const newHash = await hashPassword(body.password);
+      await prisma.$transaction(async (tx) => {
+        await tx.user.update({
+          where: { id: user.id },
+          data: { passwordHash: newHash, status: "active" },
+        });
+        await tx.passwordResetToken.update({
+          where: { id: found.tokenId },
+          data: { usedAt: new Date() },
+        });
+      });
+
+      // Audit
+      await logEvent({
+        tenantId: user.tenantId,
+        actorType: "user",
+        actorId: user.id,
+        action: "auth.setup_password",
+        ipAddress: req.ip,
+      });
+
+      // Direkt einloggen — Setup ist Onboarding, der erste Studio-Klick
+      // soll nicht zur Login-Maske zurückspringen.
+      const { token } = await createSession({
+        userId: user.id,
+        ipAddress: req.ip,
+        userAgent: req.headers["user-agent"] ?? null,
+      });
+      reply.setCookie(SESSION_COOKIE, token, {
+        httpOnly: true,
+        secure: req.protocol === "https",
+        sameSite: "lax",
+        path: "/",
+        maxAge: 30 * 24 * 60 * 60,
+      });
+
+      return {
+        ok: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+        },
+      };
+    }
+  );
 }

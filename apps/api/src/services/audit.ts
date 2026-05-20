@@ -19,10 +19,13 @@
 import { prisma } from "../db.js";
 import { logger } from "../logger.js";
 
-export type AuditActorType = "user" | "access" | "system";
+export type AuditActorType = "user" | "access" | "system" | "super_admin";
 
 export interface AuditLogInput {
-  tenantId: string;
+  /** tenantId ist null bei plattform-globalen Super-Admin-Aktionen
+   *  (Login/Logout). Bei Aktionen gegen einen konkreten Tenant
+   *  (suspend/archive/owner-invite) den jeweiligen Tenant-ID setzen. */
+  tenantId: string | null;
   actorType: AuditActorType;
   actorId?: string | null;
   action: string; // siehe Aktion-Konventionen unten

@@ -145,6 +145,7 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 
 - [x] Globale Suche über alle Galerien eines Tenants (Cmd/Ctrl+K Command-Palette mit Live-Suche über Galerien, Files, Brandings, Templates; ILIKE-Backend, 4 parallele Queries in einem Roundtrip)
 - [x] Tagging-System mit Hierarchie (tenant-weite Tags mit Parent-Beziehung, Farbe, Galerie-Zuordnung mit AND-Filter in der Liste, TagPicker-Komponente mit Inline-Chips; File-Tag-API bereit, UI dafür folgt mit File-Bulk-Actions)
+- [x] Super-Admin & Multi-Tenant-Management (`/super` Login-bereich, eigene super_admins-Tabelle + Sessions, Tenant-CRUD mit initialem Owner + Setup-Mail, Suspend/Reactivate/Archive-Lifecycle, Tenant-Status-Guards in Login + Customer-Pfaden, Setup-Password-Flow für eingeladene Owner)
 - [ ] Smart Collections / gespeicherte Filter
 - [ ] Approval-Workflows (mehrere Reviewer in Sequenz)
 - [ ] SSO (SAML, OIDC)

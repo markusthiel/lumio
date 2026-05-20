@@ -90,7 +90,12 @@ export async function createSession(opts: {
   return { token, session };
 }
 
-/** Validiert ein Token aus dem Cookie und gibt User + Session zurück. */
+/** Validiert ein Token aus dem Cookie und gibt User + Session zurück.
+ *
+ * Prüft auch dass der Tenant aktiv ist — wenn ein Super-Admin einen
+ * Tenant suspendet, sollen bestehende Sessions sofort blind werden.
+ * Wir laden den Tenant.status mit, was einen kleinen JOIN mehr ist;
+ * macht aber den 'suspend wirkt sofort'-Workflow zuverlässig. */
 export async function validateSession(
   token: string
 ): Promise<SessionContext | null> {
@@ -99,7 +104,7 @@ export async function validateSession(
 
   const session = await prisma.session.findUnique({
     where: { tokenHash },
-    include: { user: true },
+    include: { user: { include: { tenant: { select: { status: true } } } } },
   });
 
   if (!session) return null;
@@ -109,8 +114,13 @@ export async function validateSession(
     return null;
   }
   if (session.user.status !== "active") return null;
+  if (session.user.tenant.status !== "active") return null;
 
-  return { user: session.user, session };
+  // tenant-Feld entfernen, damit der zurückgegebene User wieder zur
+  // SessionContext-Shape (ohne tenant-Eager-Load) passt — die Aufrufer
+  // erwarten kein User.tenant.
+  const { tenant: _tenant, ...userWithoutTenant } = session.user;
+  return { user: userWithoutTenant, session };
 }
 
 export async function deleteSession(token: string): Promise<void> {

@@ -818,7 +818,154 @@ export const api = {
       `/events?${qs.toString()}`
     );
   },
+
+  // ---------------------------------------------------------------------
+  // Super-Admin (Plattform-Operatoren). Eigene Auth, eigener Cookie.
+  // ---------------------------------------------------------------------
+  superLogin: (email: string, password: string) =>
+    request<{ admin: { id: string; email: string; displayName: string } }>(
+      "/super/auth/login",
+      {
+        method: "POST",
+        body: JSON.stringify({ email, password }),
+      }
+    ),
+  superLogout: () =>
+    request<{ ok: true }>("/super/auth/logout", { method: "POST" }),
+  superMe: () =>
+    request<{
+      admin: {
+        id: string;
+        email: string;
+        displayName: string;
+        lastLoginAt: string | null;
+      };
+    }>("/super/auth/me"),
+
+  superStats: () =>
+    request<{
+      tenants: Record<string, number>;
+      totalUsers: number;
+      totalGalleries: number;
+      totalFiles: number;
+    }>("/super/stats"),
+
+  superListTenants: () =>
+    request<{ tenants: SuperTenantSummary[] }>("/super/tenants"),
+  superGetTenant: (id: string) =>
+    request<{ tenant: SuperTenantDetail }>(`/super/tenants/${id}`),
+
+  superCreateTenant: (input: {
+    slug: string;
+    name: string;
+    customDomain?: string | null;
+    ownerEmail: string;
+    ownerName: string;
+  }) =>
+    request<SuperTenantCreated>("/super/tenants", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  superUpdateTenant: (
+    id: string,
+    patch: { name?: string; customDomain?: string | null }
+  ) =>
+    request<{ tenant: SuperTenantSummary }>(`/super/tenants/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+
+  superSuspendTenant: (id: string) =>
+    request<{ tenant: SuperTenantSummary }>(`/super/tenants/${id}/suspend`, {
+      method: "POST",
+    }),
+  superUnsuspendTenant: (id: string) =>
+    request<{ tenant: SuperTenantSummary }>(`/super/tenants/${id}/unsuspend`, {
+      method: "POST",
+    }),
+  superArchiveTenant: (id: string) =>
+    request<{ tenant: SuperTenantSummary }>(`/super/tenants/${id}/archive`, {
+      method: "POST",
+    }),
+
+  superInviteOwner: (
+    tenantId: string,
+    input: { email: string; name: string }
+  ) =>
+    request<{
+      owner: { id: string; email: string; name: string; status: string };
+      setup: { url: string; mailSent: boolean };
+    }>(`/super/tenants/${tenantId}/owners`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  // ---------------------------------------------------------------------
+  // Setup-Password (Tenant-Owner-Onboarding nach Einladungs-Mail)
+  // ---------------------------------------------------------------------
+  checkSetupToken: (token: string) =>
+    request<{
+      email: string;
+      name: string | null;
+      tenantName: string;
+      expiresAt: string;
+    }>(`/auth/setup-password/check?token=${encodeURIComponent(token)}`),
+
+  setupPassword: (token: string, password: string) =>
+    request<{
+      ok: true;
+      user: { id: string; email: string; name: string | null; role: string };
+    }>("/auth/setup-password", {
+      method: "POST",
+      body: JSON.stringify({ token, password }),
+    }),
 };
+
+export interface SuperTenantSummary {
+  id: string;
+  slug: string;
+  name: string;
+  status: "active" | "suspended" | "archived";
+  customDomain: string | null;
+  createdAt: string;
+  userCount: number;
+  galleryCount: number;
+}
+
+export interface SuperTenantUser {
+  id: string;
+  email: string;
+  name: string | null;
+  role: string;
+  status: string;
+  lastLoginAt: string | null;
+  createdAt: string;
+}
+
+export interface SuperTenantDetail {
+  id: string;
+  slug: string;
+  name: string;
+  status: "active" | "suspended" | "archived";
+  customDomain: string | null;
+  createdAt: string;
+  updatedAt: string;
+  galleryCount: number;
+  users: SuperTenantUser[];
+}
+
+export interface SuperTenantCreated {
+  tenant: {
+    id: string;
+    slug: string;
+    name: string;
+    status: string;
+    customDomain: string | null;
+  };
+  owner: { id: string; email: string; name: string | null; status: string };
+  setup: { url: string; mailSent: boolean; expiresAt: string };
+}
 
 export interface AuditEvent {
   id: string;

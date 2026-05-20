@@ -84,6 +84,7 @@ model User {
   sessions     Session[]
   webauthnCredentials WebauthnCredential[]
   apiTokens    ApiToken[]
+  passwordResetTokens PasswordResetToken[]
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -503,8 +504,12 @@ model DownloadLog {
 // -----------------------------------------------------------------------------
 model Event {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tenantId    String   @db.Uuid
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  // Tenant-Kontext eines Events. Bei Super-Admin-Aktionen ohne Tenant-Bezug
+  // (Login/Logout) ist das null; bei Aktionen gegen einen Tenant
+  // (suspend/archive/owner-invite) wird der Ziel-Tenant gesetzt — damit
+  // bleibt das Audit-Log eines Tenants chronologisch vollständig.
+  tenantId    String?  @db.Uuid
+  tenant      Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   
   actorType   String   // user | access | system
   actorId     String?
@@ -760,4 +765,84 @@ model FileTag {
   @@id([fileId, tagId])
   @@index([tagId])
   @@map("file_tags")
+}
+
+// -----------------------------------------------------------------------------
+// Super-Admin & Tenant-Verwaltung
+// -----------------------------------------------------------------------------
+// Eigene Identität, getrennt von den per-Tenant-Usern (users). Begründung:
+//   - Klare Trennung von Cross-Tenant-Operationen vs. Tenant-internem Studio
+//   - Eigener Session-Cookie (lumio_super_session) — verhindert dass ein
+//     Studio-Login versehentlich einen Super-Admin im selben Browser
+//     öffnet oder umgekehrt
+//   - Eigene Audit-Spur (in Event-Tabelle eventType="super.*")
+//   - Owner-/Member-Rollen aus users sind bewusst nicht überladen — Super-
+//     Admin ist KEIN Tenant-User, sondern ein Plattform-Operator.
+model SuperAdmin {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String   @unique
+  passwordHash String
+  displayName  String
+  
+  // Wann zuletzt eingeloggt? Reine Anzeige im Self-Service-Bereich.
+  lastLoginAt  DateTime?
+  
+  sessions     SuperAdminSession[]
+  
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  @@map("super_admins")
+}
+
+// Setup-Token für initiale Passwort-Wahl beim Onboarding eines Tenant-Owners.
+// Beim Anlegen eines Tenant-Owners durch den Super-Admin entsteht ein Token
+// dieser Tabelle. Der Owner bekommt eine Mail mit Link
+// /auth/setup-password?token=<token> und setzt darüber sein Passwort.
+//
+// Auch nutzbar für späteren "Passwort vergessen"-Flow — gleiche Tabelle,
+// gleicher Token-Lebenszyklus, andere kind-Werte.
+model PasswordResetToken {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String   @db.Uuid
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Hash des Tokens (nicht der Token selbst). Wir geben den Klartext-Token
+  // an die Mail, speichern aber nur den Hash — falls die DB leaked, sind
+  // die Tokens nicht direkt verwendbar.
+  tokenHash   String   @unique
+  
+  // "setup" = initiales Passwort beim Onboarding
+  // "reset" = vergessenes Passwort (späteres Feature)
+  kind        String   @default("setup")
+  
+  expiresAt   DateTime
+  usedAt      DateTime?
+  
+  createdAt   DateTime @default(now())
+  
+  @@index([userId, kind])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
+// Eigene Session-Tabelle für Super-Admins. Begründung wie bei der eigenen
+// SuperAdmin-Tabelle: Trennung von Plattform-Operator vs. Tenant-User.
+// Die Sessions-Logik (Hash-only-Storage, 30d TTL, IP/UA-Tracking) ist
+// identisch zur normalen Session-Tabelle.
+model SuperAdminSession {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  superAdminId String     @db.Uuid
+  superAdmin   SuperAdmin @relation(fields: [superAdminId], references: [id], onDelete: Cascade)
+  
+  tokenHash    String     @unique
+  ipAddress    String?
+  userAgent    String?
+  
+  expiresAt    DateTime
+  createdAt    DateTime   @default(now())
+  
+  @@index([superAdminId])
+  @@index([expiresAt])
+  @@map("super_admin_sessions")
 }
