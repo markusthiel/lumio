@@ -118,6 +118,13 @@ export function AnnotationOverlay({
   }
 
   function onPointerDown(e: React.PointerEvent<SVGSVGElement>) {
+    // eslint-disable-next-line no-console
+    console.log("[lumio-annot] pointerdown", {
+      readonly,
+      tool,
+      author,
+      target: (e.target as Element).tagName,
+    });
     if (readonly || !tool) return;
     e.preventDefault();
     // Pointer auf das SVG selbst capturen — wenn auf ein Kind-Element
@@ -147,6 +154,8 @@ export function AnnotationOverlay({
   function onPointerMove(e: React.PointerEvent<SVGSVGElement>) {
     if (!drawing) return;
     const p = pointFromEvent(e);
+    // eslint-disable-next-line no-console
+    console.log("[lumio-annot] pointermove", { p, drawingKind: drawing.kind });
     if (drawing.kind === "freehand") {
       // Einfacher Distanz-Filter — keine Punkte näher als 0.003 dran.
       // Sonst werden die Strokes riesig und das JSON teuer.
@@ -161,6 +170,13 @@ export function AnnotationOverlay({
   }
 
   function onPointerUp(e: React.PointerEvent<SVGSVGElement>) {
+    // eslint-disable-next-line no-console
+    console.log("[lumio-annot] pointerup", {
+      hasDrawing: !!drawing,
+      drawingKind: drawing?.kind,
+      pointCount:
+        drawing?.kind === "freehand" ? drawing.points.length : undefined,
+    });
     const svg = svgRef.current;
     if (svg && svg.hasPointerCapture?.(e.pointerId)) {
       try {
