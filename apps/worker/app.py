@@ -45,6 +45,7 @@ app = Celery(
         "tasks.process_video",
         "tasks.process_watermark",
         "tasks.build_zip",
+        "tasks.backfill_web_jpeg",
         "tasks.billing",
         "tasks.webhook_delivery",
     ],

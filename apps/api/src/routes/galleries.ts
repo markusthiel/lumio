@@ -1113,27 +1113,31 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           originalFilename: true,
           sizeBytes: true,
           renditions: {
-            where: { kind: "web" },
-            select: { storageKey: true, format: true },
+            // Beide Web-Renditions kommen mit; wir wählen unten web_jpeg
+            // bevorzugt, web als Fallback für Altbestand.
+            where: { kind: { in: ["web_jpeg", "web"] } },
+            select: { kind: true, storageKey: true, format: true },
           },
         },
       });
       if (!file) return reply.status(404).send({ error: "not_found" });
 
       // Storage-Key + Dateiname je nach Variant. Bei "web" hängen wir
-      // _web ans Filename und tauschen die Extension auf .webp, damit
-      // klar ist, was der Kunde bekommt — und damit es nicht die
-      // Original-Datei im Download-Ordner überschreibt, wenn er beide
-      // herunterlädt.
+      // _web ans Filename und passen die Extension an das gelieferte
+      // Format an — damit klar ist, was der Kunde bekommt, und damit
+      // es nicht die Original-Datei im Download-Ordner überschreibt,
+      // wenn er beide herunterlädt.
       let storageKey = file.storageKey;
       let downloadFilename = file.originalFilename;
       let bytes: bigint | null = file.sizeBytes;
 
       if (variant === "web") {
-        const web = file.renditions[0];
-        if (!web) {
-          // Sollte nicht passieren, wenn der Worker durchgelaufen ist;
-          // fallback auf Original wenn Originals erlaubt sind, sonst 404
+        // Bevorzuge web_jpeg vor web — Kunden öffnen JPEG überall,
+        // webp nur in modernen Browsern und macOS Preview.
+        const webJpeg = file.renditions.find((r) => r.kind === "web_jpeg");
+        const webWebp = file.renditions.find((r) => r.kind === "web");
+        const chosen = webJpeg ?? webWebp;
+        if (!chosen) {
           if (gallery.downloadOriginalsEnabled) {
             // implizit auf Original umschalten, kein Fehler
           } else {
@@ -1142,13 +1146,13 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
               .send({ error: "web_rendition_unavailable" });
           }
         } else {
-          storageKey = web.storageKey;
-          // Filename: foo.jpg → foo_web.webp
+          storageKey = chosen.storageKey;
           const dotIdx = downloadFilename.lastIndexOf(".");
           const stem =
             dotIdx > 0 ? downloadFilename.slice(0, dotIdx) : downloadFilename;
-          downloadFilename = `${stem}_web.webp`;
-          bytes = null; // wir kennen die Web-Größe nicht ohne extra Query
+          const ext = chosen.format === "jpg" ? "jpg" : "webp";
+          downloadFilename = `${stem}_web.${ext}`;
+          bytes = null; // Größe der Rendition kennen wir hier nicht ohne extra Query
         }
       }
 

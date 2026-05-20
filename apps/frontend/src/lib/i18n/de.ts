@@ -135,7 +135,7 @@ export const de: Dict = {
     settingDownload: "Download für Kunden erlauben",
     settingOriginals: "Originale erlauben",
     settingOriginalsDesc:
-      "Wenn aktiv, können Kunden die Original-Dateien herunterladen. Wenn aus, gibt es nur die reduzierten Web-Versionen (~2560px).",
+      "Wenn aktiv, können Kunden die Original-Dateien herunterladen. Wenn aus, gibt es nur die reduzierten Web-Versionen (~2560px JPEG, gut für Online-Posts).",
     settingWatermark: "Wasserzeichen auf Vorschaubildern",
     settingWatermarkDesc:
       "Wird automatisch generiert. Studio-Watermark-Text in den Tenant-Settings festlegen.",
@@ -213,7 +213,7 @@ export const de: Dict = {
     downloadOriginalHint: "Volle Auflösung — die hochgeladene Datei",
     downloadWeb: "Web",
     downloadWebHint:
-      "Reduzierte Version (~2560px webp), gut zum Online-Posten und Teilen",
+      "Reduzierte Version (~2560px JPEG), gut zum Online-Posten und Teilen",
     originalsDisabled:
       "Originale sind für diese Galerie deaktiviert — du kannst die Web-Version herunterladen.",
     finalize: "Auswahl abschließen",

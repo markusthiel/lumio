@@ -23,7 +23,7 @@ import structlog
 
 from app import app
 from db import fetch_file, mark_file_ready, mark_file_failed, upsert_rendition
-from imaging import render_webp_sizes
+from imaging import render_image_sizes
 from rt import file_status as _publish_status
 from storage import (
     download_to_file,
@@ -34,11 +34,26 @@ from storage import (
 log = structlog.get_logger(__name__)
 
 
-# (kind, max_long_edge, quality)
-RENDITION_SPECS: list[tuple[str, int, int]] = [
-    ("thumb", 400, 75),
-    ("preview", 1600, 82),
-    ("web", 2560, 85),
+# Renditions, die der Worker erzeugt. Tupel: (kind, max_long_edge, quality, format).
+#
+# Warum web_jpeg zusätzlich zu web? Die Customer-Download-Variante "Web-
+# Version" wurde ursprünglich gegen die web.webp ausgespielt. Webp
+# öffnet in modernen Browsern und macOS Preview, aber nicht in
+# klassischer Bildverwaltung (Lightroom-Import, ältere Photoshop-
+# Versionen, viele Druckereien). Eine zusätzliche JPEG-Variante mit
+# leicht höherer Quality (88 vs 85) kompensiert das Größenwachstum
+# durch das ineffizientere Format teilweise; die resultierende Datei
+# ist ca 30-40% größer als das webp aber kleiner als das Original und
+# überall einfach öffenbar.
+#
+# Storage-Overhead: pro File ~1-2 MB extra (ein 2560px-JPEG-Bild). Bei
+# einer 100-Files-Galerie also +100-200 MB Storage. Vertretbar gegenüber
+# dem Original (typisch 5-15 MB pro RAW oder hochauflösendem JPEG).
+RENDITION_SPECS: list[tuple[str, int, int, str]] = [
+    ("thumb", 400, 75, "webp"),
+    ("preview", 1600, 82, "webp"),
+    ("web", 2560, 85, "webp"),
+    ("web_jpeg", 2560, 88, "jpg"),
 ]
 
 
@@ -84,17 +99,20 @@ def _process(file_row: dict) -> None:
         log.info("process_file.downloaded", file_id=file_id,
                  size=os.path.getsize(src_path))
 
-        def _persist(kind: str, out_path: str, w: int, h: int) -> None:
-            key = rendition_key(tenant_id, gallery_id, file_id, kind, "webp")
-            size_bytes = upload_file(out_path, key, "image/webp")
+        def _persist(
+            kind: str, out_path: str, w: int, h: int, fmt: str
+        ) -> None:
+            content_type = "image/webp" if fmt == "webp" else "image/jpeg"
+            key = rendition_key(tenant_id, gallery_id, file_id, kind, fmt)
+            size_bytes = upload_file(out_path, key, content_type)
             upsert_rendition(
-                file_id=file_id, kind=kind, storage_key=key, fmt="webp",
+                file_id=file_id, kind=kind, storage_key=key, fmt=fmt,
                 width=w, height=h, size_bytes=size_bytes,
             )
             log.info("process_file.rendition_done", file_id=file_id,
-                     kind=kind, width=w, height=h, size=size_bytes)
+                     kind=kind, fmt=fmt, width=w, height=h, size=size_bytes)
 
-        final_w, final_h = render_webp_sizes(
+        final_w, final_h = render_image_sizes(
             src_path=src_path,
             specs=RENDITION_SPECS,
             out_dir=tmp,

@@ -34,10 +34,12 @@ log = structlog.get_logger(__name__)
 # Identisch zu process_file (Quelle der Wahrheit ist process_file). Wir
 # halten die Konstante hier separat, damit RAW-Verarbeitung unabhängig
 # weiter entwickelt werden kann (z.B. niedrigere Qualität fürs Thumb).
-RENDITION_SPECS: list[tuple[str, int, int]] = [
-    ("thumb", 400, 75),
-    ("preview", 1600, 82),
-    ("web", 2560, 85),
+# web_jpeg: kunden-freundliche Download-Variante, siehe process_file.
+RENDITION_SPECS: list[tuple[str, int, int, str]] = [
+    ("thumb", 400, 75, "webp"),
+    ("preview", 1600, 82, "webp"),
+    ("web", 2560, 85, "webp"),
+    ("web_jpeg", 2560, 88, "jpg"),
 ]
 
 
@@ -90,19 +92,22 @@ def _process(file_row: dict) -> None:
 
         # Aus dem Preview die Renditions ableiten — identische Pipeline
         # wie process_file, nur dass die Quelle bereits ein JPEG ist.
-        from imaging import render_webp_sizes
+        from imaging import render_image_sizes
 
-        def _persist(kind: str, out_path: str, w: int, h: int) -> None:
-            key = rendition_key(tenant_id, gallery_id, file_id, kind, "webp")
-            size_bytes = upload_file(out_path, key, "image/webp")
+        def _persist(
+            kind: str, out_path: str, w: int, h: int, fmt: str
+        ) -> None:
+            content_type = "image/webp" if fmt == "webp" else "image/jpeg"
+            key = rendition_key(tenant_id, gallery_id, file_id, kind, fmt)
+            size_bytes = upload_file(out_path, key, content_type)
             upsert_rendition(
-                file_id=file_id, kind=kind, storage_key=key, fmt="webp",
+                file_id=file_id, kind=kind, storage_key=key, fmt=fmt,
                 width=w, height=h, size_bytes=size_bytes,
             )
             log.info("process_raw.rendition_done", file_id=file_id,
-                     kind=kind, width=w, height=h, size=size_bytes)
+                     kind=kind, fmt=fmt, width=w, height=h, size=size_bytes)
 
-        src_w, src_h = render_webp_sizes(
+        src_w, src_h = render_image_sizes(
             src_path=preview_jpeg_path, specs=RENDITION_SPECS,
             out_dir=tmp, on_rendition=_persist,
         )

@@ -135,7 +135,7 @@ export const en: Dict = {
     settingDownload: "Allow download for clients",
     settingOriginals: "Allow originals",
     settingOriginalsDesc:
-      "When on, clients can download the original files. When off, only the reduced web versions (~2560px) are available.",
+      "When on, clients can download the original files. When off, only the reduced web versions (~2560px JPEG) are available.",
     settingWatermark: "Watermark on previews",
     settingWatermarkDesc:
       "Generated automatically. Configure the watermark text in tenant settings.",
@@ -213,7 +213,7 @@ export const en: Dict = {
     downloadOriginalHint: "Full resolution — the uploaded file",
     downloadWeb: "Web",
     downloadWebHint:
-      "Reduced size (~2560px webp), good for posting online and sharing",
+      "Reduced size (~2560px JPEG), good for posting online and sharing",
     originalsDisabled:
       "Originals are disabled for this gallery — you can download the web version.",
     finalize: "Finish selection",
