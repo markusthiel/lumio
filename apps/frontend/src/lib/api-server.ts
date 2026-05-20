@@ -46,14 +46,13 @@ export async function fetchPublicGallery(
  * URL, der von Crawlern (WhatsApp-Bot, Slack-Unfurler, ...) abgerufen
  * werden kann.
  *
- * Für `heroImageUrl`: das Backend liefert hier bereits einen
- * vollqualifizierten Presigned-S3-URL (siehe routes/galleries.ts
- * getPublicGallery). Für `eventLogoUrl`: kommt als relativer Pfad
- * /g/<slug>/assets/logo zurück, der gegen PUBLIC_BASE expandiert
- * werden muss.
+ * Akzeptiert sowohl absolute URLs (Presigned-S3 vom Backend für
+ * heroFileId-Auflösung) als auch relative API-Pfade (`/api/v1/g/...`
+ * für hochgeladene Assets / Logos). PUBLIC_BASE ist die Origin auf der
+ * die App von außen erreichbar ist — z.B. https://lumio-cloud.de.
  */
 export function fetchAssetAbsolute(maybeRelative: string): string {
   if (/^https?:\/\//.test(maybeRelative)) return maybeRelative;
   const base = PUBLIC_BASE.replace(/\/+$/, "");
-  return `${base}/api/v1${maybeRelative}`;
+  return `${base}${maybeRelative}`;
 }

@@ -14,8 +14,18 @@
  * Wenn nichts customisiert ist, sieht das aus wie der bisherige Hero
  * (Plain-Dark mit minimalem Text), damit existierende Galerien sich
  * nicht ändern.
+ *
+ * Implementierungshinweis: wir verwenden bewusst plain <img>-Tags
+ * statt next/image, weil:
+ *   - Hero kann ein relativer API-Pfad sein (/api/v1/g/.../assets/hero
+ *     der server-seitig auf S3 redirected) — next/image kann mit
+ *     dieser Indirektion umgehen, aber präsentiert dabei manchmal
+ *     leere Bilder bevor der Redirect aufgelöst ist.
+ *   - Wir wollen Browser-Caching, nicht Next-Image-Optimizer-Caching,
+ *     weil unsere Asset-URLs schon präsignierte S3-Links sind und
+ *     Next's Optimizer keine Optimierung mehr drüberlegen kann.
+ *   - eslint-Warnung dafür unterdrückt — bewusste Entscheidung.
  */
-import Image from "next/image";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { PublicGalleryMeta } from "@/lib/api";
@@ -44,23 +54,12 @@ export function GalleryHero({ meta, children }: Props) {
       {/* Backdrop: Hero-Bild */}
       {hasHeroImage && (
         <>
-          <div className="absolute inset-0 -z-10">
-            {/* next/image für Auto-Optimierung. Wir geben fill an
-                damit es den Container ausfüllt. */}
-            <Image
-              src={h.heroImageUrl!}
-              alt=""
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover"
-              // unoptimized: wir gehen davon aus dass das Bild schon
-              // optimal vom Backend kommt (web_jpeg-Rendition oder
-              // hochgeladenes Optimiertes); Next-Image-Optimizer
-              // doppelt das nicht.
-              unoptimized
-            />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={h.heroImageUrl!}
+            alt=""
+            className="absolute inset-0 -z-10 w-full h-full object-cover"
+          />
           {hasOverlay && (
             <div
               className="absolute inset-0 -z-10"
@@ -71,16 +70,13 @@ export function GalleryHero({ meta, children }: Props) {
       )}
 
       <div className="relative px-4 sm:px-6 md:px-12 pt-14 pb-10 sm:pt-20 sm:pb-14 max-w-7xl mx-auto animate-fade-in flex flex-col justify-end h-full">
-        {/* Event-Logo: zarte Präsenz oberhalb des Titels, max-200px breit */}
+        {/* Event-Logo: zarte Präsenz oberhalb des Titels, max 200px breit */}
         {h.eventLogoUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
           <img
             src={h.eventLogoUrl}
             alt=""
             className="h-16 sm:h-20 w-auto mb-6 object-contain self-start"
-            // Bild-Größe wird vom Browser über height auto bestimmt.
-            // Hero-Logos sind klein und müssen scharf bleiben — wir
-            // verzichten auf next/image um die Asset-Pipeline einfach
-            // zu halten (S3-Direct).
           />
         )}
 

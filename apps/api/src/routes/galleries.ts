@@ -843,11 +843,16 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
       }
     }
 
-    // Asset-URLs für Hero-Upload und Logo: relativer Pfad, Frontend
-    // baut mit api-base den vollen URL.
-    const heroUploadUrl = gallery.heroUrl ? `/g/${gallery.slug}/assets/hero` : null;
+    // Asset-URLs für Hero-Upload und Logo: voller API-Pfad inkl.
+    // /api/v1/-Prefix, damit Frontend (das den Wert direkt in <img src>
+    // setzt) ohne weitere URL-Manipulation lädt. Wir verwenden den
+    // gleichen Same-Origin-Pfad wie Frontend-fetch — kein NEXT_PUBLIC-
+    // Resolving nötig.
+    const heroUploadUrl = gallery.heroUrl
+      ? `/api/v1/g/${gallery.slug}/assets/hero`
+      : null;
     const eventLogoPublicUrl = gallery.eventLogoUrl
-      ? `/g/${gallery.slug}/assets/logo`
+      ? `/api/v1/g/${gallery.slug}/assets/logo`
       : null;
 
     return {
