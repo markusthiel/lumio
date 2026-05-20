@@ -35,6 +35,7 @@ const createGallerySchema = z.object({
   mode: z.enum(["collaboration", "presentation"]).optional(),
   brandingId: z.string().uuid().nullable().optional(),
   downloadEnabled: z.boolean().optional(),
+  downloadOriginalsEnabled: z.boolean().optional(),
   watermarkEnabled: z.boolean().optional(),
   commentsEnabled: z.boolean().optional(),
   ratingsEnabled: z.boolean().optional(),
@@ -400,6 +401,9 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           ...(body.downloadEnabled !== undefined
             ? { downloadEnabled: body.downloadEnabled }
             : {}),
+          ...(body.downloadOriginalsEnabled !== undefined
+            ? { downloadOriginalsEnabled: body.downloadOriginalsEnabled }
+            : {}),
           ...(body.watermarkEnabled !== undefined
             ? { watermarkEnabled: body.watermarkEnabled }
             : {}),
@@ -725,6 +729,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         mode: true,
         status: true,
         downloadEnabled: true,
+        downloadOriginalsEnabled: true,
         watermarkEnabled: true,
         commentsEnabled: true,
         ratingsEnabled: true,
@@ -771,6 +776,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         description: gallery.description,
         mode: gallery.mode,
         downloadEnabled: gallery.downloadEnabled,
+        downloadOriginalsEnabled: gallery.downloadOriginalsEnabled,
         watermarkEnabled: gallery.watermarkEnabled,
         commentsEnabled: gallery.commentsEnabled,
         ratingsEnabled: gallery.ratingsEnabled,
@@ -1061,9 +1067,16 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
   );
 
   // -------------------------------------------------------------------------
-  // GET /g/:slug/files/:fileId/download — Original-Download für Kunden
+  // GET /g/:slug/files/:fileId/download?variant=original|web
   // -------------------------------------------------------------------------
-  app.get<{ Params: { slug: string; fileId: string } }>(
+  // Kunden-Download eines einzelnen Files. Variant entscheidet, ob das
+  // Original oder die Web-Rendition (2560px webp) ausgeliefert wird.
+  // Default "original" wegen Rückwärtskompatibilität — alter UI-Code
+  // ohne ?variant-Param funktioniert weiter, sofern downloadOriginalsEnabled.
+  app.get<{
+    Params: { slug: string; fileId: string };
+    Querystring: { variant?: string };
+  }>(
     "/g/:slug/files/:fileId/download",
     async (req, reply) => {
       const visitor = await loadVisitor(req);
@@ -1075,10 +1088,21 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
 
       const gallery = await prisma.gallery.findUnique({
         where: { id: visitor.galleryId },
-        select: { id: true, downloadEnabled: true, tenantId: true },
+        select: {
+          id: true,
+          downloadEnabled: true,
+          downloadOriginalsEnabled: true,
+          tenantId: true,
+        },
       });
       if (!gallery || !gallery.downloadEnabled) {
         return reply.status(403).send({ error: "downloads_disabled" });
+      }
+
+      const variant: "original" | "web" =
+        req.query.variant === "web" ? "web" : "original";
+      if (variant === "original" && !gallery.downloadOriginalsEnabled) {
+        return reply.status(403).send({ error: "originals_disabled" });
       }
 
       const file = await prisma.file.findFirst({
@@ -1088,18 +1112,55 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           storageKey: true,
           originalFilename: true,
           sizeBytes: true,
+          renditions: {
+            where: { kind: "web" },
+            select: { storageKey: true, format: true },
+          },
         },
       });
       if (!file) return reply.status(404).send({ error: "not_found" });
 
+      // Storage-Key + Dateiname je nach Variant. Bei "web" hängen wir
+      // _web ans Filename und tauschen die Extension auf .webp, damit
+      // klar ist, was der Kunde bekommt — und damit es nicht die
+      // Original-Datei im Download-Ordner überschreibt, wenn er beide
+      // herunterlädt.
+      let storageKey = file.storageKey;
+      let downloadFilename = file.originalFilename;
+      let bytes: bigint | null = file.sizeBytes;
+
+      if (variant === "web") {
+        const web = file.renditions[0];
+        if (!web) {
+          // Sollte nicht passieren, wenn der Worker durchgelaufen ist;
+          // fallback auf Original wenn Originals erlaubt sind, sonst 404
+          if (gallery.downloadOriginalsEnabled) {
+            // implizit auf Original umschalten, kein Fehler
+          } else {
+            return reply
+              .status(404)
+              .send({ error: "web_rendition_unavailable" });
+          }
+        } else {
+          storageKey = web.storageKey;
+          // Filename: foo.jpg → foo_web.webp
+          const dotIdx = downloadFilename.lastIndexOf(".");
+          const stem =
+            dotIdx > 0 ? downloadFilename.slice(0, dotIdx) : downloadFilename;
+          downloadFilename = `${stem}_web.webp`;
+          bytes = null; // wir kennen die Web-Größe nicht ohne extra Query
+        }
+      }
+
       const url = await presignGet({
-        key: file.storageKey,
+        key: storageKey,
         responseContentDisposition: `attachment; filename="${encodeURIComponent(
-          file.originalFilename
+          downloadFilename
         )}"`,
       });
 
-      // Audit
+      // Audit — wir loggen den Variant nicht extra (würde DownloadLog-Schema
+      // erweitern); kind=single bleibt wie bisher
       await prisma.downloadLog
         .create({
           data: {
@@ -1108,7 +1169,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
             kind: "single",
             ipAddress: req.ip,
             userAgent: req.headers["user-agent"]?.slice(0, 500) ?? null,
-            bytes: file.sizeBytes,
+            bytes,
           },
         })
         .catch(() => {});

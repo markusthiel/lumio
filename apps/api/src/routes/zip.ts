@@ -20,9 +20,12 @@ import { loadVisitor } from "./galleries.js";
 
 export async function registerZipRoutes(app: FastifyInstance) {
   // -------------------------------------------------------------------------
-  // POST /g/:slug/download/zip  — ganze Galerie
+  // POST /g/:slug/download/zip?variant=original|web  — ganze Galerie
   // -------------------------------------------------------------------------
-  app.post<{ Params: { slug: string } }>(
+  app.post<{
+    Params: { slug: string };
+    Querystring: { variant?: string };
+  }>(
     "/g/:slug/download/zip",
     async (req, reply) => {
       const visitor = await loadVisitor(req);
@@ -32,10 +35,24 @@ export async function registerZipRoutes(app: FastifyInstance) {
 
       const gallery = await prisma.gallery.findUnique({
         where: { id: visitor.galleryId },
-        select: { id: true, tenantId: true, downloadEnabled: true },
+        select: {
+          id: true,
+          tenantId: true,
+          downloadEnabled: true,
+          downloadOriginalsEnabled: true,
+        },
       });
       if (!gallery || !gallery.downloadEnabled) {
         return reply.status(403).send({ error: "downloads_disabled" });
+      }
+
+      // Variant validieren + Permission-Check
+      const variant: "original" | "web" =
+        req.query.variant === "web" ? "web" : "original";
+      if (variant === "original" && !gallery.downloadOriginalsEnabled) {
+        return reply
+          .status(403)
+          .send({ error: "originals_disabled" });
       }
 
       const zipDownload = await requestZipDownload({
@@ -43,7 +60,8 @@ export async function registerZipRoutes(app: FastifyInstance) {
         galleryId: gallery.id,
         accessId: null, // öffentlich/anonym → keine Auswahl-Zuordnung
         fileIds: null, // alle
-        label: "all",
+        label: variant === "web" ? "all_web" : "all",
+        variant,
       });
 
       return reply.status(202).send({
@@ -54,9 +72,12 @@ export async function registerZipRoutes(app: FastifyInstance) {
   );
 
   // -------------------------------------------------------------------------
-  // POST /g/:slug/download/selection — nur die eigene Auswahl
+  // POST /g/:slug/download/selection?variant=original|web — Auswahl
   // -------------------------------------------------------------------------
-  app.post<{ Params: { slug: string } }>(
+  app.post<{
+    Params: { slug: string };
+    Querystring: { variant?: string };
+  }>(
     "/g/:slug/download/selection",
     async (req, reply) => {
       const visitor = await loadVisitor(req);
@@ -71,10 +92,23 @@ export async function registerZipRoutes(app: FastifyInstance) {
 
       const gallery = await prisma.gallery.findUnique({
         where: { id: visitor.galleryId },
-        select: { id: true, tenantId: true, downloadEnabled: true },
+        select: {
+          id: true,
+          tenantId: true,
+          downloadEnabled: true,
+          downloadOriginalsEnabled: true,
+        },
       });
       if (!gallery || !gallery.downloadEnabled) {
         return reply.status(403).send({ error: "downloads_disabled" });
+      }
+
+      const variant: "original" | "web" =
+        req.query.variant === "web" ? "web" : "original";
+      if (variant === "original" && !gallery.downloadOriginalsEnabled) {
+        return reply
+          .status(403)
+          .send({ error: "originals_disabled" });
       }
 
       // Auswahl des Visitors holen — alle liked oder picked
@@ -98,7 +132,10 @@ export async function registerZipRoutes(app: FastifyInstance) {
         galleryId: gallery.id,
         accessId: visitor.accessId,
         fileIds,
-        label: `selection_${visitor.accessId.slice(0, 8)}`,
+        label: `selection_${visitor.accessId.slice(0, 8)}${
+          variant === "web" ? "_web" : ""
+        }`,
+        variant,
       });
 
       return reply.status(202).send({

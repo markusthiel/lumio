@@ -1,25 +1,47 @@
 "use client";
 
+/**
+ * Lumio Frontend — ZIP Download Button
+ *
+ * Zwei orthogonale Achsen für die Anforderung:
+ *
+ *   kind:    "all" | "selection"          — was rein soll
+ *   variant: "original" | "web"           — welche Bytes davon
+ *
+ * Der Button stellt EINE Kombination dar (z.B. "Auswahl als Web-Version").
+ * Die Customer-Hero rendert mehrere davon nebeneinander.
+ *
+ * Naming-Note: das Component-Prop hieß früher "variant" und meinte
+ * all/selection. Mit der Einführung der Download-Variante (original/web)
+ * hätte das zu Verwechslungen geführt — also umbenannt zu "kind", und
+ * "variant" gehört jetzt zur Bytes-Auswahl.
+ */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type ZipStatus } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 
-type Variant = "all" | "selection";
+type Kind = "all" | "selection";
+type Variant = "original" | "web";
 
 interface Props {
   slug: string;
+  kind: Kind;
   variant: Variant;
-  /** Anzahl Files in der Auswahl (für selection-Variante, sonst 0) */
+  /** Anzahl Files in der Auswahl (für kind=selection, sonst 0) */
   count?: number;
   /** Disabled wenn z.B. keine Auswahl */
   disabled?: boolean;
+  /** Visueller Stil: primary für die wichtige Aktion, ghost für die alternative */
+  emphasis?: "primary" | "ghost";
 }
 
 export function ZipDownloadButton({
   slug,
+  kind,
   variant,
   count = 0,
   disabled = false,
+  emphasis = "ghost",
 }: Props) {
   const t = useT();
   const [zipId, setZipId] = useState<string | null>(null);
@@ -33,9 +55,9 @@ export function ZipDownloadButton({
     setBuilding(true);
     try {
       const res =
-        variant === "all"
-          ? await api.requestZipAll(slug)
-          : await api.requestZipSelection(slug);
+        kind === "all"
+          ? await api.requestZipAll(slug, variant)
+          : await api.requestZipSelection(slug, variant);
       setZipId(res.id);
       setStatus(res.status);
     } catch (err) {
@@ -44,13 +66,15 @@ export function ZipDownloadButton({
       setError(
         msg.includes("no_selection")
           ? t("gallery.downloadEmpty")
+          : msg.includes("originals_disabled")
+          ? t("gallery.originalsDisabled")
           : msg.includes("downloads_disabled")
           ? t("gallery.downloadDisabled")
           : msg
       );
       setBuilding(false);
     }
-  }, [variant, slug, t]);
+  }, [kind, variant, slug, t]);
 
   // Polling für Status
   useEffect(() => {
@@ -90,10 +114,24 @@ export function ZipDownloadButton({
     setBuilding(false);
   }
 
+  // Label-Logik: Original-ZIPs sind die "Standard"-Erwartung und bekommen
+  // die kürzeren Strings ("Alle herunterladen"). Web-ZIPs werden klar
+  // gelabelt ("Alle als Web-Version"), damit der Kunde versteht, dass das
+  // eine reduzierte Auflösung ist, ohne dass er klickt und überrascht wird.
   const label =
-    variant === "all"
-      ? t("gallery.downloadAll")
+    kind === "all"
+      ? variant === "web"
+        ? t("gallery.downloadAllWeb")
+        : t("gallery.downloadAll")
+      : variant === "web"
+      ? t("gallery.downloadSelectionWeb", { count })
       : t("gallery.downloadSelection", { count });
+
+  // Stylings — primary heller/auffälliger Hintergrund, ghost dezenter Rand
+  const idleClass =
+    emphasis === "primary"
+      ? "bg-white/12 border border-white/25 hover:bg-white/20 hover:border-white/40"
+      : "bg-white/5 border border-white/15 hover:bg-white/15 hover:border-white/30";
 
   if (status === "ready" && zipId) {
     return (
@@ -135,7 +173,7 @@ export function ZipDownloadButton({
     <button
       onClick={start}
       disabled={disabled}
-      className="text-ui-sm h-8 px-3 rounded bg-white/5 border border-white/15 hover:bg-white/15 hover:border-white/30 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-motion"
+      className={`text-ui-sm h-8 px-3 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-motion ${idleClass}`}
       title={error ?? undefined}
     >
       {label}

@@ -252,7 +252,11 @@ export default function GalleryDetailPage() {
   }
 
   async function toggleSetting(
-    key: "downloadEnabled" | "watermarkEnabled" | "commentsEnabled",
+    key:
+      | "downloadEnabled"
+      | "downloadOriginalsEnabled"
+      | "watermarkEnabled"
+      | "commentsEnabled",
     next: boolean
   ) {
     if (!gallery) return;
@@ -503,6 +507,14 @@ export default function GalleryDetailPage() {
             value={gallery.downloadEnabled}
             onChange={(v) => toggleSetting("downloadEnabled", v)}
           />
+          {gallery.downloadEnabled && (
+            <SettingToggle
+              label={t("studio.settingOriginals")}
+              description={t("studio.settingOriginalsDesc")}
+              value={gallery.downloadOriginalsEnabled}
+              onChange={(v) => toggleSetting("downloadOriginalsEnabled", v)}
+            />
+          )}
           <SettingToggle
             label={t("studio.settingWatermark")}
             description={t("studio.settingWatermarkDesc")}

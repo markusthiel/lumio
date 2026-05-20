@@ -27,12 +27,15 @@ export function hashFileIds(fileIds: string[] | null): string | null {
     .slice(0, 32);
 }
 
+export type DownloadVariant = "original" | "web";
+
 export interface RequestZipOptions {
   tenantId: string;
   galleryId: string;
   accessId: string | null;
   fileIds: string[] | null;
   label: string; // "all" | "selection_<accessId>" | ...
+  variant?: DownloadVariant; // default "original"
 }
 
 /**
@@ -40,8 +43,14 @@ export interface RequestZipOptions {
  * - Wenn `ready` und nicht abgelaufen: bestehenden zurückgeben.
  * - Wenn `building` oder `pending`: bestehenden zurückgeben (Caller pollt).
  * - Wenn `failed` oder abgelaufen oder nicht existent: neu anstoßen.
+ *
+ * Variant ("original" vs "web") ist Teil des Cache-Schlüssels — eine ZIP
+ * mit Originalen ist eine andere Antwort als eine mit Web-Renditions
+ * derselben Auswahl. Default "original" für Rückwärtskompatibilität mit
+ * Aufrufern, die das Feld nicht setzen.
  */
 export async function requestZipDownload(opts: RequestZipOptions) {
+  const variant: DownloadVariant = opts.variant ?? "original";
   const fileIdsHash = hashFileIds(opts.fileIds);
   const fileCount = opts.fileIds?.length ?? 0; // 0 = "alle" (wird in Worker resolved)
 
@@ -55,6 +64,7 @@ export async function requestZipDownload(opts: RequestZipOptions) {
       galleryId: opts.galleryId,
       accessId: opts.accessId,
       fileIdsHash,
+      variant,
     },
     orderBy: { createdAt: "desc" },
   });
@@ -98,6 +108,7 @@ export async function requestZipDownload(opts: RequestZipOptions) {
           accessId: opts.accessId,
           fileIdsHash,
           fileCount,
+          variant,
           status: "pending",
           expiresAt,
         },
@@ -111,6 +122,7 @@ export async function requestZipDownload(opts: RequestZipOptions) {
     label: opts.label,
     accessId: opts.accessId ?? undefined,
     zipDownloadId: record.id,
+    variant,
   });
 
   return record;

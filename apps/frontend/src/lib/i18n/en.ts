@@ -133,6 +133,9 @@ export const en: Dict = {
     setLive: "Go live",
     settingsHeading: "Settings",
     settingDownload: "Allow download for clients",
+    settingOriginals: "Allow originals",
+    settingOriginalsDesc:
+      "When on, clients can download the original files. When off, only the reduced web versions (~2560px) are available.",
     settingWatermark: "Watermark on previews",
     settingWatermarkDesc:
       "Generated automatically. Configure the watermark text in tenant settings.",
@@ -200,10 +203,19 @@ export const en: Dict = {
     unlockChecking: "Checking…",
     requestFailed: "Request failed",
     downloadAll: "Download all",
+    downloadAllWeb: "All as web version",
     downloadSelection: "Download selection ({count})",
+    downloadSelectionWeb: "Selection as web version ({count})",
     downloadDisabled: "Downloads are disabled for this gallery.",
     downloadEmpty: "Nothing selected.",
     downloadRetry: "Please try again",
+    downloadOriginal: "Original",
+    downloadOriginalHint: "Full resolution — the uploaded file",
+    downloadWeb: "Web",
+    downloadWebHint:
+      "Reduced size (~2560px webp), good for posting online and sharing",
+    originalsDisabled:
+      "Originals are disabled for this gallery — you can download the web version.",
     finalize: "Finish selection",
     finalizing: "Finishing…",
     finalized: "Selection submitted",

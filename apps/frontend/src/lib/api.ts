@@ -49,6 +49,7 @@ export interface Gallery {
   mode: GalleryMode;
   status: GalleryStatus;
   downloadEnabled: boolean;
+  downloadOriginalsEnabled: boolean;
   watermarkEnabled: boolean;
   commentsEnabled: boolean;
   selectionLimit: number | null;
@@ -176,6 +177,7 @@ export interface PublicGalleryMeta {
   description: string | null;
   mode: GalleryMode;
   downloadEnabled: boolean;
+  downloadOriginalsEnabled: boolean;
   watermarkEnabled: boolean;
   commentsEnabled: boolean;
   ratingsEnabled: boolean;
@@ -613,20 +615,28 @@ export const api = {
       { method: "POST", body: JSON.stringify({ body, authorLabel }) }
     ),
 
-  // Public download URL (für href, kein fetch — Browser folgt der Redirect)
-  publicDownloadUrl: (slug: string, fileId: string) =>
-    `${API_URL}/api/v1/g/${slug}/files/${fileId}/download`,
+  // Public download URL (für href, kein fetch — Browser folgt der Redirect).
+  // variant default "original"; passender Schalter im Customer-UI.
+  publicDownloadUrl: (
+    slug: string,
+    fileId: string,
+    variant: "original" | "web" = "original"
+  ) =>
+    `${API_URL}/api/v1/g/${slug}/files/${fileId}/download?variant=${variant}`,
 
   // ZIP-Downloads
-  requestZipAll: (slug: string) =>
+  requestZipAll: (slug: string, variant: "original" | "web" = "original") =>
     request<{ id: string; status: ZipStatus }>(
-      `/g/${slug}/download/zip`,
+      `/g/${slug}/download/zip?variant=${variant}`,
       { method: "POST" }
     ),
 
-  requestZipSelection: (slug: string) =>
+  requestZipSelection: (
+    slug: string,
+    variant: "original" | "web" = "original"
+  ) =>
     request<{ id: string; status: ZipStatus; fileCount: number }>(
-      `/g/${slug}/download/selection`,
+      `/g/${slug}/download/selection?variant=${variant}`,
       { method: "POST" }
     ),
 

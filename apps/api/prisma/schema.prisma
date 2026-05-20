@@ -243,6 +243,11 @@ model Gallery {
   
   // Feature-Toggles pro Galerie
   downloadEnabled Boolean  @default(true)
+  // Zusatz zu downloadEnabled: wenn true, dürfen Kunden auch die Originale
+  // herunterladen (sonst nur die Web-Renditions ~2560px webp). Default true
+  // damit existierende Galerien unverändert weiterlaufen — der neue Toggle
+  // im Studio gibt Photographen die explizite Wahl "nur Web ausliefern".
+  downloadOriginalsEnabled Boolean @default(true)
   watermarkEnabled Boolean @default(false)
   commentsEnabled Boolean  @default(true)
   ratingsEnabled  Boolean  @default(true)
@@ -291,6 +296,11 @@ model ZipDownload {
   fileIdsHash String?
   fileCount   Int
   
+  // "original" oder "web" — bestimmt, welche Bytes in die ZIP gepackt
+  // werden. Default "original" für Rückwärtskompatibilität — der Worker
+  // bzw. ältere Einträge ohne explizite Wahl liefern Originals.
+  variant     String   @default("original")
+  
   status      String   @default("pending") // pending | building | ready | failed
   storageKey  String?  // wenn ready
   sizeBytes   BigInt?
@@ -305,7 +315,7 @@ model ZipDownload {
   updatedAt   DateTime @updatedAt
   
   @@index([galleryId, expiresAt])
-  @@unique([galleryId, accessId, fileIdsHash])
+  @@unique([galleryId, accessId, fileIdsHash, variant])
   @@map("zip_downloads")
 }
 

@@ -133,6 +133,9 @@ export const de: Dict = {
     setLive: "Live schalten",
     settingsHeading: "Einstellungen",
     settingDownload: "Download für Kunden erlauben",
+    settingOriginals: "Originale erlauben",
+    settingOriginalsDesc:
+      "Wenn aktiv, können Kunden die Original-Dateien herunterladen. Wenn aus, gibt es nur die reduzierten Web-Versionen (~2560px).",
     settingWatermark: "Wasserzeichen auf Vorschaubildern",
     settingWatermarkDesc:
       "Wird automatisch generiert. Studio-Watermark-Text in den Tenant-Settings festlegen.",
@@ -200,10 +203,19 @@ export const de: Dict = {
     unlockChecking: "Wird geprüft…",
     requestFailed: "Anfrage fehlgeschlagen",
     downloadAll: "Alle herunterladen",
+    downloadAllWeb: "Alle als Web-Version",
     downloadSelection: "Auswahl herunterladen ({count})",
+    downloadSelectionWeb: "Auswahl als Web-Version ({count})",
     downloadDisabled: "Download ist für diese Galerie deaktiviert.",
     downloadEmpty: "Keine Auswahl getroffen.",
     downloadRetry: "Bitte erneut versuchen",
+    downloadOriginal: "Original",
+    downloadOriginalHint: "Volle Auflösung — die hochgeladene Datei",
+    downloadWeb: "Web",
+    downloadWebHint:
+      "Reduzierte Version (~2560px webp), gut zum Online-Posten und Teilen",
+    originalsDisabled:
+      "Originale sind für diese Galerie deaktiviert — du kannst die Web-Version herunterladen.",
     finalize: "Auswahl abschließen",
     finalizing: "Wird abgeschlossen…",
     finalized: "Auswahl abgeschlossen",

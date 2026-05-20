@@ -62,6 +62,11 @@ export interface ZipBuildJob {
   label: string;
   accessId?: string; // wenn aus Kunden-Auswahl gebaut
   zipDownloadId: string; // FK auf zip_downloads.id, Worker updated den Status
+  // "original" packt die hochgeladenen Originaldateien, "web" packt die
+  // ~2560px webp Web-Renditions. Default "original" (alte Jobs vor dem
+  // Feature haben das Feld nicht — Worker behandelt fehlende variant als
+  // "original").
+  variant?: "original" | "web";
 }
 
 export interface WebhookDeliveryJob {

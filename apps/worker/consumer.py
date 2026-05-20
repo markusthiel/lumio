@@ -94,6 +94,7 @@ def _dispatch(stream: str, payload: dict) -> None:
                 payload.get("galleryId"),
                 payload.get("fileIds"),
                 payload.get("label", "all"),
+                payload.get("variant", "original"),
             ],
         )
     elif job_type == "webhook_delivery":

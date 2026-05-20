@@ -226,13 +226,41 @@ export function GalleryView({
               )}
             {meta.downloadEnabled && stats.total > 0 && (
               <>
-                <ZipDownloadButton slug={slug} variant="all" />
-                {interactive && stats.liked > 0 && (
+                {meta.downloadOriginalsEnabled && (
                   <ZipDownloadButton
                     slug={slug}
-                    variant="selection"
-                    count={stats.liked}
+                    kind="all"
+                    variant="original"
+                    emphasis="primary"
                   />
+                )}
+                <ZipDownloadButton
+                  slug={slug}
+                  kind="all"
+                  variant="web"
+                  emphasis={meta.downloadOriginalsEnabled ? "ghost" : "primary"}
+                />
+                {interactive && stats.liked > 0 && (
+                  <>
+                    {meta.downloadOriginalsEnabled && (
+                      <ZipDownloadButton
+                        slug={slug}
+                        kind="selection"
+                        variant="original"
+                        count={stats.liked}
+                        emphasis="primary"
+                      />
+                    )}
+                    <ZipDownloadButton
+                      slug={slug}
+                      kind="selection"
+                      variant="web"
+                      count={stats.liked}
+                      emphasis={
+                        meta.downloadOriginalsEnabled ? "ghost" : "primary"
+                      }
+                    />
+                  </>
                 )}
               </>
             )}
@@ -585,8 +613,16 @@ function Lightbox({
     }
   }
 
-  const downloadUrl =
-    meta.downloadEnabled ? api.publicDownloadUrl(slug, file.id) : null;
+  // Zwei mögliche Download-Varianten: Original (volle Auflösung) und Web
+  // (2560px webp). Wenn der Studio "downloadOriginalsEnabled=false" gesetzt
+  // hat, wird Original ausgegraut/weggelassen und nur Web steht zur Wahl.
+  const originalDownloadUrl =
+    meta.downloadEnabled && meta.downloadOriginalsEnabled
+      ? api.publicDownloadUrl(slug, file.id, "original")
+      : null;
+  const webDownloadUrl = meta.downloadEnabled
+    ? api.publicDownloadUrl(slug, file.id, "web")
+    : null;
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col animate-fade-in">
@@ -616,22 +652,31 @@ function Lightbox({
               {t("gallery.comments")}
             </button>
           )}
-          {downloadUrl && (
+          {originalDownloadUrl && (
             <a
-              href={downloadUrl}
+              href={originalDownloadUrl}
               className="h-8 px-3 rounded text-ui-xs inline-flex items-center text-white/70 hover:text-white hover:bg-white/10 transition-colors duration-motion"
               title={
                 file.kind === "heic"
                   ? t("gallery.downloadHeicHint")
-                  : undefined
+                  : t("gallery.downloadOriginalHint")
               }
             >
-              ↓ {t("gallery.download")}
+              ↓ {t("gallery.downloadOriginal")}
               {file.kind === "heic" && (
                 <span className="ml-1.5 font-mono text-[10px] opacity-70">
                   HEIC
                 </span>
               )}
+            </a>
+          )}
+          {webDownloadUrl && (
+            <a
+              href={webDownloadUrl}
+              className="h-8 px-3 rounded text-ui-xs inline-flex items-center text-white/70 hover:text-white hover:bg-white/10 transition-colors duration-motion"
+              title={t("gallery.downloadWebHint")}
+            >
+              ↓ {t("gallery.downloadWeb")}
             </a>
           )}
         </div>

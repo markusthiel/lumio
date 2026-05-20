@@ -68,10 +68,12 @@ def build_zip(
     gallery_id: str,
     file_ids: list[str] | None,
     label: str,
+    variant: str = "original",
 ) -> dict:
     log.info("build_zip.start",
              zip_id=zip_download_id, gallery=gallery_id,
-             file_count=len(file_ids) if file_ids else "all")
+             file_count=len(file_ids) if file_ids else "all",
+             variant=variant)
 
     _set_status(zip_download_id, "building")
 
@@ -81,6 +83,7 @@ def build_zip(
             gallery_id=gallery_id,
             file_ids=file_ids,
             label=label,
+            variant=variant,
         )
         _set_ready(zip_download_id, storage_key)
         return {"zip_id": zip_download_id, "status": "ready", "key": storage_key}
@@ -94,12 +97,15 @@ def build_zip(
 # Kernlogik
 # ---------------------------------------------------------------------------
 def _build(*, tenant_id: str, gallery_id: str,
-           file_ids: list[str] | None, label: str) -> str:
+           file_ids: list[str] | None, label: str,
+           variant: str = "original") -> str:
     s3 = get_s3_client()
     bucket = get_bucket()
 
-    # Files aus der DB ziehen — original_filename + storage_key
-    files = _fetch_files(gallery_id, file_ids)
+    # Files aus der DB ziehen — original_filename + storage_key. Bei
+    # variant="web" joinen wir auf renditions(kind='web') und nutzen
+    # deren storageKey + bauen "_web.webp"-Dateinamen.
+    files = _fetch_files(gallery_id, file_ids, variant)
     if not files:
         raise ValueError("no files to zip")
 
@@ -237,8 +243,51 @@ def _dedupe_name(name: str, seen: set[str]) -> str:
 # DB-Helfer
 # ---------------------------------------------------------------------------
 def _fetch_files(gallery_id: str,
-                 file_ids: list[str] | None) -> list[dict]:
+                 file_ids: list[str] | None,
+                 variant: str = "original") -> list[dict]:
+    """Lädt Files aus der DB. Bei variant="web" tauschen wir storage_key
+    gegen den storage_key der web-Rendition und passen den Filename auf
+    "<stem>_web.webp" an. Files ohne web-Rendition werden weggefiltert
+    — das sollte nicht passieren, wenn der Worker durchgelaufen ist,
+    aber wir bauen lieber eine kleinere ZIP als eine kaputte."""
     with get_conn() as conn:
+        if variant == "web":
+            # JOIN renditions ON kind='web'; INNER join filtert Files
+            # ohne Web-Rendition automatisch raus.
+            if file_ids:
+                rows = conn.execute(
+                    'SELECT f.id, f."originalFilename" AS original_filename, '
+                    'r."storageKey" AS storage_key, '
+                    'r."sizeBytes" AS size_bytes '
+                    'FROM files f '
+                    'JOIN renditions r ON r."fileId" = f.id AND r.kind = %s '
+                    'WHERE f."galleryId" = %s AND f.id = ANY(%s) '
+                    'AND f.status = %s '
+                    'ORDER BY f."sortIndex", f."originalFilename"',
+                    ("web", gallery_id, file_ids, "ready"),
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    'SELECT f.id, f."originalFilename" AS original_filename, '
+                    'r."storageKey" AS storage_key, '
+                    'r."sizeBytes" AS size_bytes '
+                    'FROM files f '
+                    'JOIN renditions r ON r."fileId" = f.id AND r.kind = %s '
+                    'WHERE f."galleryId" = %s AND f.status = %s '
+                    'ORDER BY f."sortIndex", f."originalFilename"',
+                    ("web", gallery_id, "ready"),
+                ).fetchall()
+            # Filenames in *_web.webp umbauen, damit Kunde nicht den
+            # Original-Dateinamen denkt. Wir bewahren den Stem.
+            files = list(rows)
+            for f in files:
+                fn = f["original_filename"]
+                dot = fn.rfind(".")
+                stem = fn[:dot] if dot > 0 else fn
+                f["original_filename"] = f"{stem}_web.webp"
+            return files
+
+        # variant="original" — Standard
         if file_ids:
             rows = conn.execute(
                 'SELECT id, "originalFilename" AS original_filename, '
