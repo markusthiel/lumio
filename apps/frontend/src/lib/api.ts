@@ -61,6 +61,10 @@ export interface Gallery {
   heroBackgroundColor: string | null;
   eventLogoUrl: string | null;
   welcomeMarkdown: string | null;
+  // Footer + Galerie-Farben
+  footerMarkdown: string | null;
+  colorBackground: string | null;
+  colorAccent: string | null;
   fileCount?: number;
   tags?: Tag[];
   createdAt: string;
@@ -207,6 +211,15 @@ export interface PublicGalleryMeta {
     /** Markdown-Text für den Welcome-Block. Wenn null, wird nur die
      *  description angezeigt. */
     welcomeMarkdown: string | null;
+  };
+  /** Markdown für den Galerie-Footer (Dankeschön, Kontakt, Socials).
+   *  Wenn null, wird der Tenant-Branding-Footer (falls vorhanden)
+   *  angezeigt. */
+  footerMarkdown: string | null;
+  /** Galerie-spezifische Farb-Overrides. null = Branding gewinnt. */
+  colors: {
+    background: string | null;
+    accent: string | null;
   };
 }
 

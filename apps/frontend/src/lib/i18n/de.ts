@@ -146,6 +146,9 @@ export const de: Dict = {
     settingSelectionLimitPlaceholder: "z.B. 30",
 
     // Header-Editor
+    designEditor: "Galerie-Gestaltung",
+    designEditorHint:
+      "Hero-Bild, Logo, Farben, Begrüßung und Footer für den Customer-View dieser Galerie.",
     headerEditor: "Header-Gestaltung",
     headerEditorHint:
       "Hero-Bild, Event-Logo und Begrüßungstext für den Customer-View dieser Galerie.",
@@ -170,6 +173,16 @@ export const de: Dict = {
     welcomeMarkdownPlaceholder:
       "Liebe Kundin, lieber Kunde,\\n\\nhier ist eure Hochzeitsgalerie...",
     welcomeMarkdownEmpty: "Vorschau erscheint hier, wenn du etwas geschrieben hast.",
+    footerMarkdown: "Footer",
+    footerMarkdownHint:
+      "Wird am Ende der Galerie angezeigt. Typisch: Dankeschön, Kontaktdaten, Social-Media-Links.",
+    footerMarkdownPlaceholder:
+      "Danke für euer Vertrauen!\\n\\n— Studio Müller\\nstudio@example.de\\n[Instagram](https://...)",
+    galleryColors: "Galerie-Farben",
+    galleryColorsHint:
+      "Überschreiben die Farben des Tenant-Brandings nur für diese Galerie. Textfarbe wird automatisch passend zum Hintergrund berechnet.",
+    colorBackground: "Hintergrund",
+    colorAccent: "Akzent",
     uploadLogo: "Logo hochladen",
     replace: "Ersetzen",
     remove: "Entfernen",

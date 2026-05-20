@@ -69,6 +69,17 @@ const updateGallerySchema = createGallerySchema.partial().extend({
     .optional(),
   eventLogoUrl: z.string().max(500).nullable().optional(),
   welcomeMarkdown: z.string().max(20_000).nullable().optional(),
+  footerMarkdown: z.string().max(20_000).nullable().optional(),
+  colorBackground: z
+    .string()
+    .regex(HEX_RGB, "must be #RRGGBB")
+    .nullable()
+    .optional(),
+  colorAccent: z
+    .string()
+    .regex(HEX_RGB, "must be #RRGGBB")
+    .nullable()
+    .optional(),
 });
 
 const unlockSchema = z.object({
@@ -458,6 +469,15 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           ...(body.welcomeMarkdown !== undefined
             ? { welcomeMarkdown: body.welcomeMarkdown }
             : {}),
+          ...(body.footerMarkdown !== undefined
+            ? { footerMarkdown: body.footerMarkdown }
+            : {}),
+          ...(body.colorBackground !== undefined
+            ? { colorBackground: body.colorBackground }
+            : {}),
+          ...(body.colorAccent !== undefined
+            ? { colorAccent: body.colorAccent }
+            : {}),
         },
       });
 
@@ -782,6 +802,9 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         heroBackgroundColor: true,
         eventLogoUrl: true,
         welcomeMarkdown: true,
+        footerMarkdown: true,
+        colorBackground: true,
+        colorAccent: true,
         tenant: { select: { status: true } },
       },
     });
@@ -880,6 +903,14 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           backgroundColor: gallery.heroBackgroundColor,
           eventLogoUrl: eventLogoPublicUrl,
           welcomeMarkdown: gallery.welcomeMarkdown,
+        },
+        // Footer + Galerie-Farben überschreiben Branding-Werte nur
+        // für diese Galerie. null bedeutet "kein Override → Branding
+        // gewinnt".
+        footerMarkdown: gallery.footerMarkdown,
+        colors: {
+          background: gallery.colorBackground,
+          accent: gallery.colorAccent,
         },
       },
     };

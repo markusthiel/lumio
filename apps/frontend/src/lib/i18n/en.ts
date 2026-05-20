@@ -146,6 +146,9 @@ export const en: Dict = {
     settingSelectionLimitPlaceholder: "e.g. 30",
 
     // Header editor
+    designEditor: "Gallery design",
+    designEditorHint:
+      "Hero image, logo, colors, welcome text and footer for this gallery's customer view.",
     headerEditor: "Header design",
     headerEditorHint:
       "Hero image, event logo and welcome text for this gallery's customer view.",
@@ -170,6 +173,16 @@ export const en: Dict = {
     welcomeMarkdownPlaceholder:
       "Dear client,\\n\\nhere is your wedding gallery...",
     welcomeMarkdownEmpty: "Preview shows here once you've written something.",
+    footerMarkdown: "Footer",
+    footerMarkdownHint:
+      "Shown at the bottom of the gallery. Typically: thank-you, contact info, social media links.",
+    footerMarkdownPlaceholder:
+      "Thanks for your trust!\\n\\n— Studio Smith\\nstudio@example.com\\n[Instagram](https://...)",
+    galleryColors: "Gallery colors",
+    galleryColorsHint:
+      "Override the tenant branding's colors just for this gallery. Text color is automatically computed for contrast.",
+    colorBackground: "Background",
+    colorAccent: "Accent",
     uploadLogo: "Upload logo",
     replace: "Replace",
     remove: "Remove",

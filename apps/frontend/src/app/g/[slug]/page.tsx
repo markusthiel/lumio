@@ -131,7 +131,14 @@ export default function PublicGalleryPage() {
 
   if (!meta.unlocked) {
     return (
-      <GalleryShell branding={meta.branding}>
+      <GalleryShell
+        branding={meta.branding}
+        overrides={{
+          colorBackground: meta.colors.background,
+          colorAccent: meta.colors.accent,
+          footerMarkdown: meta.footerMarkdown,
+        }}
+      >
         <UnlockForm
           slug={slug}
           meta={meta}
@@ -147,7 +154,14 @@ export default function PublicGalleryPage() {
   }
 
   return (
-    <GalleryShell branding={meta.branding}>
+    <GalleryShell
+      branding={meta.branding}
+      overrides={{
+        colorBackground: meta.colors.background,
+        colorAccent: meta.colors.accent,
+        footerMarkdown: meta.footerMarkdown,
+      }}
+    >
       <GalleryView
         meta={meta}
         slug={slug}

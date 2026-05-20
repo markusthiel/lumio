@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { Branding } from "@/lib/api";
 import { useT, useLocale } from "@/lib/i18n";
 
 /**
  * Wrapper für alle Kunden-Galerie-Seiten. Wendet das Branding eines
- * Tenants/Galerie an:
+ * Tenants und die optionalen Galerie-Overrides an:
  *   - primaryColor → Background (dunkel = bleibt dunkel; hell = wird hell)
  *   - accentColor  → CSS-Variable --brand-accent (Buttons, Highlights)
  *   - fontFamily   → globaler Font-Stack
@@ -15,6 +17,11 @@ import { useT, useLocale } from "@/lib/i18n";
  *   - introText    → über der Galerie (optional)
  *   - footerText   → Footer (sonst "Powered by Lumio")
  *   - customCss    → optional als <style>-Tag eingehängt
+ *
+ * Galerie-Overrides (überschreiben Branding-Werte):
+ *   - colorBackground / colorAccent: Hex #RRGGBB
+ *   - footerMarkdown: ersetzt branding.footerText durch reichformatierten
+ *     Inhalt
  *
  * Wenn kein Branding gesetzt ist, fallen wir auf die Lumio-Defaults zurück
  * (dunkler Neutral-Look).
@@ -40,9 +47,19 @@ function isLightColor(hex: string): boolean {
 
 export function GalleryShell({
   branding,
+  overrides,
   children,
 }: {
   branding: Branding | null;
+  /** Galerie-spezifische Overrides — überschreiben gleichnamige
+   *  Branding-Werte für diese eine Galerie. Wenn die Galerie noch
+   *  nicht geladen ist (Unlock-Screen vor Meta-Laden), reichen die
+   *  Branding-Defaults. */
+  overrides?: {
+    colorBackground?: string | null;
+    colorAccent?: string | null;
+    footerMarkdown?: string | null;
+  };
   children: React.ReactNode;
 }) {
   const t = useT();
@@ -59,8 +76,10 @@ export function GalleryShell({
     if (!existing) document.head.appendChild(link);
   }, [branding?.faviconUrl]);
 
-  const primary = branding?.primaryColor ?? "#0e0e10"; // surface-canvas
-  const accent = branding?.accentColor ?? "#f59e0b";
+  // Galerie-Overrides haben Vorrang vor Branding-Werten.
+  const primary =
+    overrides?.colorBackground ?? branding?.primaryColor ?? "#0e0e10";
+  const accent = overrides?.colorAccent ?? branding?.accentColor ?? "#f59e0b";
   const accentRgb = hexToRgbTriple(accent);
   const light = isLightColor(primary);
 
@@ -114,17 +133,45 @@ export function GalleryShell({
 
       <main>{children}</main>
 
+      {/* Galerie-Footer-Markdown — wenn gesetzt, ersetzt es den
+          Branding-Footer-Text. Wird breit gerendert mit prose-styles,
+          damit Listen/Links/Headings ordentlich aussehen. */}
+      {overrides?.footerMarkdown ? (
+        <section
+          className="px-4 sm:px-6 md:px-12 mt-12 py-10 border-t"
+          style={{ borderColor, color: mutedColor }}
+        >
+          <div
+            className={`max-w-3xl mx-auto prose ${
+              light ? "" : "prose-invert"
+            } prose-sm sm:prose-base`}
+          >
+            <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml>
+              {overrides.footerMarkdown}
+            </ReactMarkdown>
+          </div>
+        </section>
+      ) : null}
+
       <footer
         className="p-6 mt-12 text-xs"
         style={{
           color: mutedColor,
           opacity: branding?.footerText ? 1 : 0.7,
-          borderTop: branding?.footerText ? `1px solid ${borderColor}` : "none",
+          borderTop:
+            branding?.footerText && !overrides?.footerMarkdown
+              ? `1px solid ${borderColor}`
+              : "none",
         }}
       >
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4 flex-wrap">
           <div className="text-center sm:text-left flex-1 min-w-0">
-            {branding?.footerText ?? t("gallery.poweredBy")}
+            {/* Wenn ein galerie-spezifischer Footer-Markdown da ist, hat
+                der den Hauptbereich schon geschnappt — hier unten reichen
+                der Powered-By und der Locale-Switcher. */}
+            {overrides?.footerMarkdown
+              ? t("gallery.poweredBy")
+              : branding?.footerText ?? t("gallery.poweredBy")}
           </div>
           {supported.length > 1 && (
             <LocaleSwitcher

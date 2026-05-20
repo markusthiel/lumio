@@ -40,31 +40,6 @@ export function GalleryHeaderEditor({ gallery, files, onChanged }: Props) {
   const t = useT();
   const [expanded, setExpanded] = useState(false);
 
-  // Lokaler Markdown-State für debounced Save
-  const [markdown, setMarkdown] = useState(gallery.welcomeMarkdown ?? "");
-  const [markdownPreview, setMarkdownPreview] = useState(false);
-  const markdownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Wenn die Galerie von außen aktualisiert wird (z.B. anderer Save),
-  // den lokalen State angleichen — aber nur wenn der User gerade nicht
-  // tippt (sonst überschreiben wir seine Eingabe).
-  useEffect(() => {
-    if (markdownTimerRef.current) return;
-    setMarkdown(gallery.welcomeMarkdown ?? "");
-  }, [gallery.welcomeMarkdown]);
-
-  function debouncedSaveMarkdown(next: string) {
-    setMarkdown(next);
-    if (markdownTimerRef.current) clearTimeout(markdownTimerRef.current);
-    markdownTimerRef.current = setTimeout(async () => {
-      await api.updateGallery(gallery.id, {
-        welcomeMarkdown: next || null,
-      });
-      markdownTimerRef.current = null;
-      await onChanged();
-    }, 800);
-  }
-
   async function patch(patch: Partial<Gallery>) {
     await api.updateGallery(gallery.id, patch);
     await onChanged();
@@ -106,10 +81,10 @@ export function GalleryHeaderEditor({ gallery, files, onChanged }: Props) {
       >
         <div>
           <h2 className="text-ui-md font-medium text-ink-primary">
-            {t("studio.headerEditor")}
+            {t("studio.designEditor")}
           </h2>
           <p className="text-ui-xs text-ink-tertiary mt-0.5">
-            {t("studio.headerEditorHint")}
+            {t("studio.designEditorHint")}
           </p>
         </div>
         <span
@@ -234,45 +209,135 @@ export function GalleryHeaderEditor({ gallery, files, onChanged }: Props) {
           )}
 
           {/* Welcome-Markdown */}
-          <Field
+          <MarkdownField
             label={t("studio.welcomeMarkdown")}
             hint={t("studio.welcomeMarkdownHint")}
-            actions={
-              <button
-                type="button"
-                onClick={() => setMarkdownPreview((s) => !s)}
-                className="text-ui-xs text-accent hover:text-accent-hover"
-              >
-                {markdownPreview ? t("studio.edit") : t("studio.preview")}
-              </button>
+            placeholder={t("studio.welcomeMarkdownPlaceholder")}
+            emptyPreviewHint={t("studio.welcomeMarkdownEmpty")}
+            value={gallery.welcomeMarkdown}
+            onSave={(v) =>
+              api
+                .updateGallery(gallery.id, { welcomeMarkdown: v })
+                .then(onChanged)
             }
-          >
-            {markdownPreview ? (
-              <div className="prose prose-invert prose-sm max-w-none p-3 rounded bg-surface-sunken border border-line-subtle min-h-[120px]">
-                {markdown ? (
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml>
-                    {markdown}
-                  </ReactMarkdown>
-                ) : (
-                  <p className="text-ink-tertiary italic">
-                    {t("studio.welcomeMarkdownEmpty")}
-                  </p>
-                )}
-              </div>
-            ) : (
-              <textarea
-                value={markdown}
-                onChange={(e) => debouncedSaveMarkdown(e.target.value)}
-                rows={6}
-                maxLength={20_000}
-                placeholder={t("studio.welcomeMarkdownPlaceholder")}
-                className="w-full px-3 py-2 rounded bg-surface-sunken border border-line-subtle text-ui text-ink-primary font-mono text-ui-sm focus:border-accent focus:outline-none resize-y"
+          />
+
+          {/* Footer-Markdown */}
+          <MarkdownField
+            label={t("studio.footerMarkdown")}
+            hint={t("studio.footerMarkdownHint")}
+            placeholder={t("studio.footerMarkdownPlaceholder")}
+            emptyPreviewHint={t("studio.welcomeMarkdownEmpty")}
+            value={gallery.footerMarkdown}
+            onSave={(v) =>
+              api
+                .updateGallery(gallery.id, { footerMarkdown: v })
+                .then(onChanged)
+            }
+          />
+
+          {/* Galerie-spezifische Farben */}
+          <div className="rounded border border-line-subtle bg-surface-sunken/40 p-4 space-y-3">
+            <div>
+              <h3 className="text-ui-sm font-medium text-ink-secondary">
+                {t("studio.galleryColors")}
+              </h3>
+              <p className="text-ui-xs text-ink-tertiary mt-0.5">
+                {t("studio.galleryColorsHint")}
+              </p>
+            </div>
+            <Field label={t("studio.colorBackground")}>
+              <RgbPicker
+                value={gallery.colorBackground}
+                onChange={(v) => patch({ colorBackground: v })}
               />
-            )}
-          </Field>
+            </Field>
+            <Field label={t("studio.colorAccent")}>
+              <RgbPicker
+                value={gallery.colorAccent}
+                onChange={(v) => patch({ colorAccent: v })}
+              />
+            </Field>
+          </div>
         </div>
       )}
     </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+/** Wiederverwendbare Markdown-Eingabe mit debounced Save + Edit/Preview-
+ *  Toggle. Verwendet von Welcome- und Footer-Markdown. */
+function MarkdownField({
+  label,
+  hint,
+  placeholder,
+  emptyPreviewHint,
+  value,
+  onSave,
+}: {
+  label: string;
+  hint: string;
+  placeholder: string;
+  emptyPreviewHint: string;
+  value: string | null;
+  onSave: (v: string | null) => Promise<unknown> | unknown;
+}) {
+  const t = useT();
+  const [local, setLocal] = useState(value ?? "");
+  const [preview, setPreview] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    // Nur extern angleichen wenn der User gerade nicht tippt
+    if (timerRef.current) return;
+    setLocal(value ?? "");
+  }, [value]);
+
+  function debouncedSave(next: string) {
+    setLocal(next);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(async () => {
+      await onSave(next || null);
+      timerRef.current = null;
+    }, 800);
+  }
+
+  return (
+    <Field
+      label={label}
+      hint={hint}
+      actions={
+        <button
+          type="button"
+          onClick={() => setPreview((s) => !s)}
+          className="text-ui-xs text-accent hover:text-accent-hover"
+        >
+          {preview ? t("studio.edit") : t("studio.preview")}
+        </button>
+      }
+    >
+      {preview ? (
+        <div className="prose prose-invert prose-sm max-w-none p-3 rounded bg-surface-sunken border border-line-subtle min-h-[120px]">
+          {local ? (
+            <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml>
+              {local}
+            </ReactMarkdown>
+          ) : (
+            <p className="text-ink-tertiary italic">{emptyPreviewHint}</p>
+          )}
+        </div>
+      ) : (
+        <textarea
+          value={local}
+          onChange={(e) => debouncedSave(e.target.value)}
+          rows={6}
+          maxLength={20_000}
+          placeholder={placeholder}
+          className="w-full px-3 py-2 rounded bg-surface-sunken border border-line-subtle text-ui text-ink-primary font-mono text-ui-sm focus:border-accent focus:outline-none resize-y"
+        />
+      )}
+    </Field>
   );
 }
 

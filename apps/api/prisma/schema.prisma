@@ -292,6 +292,25 @@ model Gallery {
   // den Customer-View.
   welcomeMarkdown  String?
   
+  // Galerie-spezifisches Footer-Markdown. Wird am Ende der Customer-
+  // Seite unterhalb des File-Grids gerendert. Typischerweise:
+  // Dankeschön-Text, Kontaktdaten, Social-Media-Links. Wenn null wird
+  // nur der Tenant-weite Branding-Footer gerendert (falls vorhanden).
+  footerMarkdown   String?
+  
+  // Galerie-spezifische Farben — überschreiben die entsprechenden
+  // Werte des Tenant-Brandings nur für diese eine Galerie.
+  // - colorBackground: Surface-Canvas (Hauptfläche der Customer-Seite)
+  //   Text auf diesem Hintergrund wird automatisch in den passenden
+  //   Kontrast (hell oder dunkel) berechnet — kein separates Text-
+  //   Color-Feld nötig.
+  // - colorAccent: Akzent-Farbe (Buttons, Selection-Marker, Links)
+  //   Auch hier wird die "Contrast"-Farbe (Text auf Akzent) automatisch
+  //   berechnet.
+  // Beide Hex-#RRGGBB.
+  colorBackground  String? @db.VarChar(7)
+  colorAccent      String? @db.VarChar(7)
+  
   // Flexible Einstellungen (Sortierung, Layout, ...)
   settings        Json     @default("{}")
   
