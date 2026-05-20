@@ -120,7 +120,22 @@ export function AnnotationOverlay({
   function onPointerDown(e: React.PointerEvent<SVGSVGElement>) {
     if (readonly || !tool) return;
     e.preventDefault();
-    (e.target as Element).setPointerCapture(e.pointerId);
+    // Pointer auf das SVG selbst capturen — wenn auf ein Kind-Element
+    // (path/line) geklickt wird, würde setPointerCapture auf dem Kind
+    // dazu führen dass die Move-Events das Kind als Target tragen, was
+    // pointFromEvent durcheinanderbringt. SVG ist immer das richtige
+    // Capture-Target weil pointFromEvent gegen die SVG-Bounding-Box
+    // rechnet.
+    const svg = svgRef.current;
+    if (svg) {
+      try {
+        svg.setPointerCapture(e.pointerId);
+      } catch {
+        /* manche Browser scheitern beim Capture wenn der Pointer
+         * bereits oben anders gecaptured wurde — egal, wir verlieren
+         * dann nur die Capture-Eigenschaft, das Zeichnen geht trotzdem */
+      }
+    }
     const p = pointFromEvent(e);
     if (tool === "freehand") {
       setDrawing({ kind: "freehand", points: [p] });
@@ -146,11 +161,18 @@ export function AnnotationOverlay({
   }
 
   function onPointerUp(e: React.PointerEvent<SVGSVGElement>) {
+    const svg = svgRef.current;
+    if (svg && svg.hasPointerCapture?.(e.pointerId)) {
+      try {
+        svg.releasePointerCapture(e.pointerId);
+      } catch {
+        /* nicht kritisch */
+      }
+    }
     if (!drawing || !author || !onChange) {
       setDrawing(null);
       return;
     }
-    (e.target as Element).releasePointerCapture?.(e.pointerId);
 
     // Stroke nur commiten wenn er substantiell ist — kurze Mini-
     // Wackler beim Klick sollen keine 1-Punkt-Stroke produzieren.
@@ -452,7 +474,7 @@ function ToolButton({
         disabled
           ? "opacity-30 cursor-not-allowed"
           : active
-          ? "bg-white/25"
+          ? "bg-white text-black"
           : "hover:bg-white/15"
       }`}
       {...rest}

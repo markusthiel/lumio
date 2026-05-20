@@ -788,8 +788,13 @@ function Lightbox({
   // Annotation-Editor — eigene Strokes pro Bild im State. Wird beim
   // Bild-Wechsel gespült (siehe useEffect unten) und vorher als
   // Comment persistiert wenn was gemalt wurde.
+  //
+  // Default-Tool ist 'freehand', sobald der User die Lightbox öffnet —
+  // sonst hat er die Toolbar im Blick aber wundert sich warum Klicks
+  // aufs Bild nichts tun. Er kann jederzeit zu Pfeil wechseln oder
+  // das Tool wieder ausschalten durch nochmaligen Klick auf das aktive.
   const [annotationTool, setAnnotationTool] =
-    useState<AnnotationTool | null>(null);
+    useState<AnnotationTool | null>("freehand");
   const [annotationColor, setAnnotationColor] =
     useState<AnnotationColor>("red");
   const [myStrokes, setMyStrokes] = useState<AnnotationStroke[]>([]);
@@ -1074,33 +1079,44 @@ function Lightbox({
               className="max-h-full max-w-full"
             />
           ) : file.previewUrl || file.webUrl ? (
-            /* Bild-Container mit Annotation-Overlay. Wir wrappen das
-               <img> in einen relative-Container, damit das Overlay
-               sich genau auf die Bild-Pixel legt (nicht den gesamten
-               Lightbox-Hintergrund). object-contain auf dem Bild
-               sorgt für korrekte Aspect-Ratio; der Wrapper ist
-               max-h-full + max-w-full und schrumpft mit. */
-            <div className="relative max-h-full max-w-full flex items-center justify-center">
+            /* Bild + Annotation-Overlay übereinander. Wir nutzen
+               display:grid mit einer einzigen Zelle, in die beide
+               (img und svg) gelegt werden — beide nehmen exakt
+               die Zellen-Größe an (= die Image-Größe nach object-
+               contain), ohne dass wir die Pixel manuell messen
+               müssten. Das vermeidet den Bug mit absolute+inset-0
+               auf einem flex-Container der seine Größe vom Kind
+               bekommt. */
+            <div className="grid place-items-stretch max-h-[calc(100vh-100px)] max-w-full">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={file.webUrl ?? file.previewUrl ?? ""}
                 alt={file.filename}
-                className="max-h-[calc(100vh-100px)] max-w-full object-contain animate-fade-in block"
+                className="max-h-[calc(100vh-100px)] max-w-full w-auto h-auto object-contain animate-fade-in block"
+                style={{ gridArea: "1 / 1" }}
                 draggable={false}
-                key={file.id} /* erzwingt re-mount → fade bei Wechsel */
+                key={file.id}
               />
-              {/* Annotation-Overlay. Read-only wenn der Visitor nicht
-                  kommentieren darf (oder Comments deaktiviert sind);
-                  sonst editierbar mit dem aktuell gewählten Tool. */}
+              {/* Annotation-Overlay liegt in derselben Grid-Zelle.
+                  Wrapper bekommt KEIN pointer-events-none — das SVG
+                  selbst regelt das via pointer-events-auto, und wenn
+                  der User außerhalb der Bild-Pixel klickt, ist das in
+                  Ordnung (kein Bild = kein Annotation-Sinn aber auch
+                  kein Schaden). */}
               {meta.commentsEnabled && (
-                <AnnotationOverlay
-                  existing={existingAnnotations}
-                  value={myStrokes}
-                  onChange={interactive ? setMyStrokes : undefined}
-                  author={interactive ? "customer" : null}
-                  tool={interactive ? annotationTool : null}
-                  color={annotationColor}
-                />
+                <div
+                  className="relative"
+                  style={{ gridArea: "1 / 1" }}
+                >
+                  <AnnotationOverlay
+                    existing={existingAnnotations}
+                    value={myStrokes}
+                    onChange={interactive ? setMyStrokes : undefined}
+                    author={interactive ? "customer" : null}
+                    tool={interactive ? annotationTool : null}
+                    color={annotationColor}
+                  />
+                </div>
               )}
             </div>
           ) : (
