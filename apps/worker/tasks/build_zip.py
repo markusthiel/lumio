@@ -2,12 +2,26 @@
 Lumio Worker — build_zip
 
 Erzeugt ein ZIP-Archiv der Originaldateien einer Galerie (oder eines
-Subset). Wir streamen die Files aus S3 in den ZIP-Stream und laden den
-Stream in Chunks zu S3 hoch (Multipart). So bleibt der Speicherbedarf
-konstant, egal wie groß die Galerie.
+Subset).
+
+WICHTIG zum Buffering: ein früher Versuch wollte echtes Streaming:
+ZipFile auf einen BytesIO schreiben, parallel Buffer-Teile als S3-
+Multipart-Parts hochladen, Buffer leeren. Das funktioniert NICHT —
+ZipFile schreibt am Ende das Central Directory mit Offsets in die
+zuvor geschriebenen Local File Headers; ein truncate() unter dem
+Writer macht alle Offsets falsch. Resultat: lesbare Namensliste,
+aber 'Bad magic number for file header' beim Entpacken.
+
+Aktueller Ansatz: ZIP wird vollständig in einer Tempdatei auf der
+Worker-Disk gebaut, dann via Multipart in 8-MiB-Chunks zu S3
+gepusht. Speicherbedarf ist O(part_size). Disk-Bedarf ist O(zip_size)
+— für Galerien bis ~hunderte GB völlig ok, der Worker-Container hat
+genug Platz. Bei TB-Galerien müsste man auf stream-zip (oder eine
+selbstgebaute store-only-Implementation, die Local File Headers
+direkt schreibt und Central Directory am Ende komponiert) umsteigen.
 
 Bei Bildern lohnt sich keine Kompression (JPEGs/RAWs sind bereits
-kompakt), wir verwenden `ZIP_STORED`.
+kompakt), wir verwenden ZIP_STORED.
 
 Aufgerufen über den Job-Stream lumio:jobs:zip_build:
   {
@@ -21,11 +35,10 @@ Aufgerufen über den Job-Stream lumio:jobs:zip_build:
 """
 from __future__ import annotations
 
-import io
 import os
+import tempfile
 import zipfile
 from datetime import datetime
-from pathlib import Path
 
 import structlog
 
@@ -93,57 +106,27 @@ def _build(*, tenant_id: str, gallery_id: str,
     ts = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
     out_key = f"t/{tenant_id}/downloads/{gallery_id}/{label}_{ts}.zip"
 
-    # Multipart-Upload aufsetzen
-    create = s3.create_multipart_upload(
-        Bucket=bucket, Key=out_key, ContentType="application/zip"
+    # Tempdatei auf Disk. delete=False, damit wir explizit close()-en
+    # können bevor wir lesen — sonst hat NamedTemporaryFile auf manchen
+    # Plattformen Probleme. Wir räumen am Ende selbst auf.
+    tmp = tempfile.NamedTemporaryFile(
+        prefix="lumio-zip-", suffix=".zip", delete=False
     )
-    upload_id = create["UploadId"]
-    parts: list[dict] = []
-    part_number = 1
-
-    buffer = io.BytesIO()
-
-    def flush_buffer(final: bool = False) -> None:
-        """Wenn buffer ≥ UPLOAD_PART_BYTES (oder final): als Part nach S3."""
-        nonlocal part_number
-        data = buffer.getvalue()
-        if not data and not final:
-            return
-        if not final and len(data) < UPLOAD_PART_BYTES:
-            return
-        if final and not data and parts:
-            return  # nichts mehr zu uploaden
-
-        resp = s3.upload_part(
-            Bucket=bucket,
-            Key=out_key,
-            UploadId=upload_id,
-            PartNumber=part_number,
-            Body=data,
-        )
-        parts.append({"ETag": resp["ETag"], "PartNumber": part_number})
-        log.debug("build_zip.part_uploaded",
-                  part=part_number, size=len(data))
-        part_number += 1
-        buffer.seek(0)
-        buffer.truncate()
-
+    tmp_path = tmp.name
     try:
-        # ZIP-Writer auf BytesIO. Wir schreiben Files rein und flushen
-        # immer wenn der Buffer voll genug ist.
-        with zipfile.ZipFile(buffer, mode="w",
-                             compression=zipfile.ZIP_STORED,
-                             allowZip64=True) as zf:
+        # Phase 1: ZIP auf Disk bauen
+        with zipfile.ZipFile(
+            tmp, mode="w",
+            compression=zipfile.ZIP_STORED,
+            allowZip64=True,
+        ) as zf:
             seen_names: set[str] = set()
             for f in files:
                 arcname = _dedupe_name(f["original_filename"], seen_names)
                 zinfo = zipfile.ZipInfo(filename=arcname)
                 zinfo.compress_type = zipfile.ZIP_STORED
-                # Datum aus File.created_at? Wir nehmen jetzt, der Browser
-                # zeigt das in den Eigenschaften an.
                 zinfo.date_time = datetime.utcnow().timetuple()[:6]
 
-                # File-Daten direkt aus S3 in den ZIP-Stream pumpen
                 obj = s3.get_object(Bucket=bucket, Key=f["storage_key"])
                 with zf.open(zinfo, "w") as zentry:
                     body = obj["Body"]
@@ -152,32 +135,80 @@ def _build(*, tenant_id: str, gallery_id: str,
                         if not chunk:
                             break
                         zentry.write(chunk)
-                        # Nach jedem MiB checken, ob wir ein Part hochladen
-                        # können
-                        flush_buffer()
 
-        # ZIP ist fertig geschrieben — verbleibenden Buffer als letzten Part
-        flush_buffer(final=True)
+        tmp.close()
+        zip_size = os.path.getsize(tmp_path)
+        log.info("build_zip.local_complete", path=tmp_path, size=zip_size)
 
-        # Wenn nur EIN Part angelegt wurde und der < 5 MiB ist, hätten wir
-        # eigentlich kein Multipart machen sollen — S3 verlangt dann nicht
-        # die 5-MiB-Mindestgröße für den letzten Part, also ist das ok.
+        # Phase 2: Hochladen. Bei kleinen ZIPs (< 8 MiB) ein
+        # einfaches put_object — Multipart hat S3-seits einen
+        # 5-MiB-Mindest-Part (außer letztem) und der Setup-Overhead
+        # lohnt da nicht.
+        if zip_size < UPLOAD_PART_BYTES:
+            with open(tmp_path, "rb") as f:
+                s3.put_object(
+                    Bucket=bucket,
+                    Key=out_key,
+                    Body=f,
+                    ContentType="application/zip",
+                    ContentLength=zip_size,
+                )
+            log.info("build_zip.uploaded_single", key=out_key, size=zip_size)
+        else:
+            _multipart_upload_file(s3, bucket, out_key, tmp_path)
+
+        return out_key
+
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except FileNotFoundError:
+            pass
+
+
+def _multipart_upload_file(s3, bucket: str, out_key: str, src_path: str) -> None:
+    """Lädt eine lokale Datei in 8-MiB-Parts via S3-Multipart hoch."""
+    create = s3.create_multipart_upload(
+        Bucket=bucket, Key=out_key, ContentType="application/zip"
+    )
+    upload_id = create["UploadId"]
+    parts: list[dict] = []
+    part_number = 1
+
+    try:
+        with open(src_path, "rb") as f:
+            while True:
+                chunk = f.read(UPLOAD_PART_BYTES)
+                if not chunk:
+                    break
+                resp = s3.upload_part(
+                    Bucket=bucket,
+                    Key=out_key,
+                    UploadId=upload_id,
+                    PartNumber=part_number,
+                    Body=chunk,
+                )
+                parts.append({"ETag": resp["ETag"], "PartNumber": part_number})
+                log.debug(
+                    "build_zip.part_uploaded",
+                    part=part_number, size=len(chunk),
+                )
+                part_number += 1
+
         if not parts:
-            # Edge-Case: leere ZIP — sollte nicht passieren, aber defensiv
             raise RuntimeError("no parts uploaded")
 
         s3.complete_multipart_upload(
             Bucket=bucket, Key=out_key, UploadId=upload_id,
             MultipartUpload={"Parts": parts},
         )
-        log.info("build_zip.complete", key=out_key, parts=len(parts))
-        return out_key
+        log.info("build_zip.multipart_complete",
+                 key=out_key, parts=len(parts))
 
     except Exception:
-        # Multipart aufräumen, damit nichts im Bucket bleibt
         try:
             s3.abort_multipart_upload(
-                Bucket=bucket, Key=out_key, UploadId=upload_id
+                Bucket=bucket, Key=out_key, UploadId=upload_id,
             )
         except Exception:
             pass
