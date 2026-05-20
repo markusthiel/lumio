@@ -63,7 +63,14 @@ const COLOR_MAP: Record<AnnotationColor, string> = {
   green: "#22c55e",
 };
 
-const STROKE_WIDTH = 0.006; // relativ — wirkt wie 4-6px bei normalen Sizes
+// Die Strokes verwenden vector-effect="non-scaling-stroke", damit die
+// Linienbreite konstant in Display-Pixeln bleibt unabhängig von der
+// Bild-Größe. Der Wert ist daher in REAL PIXELS, nicht in viewBox-
+// Einheiten. 4 Pixel ist eine gut sichtbare Bleistift-Linie ohne zu
+// breit zu werden. Halo: 7px (1.6× Faktor), kontrastiert dezent ohne
+// die Farbe zu überdecken.
+const STROKE_WIDTH = 4;
+const STROKE_HALO_WIDTH = 7;
 
 interface Props {
   /** Existierende, persistierte Strokes — werden gerendert aber sind
@@ -118,13 +125,6 @@ export function AnnotationOverlay({
   }
 
   function onPointerDown(e: React.PointerEvent<SVGSVGElement>) {
-    // eslint-disable-next-line no-console
-    console.log("[lumio-annot] pointerdown", {
-      readonly,
-      tool,
-      author,
-      target: (e.target as Element).tagName,
-    });
     if (readonly || !tool) return;
     e.preventDefault();
     // Pointer auf das SVG selbst capturen — wenn auf ein Kind-Element
@@ -154,8 +154,6 @@ export function AnnotationOverlay({
   function onPointerMove(e: React.PointerEvent<SVGSVGElement>) {
     if (!drawing) return;
     const p = pointFromEvent(e);
-    // eslint-disable-next-line no-console
-    console.log("[lumio-annot] pointermove", { p, drawingKind: drawing.kind });
     if (drawing.kind === "freehand") {
       // Einfacher Distanz-Filter — keine Punkte näher als 0.003 dran.
       // Sonst werden die Strokes riesig und das JSON teuer.
@@ -170,13 +168,6 @@ export function AnnotationOverlay({
   }
 
   function onPointerUp(e: React.PointerEvent<SVGSVGElement>) {
-    // eslint-disable-next-line no-console
-    console.log("[lumio-annot] pointerup", {
-      hasDrawing: !!drawing,
-      drawingKind: drawing?.kind,
-      pointCount:
-        drawing?.kind === "freehand" ? drawing.points.length : undefined,
-    });
     const svg = svgRef.current;
     if (svg && svg.hasPointerCapture?.(e.pointerId)) {
       try {
@@ -292,7 +283,9 @@ export function AnnotationOverlay({
       {/* Persistierte + neue Strokes */}
       {allRendered.map((s) => {
         const stroke = COLOR_MAP[s.color];
-        const dash = s.author === "studio" ? "0.012 0.008" : undefined;
+        // strokeDasharray in Pixel-Einheiten (passend zu non-scaling-stroke).
+        // 8 Pixel Strich / 5 Pixel Lücke = gut sichtbares Gestrichelt.
+        const dash = s.author === "studio" ? "8 5" : undefined;
         if (s.kind === "freehand") {
           const d = strokeToPath(s.points);
           return (
