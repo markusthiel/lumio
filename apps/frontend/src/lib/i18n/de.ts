@@ -435,4 +435,31 @@ export const de: Dict = {
     twoFactorConfirmDisable:
       "Bestätige mit einem aktuellen Code, um 2FA zu deaktivieren:",
   },
+
+  annotation: {
+    freehand: "Frei-Hand",
+    arrow: "Pfeil",
+    undo: "Letzte Markierung zurück",
+    clear: "Alle eigenen Markierungen löschen",
+    color: {
+      red: "Rot",
+      yellow: "Gelb",
+      green: "Grün",
+    },
+    studioDetail: {
+      close: "Schließen",
+      noPreview: "Keine Vorschau verfügbar",
+      commentsHeading: "Kommentare",
+      loading: "Lädt…",
+      noComments: "Noch keine Kommentare zu diesem Bild.",
+      onlyAnnotation: "(nur Markierung auf dem Bild)",
+      replyPlaceholder: "Antwort an Kunde (optional)…",
+      marksReady: "{n} Markierung bereit",
+      marksReadyPlural: "{n} Markierungen bereit",
+      drawHint: "Direkt aufs Bild zeichnen für Markierung",
+      save: "Speichern",
+      saving: "Speichert…",
+      imagesCount: "Bilder",
+    },
+  },
 };

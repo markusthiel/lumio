@@ -369,12 +369,22 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         return reply.status(404).send({ error: "not_found" });
       }
 
-      // BigInt → number + thumbUrl optional auflösen
+      // BigInt → number + thumbUrl + webUrl optional auflösen.
+      // webUrl wird gebraucht für die Annotation-Detail-Ansicht im
+      // Proofing-Tab — höhere Auflösung als der Thumb, ohne dass wir
+      // ein Original ausliefern müssen.
       const files = await Promise.all(
         gallery.files.map(async (f) => {
           const thumb = f.renditions.find((r) => r.kind === "thumb");
+          const web = f.renditions.find((r) => r.kind === "web");
+          const preview = f.renditions.find((r) => r.kind === "preview");
           const thumbUrl = thumb
             ? await presignGet({ key: thumb.storageKey })
+            : null;
+          const webUrl = web
+            ? await presignGet({ key: web.storageKey })
+            : preview
+            ? await presignGet({ key: preview.storageKey })
             : null;
           return {
             id: f.id,
@@ -390,6 +400,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
             sectionId: f.sectionId,
             createdAt: f.createdAt,
             thumbUrl,
+            webUrl,
             tags: f.tags.map((ft) => ft.tag),
           };
         })

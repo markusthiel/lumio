@@ -97,6 +97,10 @@ export interface GalleryFile {
   sectionId: string | null;
   createdAt: string;
   thumbUrl: string | null;
+  /** Mittel-Größe-Rendition (web 2560px). Nur in der Studio-Galerie-
+   *  Detail-Antwort gesetzt; wird für die Proofing-Detail-Ansicht
+   *  benutzt, wo das Studio in voller Größe annotieren will. */
+  webUrl?: string | null;
   tags?: Tag[];
 }
 
@@ -845,6 +849,29 @@ export const api = {
   ) =>
     request<{ comment: Comment }>(
       `/g/${slug}/files/${fileId}/comments`,
+      { method: "POST", body: JSON.stringify(input) }
+    ),
+
+  // ---------------------------------------------------------------------------
+  // Studio-Comments (für Proofing-Detail-Ansicht)
+  // ---------------------------------------------------------------------------
+  // Liste UND Post sind eigene Endpoints unter /galleries/:id/... weil
+  // das Studio über User-Session läuft, nicht über Visitor-Token. Das
+  // List-Endpoint zeigt IMMER alle Comments (inkl. aller Customer-
+  // Annotationen) — anders als der Customer-Endpoint, der die
+  // canSeeOthers-Logik anwendet.
+  studioListComments: (galleryId: string, fileId: string) =>
+    request<{ comments: Comment[] }>(
+      `/galleries/${galleryId}/files/${fileId}/comments`
+    ),
+
+  studioPostComment: (
+    galleryId: string,
+    fileId: string,
+    input: { body: string; authorLabel?: string; annotation?: unknown }
+  ) =>
+    request<{ comment: Comment }>(
+      `/galleries/${galleryId}/files/${fileId}/comments`,
       { method: "POST", body: JSON.stringify(input) }
     ),
 

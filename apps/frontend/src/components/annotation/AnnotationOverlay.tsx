@@ -26,6 +26,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import { useT } from "@/lib/i18n";
 
 export type AnnotationColor = "red" | "yellow" | "green";
 export type AnnotationTool = "freehand" | "arrow";
@@ -418,22 +419,23 @@ export function AnnotationToolbar({
    *  Undo/Clear ausgegraut. */
   hasMine: boolean;
 }) {
+  const t = useT();
   return (
     <div className="inline-flex items-center gap-1 bg-black/60 backdrop-blur rounded-full px-2 py-1.5 text-white">
       {/* Tool */}
       <ToolButton
         active={tool === "freehand"}
         onClick={() => setTool(tool === "freehand" ? null : "freehand")}
-        title="Frei-Hand"
-        aria-label="Frei-Hand zeichnen"
+        title={t("annotation.freehand")}
+        aria-label={t("annotation.freehand")}
       >
         <FreehandIcon />
       </ToolButton>
       <ToolButton
         active={tool === "arrow"}
         onClick={() => setTool(tool === "arrow" ? null : "arrow")}
-        title="Pfeil"
-        aria-label="Pfeil zeichnen"
+        title={t("annotation.arrow")}
+        aria-label={t("annotation.arrow")}
       >
         <ArrowIcon />
       </ToolButton>
@@ -446,7 +448,8 @@ export function AnnotationToolbar({
           key={c}
           type="button"
           onClick={() => setColor(c)}
-          aria-label={`Farbe ${c}`}
+          aria-label={t(`annotation.color.${c}`)}
+          title={t(`annotation.color.${c}`)}
           className={`w-7 h-7 rounded-full inline-flex items-center justify-center transition-transform duration-motion ${
             color === c ? "scale-110 ring-2 ring-white/80" : "opacity-80 hover:opacity-100"
           }`}
@@ -463,16 +466,16 @@ export function AnnotationToolbar({
       <ToolButton
         onClick={onUndo}
         disabled={!hasMine}
-        title="Letzte Markierung zurück"
-        aria-label="Letzte Markierung zurück"
+        title={t("annotation.undo")}
+        aria-label={t("annotation.undo")}
       >
         <UndoIcon />
       </ToolButton>
       <ToolButton
         onClick={onClear}
         disabled={!hasMine}
-        title="Alle eigenen Markierungen löschen"
-        aria-label="Alle eigenen Markierungen löschen"
+        title={t("annotation.clear")}
+        aria-label={t("annotation.clear")}
       >
         <ClearIcon />
       </ToolButton>

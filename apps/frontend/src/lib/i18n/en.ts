@@ -432,4 +432,31 @@ export const en: Dict = {
     twoFactorBackupSaved: "I've saved the codes",
     twoFactorConfirmDisable: "Confirm with a current code to disable 2FA:",
   },
+
+  annotation: {
+    freehand: "Freehand",
+    arrow: "Arrow",
+    undo: "Undo last mark",
+    clear: "Clear all my marks",
+    color: {
+      red: "Red",
+      yellow: "Yellow",
+      green: "Green",
+    },
+    studioDetail: {
+      close: "Close",
+      noPreview: "No preview available",
+      commentsHeading: "Comments",
+      loading: "Loading…",
+      noComments: "No comments on this image yet.",
+      onlyAnnotation: "(annotation only)",
+      replyPlaceholder: "Reply to customer (optional)…",
+      marksReady: "{n} mark ready",
+      marksReadyPlural: "{n} marks ready",
+      drawHint: "Draw directly on the image to mark",
+      save: "Save",
+      saving: "Saving…",
+      imagesCount: "Images",
+    },
+  },
 };

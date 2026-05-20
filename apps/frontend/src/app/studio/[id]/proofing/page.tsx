@@ -3,22 +3,33 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { api, type ProofingSummary } from "@/lib/api";
+import { api, type ProofingSummary, type GalleryFile } from "@/lib/api";
 import { PageHeader } from "@/components/studio/PageHeader";
+import { ProofingFileDetail } from "@/components/studio/ProofingFileDetail";
+import { useT } from "@/lib/i18n";
 
 export default function ProofingPage() {
+  const t = useT();
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const id = params.id;
   const [data, setData] = useState<ProofingSummary | null>(null);
+  const [files, setFiles] = useState<GalleryFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [detailFile, setDetailFile] = useState<GalleryFile | null>(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const res = await api.getProofingSummary(id);
-        setData(res);
+        // Beide parallel: Summary für die Statistik-Karten, gallery
+        // detail für die Files-Liste mit Thumbnails.
+        const [summary, galleryDetail] = await Promise.all([
+          api.getProofingSummary(id),
+          api.getGallery(id),
+        ]);
+        setData(summary);
+        setFiles(galleryDetail.gallery.files);
       } catch (err) {
         if (err instanceof Error && err.message.includes("401")) {
           router.replace("/login");
@@ -61,6 +72,60 @@ export default function ProofingPage() {
       />
 
       <div className="px-6 sm:px-8 py-6 space-y-6 max-w-6xl">
+        {/* Files-Grid mit Kunden-Auswahl-Indikatoren. Klick öffnet das
+            File-Detail mit Annotation-Editor. */}
+        {files.length > 0 && (
+          <section>
+            <h2 className="text-ui-md font-medium mb-3">
+              {t("annotation.studioDetail.imagesCount")} ({files.length})
+            </h2>
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
+              {files.map((f) => {
+                // Aggregierte Customer-Info aus dem Summary (falls vorhanden)
+                const fileStats = data.files.find((s) => s.fileId === f.id);
+                const hasLike = fileStats?.liked;
+                const colorTag = fileStats?.label;
+                return (
+                  <button
+                    key={f.id}
+                    onClick={() => setDetailFile(f)}
+                    className="relative aspect-square rounded overflow-hidden bg-surface-sunken border border-line-subtle hover:border-accent transition-colors duration-motion group"
+                    title={f.originalFilename}
+                  >
+                    {f.thumbUrl ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img
+                        src={f.thumbUrl}
+                        alt={f.originalFilename}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full" />
+                    )}
+                    {/* Customer-Auswahl-Indikatoren oben rechts */}
+                    <div className="absolute top-1.5 right-1.5 flex items-center gap-1">
+                      {colorTag && (
+                        <span
+                          className={`w-3 h-3 rounded-full border border-white/40 ${colorBg(colorTag)}`}
+                          aria-label={`Farbe: ${colorTag}`}
+                        />
+                      )}
+                      {hasLike && (
+                        <span
+                          className="w-4 h-4 rounded-full bg-red-500 text-white text-[10px] inline-flex items-center justify-center"
+                          aria-label="Geliked"
+                        >
+                          ♥
+                        </span>
+                      )}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
         {/* Top-Stats */}
         <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <StatCard label="Dateien" value={data.totals.fileCount} />
@@ -226,6 +291,15 @@ export default function ProofingPage() {
           </table>
         </section>
       </div>
+
+      {/* File-Detail-Modal als Fullscreen-Overlay */}
+      {detailFile && (
+        <ProofingFileDetail
+          galleryId={id}
+          file={detailFile}
+          onClose={() => setDetailFile(null)}
+        />
+      )}
     </>
   );
 }

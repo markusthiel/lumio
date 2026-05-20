@@ -30,12 +30,28 @@ const selectionSchema = z.object({
   status: z.enum(["pick", "reject", "maybe"]).nullable().optional(),
 });
 
-const commentSchema = z.object({
-  body: z.string().min(1).max(5000),
-  parentId: z.string().uuid().optional(),
-  annotation: z.unknown().optional(),
-  authorLabel: z.string().min(1).max(100).optional(),
-});
+const commentSchema = z
+  .object({
+    body: z.string().max(5000),
+    parentId: z.string().uuid().optional(),
+    annotation: z.unknown().optional(),
+    authorLabel: z.string().min(1).max(100).optional(),
+  })
+  // Mindestens eins von body oder annotation muss substantiell sein.
+  // Das deckt drei Use-Cases ab:
+  //   - reiner Text-Kommentar (body gesetzt, annotation leer)
+  //   - reine Annotation ohne Text (body leer/whitespace, annotation gesetzt)
+  //   - kombiniert (beides gesetzt)
+  // Komplett leere Comments lehnen wir ab — sonst kann der Frontend-
+  // Auto-Save bei jedem Bild-Wechsel einen Empty-Comment posten.
+  .refine(
+    (data) =>
+      data.body.trim().length > 0 ||
+      (data.annotation && typeof data.annotation === "object"),
+    {
+      message: "body or annotation required",
+    }
+  );
 
 export async function registerProofingRoutes(app: FastifyInstance) {
   // -------------------------------------------------------------------------
@@ -311,6 +327,108 @@ export async function registerProofingRoutes(app: FastifyInstance) {
                   : []),
               ],
         },
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          authorLabel: true,
+          authorIsStudio: true,
+          body: true,
+          annotation: true,
+          parentId: true,
+          createdAt: true,
+        },
+      });
+
+      return { comments };
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // POST /galleries/:id/files/:fileId/comments (Studio-seitig)
+  // -------------------------------------------------------------------------
+  // Studio kann auf File-Ebene Kommentare hinterlegen — typisch
+  // Antworten an den Kunden ("Verstanden, kommt im Druck weg") oder
+  // gestrichelt-gezeichnete Annotation-Overlays als visuelles
+  // Feedback ("dieser Bereich wird retuschiert").
+  //
+  // Auth: Studio-Session (req.requireAuth), Galerie muss dem User
+  // gehören. accessId bleibt null weil das Studio kein Visitor ist.
+  // authorIsStudio=true setzt das Schema selbst.
+  app.post<{ Params: { id: string; fileId: string } }>(
+    "/galleries/:id/files/:fileId/comments",
+    async (req, reply) => {
+      const s = req.requireAuth();
+      const gallery = await prisma.gallery.findFirst({
+        where: {
+          id: req.params.id,
+          tenantId: req.tenantId,
+          ownerId: s.user.id,
+        },
+        select: { id: true, commentsEnabled: true },
+      });
+      if (!gallery) return reply.status(404).send({ error: "not_found" });
+      // Anders als beim Customer-Endpoint prüfen wir
+      // commentsEnabled hier NICHT — das Studio darf auch dann
+      // intern annotieren wenn der Customer-View die Kommentare
+      // ausgeblendet hat (z.B. um vorab zu sortieren, ohne dass der
+      // Kunde das sieht). Die Sichtbarkeit für Customer wird beim
+      // Lese-Endpoint geregelt; wenn commentsEnabled=false, kriegt
+      // der Customer die Studio-Annotationen einfach nicht ausgeliefert.
+
+      const file = await prisma.file.findFirst({
+        where: { id: req.params.fileId, galleryId: gallery.id },
+        select: { id: true },
+      });
+      if (!file) return reply.status(404).send({ error: "not_found" });
+
+      const body = commentSchema.parse(req.body);
+
+      const comment = await prisma.comment.create({
+        data: {
+          fileId: file.id,
+          accessId: null,
+          // Studio-Label: User-Name + " (Studio)" — sonst sieht der
+          // Customer einen anonymen Avatar. Wir nehmen den
+          // ersten User-Display-Namen aus seiner Session.
+          authorLabel: body.authorLabel ?? `${s.user.name} (Studio)`,
+          authorIsStudio: true,
+          body: body.body,
+          annotation: (body.annotation as object | undefined) ?? undefined,
+          parentId: body.parentId ?? null,
+        },
+      });
+
+      return reply.status(201).send({ comment });
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // GET /galleries/:id/files/:fileId/comments (Studio-seitig)
+  // -------------------------------------------------------------------------
+  // Studio sieht IMMER alle Comments inkl. aller Customer-Annotationen
+  // unabhängig von access.canSeeOthers (das ist eine Customer-Setting).
+  app.get<{ Params: { id: string; fileId: string } }>(
+    "/galleries/:id/files/:fileId/comments",
+    async (req, reply) => {
+      const s = req.requireAuth();
+      const gallery = await prisma.gallery.findFirst({
+        where: {
+          id: req.params.id,
+          tenantId: req.tenantId,
+          ownerId: s.user.id,
+        },
+        select: { id: true },
+      });
+      if (!gallery) return reply.status(404).send({ error: "not_found" });
+
+      const file = await prisma.file.findFirst({
+        where: { id: req.params.fileId, galleryId: gallery.id },
+        select: { id: true },
+      });
+      if (!file) return reply.status(404).send({ error: "not_found" });
+
+      const comments = await prisma.comment.findMany({
+        where: { fileId: file.id },
         orderBy: { createdAt: "asc" },
         select: {
           id: true,
