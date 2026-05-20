@@ -72,6 +72,8 @@ const updateGallerySchema = createGallerySchema.partial().extend({
   heroLayout: z
     .enum(["minimal", "splash", "side_by_side", "centered"])
     .optional(),
+  fontHeading: z.string().max(40).nullable().optional(),
+  fontBody: z.string().max(40).nullable().optional(),
   footerMarkdown: z.string().max(20_000).nullable().optional(),
   colorBackground: z
     .string()
@@ -475,6 +477,12 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           ...(body.heroLayout !== undefined
             ? { heroLayout: body.heroLayout }
             : {}),
+          ...(body.fontHeading !== undefined
+            ? { fontHeading: body.fontHeading }
+            : {}),
+          ...(body.fontBody !== undefined
+            ? { fontBody: body.fontBody }
+            : {}),
           ...(body.footerMarkdown !== undefined
             ? { footerMarkdown: body.footerMarkdown }
             : {}),
@@ -812,6 +820,8 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         footerMarkdown: true,
         colorBackground: true,
         colorAccent: true,
+        fontHeading: true,
+        fontBody: true,
         tenant: { select: { status: true } },
       },
     });
@@ -920,6 +930,10 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         colors: {
           background: gallery.colorBackground,
           accent: gallery.colorAccent,
+        },
+        fonts: {
+          heading: gallery.fontHeading,
+          body: gallery.fontBody,
         },
       },
     };

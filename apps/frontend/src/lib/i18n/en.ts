@@ -190,6 +190,12 @@ export const en: Dict = {
       "Override the tenant branding's colors just for this gallery. Text color is automatically computed for contrast.",
     colorBackground: "Background",
     colorAccent: "Accent",
+    galleryFonts: "Gallery fonts",
+    galleryFontsHint:
+      "Override the tenant branding's font just for this gallery. Fonts are loaded GDPR-friendly via Bunny Fonts CDN.",
+    fontHeading: "Headings",
+    fontBody: "Body text",
+    fontDefault: "— Branding default —",
     uploadLogo: "Upload logo",
     replace: "Replace",
     remove: "Remove",

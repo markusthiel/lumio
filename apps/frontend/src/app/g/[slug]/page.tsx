@@ -137,6 +137,8 @@ export default function PublicGalleryPage() {
           colorBackground: meta.colors.background,
           colorAccent: meta.colors.accent,
           footerMarkdown: meta.footerMarkdown,
+          fontHeading: meta.fonts.heading,
+          fontBody: meta.fonts.body,
         }}
       >
         <UnlockForm
@@ -160,6 +162,8 @@ export default function PublicGalleryPage() {
         colorBackground: meta.colors.background,
         colorAccent: meta.colors.accent,
         footerMarkdown: meta.footerMarkdown,
+        fontHeading: meta.fonts.heading,
+        fontBody: meta.fonts.body,
       }}
     >
       <GalleryView

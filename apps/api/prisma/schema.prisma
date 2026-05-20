@@ -301,6 +301,17 @@ model Gallery {
   // Default "minimal" → existierende Galerien sehen identisch aus.
   heroLayout       String   @default("minimal")
   
+  // Galerie-spezifische Schriftarten — überschreiben die Branding-
+  // Schriftart nur für diese Galerie. Beide Felder sind kurze IDs
+  // aus einer kuratierten Liste (siehe lib/fonts.ts im Frontend),
+  // KEINE freien Strings — das Frontend macht eine Lookup gegen die
+  // Liste und ignoriert unbekannte Werte.
+  //   fontHeading: für h1/h2 (Galerie-Titel, Markdown-Headings)
+  //   fontBody:    für alles andere (Description, Welcome-Body, UI)
+  // Beide null → Branding-Default gewinnt.
+  fontHeading      String?  @db.VarChar(40)
+  fontBody         String?  @db.VarChar(40)
+  
   // Galerie-spezifisches Footer-Markdown. Wird am Ende der Customer-
   // Seite unterhalb des File-Grids gerendert. Typischerweise:
   // Dankeschön-Text, Kontaktdaten, Social-Media-Links. Wenn null wird

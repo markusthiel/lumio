@@ -5,6 +5,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Branding } from "@/lib/api";
 import { useT, useLocale } from "@/lib/i18n";
+import { bunnyFontsCssUrl, resolveFontStack } from "@/lib/fonts";
 
 /**
  * Wrapper für alle Kunden-Galerie-Seiten. Wendet das Branding eines
@@ -59,6 +60,8 @@ export function GalleryShell({
     colorBackground?: string | null;
     colorAccent?: string | null;
     footerMarkdown?: string | null;
+    fontHeading?: string | null;
+    fontBody?: string | null;
   };
   children: React.ReactNode;
 }) {
@@ -83,22 +86,71 @@ export function GalleryShell({
   const accentRgb = hexToRgbTriple(accent);
   const light = isLightColor(primary);
 
+  // Font-Stacks auflösen. Body-Stack wird via inline-style auf den
+  // Container gesetzt; Heading-Stack via CSS-Variable, die in
+  // GalleryHero.tsx und in der prose-Konfiguration via Tailwind's
+  // [&_h1]-Selektoren herangezogen wird (CSS-Variablen-Indirektion
+  // ermöglicht es, dass alle Headings in welcome/footer Markdown
+  // mit umgestellt werden).
+  const bodyFontStack = resolveFontStack(
+    overrides?.fontBody,
+    branding?.fontFamily
+  );
+  const headingFontStack = resolveFontStack(
+    overrides?.fontHeading,
+    branding?.fontFamily
+  );
+  // CSS-URL zum Laden der gewählten Fonts via Bunny Fonts CDN. Nur
+  // gerendert wenn mindestens ein Galerie-Override gesetzt ist;
+  // Branding-fontFamily wird als freier String angenommen und nicht
+  // automatisch von Bunny geladen (das Studio muss sich darum
+  // kümmern dass der Font im Browser verfügbar ist).
+  const fontsCss = bunnyFontsCssUrl([
+    overrides?.fontHeading,
+    overrides?.fontBody,
+  ]);
+
   const style: React.CSSProperties = {
     backgroundColor: primary,
     color: light ? "#0e0e10" : "#f2f2f4",
+    fontFamily: bodyFontStack,
   };
   if (accentRgb) {
     (style as Record<string, string>)["--brand-accent"] = accentRgb;
   }
-  if (branding?.fontFamily) {
-    style.fontFamily = `"${branding.fontFamily}", system-ui, sans-serif`;
-  }
+  // Heading-Stack als CSS-Variable, damit Headings (in GalleryHero und
+  // im Markdown-Welcome/-Footer) sie via [&_h1,&_h2]-Selektoren
+  // anwenden können.
+  (style as Record<string, string>)["--gallery-font-heading"] =
+    headingFontStack;
 
   const borderColor = light ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.1)";
   const mutedColor = light ? "rgba(0,0,0,0.6)" : "rgba(255,255,255,0.6)";
 
   return (
-    <div className="min-h-screen" style={style}>
+    <div className="min-h-screen lumio-gallery-shell" style={style}>
+      {/* Galerie-Fonts laden, wenn IDs gesetzt sind. Bunny Fonts CDN —
+          DSGVO-konformer drop-in Replacement für Google Fonts. */}
+      {fontsCss ? (
+        <link rel="stylesheet" href={fontsCss} />
+      ) : null}
+
+      {/* Heading-Font wird via Scoped-Styles auf alle Headings im
+          Customer-View angewendet. Inline-Block, damit der Cascade
+          klar bleibt — die spezifische Galerie-Override gewinnt
+          gegen Tailwind-Klassen-Defaults. */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+            .lumio-gallery-shell h1,
+            .lumio-gallery-shell h2,
+            .lumio-gallery-shell h3 {
+              font-family: ${headingFontStack};
+            }
+          `,
+        }}
+      />
+
       {/* Custom CSS, falls vorhanden */}
       {branding?.customCss ? (
         <style

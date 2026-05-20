@@ -21,6 +21,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api, type Gallery } from "@/lib/api";
 import { useT } from "@/lib/i18n";
+import { FONT_OPTIONS } from "@/lib/fonts";
 
 interface GalleryFile {
   id: string;
@@ -246,6 +247,30 @@ export function GalleryHeaderEditor({ gallery, files, onChanged }: Props) {
                 .then(onChanged)
             }
           />
+
+          {/* Galerie-Schriftarten */}
+          <div className="rounded border border-line-subtle bg-surface-sunken/40 p-4 space-y-3">
+            <div>
+              <h3 className="text-ui-sm font-medium text-ink-secondary">
+                {t("studio.galleryFonts")}
+              </h3>
+              <p className="text-ui-xs text-ink-tertiary mt-0.5">
+                {t("studio.galleryFontsHint")}
+              </p>
+            </div>
+            <Field label={t("studio.fontHeading")}>
+              <FontSelect
+                value={gallery.fontHeading}
+                onChange={(v) => patch({ fontHeading: v })}
+              />
+            </Field>
+            <Field label={t("studio.fontBody")}>
+              <FontSelect
+                value={gallery.fontBody}
+                onChange={(v) => patch({ fontBody: v })}
+              />
+            </Field>
+          </div>
 
           {/* Galerie-spezifische Farben */}
           <div className="rounded border border-line-subtle bg-surface-sunken/40 p-4 space-y-3">
@@ -658,6 +683,57 @@ function HeroLayoutPicker({
           </button>
         );
       })}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+/** Native <select> mit allen Fonts aus FONT_OPTIONS plus "Branding-Default"
+ *  als Top-Option. Live-Preview: das ausgewählte Item zeigt im Select-
+ *  Trigger denselben Font-Look (browser-abhängig, aber Chrome/Firefox
+ *  rendern den selected text im option-font). Wir bauen die Preview
+ *  zusätzlich darunter, damit Safari auch was sieht. */
+function FontSelect({
+  value,
+  onChange,
+}: {
+  value: string | null;
+  onChange: (v: string | null) => Promise<unknown> | unknown;
+}) {
+  const t = useT();
+  const selected = value ? FONT_OPTIONS.find((f) => f.id === value) : null;
+
+  return (
+    <div className="space-y-1.5">
+      <select
+        value={value ?? ""}
+        onChange={(e) => onChange(e.target.value || null)}
+        className="h-9 px-2.5 rounded bg-surface-sunken border border-line-subtle text-ui text-ink-primary focus:border-accent focus:outline-none w-full max-w-sm"
+      >
+        <option value="">{t("studio.fontDefault")}</option>
+        <optgroup label="Sans-Serif">
+          {FONT_OPTIONS.filter((f) => f.category === "sans").map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.label}
+            </option>
+          ))}
+        </optgroup>
+        <optgroup label="Serif">
+          {FONT_OPTIONS.filter((f) => f.category === "serif").map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.label}
+            </option>
+          ))}
+        </optgroup>
+      </select>
+      {selected && (
+        <div
+          className="text-ui-md text-ink-secondary px-1"
+          style={{ fontFamily: selected.stack }}
+        >
+          The quick brown fox · 1234567890
+        </div>
+      )}
     </div>
   );
 }

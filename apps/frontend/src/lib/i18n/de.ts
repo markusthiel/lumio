@@ -190,6 +190,12 @@ export const de: Dict = {
       "Überschreiben die Farben des Tenant-Brandings nur für diese Galerie. Textfarbe wird automatisch passend zum Hintergrund berechnet.",
     colorBackground: "Hintergrund",
     colorAccent: "Akzent",
+    galleryFonts: "Galerie-Schriftarten",
+    galleryFontsHint:
+      "Überschreiben die Schriftart des Tenant-Brandings nur für diese Galerie. Schriften werden DSGVO-konform über Bunny Fonts CDN geladen.",
+    fontHeading: "Überschriften",
+    fontBody: "Fließtext",
+    fontDefault: "— Branding-Default —",
     uploadLogo: "Logo hochladen",
     replace: "Ersetzen",
     remove: "Entfernen",

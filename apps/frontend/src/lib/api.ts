@@ -66,6 +66,9 @@ export interface Gallery {
   footerMarkdown: string | null;
   colorBackground: string | null;
   colorAccent: string | null;
+  // Galerie-Schriftarten (IDs aus dem Frontend-Katalog)
+  fontHeading: string | null;
+  fontBody: string | null;
   fileCount?: number;
   tags?: Tag[];
   createdAt: string;
@@ -223,6 +226,11 @@ export interface PublicGalleryMeta {
   colors: {
     background: string | null;
     accent: string | null;
+  };
+  /** Galerie-spezifische Font-Overrides. IDs aus lib/fonts.ts. */
+  fonts: {
+    heading: string | null;
+    body: string | null;
   };
 }
 
