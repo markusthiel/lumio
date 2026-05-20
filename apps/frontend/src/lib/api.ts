@@ -841,12 +841,11 @@ export const api = {
   postComment: (
     slug: string,
     fileId: string,
-    body: string,
-    authorLabel?: string
+    input: { body: string; authorLabel?: string; annotation?: unknown }
   ) =>
     request<{ comment: Comment }>(
       `/g/${slug}/files/${fileId}/comments`,
-      { method: "POST", body: JSON.stringify({ body, authorLabel }) }
+      { method: "POST", body: JSON.stringify(input) }
     ),
 
   // Public download URL (für href, kein fetch — Browser folgt der Redirect).

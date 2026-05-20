@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   api,
   ApiError,
@@ -17,6 +17,14 @@ import { GalleryHero } from "./GalleryHero";
 import { ShareButton } from "./ShareButton";
 import { useT } from "@/lib/i18n";
 import { useReveal } from "@/lib/useReveal";
+import {
+  AnnotationOverlay,
+  AnnotationToolbar,
+  type AnnotationStroke,
+  type AnnotationTool,
+  type AnnotationColor,
+  type AnnotationData,
+} from "@/components/annotation/AnnotationOverlay";
 
 interface Props {
   meta: PublicGalleryMeta;
@@ -777,6 +785,20 @@ function Lightbox({
   const [commentPending, setCommentPending] = useState(false);
   const [limitMessage, setLimitMessage] = useState<string | null>(null);
 
+  // Annotation-Editor — eigene Strokes pro Bild im State. Wird beim
+  // Bild-Wechsel gespült (siehe useEffect unten) und vorher als
+  // Comment persistiert wenn was gemalt wurde.
+  const [annotationTool, setAnnotationTool] =
+    useState<AnnotationTool | null>(null);
+  const [annotationColor, setAnnotationColor] =
+    useState<AnnotationColor>("red");
+  const [myStrokes, setMyStrokes] = useState<AnnotationStroke[]>([]);
+  // Ref-Mirror für Cleanup-Effect (state ist beim Cleanup-Run schon stale)
+  const myStrokesRef = useRef<AnnotationStroke[]>([]);
+  useEffect(() => {
+    myStrokesRef.current = myStrokes;
+  }, [myStrokes]);
+
   // Tastatur-Navigation
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -807,9 +829,10 @@ function Lightbox({
     return () => clearTimeout(id);
   }, []);
 
-  // Kommentare lazy laden
+  // Kommentare lazy laden — UND immer für die Annotation-Extraktion.
+  // Wir laden einmal pro Bild, egal ob die Sidebar offen ist, damit
+  // gespeicherte Annotationen anderer auf dem Bild sichtbar werden.
   useEffect(() => {
-    if (!showComments) return;
     let cancelled = false;
     (async () => {
       try {
@@ -822,7 +845,78 @@ function Lightbox({
     return () => {
       cancelled = true;
     };
-  }, [showComments, slug, file.id]);
+  }, [slug, file.id]);
+
+  // Annotationen aus den geladenen Comments extrahieren. Wir flachen
+  // alle strokes aus jedem Comment in eine einzige Liste. Wenn ein
+  // Comment ein authorIsStudio=true hat, taggen wir die strokes mit
+  // author='studio' damit der Renderer gestrichelt zeichnet; sonst
+  // 'customer'. Eigene noch nicht-persistierte strokes (myStrokes)
+  // Annotationen aus den geladenen Comments extrahieren. Wir flachen
+  // alle strokes aus jedem Comment in eine einzige Liste. Wenn ein
+  // Comment ein authorIsStudio=true hat, taggen wir die strokes mit
+  // author='studio' damit der Renderer gestrichelt zeichnet; sonst
+  // 'customer'. Eigene noch nicht-persistierte strokes (myStrokes)
+  // werden separat behandelt und gerendert.
+  const existingAnnotations: AnnotationStroke[] = useMemo(() => {
+    if (!comments) return [];
+    const out: AnnotationStroke[] = [];
+    for (const c of comments) {
+      const data = c.annotation as AnnotationData | null | undefined;
+      if (!data || data.version !== 1 || !Array.isArray(data.strokes)) continue;
+      const tag: "customer" | "studio" = c.authorIsStudio
+        ? "studio"
+        : "customer";
+      for (const s of data.strokes) {
+        out.push({ ...s, author: tag });
+      }
+    }
+    return out;
+  }, [comments]);
+
+  // Annotation-Auto-Save beim Bild-Wechsel ODER beim Schließen der
+  // Lightbox. Wir merken uns die fileId per ref, damit der Cleanup
+  // weiß zu welchem File die Strokes gehörten — beim nächsten Render
+  // ist `file.id` schon das NEUE Bild. Ein Comment wird nur erzeugt
+  // wenn tatsächlich Strokes gezeichnet wurden; leeres Annotation-
+  // Array würden wir nicht persistieren wollen.
+  const savedFileIdRef = useRef<string>(file.id);
+  useEffect(() => {
+    const previousFileId = savedFileIdRef.current;
+    if (previousFileId !== file.id) {
+      // Wir wechseln gerade vom previous-File. Strokes für das alte
+      // committen falls vorhanden.
+      const strokes = myStrokesRef.current;
+      if (strokes.length > 0 && interactive && meta.commentsEnabled) {
+        const annotation: AnnotationData = { version: 1, strokes };
+        void api
+          .postComment(slug, previousFileId, { body: "", annotation })
+          .catch(() => {
+            /* Annotation-Save-Fehler still — der User hat das Bild eh
+             * schon verlassen, ein Toast hier wäre verwirrend. */
+          });
+      }
+      // State für das neue File resetten
+      setMyStrokes([]);
+      savedFileIdRef.current = file.id;
+    }
+    return () => {
+      // Unmount: ebenfalls letzte Strokes committen
+      const strokes = myStrokesRef.current;
+      if (
+        strokes.length > 0 &&
+        interactive &&
+        meta.commentsEnabled &&
+        savedFileIdRef.current === file.id
+      ) {
+        const annotation: AnnotationData = { version: 1, strokes };
+        void api
+          .postComment(slug, file.id, { body: "", annotation })
+          .catch(() => {});
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file.id]);
 
   const updateSelection = useCallback(
     async (patch: Partial<MySelection>) => {
@@ -873,7 +967,7 @@ function Lightbox({
     if (!newComment.trim()) return;
     setCommentPending(true);
     try {
-      const res = await api.postComment(slug, file.id, newComment);
+      const res = await api.postComment(slug, file.id, { body: newComment });
       setComments((prev) => [...(prev ?? []), res.comment]);
       setNewComment("");
     } catch (err) {
@@ -980,24 +1074,71 @@ function Lightbox({
               className="max-h-full max-w-full"
             />
           ) : file.previewUrl || file.webUrl ? (
-            /* eslint-disable-next-line @next/next/no-img-element */
-            <img
-              src={file.webUrl ?? file.previewUrl ?? ""}
-              alt={file.filename}
-              className="max-h-full max-w-full object-contain animate-fade-in"
-              draggable={false}
-              key={file.id} /* erzwingt re-mount → fade bei Wechsel */
-            />
+            /* Bild-Container mit Annotation-Overlay. Wir wrappen das
+               <img> in einen relative-Container, damit das Overlay
+               sich genau auf die Bild-Pixel legt (nicht den gesamten
+               Lightbox-Hintergrund). object-contain auf dem Bild
+               sorgt für korrekte Aspect-Ratio; der Wrapper ist
+               max-h-full + max-w-full und schrumpft mit. */
+            <div className="relative max-h-full max-w-full flex items-center justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={file.webUrl ?? file.previewUrl ?? ""}
+                alt={file.filename}
+                className="max-h-[calc(100vh-100px)] max-w-full object-contain animate-fade-in block"
+                draggable={false}
+                key={file.id} /* erzwingt re-mount → fade bei Wechsel */
+              />
+              {/* Annotation-Overlay. Read-only wenn der Visitor nicht
+                  kommentieren darf (oder Comments deaktiviert sind);
+                  sonst editierbar mit dem aktuell gewählten Tool. */}
+              {meta.commentsEnabled && (
+                <AnnotationOverlay
+                  existing={existingAnnotations}
+                  value={myStrokes}
+                  onChange={interactive ? setMyStrokes : undefined}
+                  author={interactive ? "customer" : null}
+                  tool={interactive ? annotationTool : null}
+                  color={annotationColor}
+                />
+              )}
+            </div>
           ) : (
             <div className="opacity-50 text-ui">
               {t("gallery.previewMissing")}
             </div>
           )}
 
+          {/* Annotation-Toolbar — unten am Bildrand, ein zentriertes
+              Pill. Nur wenn interactive (Auswahl/Kommentar erlaubt)
+              UND commentsEnabled (Studio hat Comments für die Galerie
+              freigegeben). Toolbar ist auch ohne aktivem Tool sichtbar
+              — der User soll wissen DASS er zeichnen kann. */}
+          {interactive && meta.commentsEnabled && (
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10">
+              <AnnotationToolbar
+                tool={annotationTool}
+                setTool={setAnnotationTool}
+                color={annotationColor}
+                setColor={setAnnotationColor}
+                hasMine={myStrokes.length > 0}
+                onUndo={() =>
+                  setMyStrokes((arr) => arr.slice(0, -1))
+                }
+                onClear={() => setMyStrokes([])}
+              />
+            </div>
+          )}
+
           {/* Keyboard-Hint-Overlay — verschwindet nach 5s */}
+          {/* Keyboard-Hint-Overlay — verschwindet nach 5s. Sitzt
+              höher wenn Annotation-Toolbar sichtbar ist, damit beide
+              gleichzeitig lesbar bleiben. */}
           {showHints && interactive && (
             <div
-              className="absolute bottom-3 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-black/60 backdrop-blur-sm rounded-full text-ui-xs text-white/70 flex items-center gap-3 pointer-events-none animate-fade-in"
+              className={`absolute ${
+                meta.commentsEnabled ? "bottom-16" : "bottom-3"
+              } left-1/2 -translate-x-1/2 px-3 py-1.5 bg-black/60 backdrop-blur-sm rounded-full text-ui-xs text-white/70 flex items-center gap-3 pointer-events-none animate-fade-in z-10`}
               style={{ transition: "opacity 600ms ease-out" }}
             >
               <span><Kbd>←</Kbd> <Kbd>→</Kbd> {t("gallery.hintNavigate")}</span>
