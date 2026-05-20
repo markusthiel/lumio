@@ -6,165 +6,114 @@ Tenant erreichbar wird — DB + UI legen ihn an, aber damit die richtige
 URL auch beim richtigen Tenant landet, brauchst du eines der drei
 Routing-Verfahren unten.
 
-## Drei Wege zum Tenant
+Wenn du gerade SaaS aufbaust und unter 20 Kunden hast, ist **Verfahren B
+(Custom-Domains pro Kunde)** der empfohlene Weg. Wildcards lohnen sich
+erst, wenn manuelles Caddyfile-Editieren pro Kunde lästig wird.
+
+## Wie die Tenant-Auflösung funktioniert
 
 Wenn ein API-Request reinkommt, läuft die Tenant-Auflösung in dieser
-Reihenfolge:
+Reihenfolge ab (siehe `apps/api/src/plugins/auth.ts:resolveTenant`):
 
 1. **Eingeloggter User** (Cookie) — die Session weiß welcher Tenant
-2. **X-Lumio-Tenant-Header** — für die Mobile-App und API-Clients
+2. **`X-Lumio-Tenant`-Header** — für die Mobile-App und API-Clients
 3. **Custom-Domain** — `studio-mueller.de` matched gegen
    `tenants.customDomain`
 4. **Subdomain** — `studio-mueller.lumio-cloud.de` matched gegen
-   `tenants.slug`, vorausgesetzt `LUMIO_DOMAIN_BASE=lumio-cloud.de`
+   `tenants.slug`, vorausgesetzt `LUMIO_DOMAIN_BASE` ist gesetzt
 5. **Single-Mode-Fallback** — wenn nur ein Tenant existiert, wird der
    genommen
 
 Sobald du den zweiten Tenant anlegst, fällt Schritt 5 weg — du musst
 2, 3 oder 4 nutzen.
 
-## Verfahren A: Subdomains (empfohlen für SaaS-Mode)
+---
 
-Jeder Tenant bekommt automatisch `<slug>.lumio-cloud.de` als Studio-URL.
-Customer-Galerien sind weiter unter beliebigen URLs erreichbar (siehe
-KONZEPT.md), aber das Studio liegt klar pro Tenant.
+## Verfahren B: Custom-Domains pro Kunde (empfohlen für die ersten Kunden)
 
-### Drei Stellen, die zusammenspielen müssen
+Jeder Kunde bekommt seine eigene Domain wie `studio-mueller.de` oder
+eine schöne Subdomain wie `mueller.lumio.app`. Pro Domain ein
+Caddyfile-Block, Cert wird per HTTP-Challenge automatisch geholt — kein
+DNS-Plugin nötig, läuft mit dem Stock-Caddy.
 
-Setup an drei Punkten, damit ein Request bei `markus.lumio-cloud.de`
-auch wirklich bei Tenant `markus` landet:
+### Schritte für einen neuen Kunden
 
-1. **DNS** — Wildcard-A-Record `*.lumio-cloud.de` → IP des Proxy-Hosts
-2. **Vorgeschalteter Caddy** (TLS-Terminierung, deine externe Instanz)
-   bekommt einen Wildcard-Block neben dem bestehenden
-   `lumio-cloud.de`-Block
-3. **Interner Lumio-Caddy** (im docker-compose) bekommt einen
-   Wildcard-Block, der die gleichen reverse_proxy-Regeln wie die
-   Hauptdomain anwendet — sonst fällt der Request beim
-   Host-Header-Matching durch
+1. **DNS-Eintrag** — Kunde (oder du) zeigt seine Domain auf deine IP:
+   ```
+   studio-mueller.de    A    <IP des Caddy-Hosts>
+   ```
 
-### 1. DNS
+2. **Vorgeschalteter Caddy** — Block ergänzen:
+   ```caddyfile
+   studio-mueller.de {
+       reverse_proxy 192.168.178.90:32080
+   }
+   ```
+   Dann `caddy reload` (oder Caddy-Container neu starten). Cert wird
+   per HTTP-Challenge automatisch geholt sobald die Domain auflöst.
 
-Wildcard-Eintrag bei deinem DNS-Provider:
+3. **Im Super-Admin** auf `https://lumio-cloud.de/super/login`:
+   - „+ Neuer Tenant"
+   - Slug, Name, **Custom-Domain `studio-mueller.de`** eintragen
+   - Owner-Name + Owner-E-Mail
+   - „Anlegen + Einladen"
 
-```
-*.lumio-cloud.de    A    <IP deines Caddy-Hosts>
-```
+4. **Owner** klickt den Setup-Link in der Mail, setzt sein Passwort,
+   ist eingeloggt. Ab dem Moment ist `https://studio-mueller.de` sein
+   Studio.
 
-### 2. Vorgeschalteter Caddy
+Galerie-Links sind unabhängig davon — die nutzen den Galerie-Slug,
+nicht den Tenant-Slug, und funktionieren auf der jeweiligen
+Tenant-Domain (`studio-mueller.de/g/<gallery-slug>`).
 
-Aktuell siehst du in deinem Caddyfile wahrscheinlich sowas:
+### Wenn du noch keine Custom-Domain hast
 
-```caddyfile
-lumio-cloud.de {
-    reverse_proxy 192.168.178.90:32080
-}
+Pro Kunde eine schöne Subdomain unter deiner eigenen Marke ist auch
+OK — z.B. `mueller.lumio-cloud.de` als „interim" bis der Kunde sich
+für eine Custom-Domain entscheidet. Jede solche Subdomain ist ein
+eigener Caddyfile-Block mit eigenem Cert. Bei 5-10 Kunden völlig
+problemlos.
 
-s3.lumio-cloud.de {
-    reverse_proxy 192.168.178.90:32080
-}
-```
+---
 
-Ergänzen um einen Wildcard. Caddy matched spezifische Host-Blöcke
-(`s3.lumio-cloud.de`) immer **vor** Wildcards, also kollidiert
-der neue Block nicht mit dem S3-Subdomain-Eintrag.
+## Verfahren A: Wildcard-Subdomain (`*.lumio-cloud.de`)
 
-```caddyfile
-*.lumio-cloud.de {
-    tls {
-        # Wildcard-Zertifikate brauchen DNS-Challenge —
-        # HTTP-Challenge kann *.domain nicht validieren.
-        # Hier den passenden Block für deinen DNS-Provider:
-        #
-        #   dns cloudflare {env.CLOUDFLARE_API_TOKEN}
-        #   dns hetzner    {env.HETZNER_API_TOKEN}
-        #   dns inwx       {env.INWX_USER} {env.INWX_PASSWORD}
-        #
-        # caddy-dns-Plugins: https://github.com/caddy-dns
-        # Plugin muss ins Caddy-Image kompiliert sein (xcaddy build).
-    }
-    reverse_proxy 192.168.178.90:32080
-}
-```
+Sobald du SaaS-mäßig viele Kunden hast und das manuelle Caddyfile-
+Editieren pro Kunde nervt, lohnt sich der Sprung auf Wildcards. Dann
+ist `<slug>.lumio-cloud.de` automatisch der Studio-URL für jeden
+Tenant, ohne Caddy-Reload pro neuem Kunde.
 
-### 3. Interner Lumio-Caddy
+**Aber**: Wildcard-Zertifikate brauchen DNS-Challenge, weil
+HTTP-Challenge `*.domain` nicht validieren kann. Du brauchst entweder
+ein DNS-Plugin (für United Domains Reselling gibt's
+[`KlettIT/caddy-autodns`](https://github.com/KlettIT/caddy-autodns) als
+Drittanbieter-Plugin, müsste in den Caddy via xcaddy gebaut werden),
+oder du nutzt acme-dns CNAME-Delegation.
 
-In der `.env` (oder direkt im docker-compose):
+Wenn du diesen Weg gehst, sind die Schritte:
 
-```
-LUMIO_WILDCARD_HOST=*.lumio-cloud.de:80
-```
+1. **DNS** — Wildcard-A-Record `*.lumio-cloud.de` → IP
+2. **Vorgeschalteter Caddy** — Wildcard-Block mit DNS-Challenge
+3. **Interner Lumio-Caddy** — `LUMIO_WILDCARD_HOST=*.lumio-cloud.de:80`
+   in `.env` setzen (Caddyfile-Block ist schon vorbereitet, siehe
+   `infra/caddy/Caddyfile`)
+4. **API-Env** — `LUMIO_DOMAIN_BASE=lumio-cloud.de`
 
-Der interne Caddy ist hinter dem vorgeschalteten Proxy, hört nur auf
-:80 (kein TLS hier). `infra/caddy/Caddyfile` enthält bereits einen
-Wildcard-Block, der nur aktiv wird wenn `LUMIO_WILDCARD_HOST` gesetzt
-ist.
+Heute (Stand des ersten Onboardings) macht das keinen Aufwand-Sinn.
+Wenn du soweit bist, schau dir diesen Abschnitt nochmal an oder frag
+nach.
 
-### 4. API-Env
+---
 
-```
-LUMIO_DOMAIN_BASE=lumio-cloud.de
-PUBLIC_URL=https://lumio-cloud.de
-```
+## Verfahren C: `X-Lumio-Tenant`-Header (für API-Clients)
 
-`LUMIO_DOMAIN_BASE` aktiviert in der API die Subdomain-basierte
-Tenant-Auflösung. Ohne diese Variable ignoriert die API den
-Subdomain-Teil und fällt auf den Header- oder Custom-Domain-Resolver
-zurück.
-
-### Test
-
-```bash
-curl -H "Host: markus.lumio-cloud.de" http://192.168.178.90:32080/health
-# sollte 200 zurückgeben
-
-# Im Browser: https://markus.lumio-cloud.de/login
-# → Studio-Login für Tenant 'markus'
-```
-
-## Verfahren B: Custom-Domains (für White-Label)
-
-Jeder Tenant bekommt eine eigene Domain wie `studio-mueller.de`. Im
-Super-Admin trägst du die Custom-Domain ein; in Caddy musst du sie
-einmalig erlauben.
-
-### Pro Custom-Domain im Caddyfile:
-
-```caddyfile
-studio-mueller.de {
-    reverse_proxy /api/* docker5:3001
-    reverse_proxy /ws/* docker5:3001
-    reverse_proxy * docker5:3000
-}
-```
-
-Caddy holt automatisch ein Let's-Encrypt-Cert per HTTP-Challenge —
-DNS-Eintrag der Domain muss auf docker5 zeigen, bevor du den Caddy
-reloadest.
-
-### Im Super-Admin
-
-Tenant-Detail → Bearbeiten → Custom-Domain eintragen → Speichern.
-
-### Geplant für später
-
-Caddy `auto_https on_demand` mit Lumio als Validation-Endpoint —
-dann reicht der Super-Admin-Eintrag, Caddy fragt bei jedem
-unbekannten Host nach „darf ich für den ein Cert holen?". Spart das
-manuelle Caddyfile-Editieren. Heute noch nicht implementiert.
-
-## Verfahren C: X-Lumio-Tenant-Header
-
-Wird vor allem von der Mobile-App und API-Clients genutzt. Statt
-über Domain/Subdomain spricht der Client direkt mit der API-URL
-(z.B. `lumio-cloud.de` oder `api.lumio-cloud.de`) und schickt einen
-Header mit:
+Wird vor allem von der Mobile-App genutzt. Statt über Domain/Subdomain
+spricht der Client direkt mit der API-URL und schickt einen Header mit:
 
 ```
 GET /api/v1/galleries HTTP/1.1
 Host: lumio-cloud.de
 X-Lumio-Tenant: studio-mueller
-Cookie: lumio_session=...
 ```
 
 Wichtige Sicherheits-Eigenschaft: wenn ein Session-Cookie vorhanden
@@ -172,39 +121,38 @@ ist, **gewinnt der Tenant aus der Session**, nicht der Header. Sonst
 könnte ein User mit Cookie für Tenant A einfach durch
 Header-Manipulation auf Tenant B zugreifen.
 
-Der Header wirkt also nur bei nicht-eingeloggten Requests (z.B.
-Login-Request der Mobile-App, oder bei API-Token-Auth wo der Token
-selbst einen Tenant trägt).
+Der Header wirkt also nur bei nicht-eingeloggten Requests (Login der
+Mobile-App, API-Token-Auth).
 
-## Workflow für einen neuen Tenant
-
-1. Super-Admin auf `https://lumio-cloud.de/super/login` einloggen
-2. „Tenants" → „+ Neuer Tenant"
-3. Slug wählen (z.B. `studio-mueller`)
-4. Name eingeben (z.B. „Studio Müller")
-5. Optional Custom-Domain (z.B. `studio-mueller.de`)
-6. Owner-Name + Owner-E-Mail
-7. „Anlegen + Einladen" → Setup-Link wird angezeigt und an Owner
-   per Mail geschickt
-8. Owner klickt Link → setzt Passwort → landet im Studio
-
-Bei **Subdomain-Setup** (A): erreichbar unter `studio-mueller.lumio-cloud.de`
-
-Bei **Custom-Domain** (B): muss zusätzlich Caddyfile-Block angelegt
-+ `caddy reload` ausgeführt werden, dann DNS warten, dann erreichbar
-unter `https://studio-mueller.de`
+---
 
 ## Default-Tenant umbenennen
 
-Der erste Tenant, der per `npm run create-admin` angelegt wurde,
-heißt slug=`default`. Wenn du eine echte Multi-Tenant-Plattform
-betreibst, willst du das umbenennen:
+Der erste Tenant, der per `npm run create-admin` angelegt wurde, heißt
+slug=`default`. Wenn du eine echte Multi-Tenant-Plattform betreibst,
+willst du das umbenennen:
 
 - Super-Admin → Tenants → klick auf den Default-Tenant → Bearbeiten
 - Slug ändern (Warnung wird angezeigt)
 - Speichern
 
 ⚠ Bestehende Subdomain-URLs unter `default.lumio-cloud.de` brechen
-sofort. Galerie-Share-Links sind nicht betroffen — die nutzen den
-Galerie-Slug, nicht den Tenant-Slug. Eingeloggte Studio-Sessions
-des Tenants bleiben bestehen (Cookie trägt tenantId, nicht slug).
+sofort (falls Verfahren A aktiv). Galerie-Share-Links sind **nicht**
+betroffen — die nutzen den Galerie-Slug, nicht den Tenant-Slug.
+Eingeloggte Studio-Sessions des Tenants bleiben bestehen (Cookie
+trägt tenantId, nicht slug).
+
+---
+
+## Welches Verfahren wofür
+
+| Wofür                            | Verfahren                            |
+|----------------------------------|--------------------------------------|
+| Erste 1-20 Kunden, jeder mit eigener Brand-Domain | B (Custom-Domain) |
+| 20+ Kunden, willst nicht mehr pro Kunde Caddy editieren | A (Wildcard) |
+| Mobile-App                       | C (Header)                           |
+| Browser-Studio                   | wird automatisch resolved via Cookie nach erstem Login |
+| Customer-Galerie-Links           | funktioniert auf jeder Tenant-Domain |
+
+Verfahren sind kombinierbar — ein Tenant kann gleichzeitig eine
+Custom-Domain UND eine Wildcard-Subdomain UND Mobile-Header haben.
