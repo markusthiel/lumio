@@ -836,7 +836,7 @@ function GridLayoutPicker({
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-2">
+    <div className="grid grid-cols-2 gap-2 max-w-sm">
       {options.map((opt) => {
         const active = value === opt.id;
         return (
@@ -850,7 +850,7 @@ function GridLayoutPicker({
                 : "border-line-subtle bg-surface-sunken hover:border-line-strong"
             }`}
           >
-            <div className="aspect-[4/3] w-full rounded-sm bg-surface-overlay/40 overflow-hidden">
+            <div className="aspect-[3/2] w-full rounded-sm bg-surface-overlay/40 overflow-hidden">
               {opt.sketch}
             </div>
             <div className="mt-2 text-ui-xs font-medium text-ink-primary">
