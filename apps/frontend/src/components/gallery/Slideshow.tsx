@@ -30,6 +30,8 @@ import { useT } from "@/lib/i18n";
 interface Props {
   files: PublicFile[];
   startIndex?: number;
+  /** Übergangseffekt zwischen Bildern. Wenn nicht gesetzt: 'fade'. */
+  transition?: "fade" | "slide" | "kenburns";
   onClose: () => void;
 }
 
@@ -38,7 +40,7 @@ type Interval = (typeof INTERVALS)[number];
 
 const STORAGE_KEY_INTERVAL = "lumio_slideshow_interval";
 
-export function Slideshow({ files, startIndex = 0, onClose }: Props) {
+export function Slideshow({ files, startIndex = 0, transition = "fade", onClose }: Props) {
   const t = useT();
 
   // Nur anzeigbare Files — Slideshow lässt Videos aus
@@ -180,11 +182,24 @@ export function Slideshow({ files, startIndex = 0, onClose }: Props) {
       ref={containerRef}
       className={`fixed inset-0 z-50 bg-black overflow-hidden ${cursor}`}
     >
-      {/* Cross-Fade-Layer: prev liegt drunter, current darüber mit Fade-In.
-          Beim Index-Wechsel zeigt React per `key` ein neues <img>, das
-          opacity-0 → opacity-100 durchblendet. */}
-      <SlideImage key={`prev-${prev.id}`} file={prev} isCurrent={false} />
-      <SlideImage key={`cur-${current.id}`} file={current} isCurrent />
+      {/* Render-Layer pro Übergangs-Modus. Alle drei nutzen die gleiche
+          prev/current-Layer-Strategie, aber die Layer-Komponente selbst
+          unterscheidet sich. Wir geben den Layern explizite keys, damit
+          React beim Index-Wechsel ein NEUES Element rendert (statt nur
+          das src-Attribut zu ändern) — das ist für die CSS-Animation
+          essentiell, weil sie sonst nicht "neu startet". */}
+      <SlideImage
+        key={`prev-${prev.id}`}
+        file={prev}
+        isCurrent={false}
+        transition={transition}
+      />
+      <SlideImage
+        key={`cur-${current.id}-${index}`}
+        file={current}
+        isCurrent
+        transition={transition}
+      />
 
       {/* Toolbar: top-bar, fade out nach 3s ohne Maus */}
       <div
@@ -297,24 +312,73 @@ function readStoredInterval(): Interval {
 function SlideImage({
   file,
   isCurrent,
+  transition,
 }: {
   file: PublicFile;
   isCurrent: boolean;
+  transition: "fade" | "slide" | "kenburns";
 }) {
   // Wir bevorzugen webUrl (höhere Auflösung), fallen auf previewUrl
   const src = file.webUrl ?? file.previewUrl ?? file.thumbUrl;
   if (!src) return null;
+
+  // Mode-spezifische Klassen.
+  //
+  // FADE: prev-Layer liegt full-opacity drunter, current-Layer fadet
+  //   von 0 → 1 in 600ms. Beim nächsten Wechsel wird das aktuelle
+  //   prev und ein neues current kommt. Identisch zum Pre-Sprint.
+  //
+  // SLIDE: current rutscht von translateX(100%) → 0 in 350ms ease-out,
+  //   prev bleibt einfach stehen (overlap durch z-Index). Wir
+  //   triggern die Animation via [animation:slide-in_350ms_...] auf
+  //   dem current-Layer. Wichtig: prev darf KEINE Slide-Animation
+  //   haben, sonst flackert es beim Mount.
+  //
+  // KENBURNS: prev bleibt stehen, current fadet ein UND animiert
+  //   gleichzeitig einen langsamen Zoom + leichte Pan-Bewegung. Wir
+  //   wechseln pro Bild zufällig zwischen vier Pan-Richtungen, damit
+  //   es nicht immer gleich aussieht.
+  let className: string;
+  let style: React.CSSProperties = {};
+
+  if (transition === "slide") {
+    className = `absolute inset-0 w-full h-full object-contain`;
+    if (isCurrent) {
+      style.animation = "lumio-slide-in 350ms cubic-bezier(0.16,1,0.3,1) both";
+    }
+  } else if (transition === "kenburns") {
+    // Pan-Richtung wird aus file.id gehasht, damit es konsistent ist
+    // (sonst würde jeder Re-Render eine neue Richtung wählen). Wir
+    // mappen auf vier Keyframe-Namen lumio-kenburns-0..3.
+    const dir = file.id.charCodeAt(0) % 4;
+    // Object-cover statt contain — Ken-Burns sieht nur gut aus wenn
+    // das Bild den Container füllt und nicht innerhalb pant.
+    className = `absolute inset-0 w-full h-full object-cover transition-opacity ease-out ${
+      isCurrent ? "opacity-100 duration-[600ms]" : "opacity-0 duration-0"
+    }`;
+    if (isCurrent) {
+      // 8s langsame Zoom-Pan-Bewegung. Auch wenn das Interval kürzer
+      // ist, läuft die Animation einfach nicht ganz durch — das ist
+      // ok, das nächste Bild übernimmt mit eigenem Start-Zoom.
+      style.animation = `lumio-kenburns-${dir} 8s ease-out both`;
+    }
+  } else {
+    // fade (default)
+    className = `absolute inset-0 w-full h-full object-contain transition-opacity ease-out ${
+      isCurrent
+        ? "opacity-100 duration-[600ms]"
+        : "opacity-0 duration-0"
+    }`;
+  }
+
   return (
     /* eslint-disable-next-line @next/next/no-img-element */
     <img
       src={src}
       alt={file.filename}
       draggable={false}
-      className={`absolute inset-0 w-full h-full object-contain transition-opacity ease-out ${
-        isCurrent
-          ? "opacity-100 duration-[600ms]"
-          : "opacity-0 duration-0"
-      }`}
+      className={className}
+      style={style}
     />
   );
 }

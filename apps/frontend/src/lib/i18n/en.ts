@@ -165,6 +165,12 @@ export const en: Dict = {
     gridMasonry: "Masonry",
     gridJustified: "Rows",
     gridEqual: "Squares",
+    slideshowTransition: "Slideshow transition",
+    slideshowTransitionHint:
+      "Which effect plays between images in the fullscreen slideshow.",
+    slideshowFade: "Fade",
+    slideshowSlide: "Slide",
+    slideshowKenburns: "Ken Burns",
     eventLogo: "Event logo",
     eventLogoHint:
       "Small, shown above the gallery title. E.g. wedding monogram or event branding. PNG with transparent background recommended.",

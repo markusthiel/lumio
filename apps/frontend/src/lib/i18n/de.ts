@@ -165,6 +165,12 @@ export const de: Dict = {
     gridMasonry: "Masonry",
     gridJustified: "Reihen",
     gridEqual: "Quadrate",
+    slideshowTransition: "Slideshow-Übergang",
+    slideshowTransitionHint:
+      "Welcher Effekt zwischen den Bildern in der Vollbild-Slideshow gespielt wird.",
+    slideshowFade: "Fade",
+    slideshowSlide: "Slide",
+    slideshowKenburns: "Ken Burns",
     eventLogo: "Event-Logo",
     eventLogoHint:
       "Klein über dem Galerie-Titel sichtbar. Z.B. Hochzeitsmonogramm oder Event-Branding. PNG mit transparentem Hintergrund empfohlen.",

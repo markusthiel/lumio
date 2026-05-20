@@ -308,6 +308,12 @@ model Gallery {
   //   "equal"     — alle Tiles exakt gleich (Quadrate).
   gridLayout       String   @default("masonry")
   
+  // Slideshow-Übergangseffekt:
+  //   "fade"    aktueller Default — Cross-Fade ~600ms zwischen Bildern
+  //   "slide"   Bild slidet von rechts rein (350ms ease-out)
+  //   "kenburns" langsamer Zoom + Pan auf jedem Bild (Slideshow-Klassiker)
+  slideshowTransition String @default("fade")
+  
   // Galerie-spezifische Schriftarten — überschreiben die Branding-
   // Schriftart nur für diese Galerie. Beide Felder sind kurze IDs
   // aus einer kuratierten Liste (siehe lib/fonts.ts im Frontend),

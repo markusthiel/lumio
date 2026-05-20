@@ -189,3 +189,70 @@ body {
   background: rgb(var(--surface-canvas));
   color: rgb(var(--ink-primary));
 }
+
+/* === Slideshow-Übergangseffekte ===
+ * Aktiv referenziert in components/gallery/Slideshow.tsx über inline-
+ * `style.animation`. Tailwind purged ungenutzte CSS, deshalb hier in
+ * globals.css statt im tailwind.config — die Klassen-/Animation-Namen
+ * sind aus Tailwind's Sicht "nie verwendet".
+ *
+ * Slide-In: horizontaler Rein-Slide aus 30% off-screen rechts.
+ * Wir bleiben unter 100%, sonst sieht's hart aus.
+ */
+@keyframes lumio-slide-in {
+  from { transform: translateX(30%); opacity: 0; }
+  to   { transform: translateX(0);   opacity: 1; }
+}
+
+/* === Ken-Burns ===
+ * Vier Richtungs-Varianten. Jede ist ein langsamer Zoom (1.0 → 1.12)
+ * kombiniert mit einer leichten Pan-Bewegung. Wir nutzen transform-
+ * origin verschieden, damit der Zoom-Punkt sich pro Bild ändert und
+ * die Slideshow nicht monoton wirkt. 8 Sekunden ist lang genug, dass
+ * sich der Effekt setzt, aber kurz genug für 5-Sekunden-Intervalle
+ * (das Bild verlässt den Bildschirm noch während der Animation läuft).
+ *
+ * Wenn der User prefers-reduced-motion gesetzt hat, werden die Keyframes
+ * unten gekürzt zu reinem Fade (siehe Block am Ende).
+ */
+@keyframes lumio-kenburns-0 {
+  from { transform: scale(1.0) translate(0, 0);     transform-origin: 30% 40%; }
+  to   { transform: scale(1.12) translate(-1%, -1%); transform-origin: 30% 40%; }
+}
+@keyframes lumio-kenburns-1 {
+  from { transform: scale(1.0) translate(0, 0);    transform-origin: 70% 40%; }
+  to   { transform: scale(1.12) translate(1%, -1%); transform-origin: 70% 40%; }
+}
+@keyframes lumio-kenburns-2 {
+  from { transform: scale(1.0) translate(0, 0);    transform-origin: 30% 60%; }
+  to   { transform: scale(1.12) translate(-1%, 1%); transform-origin: 30% 60%; }
+}
+@keyframes lumio-kenburns-3 {
+  from { transform: scale(1.0) translate(0, 0);   transform-origin: 70% 60%; }
+  to   { transform: scale(1.12) translate(1%, 1%); transform-origin: 70% 60%; }
+}
+
+/* Reduce-Motion-Override: animationen kürzen auf reinen Fade,
+ * keine Translates oder Zooms — Vestibular-Sensitivität schützen. */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes lumio-slide-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+  @keyframes lumio-kenburns-0 {
+    from { transform: none; opacity: 0; }
+    to   { transform: none; opacity: 1; }
+  }
+  @keyframes lumio-kenburns-1 {
+    from { transform: none; opacity: 0; }
+    to   { transform: none; opacity: 1; }
+  }
+  @keyframes lumio-kenburns-2 {
+    from { transform: none; opacity: 0; }
+    to   { transform: none; opacity: 1; }
+  }
+  @keyframes lumio-kenburns-3 {
+    from { transform: none; opacity: 0; }
+    to   { transform: none; opacity: 1; }
+  }
+}

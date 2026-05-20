@@ -369,6 +369,7 @@ export function GalleryView({
         <Slideshow
           files={files}
           startIndex={slideshowIdx}
+          transition={meta.slideshowTransition}
           onClose={() => setSlideshowIdx(null)}
         />
       )}

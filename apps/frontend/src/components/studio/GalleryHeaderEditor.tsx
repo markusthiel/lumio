@@ -121,6 +121,17 @@ export function GalleryHeaderEditor({ gallery, files, onChanged }: Props) {
             />
           </Field>
 
+          {/* Slideshow-Übergang */}
+          <Field
+            label={t("studio.slideshowTransition")}
+            hint={t("studio.slideshowTransitionHint")}
+          >
+            <SlideshowTransitionPicker
+              value={gallery.slideshowTransition}
+              onChange={(v) => patch({ slideshowTransition: v })}
+            />
+          </Field>
+
           {/* Event-Logo */}
           <Field
             label={t("studio.eventLogo")}
@@ -849,6 +860,48 @@ function GridLayoutPicker({
             <div className="mt-2 text-ui-xs font-medium text-ink-primary">
               {opt.label}
             </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+/** Picker für den Slideshow-Übergangseffekt. Klein gehalten — drei
+ *  Pill-Buttons. Hier kein Diagramm, weil eine statische Skizze von
+ *  Bewegung wenig verrät; der Studio-User probiert es einfach in der
+ *  Slideshow aus. */
+function SlideshowTransitionPicker({
+  value,
+  onChange,
+}: {
+  value: "fade" | "slide" | "kenburns";
+  onChange: (v: "fade" | "slide" | "kenburns") => Promise<unknown> | unknown;
+}) {
+  const t = useT();
+  const options: { id: "fade" | "slide" | "kenburns"; label: string }[] = [
+    { id: "fade", label: t("studio.slideshowFade") },
+    { id: "slide", label: t("studio.slideshowSlide") },
+    { id: "kenburns", label: t("studio.slideshowKenburns") },
+  ];
+
+  return (
+    <div className="inline-flex items-center gap-0.5 bg-surface-sunken rounded p-0.5 border border-line-subtle">
+      {options.map((opt) => {
+        const active = value === opt.id;
+        return (
+          <button
+            key={opt.id}
+            type="button"
+            onClick={() => onChange(opt.id)}
+            className={`h-8 px-3 rounded text-ui-sm transition-colors duration-motion ${
+              active
+                ? "bg-accent text-accent-contrast"
+                : "text-ink-secondary hover:text-ink-primary hover:bg-surface-overlay"
+            }`}
+          >
+            {opt.label}
           </button>
         );
       })}

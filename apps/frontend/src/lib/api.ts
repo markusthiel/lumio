@@ -71,6 +71,8 @@ export interface Gallery {
   fontBody: string | null;
   // Grid-Layout (masonry | justified | equal)
   gridLayout: "masonry" | "justified" | "equal";
+  // Slideshow-Übergangseffekt
+  slideshowTransition: "fade" | "slide" | "kenburns";
   fileCount?: number;
   tags?: Tag[];
   createdAt: string;
@@ -236,6 +238,8 @@ export interface PublicGalleryMeta {
   };
   /** Grid-Layout für das File-Grid auf der Customer-Seite. */
   gridLayout: "masonry" | "justified" | "equal";
+  /** Slideshow-Übergangseffekt. */
+  slideshowTransition: "fade" | "slide" | "kenburns";
 }
 
 export interface Branding {

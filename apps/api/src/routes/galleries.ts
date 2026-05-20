@@ -75,6 +75,9 @@ const updateGallerySchema = createGallerySchema.partial().extend({
   fontHeading: z.string().max(40).nullable().optional(),
   fontBody: z.string().max(40).nullable().optional(),
   gridLayout: z.enum(["masonry", "justified", "equal"]).optional(),
+  slideshowTransition: z
+    .enum(["fade", "slide", "kenburns"])
+    .optional(),
   footerMarkdown: z.string().max(20_000).nullable().optional(),
   colorBackground: z
     .string()
@@ -487,6 +490,9 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           ...(body.gridLayout !== undefined
             ? { gridLayout: body.gridLayout }
             : {}),
+          ...(body.slideshowTransition !== undefined
+            ? { slideshowTransition: body.slideshowTransition }
+            : {}),
           ...(body.footerMarkdown !== undefined
             ? { footerMarkdown: body.footerMarkdown }
             : {}),
@@ -827,6 +833,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         fontHeading: true,
         fontBody: true,
         gridLayout: true,
+        slideshowTransition: true,
         tenant: { select: { status: true } },
       },
     });
@@ -941,6 +948,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           body: gallery.fontBody,
         },
         gridLayout: gallery.gridLayout,
+        slideshowTransition: gallery.slideshowTransition,
       },
     };
   });

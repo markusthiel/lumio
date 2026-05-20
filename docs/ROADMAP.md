@@ -151,6 +151,7 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 - [x] Hero-Layout-Varianten (vier Varianten: Minimal, Splash mit Vollbild + Scroll-Hint, Side-by-Side editorial, Centered magazinmäßig — gemeinsame Felder, nur Render-Anordnung unterscheidet sich)
 - [x] Galerie-Schriftarten (Heading + Body separat aus kuratierter Liste von 8 Fonts wählbar — 4 sans + 4 serif, DSGVO-konform via Bunny Fonts CDN, Live-Preview im Studio)
 - [x] Grid-Layout-Varianten (Masonry/Justified/Equal — CSS-only, kein JS-Layout)
+- [x] Slideshow-Ausbau (drei Übergangseffekte: Fade/Slide/Ken-Burns mit 4 Pan-Richtungen, prefers-reduced-motion respektiert)
 - [ ] Smart Collections / gespeicherte Filter
 - [ ] Approval-Workflows (mehrere Reviewer in Sequenz)
 - [ ] SSO (SAML, OIDC)
