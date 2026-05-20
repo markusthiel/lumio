@@ -224,13 +224,34 @@ export function AnnotationOverlay({
       ref={svgRef}
       viewBox="0 0 1 1"
       preserveAspectRatio="none"
-      className="absolute inset-0 w-full h-full pointer-events-auto"
-      style={{ cursor, touchAction: "none" }}
+      className="absolute inset-0 w-full h-full"
+      style={{
+        cursor,
+        touchAction: "none",
+      }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerCancel}
     >
+      {/* KRITISCH: ein unsichtbares Rechteck als Pointer-Event-Target
+          über die gesamte SVG-Fläche. SVG-Root-Elemente selbst sind
+          per W3C-Spec niemals Hit-Test-Target — ohne gemaltes Element
+          unter dem Pointer feuert KEIN pointerdown auf dem SVG.
+          Cursor: crosshair zeigt zwar (CSS-Hover funktioniert ohne
+          Hit-Test), aber Klicks gehen durch das SVG hindurch zum
+          darunterliegenden <img>. Mit diesem fill='transparent'-Rect
+          haben wir eine vollflächige Hit-Box, an der die Pointer-
+          Events ankommen. Events bubblen zum SVG hoch wo die React-
+          Handler hängen. */}
+      <rect
+        x="0"
+        y="0"
+        width="1"
+        height="1"
+        fill="transparent"
+        pointerEvents="all"
+      />
       {/* Pfeilspitzen-Definitionen pro Farbe. Wir verwenden ein
           orientiertes Marker-Element, damit die Spitze immer auf
           das Pfeil-Ende zeigt unabhängig von der Pfeil-Richtung. */}
