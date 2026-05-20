@@ -1079,44 +1079,39 @@ function Lightbox({
               className="max-h-full max-w-full"
             />
           ) : file.previewUrl || file.webUrl ? (
-            /* Bild + Annotation-Overlay übereinander. Wir nutzen
-               display:grid mit einer einzigen Zelle, in die beide
-               (img und svg) gelegt werden — beide nehmen exakt
-               die Zellen-Größe an (= die Image-Größe nach object-
-               contain), ohne dass wir die Pixel manuell messen
-               müssten. Das vermeidet den Bug mit absolute+inset-0
-               auf einem flex-Container der seine Größe vom Kind
-               bekommt. */
-            <div className="grid place-items-stretch max-h-[calc(100vh-100px)] max-w-full">
+            /* Bild + Annotation-Overlay übereinander. Wir nutzen ein
+               inline-block-Wrapper mit position:relative. Das `<img>`
+               bestimmt die Größe des Wrappers (object-contain mit
+               max-h/max-w begrenzt sie), das SVG-Overlay liegt mit
+               position:absolute + inset:0 exakt drüber. inline-block
+               wichtig: ein normales block-Element würde 100 % Breite
+               des Parent-Flex-Containers nehmen, und das SVG würde
+               über schwarzen Bereich rechts/links des Bildes liegen —
+               Klicks dort würden im SVG landen statt vermisst zu
+               werden. */
+            <div
+              className="relative inline-block max-h-[calc(100vh-160px)]"
+              style={{ lineHeight: 0 }}
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={file.webUrl ?? file.previewUrl ?? ""}
                 alt={file.filename}
-                className="max-h-[calc(100vh-100px)] max-w-full w-auto h-auto object-contain animate-fade-in block"
-                style={{ gridArea: "1 / 1" }}
+                className="max-h-[calc(100vh-160px)] max-w-full object-contain animate-fade-in block"
                 draggable={false}
                 key={file.id}
               />
-              {/* Annotation-Overlay liegt in derselben Grid-Zelle.
-                  Wrapper bekommt KEIN pointer-events-none — das SVG
-                  selbst regelt das via pointer-events-auto, und wenn
-                  der User außerhalb der Bild-Pixel klickt, ist das in
-                  Ordnung (kein Bild = kein Annotation-Sinn aber auch
-                  kein Schaden). */}
+              {/* Annotation-Overlay deckt das Bild exakt ab (gleiche
+                  width/height über inset-0). */}
               {meta.commentsEnabled && (
-                <div
-                  className="relative"
-                  style={{ gridArea: "1 / 1" }}
-                >
-                  <AnnotationOverlay
-                    existing={existingAnnotations}
-                    value={myStrokes}
-                    onChange={interactive ? setMyStrokes : undefined}
-                    author={interactive ? "customer" : null}
-                    tool={interactive ? annotationTool : null}
-                    color={annotationColor}
-                  />
-                </div>
+                <AnnotationOverlay
+                  existing={existingAnnotations}
+                  value={myStrokes}
+                  onChange={interactive ? setMyStrokes : undefined}
+                  author={interactive ? "customer" : null}
+                  tool={interactive ? annotationTool : null}
+                  color={annotationColor}
+                />
               )}
             </div>
           ) : (
