@@ -96,13 +96,17 @@ def _files_needing_backfill(gallery_id: str) -> list[dict]:
     """Files in dieser Galerie, die eine web.webp-Rendition haben, aber
     keine web_jpeg. Andere Files (z.B. Videos, fehlgeschlagene) werden
     übersprungen — nur Bilder mit existierendem web-Rendition kommen in
-    Frage."""
+    Frage.
+
+    Anmerkung zum Schema: tenantId liegt auf galleries, nicht auf files.
+    Wir joinen also über files.galleryId → galleries.id."""
     with get_conn() as conn:
         rows = conn.execute(
-            'SELECT DISTINCT f.id, f."tenantId" AS tenant_id, '
+            'SELECT DISTINCT f.id, g."tenantId" AS tenant_id, '
             '       f."galleryId" AS gallery_id, '
             '       wr."storageKey" AS web_storage_key '
             'FROM files f '
+            'JOIN galleries g ON g.id = f."galleryId" '
             'JOIN renditions wr ON wr."fileId" = f.id AND wr.kind = %s '
             'LEFT JOIN renditions jr ON jr."fileId" = f.id AND jr.kind = %s '
             'WHERE f."galleryId" = %s '
