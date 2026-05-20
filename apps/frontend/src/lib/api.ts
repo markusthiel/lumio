@@ -869,7 +869,7 @@ export const api = {
 
   superUpdateTenant: (
     id: string,
-    patch: { name?: string; customDomain?: string | null }
+    patch: { slug?: string; name?: string; customDomain?: string | null }
   ) =>
     request<{ tenant: SuperTenantSummary }>(`/super/tenants/${id}`, {
       method: "PATCH",

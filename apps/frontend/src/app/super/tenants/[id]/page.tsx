@@ -325,23 +325,47 @@ function EditMetaForm({
   onSaved: () => Promise<void> | void;
   onCancel: () => void;
 }) {
+  const [slug, setSlug] = useState(tenant.slug);
   const [name, setName] = useState(tenant.name);
   const [customDomain, setCustomDomain] = useState(tenant.customDomain ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const slugChanged = slug !== tenant.slug;
+
   async function save() {
+    // Slug-Wechsel: explizite Bestätigung. Wenn der Operator OK drückt,
+    // wissen wir, dass er die Konsequenzen für Subdomains/URLs kennt.
+    if (slugChanged) {
+      const ok = confirm(
+        `Slug ändern von "${tenant.slug}" auf "${slug}"?\n\n` +
+          `Das ändert die Subdomain-URL (z.B. https://${slug}.lumio-cloud.de) ` +
+          `und alle Header-basierten API-Zugriffe für diesen Tenant. ` +
+          `Bestehende Bookmarks unter dem alten Slug funktionieren NICHT mehr.\n\n` +
+          `Galerie-Share-Links sind nicht betroffen — die nutzen den ` +
+          `Galerie-Slug, nicht den Tenant-Slug.`
+      );
+      if (!ok) return;
+    }
+
     setBusy(true);
     setError(null);
     try {
       await api.superUpdateTenant(tenant.id, {
+        slug: slug.trim().toLowerCase(),
         name: name.trim(),
         customDomain: customDomain.trim() || null,
       });
       await onSaved();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Fehler";
-      setError(msg.includes("domain_taken") ? "Custom-Domain belegt." : msg);
+      setError(
+        msg.includes("slug_taken")
+          ? "Dieser Slug ist schon vergeben."
+          : msg.includes("domain_taken")
+          ? "Custom-Domain belegt."
+          : msg
+      );
     } finally {
       setBusy(false);
     }
@@ -349,6 +373,27 @@ function EditMetaForm({
 
   return (
     <div className="space-y-3">
+      <label className="block">
+        <span className="text-ui-sm text-ink-secondary">Slug</span>
+        <input
+          type="text"
+          value={slug}
+          onChange={(e) =>
+            setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))
+          }
+          minLength={2}
+          maxLength={40}
+          className="mt-1 w-full h-9 px-2.5 rounded bg-surface-sunken border border-line-subtle text-ui text-ink-primary font-mono focus:border-accent focus:outline-none"
+        />
+        <span className="block mt-1 text-ui-xs text-ink-tertiary">
+          Wird zur Subdomain. Kleinbuchstaben, Ziffern, Bindestriche.
+          {slugChanged && (
+            <span className="block mt-0.5 text-semantic-warning">
+              ⚠ Ändern bricht bestehende Subdomain-URLs.
+            </span>
+          )}
+        </span>
+      </label>
       <label className="block">
         <span className="text-ui-sm text-ink-secondary">Name</span>
         <input
@@ -380,7 +425,7 @@ function EditMetaForm({
         <button
           type="button"
           onClick={save}
-          disabled={busy || !name.trim()}
+          disabled={busy || !name.trim() || slug.length < 2}
           className="h-8 px-3 rounded bg-accent text-accent-contrast text-ui-sm disabled:opacity-50"
         >
           {busy ? "Speichert…" : "Speichern"}

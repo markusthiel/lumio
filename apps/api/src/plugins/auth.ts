@@ -108,12 +108,37 @@ async function plugin(app: FastifyInstance) {
 }
 
 async function resolveTenant(req: FastifyRequest): Promise<string> {
-  // (1) Eingeloggter User
+  // (1) Eingeloggter User. Hat absolute Priorität — wenn ein Cookie
+  //     einen Tenant A trägt, kann ein X-Lumio-Tenant-Header für
+  //     Tenant B das NICHT überstimmen. Sonst hätte jemand mit einem
+  //     gültigen Cookie für A einfach durch Header-Manipulation auf
+  //     B zugreifen können.
   if (req.session?.user.tenantId) {
     return req.session.user.tenantId;
   }
 
-  // (2) Custom Domain
+  // (2) Expliziter X-Lumio-Tenant-Header. Vor allem für die Mobile-App
+  //     gedacht, die über die nackte API-URL (z.B. lumio-cloud.de)
+  //     spricht — ohne Subdomain, ohne Custom-Domain. Der Header
+  //     trägt den Tenant-Slug; wir matchen auf tenants.slug.
+  //
+  //     Sicherheit: nur akzeptiert wenn KEIN Session-Cookie da ist
+  //     (siehe oben). Wer eine Login-Anfrage mit Header schickt, kann
+  //     nur Tenants ansprechen, in denen er auch Credentials hat —
+  //     der Login-Pfad prüft tenantId + email zusammen.
+  const headerSlug = req.headers["x-lumio-tenant"];
+  if (typeof headerSlug === "string" && headerSlug.length > 0) {
+    const slug = headerSlug.trim().toLowerCase();
+    if (/^[a-z0-9-]+$/.test(slug) && slug.length <= 40) {
+      const byHeader = await prisma.tenant.findUnique({
+        where: { slug },
+        select: { id: true, status: true },
+      });
+      if (byHeader && byHeader.status === "active") return byHeader.id;
+    }
+  }
+
+  // (3) Custom Domain
   const host = (req.headers.host ?? "").split(":")[0].toLowerCase();
   if (host) {
     const byDomain = await prisma.tenant.findFirst({
@@ -123,7 +148,7 @@ async function resolveTenant(req: FastifyRequest): Promise<string> {
     if (byDomain) return byDomain.id;
   }
 
-  // (3) Subdomain
+  // (4) Subdomain
   const base = process.env.LUMIO_DOMAIN_BASE?.toLowerCase();
   if (base && host.endsWith("." + base)) {
     const slug = host.slice(0, -(base.length + 1));
@@ -136,11 +161,11 @@ async function resolveTenant(req: FastifyRequest): Promise<string> {
     }
   }
 
-  // (4) Single-Mode-Fallback
+  // (5) Single-Mode-Fallback
   const single = await getDefaultTenantId();
   if (single) return single;
 
-  // (5) Im multi-Mode ohne Auflösung — Caller entscheidet, ob das ein Fehler ist.
+  // (6) Im multi-Mode ohne Auflösung — Caller entscheidet, ob das ein Fehler ist.
   //     Wir setzen einen leeren String, jede Route die einen Tenant braucht,
   //     prüft das selbst (oder via requireTenant()).
   return "";

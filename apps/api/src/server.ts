@@ -52,6 +52,11 @@ async function buildServer() {
   await app.register(cors, {
     origin: config.NODE_ENV === "production" ? config.PUBLIC_URL : true,
     credentials: true,
+    // X-Lumio-Tenant ist ein Custom-Header für Multi-Tenant-Auflösung
+    // (vor allem Mobile-App). Ohne explicit allow blockt CORS ihn im
+    // Browser; native HTTP-Clients (Mobile) sind nicht betroffen, aber
+    // wir erlauben ihn einheitlich.
+    allowedHeaders: ["Content-Type", "Authorization", "X-Lumio-Tenant"],
   });
   await app.register(rateLimit, {
     max: 300,

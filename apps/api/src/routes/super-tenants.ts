@@ -56,6 +56,12 @@ const createTenantSchema = z.object({
 });
 
 const updateTenantSchema = z.object({
+  slug: z
+    .string()
+    .min(2)
+    .max(40)
+    .regex(SLUG_RE, "slug must be lowercase letters, digits, hyphens")
+    .optional(),
   name: z.string().min(1).max(120).optional(),
   customDomain: z
     .string()
@@ -321,7 +327,7 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
   );
 
   // -------------------------------------------------------------------------
-  // PATCH /super/tenants/:id — Name / Custom-Domain
+  // PATCH /super/tenants/:id — Slug / Name / Custom-Domain
   // -------------------------------------------------------------------------
   app.patch<{ Params: { id: string } }>(
     "/super/tenants/:id",
@@ -333,6 +339,23 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
         where: { id: req.params.id },
       });
       if (!existing) return reply.status(404).send({ error: "not_found" });
+
+      // Slug-Konflikt prüfen — wenn geändert wird, muss er anderswo
+      // nicht existieren. Slug ist Teil der Subdomain-URL, also Vorsicht:
+      // alte Bookmarks brechen. UI macht eine deutliche Warnung. Backend
+      // selbst gibt nur 409 bei Konflikt zurück; keine weiteren Schranken.
+      if (
+        body.slug !== undefined &&
+        body.slug !== existing.slug
+      ) {
+        const taken = await prisma.tenant.findFirst({
+          where: { slug: body.slug, id: { not: existing.id } },
+          select: { id: true },
+        });
+        if (taken) {
+          return reply.status(409).send({ error: "slug_taken" });
+        }
+      }
 
       // Custom-Domain-Konflikt prüfen (nur wenn explizit gesetzt)
       if (
@@ -355,6 +378,7 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
       const updated = await prisma.tenant.update({
         where: { id: existing.id },
         data: {
+          ...(body.slug !== undefined ? { slug: body.slug } : {}),
           ...(body.name !== undefined ? { name: body.name } : {}),
           ...(body.customDomain !== undefined
             ? { customDomain: body.customDomain }
@@ -370,6 +394,8 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
         targetType: "tenant",
         targetId: updated.id,
         payload: {
+          slug: body.slug,
+          previousSlug: body.slug !== undefined ? existing.slug : undefined,
           name: body.name,
           customDomain: body.customDomain,
         },
