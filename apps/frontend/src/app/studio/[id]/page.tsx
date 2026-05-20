@@ -39,6 +39,24 @@ export default function GalleryDetailPage() {
   const [dragOver, setDragOver] = useState(false);
   const [togglingStatus, setTogglingStatus] = useState(false);
 
+  // Live-Activity-Toasts: Aktionen des Kunden zeigen wir kurz oben an.
+  // Wir halten max 4 gleichzeitig im State, sonst staucht sich das bei
+  // schneller Aktivität (Kunde klickt sich durch 30 Bilder durch).
+  // Jeder Toast hat eine eindeutige id für die React-Key-Stabilität.
+  const [activity, setActivity] = useState<
+    Array<{ id: string; text: string }>
+  >([]);
+  const activityCounter = useRef(0);
+  const pushActivity = useCallback((text: string) => {
+    activityCounter.current += 1;
+    const id = `a${activityCounter.current}`;
+    setActivity((prev) => [...prev.slice(-3), { id, text }]);
+    // Nach 4s ausblenden — räumt sich selbst, kein Memory-Leak
+    setTimeout(() => {
+      setActivity((prev) => prev.filter((a) => a.id !== id));
+    }, 4000);
+  }, []);
+
   // Bulk-Selection
   const [selectionMode, setSelectionMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -145,6 +163,39 @@ export default function GalleryDetailPage() {
       );
     } else if (event.type === "file.added") {
       void load();
+    } else if (event.type === "selection.changed") {
+      // Wir laden hier NICHT die ganze Galerie neu — das ist teuer und der
+      // Counter im Customer-View ist hier sowieso nicht sichtbar. Stattdessen
+      // ein dezenter Toast, plus ein vollständiger Reload erst wenn der
+      // Studio-Nutzer die Auswahl-Übersicht (`/proofing`) öffnet.
+      //
+      // Was hier sinnvoll wäre, wenn das Studio später einen Live-Marker
+      // auf den Tiles haben soll: pro File ein {liked: boolean, color}-
+      // Mapping pflegen. Heute ist das Studio-Tile-UI nicht auf Selection-
+      // Display ausgelegt, das ist alles im Proofing-Tab. Wir bleiben
+      // pragmatisch.
+      const filename = gallery?.files.find((f) => f.id === event.fileId)
+        ?.originalFilename ?? "(unbekannt)";
+      const who = event.accessLabel ?? t("studio.liveCustomerGeneric");
+      let action = "";
+      if (event.liked) action = t("studio.liveActionLiked");
+      else if (event.color)
+        action = t("studio.liveActionColored", { color: event.color });
+      else if (event.rating !== null)
+        action = t("studio.liveActionRated", { rating: event.rating });
+      else action = t("studio.liveActionCleared");
+      pushActivity(`${who}: ${action} — ${filename}`);
+    } else if (event.type === "comment.posted") {
+      const filename = gallery?.files.find((f) => f.id === event.fileId)
+        ?.originalFilename ?? "(unbekannt)";
+      pushActivity(
+        `${event.authorLabel}: ${t("studio.liveActionCommented")} — ${filename}`
+      );
+    } else if (event.type === "selection.finalized") {
+      const who = event.accessLabel ?? t("studio.liveCustomerGeneric");
+      pushActivity(
+        `${who}: ${t("studio.liveActionFinalized", { count: event.count })}`
+      );
     }
   });
 
@@ -252,6 +303,25 @@ export default function GalleryDetailPage() {
 
   return (
     <>
+      {/* Live-Activity-Toasts: fixiert oben, rechts der Sidebar.
+          z-index hoch genug für andere Sticky-Elemente, pointer-events-none
+          damit Klicks darunter ungestört durchgehen. */}
+      {activity.length > 0 && (
+        <div
+          className="fixed top-4 right-6 z-50 flex flex-col gap-2 pointer-events-none"
+          aria-live="polite"
+        >
+          {activity.map((a) => (
+            <div
+              key={a.id}
+              className="px-3 py-2 rounded-sm bg-surface-overlay border border-line-strong text-ui-sm text-ink-primary shadow-lg animate-fade-in max-w-sm"
+            >
+              {a.text}
+            </div>
+          ))}
+        </div>
+      )}
+
       <PageHeader
         breadcrumb={[
           { label: "Studio", href: "/studio" },

@@ -32,7 +32,29 @@ export type GalleryEvent =
     }
   | { type: "file.deleted"; fileId: string }
   | { type: "file.added"; fileId: string }
-  | { type: "selection.changed"; fileId: string }
+  | {
+      type: "selection.changed";
+      fileId: string;
+      accessId: string | null;
+      accessLabel: string | null;
+      color: string | null;
+      rating: number | null;
+      liked: boolean;
+      status: string | null;
+    }
+  | {
+      type: "comment.posted";
+      fileId: string;
+      commentId: string;
+      authorLabel: string;
+      body: string;
+    }
+  | {
+      type: "selection.finalized";
+      accessId: string;
+      accessLabel: string | null;
+      count: number;
+    }
   | { type: "hello"; galleryId: string }
   | { type: "pong"; t: number };
 

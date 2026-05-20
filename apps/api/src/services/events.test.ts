@@ -122,4 +122,58 @@ describe("events service — message shape", () => {
 
     unsub();
   });
+
+  it("carries new selection.changed payload through dispatch", () => {
+    // Wenn das Schema sich ändert, müssen die Felder hier mit umgezogen
+    // werden. Andersrum: dieser Test stellt sicher, dass die neue
+    // selection.changed-Variante typ-strukturell stabil bleibt.
+    const received: GalleryEvent[] = [];
+    const unsub = subscribe(GALLERY_A, (e) => received.push(e));
+
+    publish(GALLERY_A, {
+      type: "selection.changed",
+      fileId: "f1",
+      accessId: "a1",
+      accessLabel: "Brautpaar",
+      color: "green",
+      rating: null,
+      liked: true,
+      status: null,
+    });
+
+    expect(received).toHaveLength(1);
+    expect(received[0]).toMatchObject({
+      type: "selection.changed",
+      fileId: "f1",
+      accessLabel: "Brautpaar",
+      liked: true,
+    });
+
+    unsub();
+  });
+
+  it("carries comment.posted and selection.finalized", () => {
+    const received: GalleryEvent[] = [];
+    const unsub = subscribe(GALLERY_A, (e) => received.push(e));
+
+    publish(GALLERY_A, {
+      type: "comment.posted",
+      fileId: "f1",
+      commentId: "c1",
+      authorLabel: "Sophia",
+      body: "Mein Favorit",
+    });
+    publish(GALLERY_A, {
+      type: "selection.finalized",
+      accessId: "a1",
+      accessLabel: "Brautpaar",
+      count: 42,
+    });
+
+    expect(received).toHaveLength(2);
+    expect(received[0].type).toBe("comment.posted");
+    expect(received[1].type).toBe("selection.finalized");
+
+    unsub();
+  });
 });

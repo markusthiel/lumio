@@ -21,6 +21,7 @@ import { notifyNewComment, notifySelectionFinished } from "../services/notifier.
 import { logEvent } from "../services/audit.js";
 import { checkSelectionLimit } from "../services/selectionLimit.js";
 import { publishEvent } from "../services/webhooks.js";
+import { publish as publishRealtime } from "../services/events.js";
 
 const selectionSchema = z.object({
   color: z.enum(["red", "yellow", "green"]).nullable().optional(),
@@ -55,10 +56,11 @@ export async function registerProofingRoutes(app: FastifyInstance) {
           .send({ error: "access_token_required" });
       }
 
-      // Access-Permissions prüfen
+      // Access-Permissions prüfen — Label brauchen wir gleich für das
+      // realtime-Event, damit das Studio sieht "Brautpaar hat geliked".
       const access = await prisma.galleryAccess.findFirst({
         where: { id: visitor.accessId, galleryId: visitor.galleryId },
-        select: { canSelect: true },
+        select: { canSelect: true, label: true },
       });
       if (!access || !access.canSelect) {
         return reply.status(403).send({ error: "not_allowed" });
@@ -123,6 +125,22 @@ export async function registerProofingRoutes(app: FastifyInstance) {
         },
       });
 
+      // Realtime-Notify ans Studio. Wir senden den vollständigen neuen
+      // Stand, nicht nur die Diff — das Studio kann dann simpel sein
+      // mySelections[fileId]-Mapping überschreiben, ohne den vorherigen
+      // Wert kennen zu müssen. Fire-and-forget; ein down WebSocket-Pfad
+      // darf die HTTP-Antwort nicht verzögern.
+      publishRealtime(visitor.galleryId, {
+        type: "selection.changed",
+        fileId: file.id,
+        accessId: visitor.accessId,
+        accessLabel: access.label,
+        color: selection.color,
+        rating: selection.rating,
+        liked: selection.liked,
+        status: selection.status,
+      });
+
       return { selection };
     }
   );
@@ -143,6 +161,21 @@ export async function registerProofingRoutes(app: FastifyInstance) {
           accessId: visitor.accessId,
         },
       });
+
+      // Realtime: Selection ist effektiv leer. Wir laden das Label nicht
+      // nochmal — beim DELETE-Pfad ist das eher selten und das Studio kann
+      // ohne accessLabel umgehen (zeigt dann generisch "Kunde").
+      publishRealtime(visitor.galleryId, {
+        type: "selection.changed",
+        fileId: req.params.fileId,
+        accessId: visitor.accessId,
+        accessLabel: null,
+        color: null,
+        rating: null,
+        liked: false,
+        status: null,
+      });
+
       return reply.status(204).send();
     }
   );
@@ -202,6 +235,15 @@ export async function registerProofingRoutes(app: FastifyInstance) {
       // Studio per Mail benachrichtigen (fire-and-forget)
       void notifyNewComment({
         galleryId: visitor.galleryId,
+        authorLabel: comment.authorLabel,
+        body: comment.body,
+      });
+
+      // Realtime ans Studio (WS)
+      publishRealtime(visitor.galleryId, {
+        type: "comment.posted",
+        fileId: file.id,
+        commentId: comment.id,
         authorLabel: comment.authorLabel,
         body: comment.body,
       });
@@ -359,6 +401,15 @@ export async function registerProofingRoutes(app: FastifyInstance) {
             accessLabel: access.label,
             count,
           },
+        });
+
+        // Realtime: Studio bekommt einen visuellen "Done"-Marker, ohne
+        // dass es auf den Mail-Empfang oder einen Refresh angewiesen ist.
+        publishRealtime(visitor.galleryId, {
+          type: "selection.finalized",
+          accessId: access.id,
+          accessLabel: access.label,
+          count,
         });
       }
 

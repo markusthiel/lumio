@@ -41,7 +41,28 @@ export type GalleryEvent =
   | {
       type: "selection.changed";
       fileId: string;
-      // Studio-Kunden-Auswahlfeedback in Echtzeit (Phase 2 — Hook ist da)
+      accessId: string | null;       // wer hat's geändert (null = nicht zuordenbar)
+      accessLabel: string | null;    // für die Studio-UI lesbar
+      // Neuer Stand — kann auch "alles weg" sein (color=null, rating=null,
+      // liked=false). Studio bestimmt damit, ob ein File aus dem "geliked"-
+      // Filter rein- oder rausspringt.
+      color: string | null;
+      rating: number | null;
+      liked: boolean;
+      status: string | null;         // pick | reject | maybe | null
+    }
+  | {
+      type: "comment.posted";
+      fileId: string;
+      commentId: string;
+      authorLabel: string;
+      body: string;
+    }
+  | {
+      type: "selection.finalized";
+      accessId: string;
+      accessLabel: string | null;
+      count: number;
     };
 
 type Listener = (event: GalleryEvent) => void;

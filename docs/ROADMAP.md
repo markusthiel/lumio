@@ -112,7 +112,7 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 - [ ] Live-Cursor in der Lightbox (WebSocket-Fanout)
 - [ ] Scribbles/Annotationen auf Bild
 - [x] Selection-Limit ("Kunde darf max. N wählen") — Galerie-Setting im Studio, Counter "X von Y" in der Customer-Hero, Optimistic-Update-Rollback bei Limit-Verletzung mit Toast
-- [ ] Real-time Sync der Auswahl zwischen Studio und Kunde
+- [x] Real-time Sync der Auswahl zwischen Studio und Kunde (Studio bekommt live Toasts bei Selection-Changes, Comments und Finalize via WebSocket; Customer-Side bleibt single-user wie Picdrop)
 
 ### Workflow
 
