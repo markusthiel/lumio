@@ -145,6 +145,38 @@ export const en: Dict = {
       "Maximum number of photos a client may like. Empty = unlimited.",
     settingSelectionLimitPlaceholder: "e.g. 30",
 
+    // Header editor
+    headerEditor: "Header design",
+    headerEditorHint:
+      "Hero image, event logo and welcome text for this gallery's customer view.",
+    eventLogo: "Event logo",
+    eventLogoHint:
+      "Small, shown above the gallery title. E.g. wedding monogram or event branding. PNG with transparent background recommended.",
+    heroImage: "Hero image",
+    heroImageHint:
+      "Large image in the header. Choose one from this gallery or upload your own.",
+    heroUpload: "Upload",
+    heroFromGallery: "From gallery",
+    removeHero: "Remove hero",
+    heroOverlay: "Overlay color",
+    heroOverlayHint:
+      "Semi-transparent color over the hero image — improves title readability.",
+    heroBackground: "Background color",
+    heroBackgroundHint:
+      "If no hero image is set: solid color background for the header.",
+    welcomeMarkdown: "Welcome",
+    welcomeMarkdownHint:
+      "Personal words to the client. Markdown: **bold**, *italic*, lists, links.",
+    welcomeMarkdownPlaceholder:
+      "Dear client,\\n\\nhere is your wedding gallery...",
+    welcomeMarkdownEmpty: "Preview shows here once you've written something.",
+    uploadLogo: "Upload logo",
+    replace: "Replace",
+    remove: "Remove",
+    edit: "Edit",
+    preview: "Preview",
+    clear: "Clear",
+
     noFiles: "No files uploaded yet.",
     selectFiles: "Select",
     selectedSuffix: "selected",
@@ -216,6 +248,9 @@ export const en: Dict = {
       "Reduced size (~2560px JPEG), good for posting online and sharing",
     originalsDisabled:
       "Originals are disabled for this gallery — you can download the web version.",
+    share: "Share",
+    shareCopied: "Link copied",
+    shareCopyManual: "Copy link:",
     finalize: "Finish selection",
     finalizing: "Finishing…",
     finalized: "Selection submitted",

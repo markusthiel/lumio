@@ -54,6 +54,13 @@ export interface Gallery {
   commentsEnabled: boolean;
   selectionLimit: number | null;
   brandingId?: string | null;
+  // Header-Customization (Studio kann das hier direkt sehen + editieren)
+  heroFileId: string | null;
+  heroUrl: string | null;
+  heroOverlayColor: string | null;
+  heroBackgroundColor: string | null;
+  eventLogoUrl: string | null;
+  welcomeMarkdown: string | null;
   fileCount?: number;
   tags?: Tag[];
   createdAt: string;
@@ -185,6 +192,22 @@ export interface PublicGalleryMeta {
   requiresPassword: boolean;
   unlocked: boolean;
   branding: Branding | null;
+  header: {
+    /** Absoluter Presigned-S3-URL (Hero aus Galerie) ODER relativer
+     *  Pfad /g/<slug>/assets/hero (Upload). Frontend kann das direkt
+     *  als <img src> nutzen — relative Pfade landen auf der API. */
+    heroImageUrl: string | null;
+    /** Hex #RRGGBBAA für Overlay über dem Hero-Bild */
+    overlayColor: string | null;
+    /** Hex #RRGGBB für Background wenn kein Hero gesetzt */
+    backgroundColor: string | null;
+    /** Relativer Pfad /g/<slug>/assets/logo, wenn ein Event-Logo
+     *  gesetzt ist. */
+    eventLogoUrl: string | null;
+    /** Markdown-Text für den Welcome-Block. Wenn null, wird nur die
+     *  description angezeigt. */
+    welcomeMarkdown: string | null;
+  };
 }
 
 export interface Branding {
@@ -470,6 +493,45 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(patch),
     }),
+
+  /**
+   * Lädt ein Header-Asset (logo/hero) hoch. Zweistufig:
+   *   1. POST /galleries/:id/assets/presign → liefert PUT-URL + storageKey
+   *   2. Browser PUT direkt zu S3
+   * Anschließend muss der Caller updateGallery mit eventLogoUrl bzw.
+   * heroUrl = storageKey aufrufen, um das Asset persistent an die
+   * Galerie zu binden.
+   */
+  uploadGalleryAsset: async (
+    galleryId: string,
+    kind: "logo" | "hero",
+    file: File
+  ): Promise<{ storageKey: string }> => {
+    const presign = await request<{ uploadUrl: string; storageKey: string }>(
+      `/galleries/${galleryId}/assets/presign`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          kind,
+          contentType: file.type,
+          contentLength: file.size,
+        }),
+      }
+    );
+    const putRes = await fetch(presign.uploadUrl, {
+      method: "PUT",
+      body: file,
+      headers: { "Content-Type": file.type },
+    });
+    if (!putRes.ok) {
+      throw new Error(`Upload failed (${putRes.status})`);
+    }
+    return { storageKey: presign.storageKey };
+  },
+
+  /** Public-URL für ein Galerie-Asset (für Customer-View und OG-Tags) */
+  galleryAssetUrl: (slug: string, kind: "logo" | "hero") =>
+    `${API_URL}/api/v1/g/${slug}/assets/${kind}`,
 
   deleteGallery: (id: string) =>
     request<void>(`/galleries/${id}`, { method: "DELETE" }),

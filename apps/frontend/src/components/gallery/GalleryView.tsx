@@ -12,6 +12,8 @@ import {
 import { VideoPlayer } from "./VideoPlayer";
 import { ZipDownloadButton } from "./ZipDownloadButton";
 import { Slideshow } from "./Slideshow";
+import { GalleryHero } from "./GalleryHero";
+import { ShareButton } from "./ShareButton";
 import { useT } from "@/lib/i18n";
 import { useReveal } from "@/lib/useReveal";
 
@@ -75,19 +77,10 @@ export function GalleryView({
 
   return (
     <>
-      {/* Hero — großer Atmungsraum für Title und Description.
-          Wir lassen das Hero bewusst minimal: kein Cover-Image, weil das in
-          den meisten Self-Host-Fällen zu viel Aufmerksamkeit von den
-          eigentlichen Bildern stiehlt. */}
-      <section className="px-4 sm:px-6 md:px-12 pt-14 pb-10 sm:pt-20 sm:pb-14 max-w-7xl mx-auto animate-fade-in">
-        <h1 className="text-display-lg sm:text-display-xl font-medium tracking-tight">
-          {meta.title}
-        </h1>
-        {meta.description && (
-          <p className="text-ui-lg sm:text-ui-md opacity-70 mt-4 max-w-2xl leading-relaxed">
-            {meta.description}
-          </p>
-        )}
+      {/* Hero — kann personalisiert sein (Hero-Bild, Logo, Welcome-
+          Markdown, Overlay-Farbe). Wenn keine Customization gesetzt
+          ist, sieht's aus wie der bisherige minimale Hero. */}
+      <GalleryHero meta={meta}>
         <div className="text-ui-xs opacity-50 mt-6 flex items-center gap-3 flex-wrap uppercase tracking-[0.12em]">
           <span>
             {stats.total} {t("gallery.files")}
@@ -145,7 +138,7 @@ export function GalleryView({
             </>
           )}
         </div>
-      </section>
+      </GalleryHero>
 
       {/* Sticky-Toolbar — verbleibt am oberen Rand beim Scrollen.
           Backdrop-blur sorgt für saubere Trennung über den Bildern. */}
@@ -264,6 +257,12 @@ export function GalleryView({
                 )}
               </>
             )}
+            {/* Teilen-Button steht ganz rechts in der Toolbar — Kunden
+                können die Galerie per Web-Share-API teilen (mobil
+                meistens nativ, sonst Clipboard-Fallback). Die OG-Tags
+                im Page-Layout sorgen für die schöne Vorschau im
+                Empfänger-Client. */}
+            <ShareButton title={meta.title} />
           </div>
         </div>
       </div>

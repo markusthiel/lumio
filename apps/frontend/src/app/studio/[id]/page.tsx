@@ -6,6 +6,7 @@ import Link from "next/link";
 import { api, type GalleryDetail, type GalleryFile } from "@/lib/api";
 import { uploadFiles, type UploadProgress } from "@/lib/upload";
 import { SharePanel } from "@/components/studio/SharePanel";
+import { GalleryHeaderEditor } from "@/components/studio/GalleryHeaderEditor";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { TagPicker } from "@/components/studio/TagPicker";
 import { Button } from "@/components/ui";
@@ -489,6 +490,19 @@ export default function GalleryDetailPage() {
 
         {/* Share-Panel */}
         <SharePanel galleryId={gallery.id} gallerySlug={gallery.slug} />
+
+        {/* Header-Customization — Hero, Logo, Welcome-Text */}
+        <GalleryHeaderEditor
+          gallery={gallery}
+          files={gallery.files.map((f) => ({
+            id: f.id,
+            filename: f.originalFilename,
+            thumbUrl: f.thumbUrl ?? null,
+          }))}
+          onChanged={async () => {
+            await load();
+          }}
+        />
 
         {/* Galerie-Settings */}
         <section className="rounded-md border border-line-subtle bg-surface-raised p-5 space-y-3">

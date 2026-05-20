@@ -258,7 +258,41 @@ model Gallery {
   // Cover-Bild
   coverFileId     String?  @db.Uuid
   
-  // Flexible Einstellungen (Sortierung, Layout, Hintergrundfarbe, ...)
+  // ---------------------------------------------------------------------------
+  // Header-Customization pro Galerie
+  // ---------------------------------------------------------------------------
+  // Hero-Bild im Galerie-Header: entweder ein Bild AUS der Galerie
+  // (heroFileId zeigt auf eine File-Row) ODER ein separater Upload
+  // (heroUrl ist ein S3-Storage-Key, kein Public-URL). Beide gleichzeitig
+  // ist nicht vorgesehen — UI lässt nur eines setzen, aber das Schema
+  // verbietet es nicht hart, weil das Studio später beide haben dürfen
+  // könnte (z.B. "Fallback wenn File gelöscht").
+  heroFileId       String?  @db.Uuid
+  heroUrl          String?  // S3-Key oder absolute URL (CDN), nullable
+  
+  // Optional Overlay-Farbe über dem Hero. Hex-RGBA-String wie "#00000066"
+  // (alpha = 0x66 ~ 40%). Wenn null, kein Overlay. Wird im Frontend als
+  // CSS background-color über das Hero-Bild gelegt.
+  heroOverlayColor String?  @db.VarChar(9)
+  
+  // Hintergrund-Farbe wenn KEIN Hero-Bild gesetzt ist. Hex-String wie
+  // "#0f172a". Default null → Frontend nutzt globale Surface-Farbe.
+  heroBackgroundColor String? @db.VarChar(7)
+  
+  // Galerie-spezifisches Logo (Event-Logo, Monogramm, ...). S3-Key oder
+  // absolute URL. Wird klein im Header über/neben dem Titel angezeigt.
+  // UNABHÄNGIG vom Branding-Logo (das ist Studio-weit) — beide können
+  // gleichzeitig vorhanden sein.
+  eventLogoUrl     String?
+  
+  // Reich formatierter Welcome-Text. Markdown — gerendert im Customer-
+  // Header unter Titel/Description. Wenn null, wird nur description
+  // angezeigt (Plain-Text). Description bleibt für den Galerie-Listen-
+  // Auftritt (Studio, Mail-Vorschau) erhalten — markdown ist NUR für
+  // den Customer-View.
+  welcomeMarkdown  String?
+  
+  // Flexible Einstellungen (Sortierung, Layout, ...)
   settings        Json     @default("{}")
   
   files           File[]

@@ -145,6 +145,38 @@ export const de: Dict = {
       "Maximale Anzahl Bilder, die ein Kunde liken darf. Leer = unbegrenzt.",
     settingSelectionLimitPlaceholder: "z.B. 30",
 
+    // Header-Editor
+    headerEditor: "Header-Gestaltung",
+    headerEditorHint:
+      "Hero-Bild, Event-Logo und Begrüßungstext für den Customer-View dieser Galerie.",
+    eventLogo: "Event-Logo",
+    eventLogoHint:
+      "Klein über dem Galerie-Titel sichtbar. Z.B. Hochzeitsmonogramm oder Event-Branding. PNG mit transparentem Hintergrund empfohlen.",
+    heroImage: "Hero-Bild",
+    heroImageHint:
+      "Großes Bild im Header. Entweder ein Bild aus dieser Galerie wählen oder ein eigenes hochladen.",
+    heroUpload: "Hochladen",
+    heroFromGallery: "Aus Galerie wählen",
+    removeHero: "Hero entfernen",
+    heroOverlay: "Overlay-Farbe",
+    heroOverlayHint:
+      "Halbtransparente Farbe über dem Hero-Bild — verbessert die Lesbarkeit des Titels.",
+    heroBackground: "Hintergrund-Farbe",
+    heroBackgroundHint:
+      "Wenn kein Hero-Bild gesetzt ist: Solid-Hintergrund für den Header.",
+    welcomeMarkdown: "Begrüßung",
+    welcomeMarkdownHint:
+      "Persönliche Worte an den Kunden. Markdown-Format: **fett**, *kursiv*, Listen, Links.",
+    welcomeMarkdownPlaceholder:
+      "Liebe Kundin, lieber Kunde,\\n\\nhier ist eure Hochzeitsgalerie...",
+    welcomeMarkdownEmpty: "Vorschau erscheint hier, wenn du etwas geschrieben hast.",
+    uploadLogo: "Logo hochladen",
+    replace: "Ersetzen",
+    remove: "Entfernen",
+    edit: "Bearbeiten",
+    preview: "Vorschau",
+    clear: "Leeren",
+
     noFiles: "Noch keine Dateien hochgeladen.",
     selectFiles: "Auswählen",
     selectedSuffix: "ausgewählt",
@@ -216,6 +248,9 @@ export const de: Dict = {
       "Reduzierte Version (~2560px JPEG), gut zum Online-Posten und Teilen",
     originalsDisabled:
       "Originale sind für diese Galerie deaktiviert — du kannst die Web-Version herunterladen.",
+    share: "Teilen",
+    shareCopied: "Link kopiert",
+    shareCopyManual: "Link kopieren:",
     finalize: "Auswahl abschließen",
     finalizing: "Wird abgeschlossen…",
     finalized: "Auswahl abgeschlossen",

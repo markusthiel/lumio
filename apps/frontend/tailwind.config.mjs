@@ -12,6 +12,8 @@
 //   line-*      → Linien-Farben (subtle/strong/focus)
 //   accent-*    → Marken-/Aktionsfarbe (Studio-Default = Amber)
 //   semantic-*  → Status (success/warning/danger/info)
+import typography from "@tailwindcss/typography";
+
 export default {
   content: ["./src/**/*.{ts,tsx,js,jsx,mdx}"],
   theme: {
@@ -109,5 +111,11 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    // @tailwindcss/typography für die `prose`-Klassen im Welcome-Markdown
+    // des Customer-Hero. Wir nutzen prose-invert (dunkler Hero) und
+    // beschränken auf prose-sm/prose-base in der Hero-Komponente
+    // selbst.
+    typography,
+  ],
 };

@@ -14,10 +14,11 @@
  */
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
+import { randomBytes } from "node:crypto";
 
 import { prisma } from "../db.js";
 import { generateGallerySlug } from "../services/ids.js";
-import { presignGet } from "../services/storage.js";
+import { presignGet, presignPut } from "../services/storage.js";
 import { verifyPassword } from "../services/auth.js";
 import { enqueue, Queues } from "../services/queue.js";
 import { resolveGalleryBranding } from "../services/branding.js";
@@ -46,8 +47,28 @@ const createGallerySchema = z.object({
   templateId: z.string().uuid().optional(),
 });
 
+const HEX_RGB = /^#[0-9a-fA-F]{6}$/;
+const HEX_RGBA = /^#[0-9a-fA-F]{8}$/;
+const HEX_RGB_OR_RGBA = /^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
+
 const updateGallerySchema = createGallerySchema.partial().extend({
   status: z.enum(["draft", "live", "archived"]).optional(),
+  // Header-Customization. Alle nullable, damit das Studio Felder
+  // wieder leeren kann (null = "wieder Default").
+  heroFileId: z.string().uuid().nullable().optional(),
+  heroUrl: z.string().max(500).nullable().optional(),
+  heroOverlayColor: z
+    .string()
+    .regex(HEX_RGBA, "must be #RRGGBBAA")
+    .nullable()
+    .optional(),
+  heroBackgroundColor: z
+    .string()
+    .regex(HEX_RGB, "must be #RRGGBB")
+    .nullable()
+    .optional(),
+  eventLogoUrl: z.string().max(500).nullable().optional(),
+  welcomeMarkdown: z.string().max(20_000).nullable().optional(),
 });
 
 const unlockSchema = z.object({
@@ -421,6 +442,22 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
                 expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
               }
             : {}),
+          // Header-Customization — durchreichen wenn explizit gesetzt
+          // (auch null → Feld leeren ist erlaubt).
+          ...(body.heroFileId !== undefined ? { heroFileId: body.heroFileId } : {}),
+          ...(body.heroUrl !== undefined ? { heroUrl: body.heroUrl } : {}),
+          ...(body.heroOverlayColor !== undefined
+            ? { heroOverlayColor: body.heroOverlayColor }
+            : {}),
+          ...(body.heroBackgroundColor !== undefined
+            ? { heroBackgroundColor: body.heroBackgroundColor }
+            : {}),
+          ...(body.eventLogoUrl !== undefined
+            ? { eventLogoUrl: body.eventLogoUrl }
+            : {}),
+          ...(body.welcomeMarkdown !== undefined
+            ? { welcomeMarkdown: body.welcomeMarkdown }
+            : {}),
         },
       });
 
@@ -738,6 +775,13 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         expiresAt: true,
         tenantId: true,
         brandingId: true,
+        // Header-Customization
+        heroFileId: true,
+        heroUrl: true,
+        heroOverlayColor: true,
+        heroBackgroundColor: true,
+        eventLogoUrl: true,
+        welcomeMarkdown: true,
         tenant: { select: { status: true } },
       },
     });
@@ -745,11 +789,6 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
       return reply.status(404).send({ error: "not_found" });
     }
     if (gallery.tenant.status !== "active") {
-      // Tenant pausiert/archiviert → Customer-Sicht gibt 503 mit klarem
-      // Code zurück. Frontend kann das in eine "Galerie momentan nicht
-      // verfügbar"-Seite rendern. Wir nutzen 503 statt 404, damit
-      // legitime Kunden mit gespeichertem Link einen verständlichen
-      // Hinweis bekommen statt 'Galerie existiert nicht'.
       return reply
         .status(503)
         .send({ error: "tenant_unavailable" });
@@ -779,6 +818,38 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
       tenantId: gallery.tenantId,
     });
 
+    // Hero-File auflösen: wenn heroFileId gesetzt, geben wir einen
+    // Presigned-URL zur Web-Rendition zurück. Bevorzugt web_jpeg
+    // (kunden-freundliches Format), fallback web (webp).
+    let heroFileUrl: string | null = null;
+    if (gallery.heroFileId) {
+      const heroFile = await prisma.file.findFirst({
+        where: { id: gallery.heroFileId, galleryId: gallery.id },
+        select: {
+          id: true,
+          renditions: {
+            where: { kind: { in: ["web_jpeg", "web"] } },
+            select: { kind: true, storageKey: true },
+          },
+        },
+      });
+      if (heroFile && heroFile.renditions.length > 0) {
+        // web_jpeg zuerst, sonst web. Beide werden hier akzeptiert,
+        // damit Galerien aus der Zeit vor web_jpeg auch funktionieren.
+        const r =
+          heroFile.renditions.find((x) => x.kind === "web_jpeg") ??
+          heroFile.renditions[0];
+        heroFileUrl = await presignGet({ key: r.storageKey });
+      }
+    }
+
+    // Asset-URLs für Hero-Upload und Logo: relativer Pfad, Frontend
+    // baut mit api-base den vollen URL.
+    const heroUploadUrl = gallery.heroUrl ? `/g/${gallery.slug}/assets/hero` : null;
+    const eventLogoPublicUrl = gallery.eventLogoUrl
+      ? `/g/${gallery.slug}/assets/logo`
+      : null;
+
     return {
       gallery: {
         id: gallery.id,
@@ -793,12 +864,18 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         ratingsEnabled: gallery.ratingsEnabled,
         selectionLimit: gallery.selectionLimit,
         requiresPassword: !!gallery.passwordHash,
-        // Hinweis: ob ein Token nötig ist, sagen wir nicht hier — der Token
-        // ist optional. Wenn ein Kunde keinen hat, läuft er als anonymer
-        // Besucher (keine Selektionen/Kommentare). Studio kann auch
-        // entscheiden, ohne Token zu teilen.
         unlocked,
         branding,
+        // Header-Customization durchreichen
+        header: {
+          // heroImageUrl: relativer URL zum Bild (entweder File-Rendition
+          // oder Upload-Asset) — Frontend baut mit api-base zusammen.
+          heroImageUrl: heroFileUrl ?? heroUploadUrl,
+          overlayColor: gallery.heroOverlayColor,
+          backgroundColor: gallery.heroBackgroundColor,
+          eventLogoUrl: eventLogoPublicUrl,
+          welcomeMarkdown: gallery.welcomeMarkdown,
+        },
       },
     };
   });
@@ -1189,6 +1266,121 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         })
         .catch(() => {});
 
+      return reply.redirect(url);
+    }
+  );
+
+  // ---------------------------------------------------------------------------
+  // POST /galleries/:id/assets/presign — Logo / Hero-Upload vorbereiten
+  // ---------------------------------------------------------------------------
+  // Studio-Client uploadet Header-Assets (Event-Logo, Hero-Bild) direkt
+  // zu S3. Diese Route gibt eine kurzlebige PUT-URL zurück und den
+  // späteren Storage-Key, den der Client beim PATCH der Galerie als
+  // eventLogoUrl bzw. heroUrl einträgt.
+  //
+  // Wir limitieren bewusst auf Bilder (image/*) und 10 MB. Logos sind
+  // typisch <500kB, Hero-Bilder <5MB. RAW-Files wären hier nicht
+  // sinnvoll (keine Rendition-Pipeline für Asset-Files).
+  app.post<{
+    Params: { id: string };
+    Body: {
+      kind: "logo" | "hero";
+      contentType: string;
+      contentLength?: number;
+    };
+  }>("/galleries/:id/assets/presign", async (req, reply) => {
+    const s = req.requireAuth();
+
+    const schema = z.object({
+      kind: z.enum(["logo", "hero"]),
+      contentType: z.string().regex(/^image\//, "must be image/*"),
+      contentLength: z
+        .number()
+        .int()
+        .positive()
+        .max(10 * 1024 * 1024) // 10 MB
+        .optional(),
+    });
+    const body = schema.parse(req.body);
+
+    const gallery = await prisma.gallery.findFirst({
+      where: {
+        id: req.params.id,
+        tenantId: req.tenantId,
+        ownerId: s.user.id,
+      },
+      select: { id: true, tenantId: true },
+    });
+    if (!gallery) return reply.status(404).send({ error: "not_found" });
+
+    // Storage-Key-Schema: t/<tenant>/galleries/<gallery>/assets/<kind>-<rand>.<ext>
+    // Die Random-Komponente verhindert Browser-Cache-Probleme nach
+    // Re-Upload (alte URL ist tot, neue lebt — kein "alter Cache zeigt
+    // altes Logo"-Effekt).
+    const ext = body.contentType.split("/")[1]?.split("+")[0] ?? "bin";
+    const rand = randomBytes(8).toString("hex");
+    const storageKey = `t/${gallery.tenantId}/galleries/${gallery.id}/assets/${body.kind}-${rand}.${ext}`;
+
+    const uploadUrl = await presignPut({
+      key: storageKey,
+      contentType: body.contentType,
+      contentLength: body.contentLength,
+      ttlSeconds: 900, // 15 Minuten
+    });
+
+    return {
+      uploadUrl,
+      storageKey,
+    };
+  });
+
+  // ---------------------------------------------------------------------------
+  // GET /g/:slug/assets/:kind — Customer-Asset abrufen (Logo / Hero-Upload)
+  // ---------------------------------------------------------------------------
+  // Public-Endpoint für Header-Assets, die NICHT aus der File-Tabelle
+  // kommen (also: Event-Logo + Hero-Upload). Hero-aus-Galerie nutzt
+  // weiter den File-Rendition-Pfad.
+  //
+  // Liefert einen Redirect auf eine kurzlebige Presigned-GET-URL. Wir
+  // signieren nicht den storageKey direkt zum Public-Cache, damit
+  // wir später Asset-Caching/CDN dazwischenschalten können ohne die
+  // Customer-URLs zu ändern.
+  app.get<{ Params: { slug: string; kind: "logo" | "hero" } }>(
+    "/g/:slug/assets/:kind",
+    async (req, reply) => {
+      const gallery = await prisma.gallery.findUnique({
+        where: { slug: req.params.slug },
+        select: {
+          status: true,
+          eventLogoUrl: true,
+          heroUrl: true,
+          tenant: { select: { status: true } },
+        },
+      });
+      if (!gallery || gallery.status !== "live") {
+        return reply.status(404).send({ error: "not_found" });
+      }
+      if (gallery.tenant.status !== "active") {
+        return reply.status(503).send({ error: "tenant_unavailable" });
+      }
+
+      const key =
+        req.params.kind === "logo" ? gallery.eventLogoUrl : gallery.heroUrl;
+      if (!key) return reply.status(404).send({ error: "not_set" });
+
+      // Wenn ein absoluter URL drinsteht (z.B. CDN), direkt durchreichen.
+      // Sonst S3-Key → presignen.
+      if (/^https?:\/\//.test(key)) {
+        return reply.redirect(key);
+      }
+
+      const url = await presignGet({
+        key,
+        ttlSeconds: 60 * 15, // 15 Min reicht für Page-Load + Bildlade-Time
+      });
+      // Browser-Cache: Asset ändert sich selten, also 5 Min cachen lassen.
+      // Nicht länger weil Presigned-URLs nach 15 Min eh tot sind.
+      reply.header("Cache-Control", "private, max-age=300");
       return reply.redirect(url);
     }
   );
