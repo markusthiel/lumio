@@ -18,11 +18,12 @@
  * Sub-Routes (z.B. /studio/galleries/<id>) den Galerien-Eintrag
  * highlighten.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useT } from "@/lib/i18n";
 import { api } from "@/lib/api";
+import { GlobalSearchModal } from "@/components/studio/GlobalSearchModal";
 
 interface NavItem {
   href: string;
@@ -43,9 +44,30 @@ const NAV: NavItem[] = [
 
 export function StudioShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const t = useT();
+
+  // Cmd/Ctrl + K öffnet die globale Suche, egal wo der Fokus ist.
+  // / kann später als zusätzlicher Trigger dazukommen, aber riskiert
+  // Inputs zu kapern — Cmd/Ctrl+K ist standardisiert (Linear, Slack,
+  // Notion, GitHub) und kollidiert nie.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   return (
     <div className="min-h-screen flex bg-surface-canvas text-ink-primary">
+      <GlobalSearchModal
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+      />
       {/* Mobile Hamburger */}
       <button
         type="button"
@@ -75,6 +97,25 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
               Lumio
             </span>
           </Link>
+        </div>
+
+        {/* Search-Trigger */}
+        <div className="px-2 pt-3 pb-1">
+          <button
+            type="button"
+            onClick={() => {
+              setSearchOpen(true);
+              setMobileOpen(false);
+            }}
+            className="w-full h-8 flex items-center gap-2 px-2.5 rounded bg-surface-canvas hover:bg-surface-overlay border border-line-subtle hover:border-line-strong text-ink-tertiary hover:text-ink-secondary transition-colors duration-motion text-ui-sm"
+          >
+            <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m21 21-4.3-4.3" />
+            </svg>
+            <span className="flex-1 text-left">{t("studio.searchTrigger")}</span>
+            <kbd className="text-[10px] font-mono px-1 py-0.5 bg-surface-sunken border border-line-subtle rounded-xs">⌘K</kbd>
+          </button>
         </div>
 
         {/* Nav */}

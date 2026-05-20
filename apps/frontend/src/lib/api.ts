@@ -386,6 +386,11 @@ export const api = {
   getGalleryStats: (id: string) =>
     request<GalleryStats>(`/galleries/${id}/stats`),
 
+  searchGlobal: (q: string, limit = 5) =>
+    request<SearchResults>(
+      `/search?q=${encodeURIComponent(q)}&limit=${limit}`
+    ),
+
   updateGallery: (id: string, patch: Partial<Gallery>) =>
     request<{ gallery: Gallery }>(`/galleries/${id}`, {
       method: "PATCH",
@@ -867,6 +872,27 @@ export interface GalleryStats {
   downloadsByKind: Array<{ kind: string; count: number }>;
   downloadsTotal: number;
   dailyDownloads: Array<{ day: string; count: number }>;
+}
+
+export interface SearchResults {
+  galleries: Array<{
+    id: string;
+    slug: string;
+    title: string;
+    status: string;
+  }>;
+  files: Array<{
+    id: string;
+    galleryId: string;
+    gallerySlug: string;
+    galleryTitle: string;
+    filename: string;
+    kind: string;
+    status: string;
+  }>;
+  brandings: Array<{ id: string; name: string }>;
+  templates: Array<{ id: string; name: string }>;
+  truncated: boolean;
 }
 
 export { API_URL, ApiError };
