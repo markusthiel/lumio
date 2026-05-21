@@ -3,7 +3,12 @@
  *
  * Kunden-seitig:
  *   POST /g/:slug/download/zip            — ZIP der ganzen Galerie anfordern
- *   POST /g/:slug/download/selection      — ZIP der eigenen Auswahl anfordern
+ *   POST /g/:slug/download/selection      — ZIP der eigenen Auswahl (Likes
+ *                                            + Picks aus Collaboration-Mode)
+ *   POST /g/:slug/download/picked         — ZIP einer ad-hoc-Auswahl, IDs
+ *                                            kommen vom Client (Warenkorb-
+ *                                            Modus, funktioniert in jedem
+ *                                            Galerie-Mode)
  *   GET  /g/:slug/download/zip/:zipId     — Status pollen oder zum Download-URL redirecten
  *
  * Studio-seitig:
@@ -11,6 +16,7 @@
  *   GET  /galleries/:id/download/zip/:zipId
  */
 import type { FastifyInstance } from "fastify";
+import { z } from "zod";
 
 import { prisma } from "../db.js";
 import { presignGet } from "../services/storage.js";
@@ -142,6 +148,109 @@ export async function registerZipRoutes(app: FastifyInstance) {
         id: zipDownload.id,
         status: zipDownload.status,
         fileCount: fileIds.length,
+      });
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // POST /g/:slug/download/picked  — ad-hoc-Warenkorb-Download
+  // -------------------------------------------------------------------------
+  // Funktioniert in allen Galerie-Modes (auch presentation). Im Gegensatz
+  // zu /selection wird die Auswahl NICHT in der Selection-Tabelle
+  // gespeichert — der Client hält sie in localStorage und schickt die
+  // File-IDs frisch mit jedem Download-Request. Das ist saubere
+  // Trennung: Likes/Picks aus dem Collaboration-Mode sind
+  // "Photograph-Feedback", picked-Downloads sind ein Customer-
+  // Warenkorb ohne Persistenz im Backend.
+  app.post<{
+    Params: { slug: string };
+    Querystring: { variant?: string };
+    Body: unknown;
+  }>(
+    "/g/:slug/download/picked",
+    async (req, reply) => {
+      const visitor = await loadVisitor(req);
+      if (!visitor) {
+        return reply.status(401).send({ error: "unlock_required" });
+      }
+
+      const gallery = await prisma.gallery.findUnique({
+        where: { id: visitor.galleryId },
+        select: {
+          id: true,
+          tenantId: true,
+          downloadEnabled: true,
+          downloadOriginalsEnabled: true,
+        },
+      });
+      if (!gallery || !gallery.downloadEnabled) {
+        return reply.status(403).send({ error: "downloads_disabled" });
+      }
+
+      const variant: "original" | "web" =
+        req.query.variant === "web" ? "web" : "original";
+      if (variant === "original" && !gallery.downloadOriginalsEnabled) {
+        return reply
+          .status(403)
+          .send({ error: "originals_disabled" });
+      }
+
+      // File-IDs aus Body. Max 500 — eine ZIP-Anfrage mit 500 Files
+      // ist schon ein 5-10-GB-Job, mehr macht beim Streamen über
+      // HTTP keinen Spaß mehr.
+      const bodySchema = z.object({
+        fileIds: z.array(z.string().uuid()).min(1).max(500),
+      });
+      const body = bodySchema.safeParse(req.body);
+      if (!body.success) {
+        return reply
+          .status(400)
+          .send({ error: "invalid_body", issues: body.error.flatten() });
+      }
+
+      // Permission-Check: alle IDs müssen zu DIESER Galerie gehören
+      // und ready sein. Wer fremde File-IDs einschmuggelt landet hier
+      // — und kriegt sie einfach nicht. Wir filtern statt zu
+      // rejecten, weil der Client zwischen "stale localStorage mit
+      // gelöschtem File" und "Angriff" nicht unterscheiden kann.
+      const valid = await prisma.file.findMany({
+        where: {
+          id: { in: body.data.fileIds },
+          galleryId: gallery.id,
+          status: "ready",
+        },
+        select: { id: true },
+      });
+      const validIds = valid.map((f) => f.id);
+      if (validIds.length === 0) {
+        return reply
+          .status(400)
+          .send({ error: "no_valid_files", message: "Keine gültigen Files in der Auswahl." });
+      }
+
+      // Label aus den ersten File-IDs hashen — dedupliziert dieselbe
+      // Auswahl, sodass derselbe Customer beim erneuten Klick keine
+      // neue ZIP baut. requestZipDownload macht das schon via
+      // fileIdsHash; das Label ist nur für Anzeige in der DB.
+      // accessId kann null sein (presentation-Mode ohne Token) —
+      // dann ist der Cache-Hit pro Galerie+IDs+Variant, was bei
+      // Sharing-Cache-Effekten genau richtig ist.
+      const zipDownload = await requestZipDownload({
+        tenantId: gallery.tenantId,
+        galleryId: gallery.id,
+        accessId: visitor.accessId ?? null,
+        fileIds: validIds,
+        label: `picked${variant === "web" ? "_web" : ""}`,
+        variant,
+      });
+
+      return reply.status(202).send({
+        id: zipDownload.id,
+        status: zipDownload.status,
+        fileCount: validIds.length,
+        // Wenn der Client weniger Files zurückkriegt als er geschickt
+        // hat, kann er die Auswahl im localStorage gerade bereinigen.
+        requested: body.data.fileIds.length,
       });
     }
   );

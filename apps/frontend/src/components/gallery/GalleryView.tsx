@@ -15,6 +15,7 @@ import { ZipDownloadButton } from "./ZipDownloadButton";
 import { Slideshow } from "./Slideshow";
 import { GalleryHero } from "./GalleryHero";
 import { ShareButton } from "./ShareButton";
+import { usePickedFiles } from "./usePickedFiles";
 import { useT } from "@/lib/i18n";
 import { useReveal } from "@/lib/useReveal";
 import {
@@ -54,6 +55,14 @@ export function GalleryView({
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [slideshowIdx, setSlideshowIdx] = useState<number | null>(null);
   const [finalizing, setFinalizing] = useState(false);
+
+  // Pick-Modus: Customer kann Bilder ad-hoc markieren und gezielt
+  // herunterladen, unabhängig vom Like/Selection-System des
+  // Collaboration-Modus. State lebt im localStorage, der Server kriegt
+  // die IDs nur bei der ZIP-Anfrage. Funktioniert in allen Galerie-
+  // Modes (auch presentation), solange downloads aktiviert sind.
+  const [pickMode, setPickMode] = useState(false);
+  const picks = usePickedFiles(slug);
 
   // Auswahl-Interaktion ist nur möglich, wenn (a) die Galerie überhaupt im
   // collaboration-Modus ist und (b) der Visitor einen Access-Token hat,
@@ -247,6 +256,54 @@ export function GalleryView({
                 <span>{t("gallery.slideshowStart")}</span>
               </button>
             )}
+            {/* Pick-Modus-Toggle — nur sichtbar wenn Downloads aktiviert
+                und es überhaupt Files gibt. Im pickMode zeigen Tiles
+                Checkboxes; Klick aufs Tile = picken statt Lightbox. */}
+            {meta.downloadEnabled && stats.total > 0 && (
+              <button
+                onClick={() => setPickMode((m) => !m)}
+                style={{
+                  borderColor: "var(--brand-border)",
+                  color: "var(--brand-fg)",
+                  backgroundColor: pickMode
+                    ? "var(--brand-surface-hover)"
+                    : "var(--brand-surface)",
+                }}
+                className="text-ui-sm px-3 h-8 rounded inline-flex items-center gap-1.5 border transition-colors duration-motion"
+                title={t("gallery.pickModeHint")}
+                aria-pressed={pickMode}
+              >
+                <svg
+                  viewBox="0 0 16 16"
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <rect x="2" y="2" width="12" height="12" rx="2" />
+                  {pickMode && <polyline points="4.5 8 7 10.5 11.5 5.5" />}
+                </svg>
+                <span>
+                  {pickMode
+                    ? t("gallery.pickModeExit")
+                    : t("gallery.pickModeEnter")}
+                </span>
+                {picks.size > 0 && (
+                  <span
+                    style={{
+                      backgroundColor: "rgb(var(--brand-accent))",
+                      color: "rgb(var(--brand-accent-contrast))",
+                    }}
+                    className="ml-1 px-1.5 rounded-full text-[10px] font-medium font-mono"
+                  >
+                    {picks.size}
+                  </span>
+                )}
+              </button>
+            )}
             {interactive &&
               stats.liked > 0 &&
               !finalizedAt && (
@@ -329,8 +386,13 @@ export function GalleryView({
         />
       )}
 
-      {/* Grid */}
-      <section className="px-4 sm:px-6 md:px-12 pt-6 pb-16 max-w-7xl mx-auto">
+      {/* Grid — extra Bottom-Padding wenn die sticky Picked-Bar
+          aktiv ist, sonst überdeckt sie die letzten Tiles. */}
+      <section
+        className={`px-4 sm:px-6 md:px-12 pt-6 max-w-7xl mx-auto ${
+          picks.size > 0 ? "pb-32" : "pb-16"
+        }`}
+      >
         {filtered.length === 0 ? (
           <div className="text-center py-32 opacity-50 text-ui">
             {filter === "all"
@@ -348,7 +410,10 @@ export function GalleryView({
             onOpen={(f) =>
               setLightboxIdx(orderedFiles.findIndex((ff) => ff.id === f.id))
             }
-          />
+          pickMode={pickMode}
+                        pickedIds={picks.picked}
+                        onTogglePick={picks.toggle}
+                      />
         ) : (
           /* Sections-Modus: Default-Bucket zuerst, dann pro Section
              ein Trennband mit Cover und Titel, dann die Section-Files.
@@ -378,6 +443,9 @@ export function GalleryView({
                             orderedFiles.findIndex((ff) => ff.id === f.id)
                           )
                         }
+                      pickMode={pickMode}
+                        pickedIds={picks.picked}
+                        onTogglePick={picks.toggle}
                       />
                     </div>
                   )}
@@ -396,7 +464,10 @@ export function GalleryView({
                               orderedFiles.findIndex((ff) => ff.id === f.id)
                             )
                           }
-                        />
+                        pickMode={pickMode}
+                        pickedIds={picks.picked}
+                        onTogglePick={picks.toggle}
+                      />
                       </div>
                     );
                   })}
@@ -439,6 +510,69 @@ export function GalleryView({
           onClose={() => setSlideshowIdx(null)}
         />
       )}
+
+      {/* Picked-Bottom-Bar — sticky am unteren Rand sobald >=1 Pick.
+          Bietet Download als Original / Web + Auswahl-Leeren. Auch
+          sichtbar ohne aktiven pickMode, damit der Customer seine
+          aufgebaute Auswahl nicht verliert wenn er den pickMode
+          ausgeschaltet hat ("ich hab 5 Bilder gepickt, will jetzt
+          aber wieder browsen — die 5 sollen aber bleiben"). */}
+      {picks.size > 0 && meta.downloadEnabled && (
+        <div
+          className="fixed bottom-0 left-0 right-0 z-30 backdrop-blur-md"
+          style={{
+            backgroundColor: "var(--brand-toolbar-bg)",
+            borderTop: "1px solid var(--brand-border)",
+          }}
+        >
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-3 flex items-center justify-between gap-3 flex-wrap">
+            <div
+              className="text-ui-sm flex items-center gap-3"
+              style={{ color: "var(--brand-fg)" }}
+            >
+              <span
+                style={{
+                  backgroundColor: "rgb(var(--brand-accent))",
+                  color: "rgb(var(--brand-accent-contrast))",
+                }}
+                className="px-2 py-0.5 rounded-full font-medium font-mono text-ui-xs"
+              >
+                {picks.size}
+              </span>
+              <span>{t("gallery.pickedCount", { count: picks.size })}</span>
+              <button
+                onClick={() => picks.clear()}
+                style={{ color: "var(--brand-fg-muted)" }}
+                className="text-ui-xs underline opacity-80 hover:opacity-100"
+              >
+                {t("gallery.pickedClear")}
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {meta.downloadOriginalsEnabled && (
+                <ZipDownloadButton
+                  slug={slug}
+                  kind="picked"
+                  variant="original"
+                  count={picks.size}
+                  fileIds={picks.asArray()}
+                  emphasis="primary"
+                />
+              )}
+              <ZipDownloadButton
+                slug={slug}
+                kind="picked"
+                variant="web"
+                count={picks.size}
+                fileIds={picks.asArray()}
+                emphasis={
+                  meta.downloadOriginalsEnabled ? "ghost" : "primary"
+                }
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -472,11 +606,17 @@ function FilesGrid({
   mode,
   mySelections,
   onOpen,
+  pickMode,
+  pickedIds,
+  onTogglePick,
 }: {
   files: PublicFile[];
   mode: "justified" | "equal";
   mySelections: Record<string, MySelection>;
   onOpen: (f: PublicFile) => void;
+  pickMode: boolean;
+  pickedIds: Set<string>;
+  onTogglePick: (fileId: string) => void;
 }) {
   if (mode === "justified") {
     return (
@@ -489,6 +629,9 @@ function FilesGrid({
             sel={mySelections[f.id]}
             mode="justified"
             onOpen={() => onOpen(f)}
+            pickMode={pickMode}
+            isPicked={pickedIds.has(f.id)}
+            onTogglePick={() => onTogglePick(f.id)}
           />
         ))}
         <i className="grow-[10] block" aria-hidden="true" />
@@ -510,6 +653,9 @@ function FilesGrid({
           sel={mySelections[f.id]}
           mode="equal"
           onOpen={() => onOpen(f)}
+          pickMode={pickMode}
+          isPicked={pickedIds.has(f.id)}
+          onTogglePick={() => onTogglePick(f.id)}
         />
       ))}
     </div>
@@ -629,12 +775,19 @@ function GalleryTile({
   sel,
   mode,
   onOpen,
+  pickMode,
+  isPicked,
+  onTogglePick,
 }: {
   file: PublicFile;
   index: number;
   sel: MySelection | undefined;
   mode: "justified" | "equal";
   onOpen: () => void;
+  /** Wenn true: Klick aufs Tile = toggle pick statt Lightbox. */
+  pickMode: boolean;
+  isPicked: boolean;
+  onTogglePick: () => void;
 }) {
   const { ref, revealed } = useReveal<HTMLDivElement>();
   // Aspect-Ratio aus den File-Dimensionen, mit sicherem Fallback.
@@ -707,8 +860,18 @@ function GalleryTile({
       }}
     >
       <button
-        onClick={onOpen}
-        className="block w-full h-full overflow-hidden rounded bg-white/5 relative group focus:outline-none"
+        onClick={() => (pickMode ? onTogglePick() : onOpen())}
+        className={`block w-full h-full overflow-hidden rounded bg-white/5 relative group focus:outline-none ${
+          pickMode && isPicked
+            ? "ring-2 ring-offset-2 ring-offset-transparent"
+            : ""
+        }`}
+        style={
+          pickMode && isPicked
+            ? { boxShadow: "0 0 0 3px var(--brand-accent, #f59e0b)" }
+            : undefined
+        }
+        aria-pressed={pickMode ? isPicked : undefined}
       >
         {file.thumbUrl ? (
           /* eslint-disable-next-line @next/next/no-img-element */
@@ -762,6 +925,53 @@ function GalleryTile({
         {sel?.liked && (
           <div className="absolute top-2 right-2 text-amber-300 text-lg drop-shadow-lg">
             ★
+          </div>
+        )}
+
+        {/* Pick-Checkbox-Overlay — nur sichtbar im pickMode. Bei
+            isPicked: voller Akzent-Kreis mit Häkchen. Sonst: weißer
+            outlined Kreis, semi-transparent damit das Bild durch-
+            scheint. Position oben-links überlappt mit color-Selektor
+            (sel.color), aber sel.color nur in Collaboration und
+            pickMode kann der User selber temporär aktivieren — in
+            der Praxis kommt selten beides gleichzeitig vor. Wir
+            verschieben den Pick-Checkbox bei vorhandenem sel.color
+            ein bisschen. */}
+        {pickMode && (
+          <div
+            className={`absolute ${sel?.color ? "top-2 left-9" : "top-2 left-2"}`}
+            aria-hidden="true"
+          >
+            <span
+              className="flex items-center justify-center w-6 h-6 rounded-full border-2 backdrop-blur-sm transition-colors duration-motion"
+              style={
+                isPicked
+                  ? {
+                      backgroundColor: "rgb(var(--brand-accent))",
+                      borderColor: "rgb(var(--brand-accent))",
+                      color: "rgb(var(--brand-accent-contrast))",
+                    }
+                  : {
+                      backgroundColor: "rgba(0,0,0,0.4)",
+                      borderColor: "rgba(255,255,255,0.7)",
+                      color: "transparent",
+                    }
+              }
+            >
+              {isPicked && (
+                <svg
+                  viewBox="0 0 16 16"
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="3 8 7 12 13 4" />
+                </svg>
+              )}
+            </span>
           </div>
         )}
       </button>

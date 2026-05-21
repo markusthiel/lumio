@@ -936,6 +936,25 @@ export const api = {
       { method: "POST" }
     ),
 
+  /** Ad-hoc-Warenkorb: client-übermittelte File-IDs (kein Backend-State).
+   * Funktioniert in allen Galerie-Modes, im Gegensatz zu requestZipSelection
+   * das die Selection-Tabelle braucht. */
+  requestZipPicked: (
+    slug: string,
+    variant: "original" | "web" = "original",
+    fileIds: string[]
+  ) =>
+    request<{
+      id: string;
+      status: ZipStatus;
+      fileCount: number;
+      requested: number;
+    }>(`/g/${slug}/download/picked?variant=${variant}`, {
+      method: "POST",
+      body: JSON.stringify({ fileIds }),
+      headers: { "Content-Type": "application/json" },
+    }),
+
   getZipStatus: (slug: string, zipId: string) =>
     request<{
       id: string;

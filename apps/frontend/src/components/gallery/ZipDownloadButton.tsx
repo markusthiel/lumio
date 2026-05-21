@@ -5,8 +5,12 @@
  *
  * Zwei orthogonale Achsen für die Anforderung:
  *
- *   kind:    "all" | "selection"          — was rein soll
- *   variant: "original" | "web"           — welche Bytes davon
+ *   kind:    "all" | "selection" | "picked"  — was rein soll
+ *   variant: "original" | "web"              — welche Bytes davon
+ *
+ * "all":       die ganze Galerie
+ * "selection": Likes + Picks aus Collaboration-Mode (server-seitig)
+ * "picked":    ad-hoc-Warenkorb, fileIds kommen vom Client (localStorage)
  *
  * Der Button stellt EINE Kombination dar (z.B. "Auswahl als Web-Version").
  * Die Customer-Hero rendert mehrere davon nebeneinander.
@@ -20,15 +24,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type ZipStatus } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 
-type Kind = "all" | "selection";
+type Kind = "all" | "selection" | "picked";
 type Variant = "original" | "web";
 
 interface Props {
   slug: string;
   kind: Kind;
   variant: Variant;
-  /** Anzahl Files in der Auswahl (für kind=selection, sonst 0) */
+  /** Anzahl Files in der Auswahl (für kind=selection|picked, sonst 0) */
   count?: number;
+  /** File-IDs für kind="picked" — werden im Body an die API geschickt. */
+  fileIds?: string[];
   /** Disabled wenn z.B. keine Auswahl */
   disabled?: boolean;
   /** Visueller Stil: primary für die wichtige Aktion, ghost für die alternative */
@@ -40,6 +46,7 @@ export function ZipDownloadButton({
   kind,
   variant,
   count = 0,
+  fileIds,
   disabled = false,
   emphasis = "ghost",
 }: Props) {
@@ -57,14 +64,16 @@ export function ZipDownloadButton({
       const res =
         kind === "all"
           ? await api.requestZipAll(slug, variant)
-          : await api.requestZipSelection(slug, variant);
+          : kind === "selection"
+          ? await api.requestZipSelection(slug, variant)
+          : await api.requestZipPicked(slug, variant, fileIds ?? []);
       setZipId(res.id);
       setStatus(res.status);
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : t("gallery.requestFailed");
       setError(
-        msg.includes("no_selection")
+        msg.includes("no_selection") || msg.includes("no_valid_files")
           ? t("gallery.downloadEmpty")
           : msg.includes("originals_disabled")
           ? t("gallery.originalsDisabled")
@@ -123,6 +132,10 @@ export function ZipDownloadButton({
       ? variant === "web"
         ? t("gallery.downloadAllWeb")
         : t("gallery.downloadAll")
+      : kind === "picked"
+      ? variant === "web"
+        ? t("gallery.downloadPickedWeb", { count })
+        : t("gallery.downloadPicked", { count })
       : variant === "web"
       ? t("gallery.downloadSelectionWeb", { count })
       : t("gallery.downloadSelection", { count });
