@@ -27,6 +27,11 @@ structlog.configure(
     processors=[
         structlog.processors.add_log_level,
         structlog.processors.TimeStamper(fmt="iso"),
+        # WICHTIG: format_exc_info muss VOR dem Renderer kommen, sonst
+        # bleibt exc_info=True nur als nichtssagendes Feld stehen und
+        # der Traceback verschwindet. Mit diesem Processor wird die
+        # Exception in ein lesbares Feld "exception" umgewandelt.
+        structlog.processors.format_exc_info,
         structlog.processors.JSONRenderer(),
     ],
     wrapper_class=structlog.make_filtering_bound_logger(
