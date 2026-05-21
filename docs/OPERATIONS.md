@@ -32,17 +32,18 @@ Für die Lesbarkeit schreiben wir das im Cookbook abgekürzt als
 
 1. [Deploy](#deploy)
 2. [Service-Lifecycle](#service-lifecycle)
-3. [Logs ansehen](#logs-ansehen)
-4. [Datenbank-Zugriff](#datenbank-zugriff)
-5. [Redis / Job-Streams](#redis--job-streams)
-6. [Failed Files re-queuen](#failed-files-re-queuen)
-7. [Worker-Backfills](#worker-backfills)
-8. [Storage-Inspektion (S3 / MinIO)](#storage-inspektion-s3--minio)
-9. [Tenant-Verwaltung](#tenant-verwaltung)
-10. [Diagnose: ist das wirklich kaputt?](#diagnose-ist-das-wirklich-kaputt)
-11. [Backup & Restore](#backup--restore)
-12. [Storage-Aufräumen](#storage-aufräumen)
-13. [Häufige Probleme](#häufige-probleme)
+3. [ENV-Variable ändern und neu laden](#env-variable-ändern-und-neu-laden)
+4. [Logs ansehen](#logs-ansehen)
+5. [Datenbank-Zugriff](#datenbank-zugriff)
+6. [Redis / Job-Streams](#redis--job-streams)
+7. [Failed Files re-queuen](#failed-files-re-queuen)
+8. [Worker-Backfills](#worker-backfills)
+9. [Storage-Inspektion (S3 / MinIO)](#storage-inspektion-s3--minio)
+10. [Tenant-Verwaltung](#tenant-verwaltung)
+11. [Diagnose: ist das wirklich kaputt?](#diagnose-ist-das-wirklich-kaputt)
+12. [Backup & Restore](#backup--restore)
+13. [Storage-Aufräumen](#storage-aufräumen)
+14. [Häufige Probleme](#häufige-probleme)
 
 ---
 
@@ -112,10 +113,11 @@ bleiben). Im Normalbetrieb `stop`.
 ### Einzelner Service Restart
 
 ```bash
-docker compose restart worker
+docker compose restart api
 ```
 
-Praktisch z.B. nach einer ENV-Variable-Änderung (ohne Code-Rebuild).
+Praktisch z.B. nach einer `.env`-Änderung — der Container liest die ENV
+beim Start neu, kein Image-Rebuild nötig.
 
 ### Container-Status
 
@@ -125,6 +127,65 @@ docker compose ps
 
 Zeigt welche Services laufen, welche Ports gemappt sind, ob welcher
 unhealthy ist.
+
+---
+
+## ENV-Variable ändern und neu laden
+
+`.env`-Änderungen greifen erst beim **Container-Restart**, nicht
+automatisch im laufenden Prozess. Workflow:
+
+```bash
+cd /opt/docker/lumio/lumio
+
+# 1) ENV bearbeiten
+nano .env
+
+# 2) Service restarten (kein --build nötig, kein git pull nötig)
+docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.prod.yml \
+  -f docker-compose.gpu.yml \
+  restart api
+
+# 3) Verifizieren dass der neue Wert wirklich drin ist
+docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.prod.yml \
+  -f docker-compose.gpu.yml \
+  exec api env | grep <DEIN_KEY>
+
+# 4) Optional: Logs verfolgen während er hochkommt
+docker compose \
+  -f docker-compose.yml \
+  -f docker-compose.prod.yml \
+  -f docker-compose.gpu.yml \
+  logs -f api
+```
+
+**Welcher Service muss restarten?** ENV-Variablen werden pro Service in
+`docker-compose.yml` ans Container-Image gebunden, der Restart-Service
+hängt davon ab was du änderst:
+
+| ENV-Variable | Restart |
+|---|---|
+| `MAX_FILE_SIZE_MIB`, `MAX_UPLOAD_HARD_CAP_MIB` | `api` |
+| `BILLING_ENABLED`, `STRIPE_*` | `api` |
+| `LUMIO_DOMAIN_BASE`, `PUBLIC_URL` | `api`, `frontend` |
+| Caddy-Domain-Konfiguration | `caddy` |
+| `S3_*`, `MINIO_*` | `api`, `worker` |
+| Worker-Tuning (Concurrency etc.) | `worker` |
+| Postgres-Credentials | `api`, `worker`, `postgres` |
+| Im Zweifel | alle: `docker compose restart` |
+
+**Warum nicht `docker compose up -d`?** Geht auch — aber `up` baut
+nur dann neu, wenn das Image sich geändert hat. Bei reinen
+`.env`-Änderungen ist `restart` schneller (kein Image-Check) und
+expliziter („ich wollte wirklich nur ENV neu laden").
+
+**Warum nicht `kill -HUP`?** Node-Apps haben kein SIGHUP-Reload. Bei
+Caddy ginge das, aber wir nutzen für alle Services dasselbe Pattern
+weil's leichter zu merken ist.
 
 ---
 
@@ -876,3 +937,8 @@ sind. Wenn ein Symptom auftaucht, hilft `git log --oneline | grep <key>`:
 - `4a7625f` — Theme-aware Sticky-Toolbar
 - `7509cc6` — Akzent-Contrast-Fix
 - `867edb1` — Customer-Pick-Modus mit localStorage
+- `7cbbc37` — Lightbox-Comments-Lesbarkeit
+- `e3e50fd` — Upload-Links MVP (Backend + Studio + Public Drop-Zone)
+- `3fbb24d` — Upload-Links Bulk-Approve, Pending-Filter, Header-Counter
+- `16221bb` — Upload-Links Per-File + Bulk-Reject mit Reason
+- `0dd5c7b` — Einstellbares Pro-File Upload-Limit pro Tenant + Link
