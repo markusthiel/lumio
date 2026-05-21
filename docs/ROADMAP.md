@@ -162,6 +162,111 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 
 ---
 
+## Phase 5 — Cloud-Variante (SaaS-Erweiterung)
+
+**Ziel:** Lumio als Managed Service unter `lumio-cloud.de` mit Self-
+Service-Sign-Up und automatischer Abrechnung. Der App-Kern bleibt
+weiter Open-Source und self-hostbar — diese Phase betrifft nur den
+Hosted-Service-Layer obendrauf.
+
+### Plan-Modell & Limits ✅ (Commit `e15c5bc`)
+
+- [x] Plan-Definitionen (Solo €19, Studio €39, Pro €89) als zentrales
+      Modul in `services/plans.ts`
+- [x] Live-Aggregation des Storage-Verbrauchs ohne Counter-Drift
+- [x] Limit-Enforcement in den existierenden Routes:
+      Upload-Init, Galerie-Create, Custom-Domain, Branding
+- [x] BillingSubscription-Tabelle mit storageAddonGib + readOnlySince
+- [x] Migration mit Seed der 3 Pläne + Auto-Pro-Subscription für
+      existierende Tenants
+- [x] Studio-Seite `/studio/billing` mit Plan + Storage-Bar +
+      Galerien-Bar + Feature-Übersicht + Plan-Vergleich
+- [x] Storage-Banner oben in jeder Studio-Page bei >80% Storage,
+      Trial-Ende <3 Tage oder Read-only-Modus
+- [x] 402-Dialog beim Upload mit Link zur Plan-Seite
+- [x] Feature-Gates: Custom-Domain + Branding-Settings disabled
+      und mit Plan-Hinweis wenn nicht abgedeckt
+- [x] Gated über `BILLING_ENABLED` env — Self-Hosted ohne Billing
+      läuft komplett unverändert
+
+### Stripe-Integration (Sprint 2 — offen)
+
+- [ ] Stripe-Konto + Produkte/Prices anlegen, IDs in
+      `billing_plans` nachtragen
+- [ ] `POST /billing/subscription` — Stripe Checkout Session
+      erstellen mit Trial 14 Tage + Karte
+- [ ] `POST /billing/portal` — Customer-Portal-Link für Karten-
+      Update, Plan-Wechsel, Kündigung
+- [ ] `POST /billing/webhook` — Stripe-Webhooks signature-verified:
+      - `checkout.session.completed` → Tenant aktivieren
+      - `customer.subscription.updated` → Plan-Wechsel reflektieren
+      - `customer.subscription.deleted` → Auf canceled setzen
+      - `invoice.payment_succeeded` → past_due → active
+      - `invoice.payment_failed` → past_due-State + Karenz-Counter
+- [ ] Storage-Pack als Add-on-Subscription-Item (+50 GB für +€9/Mo)
+- [ ] Zahlungsmethoden: Karte, SEPA, Sofort, Klarna (Stripe macht das)
+- [ ] Mail-Templates: Trial-Bestätigung, Trial-Ende-Reminder,
+      Zahlung-fehlgeschlagen (Tag 0/3/7), Read-only-Eskalation
+      (Tag 14/30), Lösch-Ankündigung (Tag 60/90)
+
+### Karenz-Logik (Sprint 2 — offen)
+
+Cronjob (täglich) der Tenants mit `subscriptionStatus = past_due`
+durch eine State-Machine schiebt:
+
+- Tag 0: Stripe-Retry läuft + erste Mail
+- Tag 3, 7: weitere Mahnungen
+- Tag 14: Studio-Login geblockt, Customer-Galerien laufen weiter
+- Tag 30: alles read-only, `readOnlySince` gesetzt
+- Tag 60: finale Mahnung + Lösch-Ankündigung
+- Tag 90: Tenant-Hard-Delete mit DSGVO-konformem Daten-Export-
+  Angebot vor Löschung
+
+### Sign-Up-Flow (Sprint 3 — offen)
+
+- [ ] Selbstregistrierung an `/cloud-signup` mit Email + Plan-Wahl
+- [ ] Tenant-Provisionierung: Tenant + Owner-User + initiale
+      Subscription (trialing) + Stripe-Customer in einer Transaktion
+- [ ] Onboarding-Mail mit Setup-Link
+- [ ] Trial-Ende-Auto-Charge wenn Karte hinterlegt; sonst auf
+      Read-only
+
+### Landing-Page `lumio-cloud.de` (Sprint 3 — offen)
+
+- [ ] Eigenes Repo `lumio-cloud-de` (separates Next.js-Projekt)
+- [ ] Hero + DSGVO-Trust-Signale (DE-Server prominent)
+- [ ] Features-Sektion mit echten Studio-Screenshots
+- [ ] Pricing-Seite mit den drei Plänen
+- [ ] FAQ
+- [ ] Impressum, Datenschutz, AGB, AVV-Template zum Download
+- [ ] Cookie-Banner
+- [ ] Sign-Up-CTA führt zum Cloud-Signup-Flow
+
+### Landing-Page `lumio-app.de` (Sprint 4 — offen, parallel)
+
+- [ ] Eigenes Repo `lumio-app-de` (URL kommt vom User)
+- [ ] Open-Source-Pitch für Self-Hoster
+- [ ] Docker-Setup-Guide mit Copy-Paste-Snippets
+- [ ] Doku-Integration aus dem Haupt-Repo (Markdown via Build-Step)
+- [ ] Roadmap-Page (importiert aus diesem Dokument)
+- [ ] Forgejo-Link prominent (kein GitHub-Mirror)
+- [ ] AGPL-Lizenz-Hinweise
+- [ ] Screenshots Studio + Customer-View
+- [ ] Demo-Galerie-Link
+
+### Zukünftige Erweiterungen (offen, kein Sprint geplant)
+
+- [ ] Jahresrabatt (-15 bis -20%)
+- [ ] Einmalkauf-Variante für Hochzeitspaare („€49 einmalig,
+      Galerie 12 Monate aktiv") als separater Use-Case
+- [ ] Affiliate-/Partner-Programm
+- [ ] Open Core: Pro-Features aus dem AGPL-Repo ausgliedern
+      (z.B. SSO, Team-Accounts) wenn Markt-Druck besteht
+- [ ] Dual-Licensing-Option (kommerzielle Lizenz auf Anfrage)
+      wenn ein konkreter Use-Case kommt
+
+---
+
 ## Nicht geplant
 
 Bewusst weggelassen — soweit nicht zwingend nachgefragt:
