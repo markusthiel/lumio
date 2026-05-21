@@ -39,6 +39,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         tini \
         ca-certificates \
         curl \
+        procps \
     && (apt-get install -y --no-install-recommends libexiv2-27 \
         || apt-get install -y --no-install-recommends libexiv2-28) \
     && rm -rf /var/lib/apt/lists/*
