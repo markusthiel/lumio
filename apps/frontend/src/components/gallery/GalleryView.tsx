@@ -181,10 +181,18 @@ export function GalleryView({
       </GalleryHero>
 
       {/* Sticky-Toolbar — verbleibt am oberen Rand beim Scrollen.
-          Backdrop-blur sorgt für saubere Trennung über den Bildern. */}
+          Backdrop-blur sorgt für saubere Trennung über den Bildern.
+          Background-Color und Border-Farbe kommen aus den --brand-*
+          CSS-Variablen die GalleryShell setzt — bei hellem Branding
+          wird der Streifen eine helle Eintönung statt einem grauen
+          "0.45 Schwarz auf Weiß"-Streifen. */}
       <div
-        className="sticky top-0 z-20 backdrop-blur-md border-y border-white/5"
-        style={{ backgroundColor: "rgba(0,0,0,0.45)" }}
+        className="sticky top-0 z-20 backdrop-blur-md"
+        style={{
+          backgroundColor: "var(--brand-toolbar-bg)",
+          borderTop: "1px solid var(--brand-border)",
+          borderBottom: "1px solid var(--brand-border)",
+        }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-3 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex gap-1.5 flex-wrap">
@@ -232,7 +240,7 @@ export function GalleryView({
             {stats.total > 0 && (
               <button
                 onClick={() => setSlideshowIdx(0)}
-                className="text-ui-sm px-3 h-8 rounded inline-flex items-center gap-1.5 bg-white/5 border border-white/15 text-white/85 hover:bg-white/15 hover:border-white/30 hover:text-white transition-colors duration-motion"
+                className="text-ui-sm px-3 h-8 rounded inline-flex items-center gap-1.5 bg-brand-accent text-neutral-950 font-medium hover:opacity-90 transition-opacity duration-motion"
                 title={t("gallery.slideshowStartTitle")}
               >
                 <PlayMiniIcon />
@@ -775,11 +783,13 @@ function FilterChip({
   return (
     <button
       onClick={onClick}
-      className={`text-ui-xs h-7 px-3 rounded-full border transition-colors duration-motion ease-out flex items-center gap-1.5 ${
-        active
-          ? "bg-white text-neutral-950 border-white"
-          : "border-white/15 hover:border-white/35 opacity-80 hover:opacity-100"
-      }`}
+      style={{
+        backgroundColor: active ? "var(--brand-fg)" : "transparent",
+        color: active ? "var(--brand-bg, transparent)" : "var(--brand-fg)",
+        borderColor: active ? "var(--brand-fg)" : "var(--brand-border)",
+        opacity: active ? 1 : 0.7,
+      }}
+      className="text-ui-xs h-7 px-3 rounded-full border transition-colors duration-motion ease-out flex items-center gap-1.5 hover:opacity-100"
     >
       {dot && <span className={`w-2 h-2 rounded-full ${dot}`} />}
       {label}

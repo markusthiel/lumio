@@ -210,6 +210,14 @@ export default function BrandingEditorPage() {
                 <ColorField value={accentColor} onChange={setAccentColor} />
               </Field>
             </div>
+            <p className="text-ui-xs text-ink-tertiary -mt-2 mb-1 leading-relaxed">
+              <strong className="text-ink-secondary font-medium">Wo das wirkt:</strong>{" "}
+              Primärfarbe = Hintergrund der Galerie und automatisch
+              passende Textfarbe (hell-auf-dunkel oder umgekehrt).
+              Akzent = „Slideshow starten" und „Auswahl fertig"-Buttons,
+              Like-Icon, Fokus-Indikatoren, Komment-Submit. Bei leeren
+              Galerien sind viele dieser Elemente noch nicht sichtbar.
+            </p>
 
             <Field label="Schrift">
               <select

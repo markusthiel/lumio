@@ -127,6 +127,36 @@ export function GalleryShell({
   const borderColor = light ? "rgba(0,0,0,0.1)" : "rgba(255,255,255,0.1)";
   const mutedColor = light ? "rgba(0,0,0,0.6)" : "rgba(255,255,255,0.6)";
 
+  // CSS-Variablen für theme-bewusste Komponenten (Sticky-Toolbar etc.)
+  // die heute hartcodierte white/black-Werte nutzen. Sub-Components
+  // können dann via var(--brand-fg) / var(--brand-fg-muted) / etc.
+  // theme-korrekte Farben rendern ohne selbst zu wissen ob die
+  // Galerie hell oder dunkel ist.
+  const fg = light ? "#0e0e10" : "#f2f2f4";
+  const fgMuted = light ? "rgba(0,0,0,0.7)" : "rgba(255,255,255,0.85)";
+  const fgSubtle = mutedColor;
+  // Sticky-Toolbar-Background: leichte Eintönung des Branding-Hintergrunds,
+  // damit der Streifen visuell vom Content abhebt aber nicht "grau-aus-
+  // schwarz" wirkt wie bei hartcodiertem rgba(0,0,0,0.45) auf hellem
+  // Hintergrund. Bei hellem Theme: weiß-tönung; bei dunklem: schwarz-tönung.
+  const toolbarBg = light ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.45)";
+  // Surface für Buttons/Chips in der Toolbar — leicht abgesetzt vom
+  // Toolbar-Background damit sie sichtbar bleiben.
+  const surface = light ? "rgba(0,0,0,0.04)" : "rgba(255,255,255,0.05)";
+  const surfaceHover = light
+    ? "rgba(0,0,0,0.08)"
+    : "rgba(255,255,255,0.12)";
+
+  (style as Record<string, string>)["--brand-fg"] = fg;
+  (style as Record<string, string>)["--brand-bg"] = primary;
+  (style as Record<string, string>)["--brand-fg-muted"] = fgMuted;
+  (style as Record<string, string>)["--brand-fg-subtle"] = fgSubtle;
+  (style as Record<string, string>)["--brand-border"] = borderColor;
+  (style as Record<string, string>)["--brand-toolbar-bg"] = toolbarBg;
+  (style as Record<string, string>)["--brand-surface"] = surface;
+  (style as Record<string, string>)["--brand-surface-hover"] = surfaceHover;
+  (style as Record<string, string>)["--brand-is-light"] = light ? "1" : "0";
+
   return (
     <div className="min-h-screen lumio-gallery-shell" style={style}>
       {/* Galerie-Fonts laden, wenn IDs gesetzt sind. Bunny Fonts CDN —

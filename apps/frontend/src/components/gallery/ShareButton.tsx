@@ -55,7 +55,8 @@ export function ShareButton({ title, url }: Props) {
     <button
       type="button"
       onClick={share}
-      className="text-ui-xs h-8 px-3 rounded inline-flex items-center gap-1.5 text-white/70 hover:text-white hover:bg-white/10 transition-colors duration-motion"
+      style={{ color: "var(--brand-fg-muted)" }}
+      className="text-ui-xs h-8 px-3 rounded inline-flex items-center gap-1.5 hover:opacity-100 transition-opacity duration-motion opacity-80"
       title={t("gallery.share")}
       aria-label={t("gallery.share")}
     >
