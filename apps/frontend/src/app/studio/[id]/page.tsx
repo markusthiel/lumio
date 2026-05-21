@@ -44,6 +44,11 @@ export default function GalleryDetailPage() {
   const [dragOver, setDragOver] = useState(false);
   const [togglingStatus, setTogglingStatus] = useState(false);
 
+  // Effektives Pro-File-Upload-Limit für die Drop-Zone-Anzeige.
+  // Wird aus den Tenant-Settings beim Page-Load geholt; bis das da
+  // ist null → Anzeige fällt auf den Hinweis ohne Größenangabe zurück.
+  const [maxUploadMib, setMaxUploadMib] = useState<number | null>(null);
+
   // Live-Activity-Toasts: Aktionen des Kunden zeigen wir kurz oben an.
   // Wir halten max 4 gleichzeitig im State, sonst staucht sich das bei
   // schneller Aktivität (Kunde klickt sich durch 30 Bilder durch).
@@ -282,6 +287,26 @@ export default function GalleryDetailPage() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // Tenant-Settings einmalig laden für die Upload-Limit-Anzeige.
+  // Separat vom load() weil das pro Tenant gilt, nicht pro Gallery —
+  // ändert sich also nicht mit der Page-Navigation. Wenn der User
+  // das Limit in den Settings ändert während er auf der Galerie-
+  // Page ist, sieht er den neuen Wert erst beim nächsten Page-Load
+  // (kein WS für Settings-Updates).
+  useEffect(() => {
+    void api
+      .getTenantSettings()
+      .then((res) => {
+        setMaxUploadMib(
+          res.tenant.maxUploadMib ?? res.uploadLimits.defaultMib
+        );
+      })
+      .catch(() => {
+        // Wenn der Fetch scheitert: Anzeige bleibt ohne Größenangabe.
+        // Validierung passiert eh server-seitig, Anzeige ist nur Hinweis.
+      });
+  }, []);
 
   // WebSocket-Subscription für Live-Updates
   useGalleryEvents(gallery?.id, (event) => {
@@ -703,7 +728,18 @@ export default function GalleryDetailPage() {
             Dateien hier ablegen oder klicken zum Auswählen
           </div>
           <div className="text-ui-xs text-ink-tertiary mt-1">
-            JPEG, PNG, WebP, HEIC, RAW (CR2/NEF/ARW…), MP4, MOV — bis 2 GiB pro File
+            JPEG, PNG, WebP, HEIC, RAW (CR2/NEF/ARW…), MP4, MOV
+            {maxUploadMib !== null && (
+              <>
+                {" — "}
+                {t("studio.uploadHint", {
+                  size:
+                    maxUploadMib >= 1024
+                      ? `${(maxUploadMib / 1024).toFixed(maxUploadMib / 1024 >= 10 ? 0 : 1)} GB`
+                      : `${maxUploadMib} MB`,
+                })}
+              </>
+            )}
           </div>
         </section>
 

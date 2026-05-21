@@ -133,6 +133,7 @@ export const de: Dict = {
     setDraft: "Auf Draft setzen",
     setLive: "Live schalten",
     settingsHeading: "Einstellungen",
+    uploadHint: "bis {size} pro File",
     settingDownload: "Download für Kunden erlauben",
     settingOriginals: "Originale erlauben",
     settingOriginalsDesc:
