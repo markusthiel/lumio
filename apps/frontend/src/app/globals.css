@@ -156,6 +156,46 @@ body {
   color: rgb(var(--ink-primary));
 }
 
+/* Form-Element-Defaults für das Dark-Theme.
+ *
+ * Browser-Default für <input type="text">, <textarea>, <select> ist
+ * weißer Hintergrund + schwarzer Text. Im dunklen Theme heißt das:
+ * unlesbar (heller Text auf weißem Background, oder schwarzer Text
+ * auf weißem Background — beides zerschießt das Design).
+ *
+ * Wir setzen für alle Standard-Inputs ein Dark-Theme-Default. Mit
+ * :where() ist die Spezifität auf 0 — jede Tailwind-Klasse oder
+ * Komponente die explizit bg-/text- setzt überschreibt das ohne
+ * Probleme. Insbesondere die <Input>/<Textarea>/<Select>-Komponenten
+ * in components/ui/ bleiben unverändert wirksam.
+ *
+ * Ausgenommen:
+ *   - type="color", type="file" — die haben Browser-spezifische
+ *     interne Renderings die wir nicht überschreiben wollen
+ *   - type="checkbox", type="radio" — würden sonst ihren Indicator
+ *     verlieren
+ * Diese sind über :not() ausgeschlossen. */
+:where(input:not([type="color"]):not([type="file"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]):not([type="image"])),
+:where(textarea),
+:where(select) {
+  background-color: rgb(var(--surface-sunken));
+  color: rgb(var(--ink-primary));
+}
+
+:where(input:not([type="color"]):not([type="file"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="submit"]):not([type="button"]):not([type="image"]))::placeholder,
+:where(textarea)::placeholder {
+  color: rgb(var(--ink-tertiary));
+}
+
+/* <option>-Elemente versuchen wir dunkel zu halten. Funktioniert in
+ * Chrome/Firefox/Safari halbwegs — manche OS-Native-Picker (vor
+ * allem Safari auf iOS) ignorieren das aber, das ist eine bekannte
+ * Browser-Limitation und nicht durch CSS lösbar. */
+:where(option) {
+  background-color: rgb(var(--surface-overlay));
+  color: rgb(var(--ink-primary));
+}
+
 /* Focus-Ring: einheitlich für alle interaktiven Elemente */
 :focus-visible {
   outline: 2px solid rgb(var(--line-focus));
