@@ -11,6 +11,8 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 
 import { prisma } from "../db.js";
+import { config } from "../config.js";
+import { checkFeatureAvailable } from "../services/usage.js";
 import {
   presignPut,
   deleteObject,
@@ -65,6 +67,24 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
       return reply.status(403).send({ error: "forbidden" });
     }
     const body = updateSettingsSchema.parse(req.body);
+
+    // Wenn customDomain neu gesetzt wird: Plan-Feature-Check ZUERST,
+    // dann Konflikt-Check. Wir prüfen nur wenn der User die Domain
+    // tatsächlich ändert (body.customDomain !== undefined und !== der
+    // bisherigen). Sonst würde jedes /settings-PATCH die Limit-Logik
+    // triggern auch wenn der User nur watermarkText ändert.
+    if (config.BILLING_ENABLED && body.customDomain && req.tenantId) {
+      const existing = await prisma.tenant.findUnique({
+        where: { id: req.tenantId },
+        select: { customDomain: true },
+      });
+      if (existing?.customDomain !== body.customDomain) {
+        const check = await checkFeatureAvailable(req.tenantId, "customDomain");
+        if (!check.ok) {
+          return reply.status(402).send(check);
+        }
+      }
+    }
 
     // Wenn customDomain gesetzt wird: prüfen, ob's frei ist
     if (body.customDomain) {

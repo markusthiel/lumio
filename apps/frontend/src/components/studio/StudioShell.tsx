@@ -24,6 +24,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useT } from "@/lib/i18n";
 import { api } from "@/lib/api";
 import { GlobalSearchModal } from "@/components/studio/GlobalSearchModal";
+import { StorageBanner } from "@/components/studio/StorageBanner";
 
 interface NavItem {
   href: string;
@@ -40,6 +41,7 @@ const NAV: NavItem[] = [
   { href: "/studio/tags",       labelKey: "nav.tags",       fallback: "Tags",          prefix: "/studio/tags" },
   { href: "/studio/webhooks",   labelKey: "nav.webhooks",   fallback: "Webhooks",      prefix: "/studio/webhooks" },
   { href: "/studio/audit",      labelKey: "nav.audit",      fallback: "Audit",         prefix: "/studio/audit" },
+  { href: "/studio/billing",    labelKey: "nav.billing",    fallback: "Plan & Speicher", prefix: "/studio/billing" },
   { href: "/studio/settings",   labelKey: "nav.settings",   fallback: "Einstellungen", prefix: "/studio/settings" },
 ];
 
@@ -148,6 +150,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
 
       {/* Main Area */}
       <main className="flex-1 min-w-0 min-h-screen">
+        <StorageBanner />
         {children}
       </main>
     </div>

@@ -17,6 +17,8 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 
 import { prisma } from "../db.js";
+import { config } from "../config.js";
+import { checkFeatureAvailable } from "../services/usage.js";
 import { presignPut, presignGet, deleteObject } from "../services/storage.js";
 import { logEvent } from "../services/audit.js";
 
@@ -118,6 +120,15 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
   app.post("/brandings", async (req, reply) => {
     const s = req.requireAuth();
     const body = createBrandingSchema.parse(req.body);
+
+    // Plan-Limit-Check: Branding-Slot frei?
+    if (config.BILLING_ENABLED && req.tenantId) {
+      const check = await checkFeatureAvailable(req.tenantId, "branding");
+      if (!check.ok) {
+        return reply.status(402).send(check);
+      }
+    }
+
     const branding = await prisma.branding.create({
       data: {
         tenantId: req.tenantId,

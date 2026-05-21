@@ -29,6 +29,7 @@ export const de: Dict = {
     tags: "Tags",
     webhooks: "Webhooks",
     audit: "Audit",
+    billing: "Plan & Speicher",
     settings: "Einstellungen",
     logout: "Abmelden",
   },

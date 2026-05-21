@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { api, type GalleryDetail, type GalleryFile } from "@/lib/api";
+import { api, ApiError, type GalleryDetail, type GalleryFile } from "@/lib/api";
 import { uploadFiles, type UploadProgress } from "@/lib/upload";
 import { SharePanel } from "@/components/studio/SharePanel";
 import { GalleryHeaderEditor } from "@/components/studio/GalleryHeaderEditor";
@@ -309,6 +309,14 @@ export default function GalleryDetailPage() {
     };
   }, [gallery, load]);
 
+  // Wenn ein Upload wegen Plan-Limit fehlschlägt (402 vom API), zeigen
+  // wir einen Dialog statt einer stillen Konsolen-Meldung. Andere Fehler
+  // landen normal im Catch und werden später als Toast angezeigt.
+  const [limitDialog, setLimitDialog] = useState<{
+    title: string;
+    message: string;
+  } | null>(null);
+
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
     const arr = Array.from(files);
@@ -317,7 +325,18 @@ export default function GalleryDetailPage() {
         setUploads((prev) => ({ ...prev, [p.fileId]: p }))
       );
     } catch (err) {
-      console.error("upload failed", err);
+      // 402 Payment Required: Plan-Limit erreicht. Wir zeigen einen
+      // Dialog mit der Nachricht aus der API + Link zur Plan-Seite.
+      if (err instanceof ApiError && err.status === 402) {
+        setLimitDialog({
+          title: "Speicher-Limit erreicht",
+          message:
+            err.message ||
+            "Dein Plan erlaubt keinen weiteren Upload. Upgrade auf einen größeren Plan oder kaufe ein Storage-Pack.",
+        });
+      } else {
+        console.error("upload failed", err);
+      }
     }
     void load();
   }
@@ -755,6 +774,45 @@ export default function GalleryDetailPage() {
           <div className="text-ui text-ink-tertiary">{t("studio.noFiles")}</div>
         )}
       </div>
+
+      {/* Plan-Limit-Dialog — wird angezeigt wenn das API bei einem
+          Upload oder einer anderen Aktion 402 zurückgibt. Schließen
+          erlaubt; der eigentliche Upgrade-Flow läuft über die Plan-
+          Seite (heute statisch, in Sprint 2 mit Stripe Checkout). */}
+      {limitDialog && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setLimitDialog(null)}
+        >
+          <div
+            className="bg-surface-base rounded-lg border border-line-subtle shadow-2xl max-w-md w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-medium text-ink-primary">
+              {limitDialog.title}
+            </h2>
+            <p className="text-ui-sm text-ink-secondary mt-2">
+              {limitDialog.message}
+            </p>
+            <div className="flex gap-2 justify-end mt-5">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setLimitDialog(null)}
+              >
+                Schließen
+              </Button>
+              <Link
+                href="/studio/billing"
+                className="inline-flex items-center px-4 h-9 rounded-md bg-accent text-ink-on-accent text-ui-sm font-medium hover:bg-accent-hover transition-colors duration-motion"
+                onClick={() => setLimitDialog(null)}
+              >
+                Plan & Speicher
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -17,12 +17,14 @@ import { z } from "zod";
 import { randomBytes, createHash } from "node:crypto";
 
 import { prisma } from "../db.js";
+import { config } from "../config.js";
 import { generateGallerySlug } from "../services/ids.js";
 import { presignGet, presignPut } from "../services/storage.js";
 import { verifyPassword } from "../services/auth.js";
 import { enqueue, Queues } from "../services/queue.js";
 import { resolveGalleryBranding } from "../services/branding.js";
 import { logEvent } from "../services/audit.js";
+import { checkActiveGalleriesLimit, checkFeatureAvailable } from "../services/usage.js";
 import { publishEvent } from "../services/webhooks.js";
 import {
   createVisitorToken,
@@ -219,6 +221,15 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
   app.post("/galleries", async (req, reply) => {
     const s = req.requireAuth();
     const body = createGallerySchema.parse(req.body);
+
+    // Plan-Limit-Check: aktive Galerien-Limit noch nicht erreicht?
+    // Nur wenn Billing-Mode aktiv ist (sonst selbst-gehostet, keine Limits).
+    if (config.BILLING_ENABLED && req.tenantId) {
+      const check = await checkActiveGalleriesLimit(req.tenantId);
+      if (!check.ok) {
+        return reply.status(402).send(check);
+      }
+    }
 
     // Template laden, falls angegeben — und prüfen dass es dem Tenant gehört.
     let template: Awaited<ReturnType<typeof prisma.galleryTemplate.findFirst>> =

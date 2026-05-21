@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { api, type BrandingDetail } from "@/lib/api";
+import { api, type BrandingDetail, type BillingUsage } from "@/lib/api";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { Button } from "@/components/ui";
 
@@ -11,6 +11,7 @@ export default function BrandingsPage() {
   const router = useRouter();
   const [brandings, setBrandings] = useState<BrandingDetail[]>([]);
   const [defaultId, setDefaultId] = useState<string | null>(null);
+  const [usage, setUsage] = useState<BillingUsage | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
 
@@ -19,6 +20,13 @@ export default function BrandingsPage() {
       const res = await api.listBrandings();
       setBrandings(res.brandings);
       setDefaultId(res.defaultBrandingId);
+      // Billing-Usage parallel — wenn nicht aktiv (Self-Hosted), null
+      try {
+        const u = await api.getBillingUsage();
+        setUsage(u);
+      } catch {
+        setUsage(null);
+      }
     } catch (err) {
       if (err instanceof Error && err.message.includes("401")) {
         router.replace("/login");
@@ -32,6 +40,18 @@ export default function BrandingsPage() {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Plan-Limit-Check für "Neues Branding erstellen". usage===null bei
+  // Self-Hosted ohne Billing → immer erlaubt. Sonst: maximal so viele
+  // Brandings wie der Plan erlaubt (Solo=0, Studio=1, Pro=5).
+  const brandingsAllowed =
+    usage === null || brandings.length < usage.plan.brandings;
+  const brandingsMin =
+    usage === null
+      ? "studio"
+      : usage.plan.brandings === 0
+      ? "studio"
+      : "pro";
 
   if (loading) {
     return (
@@ -51,15 +71,27 @@ export default function BrandingsPage() {
         title="Branding"
         description="Logo, Farben und Schrift für deine Kunden-Galerien."
         actions={
-          <Button variant="primary" onClick={() => setShowCreate(true)}>
-            Neues Profil
-          </Button>
+          brandingsAllowed ? (
+            <Button variant="primary" onClick={() => setShowCreate(true)}>
+              Neues Profil
+            </Button>
+          ) : (
+            <Link
+              href="/studio/billing"
+              className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-accent/15 text-accent hover:bg-accent/25 text-ui-sm font-medium transition-colors duration-motion"
+              title={`Ab ${brandingsMin === "studio" ? "Studio" : "Pro"}-Plan verfügbar`}
+            >
+              <span>Ab {brandingsMin === "studio" ? "Studio" : "Pro"}-Plan</span>
+            </Link>
+          )
         }
       />
 
       <div className="px-6 sm:px-8 py-6 space-y-6 max-w-6xl">
 
-        {brandings.length === 0 ? (
+        {/* Empty-State Variante anpassen: wenn der Plan kein Branding
+            erlaubt, ist die "noch keine erstellt"-Hint irreführend. */}
+        {brandings.length === 0 && brandingsAllowed ? (
           <div className="rounded-md border border-dashed border-line-subtle bg-surface-sunken p-12 text-center">
             <div className="text-ink-tertiary text-ui">
               Noch keine Branding-Profile angelegt.
@@ -70,6 +102,19 @@ export default function BrandingsPage() {
             >
               Erstes Profil erstellen →
             </button>
+          </div>
+        ) : brandings.length === 0 && !brandingsAllowed ? (
+          <div className="rounded-md border border-dashed border-line-subtle bg-surface-sunken p-12 text-center">
+            <div className="text-ink-secondary text-ui">
+              Eigenes Branding ist ab{" "}
+              {brandingsMin === "studio" ? "Studio" : "Pro"}-Plan verfügbar.
+            </div>
+            <Link
+              href="/studio/billing"
+              className="mt-3 inline-block text-ui-sm font-medium text-accent hover:text-accent-hover transition-colors duration-motion"
+            >
+              Plan ansehen →
+            </Link>
           </div>
         ) : (
           <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">

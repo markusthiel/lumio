@@ -37,6 +37,7 @@ import {
 import { enqueue, Queues } from "../services/queue.js";
 import { publish } from "../services/events.js";
 import { logEvent } from "../services/audit.js";
+import { checkStorageLimit } from "../services/usage.js";
 
 const MAX_FILES_PER_INIT = 1000;
 
@@ -101,8 +102,20 @@ export async function registerFileRoutes(app: FastifyInstance) {
       }
     }
 
-    // TODO (Phase 2): wenn BILLING_ENABLED, hier Plan-Limits prüfen
-    //   (storage_bytes_used + sum(sizeBytes) <= plan.storage_gib * 1024^3)
+    // Plan-Limit-Check: Speicher reicht aus? Nur wenn Billing aktiv
+    // ist (sonst — z.B. selbst-gehostete Instanz — gibt's keine Limits).
+    // additionalBytes summiert ALLE Files dieses Init-Calls, weil das
+    // Frontend potenziell mehrere Files in einem Batch hochlädt.
+    if (config.BILLING_ENABLED && req.tenantId) {
+      const additionalBytes = body.files.reduce(
+        (sum, f) => sum + BigInt(f.sizeBytes),
+        0n
+      );
+      const check = await checkStorageLimit(req.tenantId, additionalBytes);
+      if (!check.ok) {
+        return reply.status(402).send(check);
+      }
+    }
 
     // Per File: Record anlegen + Presigned URL(s) erzeugen
     const uploads = [];

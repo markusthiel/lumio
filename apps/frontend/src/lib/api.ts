@@ -555,6 +555,14 @@ export const api = {
   getGalleryStats: (id: string) =>
     request<GalleryStats>(`/galleries/${id}/stats`),
 
+  // Billing — Sprint 1 (read-only Endpoints, Stripe-Aktionen kommen
+  // in Sprint 2). usage liefert den vollständigen Plan-Status für die
+  // "Plan & Speicher"-Seite und Banner.
+  getBillingPlans: () => request<BillingPlansResponse>(`/billing/plans`),
+  getBillingUsage: () => request<BillingUsage>(`/billing/usage`),
+  getBillingSubscription: () =>
+    request<BillingSubscriptionInfo>(`/billing/subscription`),
+
   searchGlobal: (q: string, limit = 5) =>
     request<SearchResults>(
       `/search?q=${encodeURIComponent(q)}&limit=${limit}`
@@ -1382,6 +1390,54 @@ export interface SearchResults {
   brandings: Array<{ id: string; name: string }>;
   templates: Array<{ id: string; name: string }>;
   truncated: boolean;
+}
+
+export interface BillingPlan {
+  slug: string;
+  name: string;
+  description: string;
+  storageGib: number;
+  // null = unbegrenzt
+  activeGalleries: number | null;
+  brandings: number;
+  customDomains: number | null;
+  teamMembers: number;
+  watermarkAllowed: boolean;
+  priceMonthlyCents: number;
+}
+
+export interface BillingPlansResponse {
+  plans: BillingPlan[];
+  storageAddon: { gibPerUnit: number; priceMonthlyCents: number };
+}
+
+export interface BillingUsage {
+  plan: BillingPlan;
+  subscriptionStatus: string;
+  storageAddonGib: number;
+  storage: {
+    usedBytes: string;
+    limitBytes: string;
+    breakdown: { originalsBytes: string; renditionsBytes: string };
+  };
+  galleries: { active: number; total: number };
+  customDomains: number;
+  brandings: number;
+  teamMembers: number;
+  trialEndsAt: string | null;
+  readOnlySince: string | null;
+}
+
+export interface BillingSubscriptionInfo {
+  planSlug: string;
+  status: string;
+  billingInterval: string;
+  currentPeriodStart: string | null;
+  currentPeriodEnd: string | null;
+  cancelAtPeriodEnd: boolean;
+  trialEndsAt: string | null;
+  storageAddonGib: number;
+  hasStripeId: boolean;
 }
 
 export { API_URL, ApiError };

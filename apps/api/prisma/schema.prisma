@@ -745,6 +745,16 @@ model BillingSubscription {
   storageBytesUsed   BigInt   @default(0)
   bandwidthBytesUsed BigInt   @default(0)  // monatlich, wird zurückgesetzt
   galleriesCount     Int      @default(0)
+
+  // Zusätzlich zum Plan-Speicher gekaufte 50-GiB-Packs. Wird in
+  // Sprint 2 vom Stripe-Webhook gepflegt (eines pro gekauftem
+  // Storage-Pack-Subscription-Item).
+  storageAddonGib    Int      @default(0)
+
+  // Karenz-Tracking: gesetzt wenn die Subscription past_due geblieben
+  // ist und der Tenant auf read-only-Modus eskaliert wurde. Wird beim
+  // erfolgreichen Payment wieder auf null gesetzt.
+  readOnlySince      DateTime?
   
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
