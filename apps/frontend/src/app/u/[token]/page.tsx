@@ -24,6 +24,10 @@ interface Meta {
   limits: {
     maxFiles: number | null;
     maxBytesTotal: string | null;
+    maxFileBytes: string | null;
+    /** Effektives Pro-File-Limit aus Tenant + Link + Hard-Cap, als
+     * Bytes-String (kommt vom Backend, BigInt-serialisiert). */
+    effectivePerFileBytes: string;
     usedFiles: number;
     usedBytes: string;
   };
@@ -309,6 +313,17 @@ export default function UploadPage() {
             <div className="text-ui-sm text-ink-tertiary">
               {t("upload.dropOrClick")}
             </div>
+            {/* Per-File-Limit-Hinweis: zeigt dem Uploader BEVOR er
+                upload-Versuche macht was möglich ist. Spart Frust
+                bei großen Video-Files die der Server eh ablehnen
+                würde. */}
+            <div className="text-ui-xs text-ink-tertiary mt-2">
+              {t("upload.maxPerFile", {
+                size: formatBytes(
+                  Number(meta.limits.effectivePerFileBytes)
+                ),
+              })}
+            </div>
             <input
               ref={inputRef}
               type="file"
@@ -477,4 +492,15 @@ async function putBlob(url: string, blob: Blob): Promise<string> {
   const etag = res.headers.get("ETag") ?? res.headers.get("etag");
   if (!etag) throw new Error("missing ETag");
   return etag.replace(/"/g, "");
+}
+
+// Bytes → "X GB" / "Y MB" für User-facing Display in der Drop-Zone.
+// Mirror zum formatLimit-Helper im Backend (services/upload-limit.ts).
+function formatBytes(bytes: number): string {
+  const mb = bytes / 1024 / 1024;
+  if (mb >= 1024) {
+    const gb = mb / 1024;
+    return `${gb.toFixed(gb >= 10 ? 0 : 1)} GB`;
+  }
+  return `${Math.round(mb)} MB`;
 }

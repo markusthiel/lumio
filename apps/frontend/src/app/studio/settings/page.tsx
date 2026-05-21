@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { api, type TenantSettings, type BillingUsage } from "@/lib/api";
+import { api, type TenantSettings, type BillingUsage, type UploadLimits } from "@/lib/api";
 import { TwoFactorSection } from "@/components/studio/TwoFactorSection";
 import { PasskeysSection } from "@/components/studio/PasskeysSection";
 import { ApiTokensSection } from "@/components/studio/ApiTokensSection";
@@ -16,13 +16,17 @@ export default function StudioSettingsPage() {
   const t = useT();
   const { locale, setLocale } = useLocale();
   const [settings, setSettings] = useState<TenantSettings | null>(null);
+  const [uploadLimits, setUploadLimits] = useState<UploadLimits | null>(null);
   const [usage, setUsage] = useState<BillingUsage | null>(null);
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState("");
   const [domain, setDomain] = useState("");
+  // Per-File Upload-Limit in MiB. Leer = ENV-Default verwenden.
+  const [maxUpload, setMaxUpload] = useState("");
   const [textSaving, setTextSaving] = useState(false);
   const [domainSaving, setDomainSaving] = useState(false);
   const [imageSaving, setImageSaving] = useState(false);
+  const [maxUploadSaving, setMaxUploadSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement | null>(null);
 
@@ -30,8 +34,14 @@ export default function StudioSettingsPage() {
     try {
       const res = await api.getTenantSettings();
       setSettings(res.tenant);
+      setUploadLimits(res.uploadLimits);
       setText(res.tenant.watermarkText ?? "");
       setDomain(res.tenant.customDomain ?? "");
+      setMaxUpload(
+        res.tenant.maxUploadMib !== null
+          ? String(res.tenant.maxUploadMib)
+          : ""
+      );
       // Billing-Usage parallel — wenn Billing nicht aktiv ist
       // (Self-Hosted ohne BILLING_ENABLED) liefert das einen 404.
       // Wir setzen usage dann auf null und der Feature-Gate-Code
@@ -90,6 +100,38 @@ export default function StudioSettingsPage() {
       );
     } finally {
       setDomainSaving(false);
+    }
+  }
+
+  async function saveMaxUpload() {
+    setMaxUploadSaving(true);
+    setError(null);
+    try {
+      // Leer = null (zurück auf ENV-Default)
+      const value =
+        maxUpload.trim() === "" || isNaN(Number(maxUpload))
+          ? null
+          : Math.floor(Number(maxUpload));
+      const res = await api.updateTenantSettings({ maxUploadMib: value });
+      setSettings(res.tenant);
+      // Input-Wert nach erfolgreichem Save aus der Server-Antwort
+      // zurücksetzen (falls null-zurückgekommen)
+      setMaxUpload(
+        res.tenant.maxUploadMib !== null
+          ? String(res.tenant.maxUploadMib)
+          : ""
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Fehler";
+      setError(
+        msg.includes("exceeds_hard_cap")
+          ? t("studio.uploadLimit.errorHardCap", {
+              cap: uploadLimits?.hardCapMib ?? "?",
+            })
+          : msg
+      );
+    } finally {
+      setMaxUploadSaving(false);
     }
   }
 
@@ -293,6 +335,58 @@ export default function StudioSettingsPage() {
             </section>
           );
         })()}
+
+        {/* Upload-Limit pro File */}
+        <section className="rounded-lg border border-line-subtle bg-surface-raised p-5 space-y-3">
+          <h2 className="text-sm font-medium">
+            {t("studio.uploadLimit.heading")}
+          </h2>
+          <p className="text-xs text-ink-tertiary">
+            {t("studio.uploadLimit.description", {
+              default: uploadLimits?.defaultMib ?? "?",
+              cap: uploadLimits?.hardCapMib ?? "?",
+            })}
+          </p>
+          <div className="flex items-end gap-2">
+            <label className="flex-1">
+              <span className="text-xs text-ink-secondary">
+                {t("studio.uploadLimit.field")}
+              </span>
+              <input
+                type="number"
+                min="1"
+                max={uploadLimits?.hardCapMib ?? undefined}
+                value={maxUpload}
+                onChange={(e) => setMaxUpload(e.target.value)}
+                placeholder={
+                  uploadLimits
+                    ? `${t("studio.uploadLimit.defaultPlaceholder", { default: uploadLimits.defaultMib })}`
+                    : ""
+                }
+                className="w-full mt-1 bg-surface-canvas border border-line-subtle rounded px-3 py-2 text-ink-primary focus:outline-none focus:border-accent transition-colors duration-motion"
+              />
+            </label>
+            <button
+              onClick={saveMaxUpload}
+              disabled={maxUploadSaving}
+              className="h-10 px-4 rounded bg-accent text-accent-contrast text-ui-sm font-medium disabled:opacity-50 hover:bg-accent-hover transition-colors duration-motion"
+            >
+              {maxUploadSaving ? t("common.saving") : t("common.save")}
+            </button>
+          </div>
+          {settings && uploadLimits && (
+            <div className="text-xs text-ink-tertiary">
+              {t("studio.uploadLimit.effective", {
+                value: settings.maxUploadMib ?? uploadLimits.defaultMib,
+              })}
+              {settings.maxUploadMib === null && (
+                <span className="ml-1 italic">
+                  ({t("studio.uploadLimit.usingDefault")})
+                </span>
+              )}
+            </div>
+          )}
+        </section>
 
         {/* Watermark-Text */}
         <section className="rounded-lg border border-line-subtle bg-surface-raised p-5 space-y-3">

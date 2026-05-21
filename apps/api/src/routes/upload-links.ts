@@ -26,6 +26,10 @@ import { config } from "../config.js";
 import { hashPassword, verifyPassword } from "../services/auth.js";
 import { detectFileKind } from "../services/filekind.js";
 import {
+  effectiveUploadLimitBytes,
+  formatLimit,
+} from "../services/upload-limit.js";
+import {
   originalKey,
   presignPut,
   createMultipartUpload,
@@ -57,6 +61,17 @@ const createSchema = z.object({
     .max(100 * 1024 * 1024 * 1024) // 100 GB Cap pro Link
     .nullable()
     .optional(),
+  // Per-File-Limit für DIESEN Link in Bytes. Null/undefined = Tenant-
+  // Limit erben. Wenn gesetzt: wird in der Route gegen Tenant-Limit
+  // gegengeprüft (Link darf nicht über Tenant), nicht hier im Schema —
+  // Schema kennt den Tenant nicht.
+  maxFileBytes: z
+    .number()
+    .int()
+    .positive()
+    .max(100 * 1024 * 1024 * 1024)
+    .nullable()
+    .optional(),
   expiresAt: z.string().datetime().nullable().optional(),
 });
 
@@ -67,6 +82,13 @@ const patchSchema = z.object({
   // null = Limit entfernen, undefined = nicht ändern
   maxFiles: z.number().int().positive().max(10000).nullable().optional(),
   maxBytesTotal: z
+    .number()
+    .int()
+    .positive()
+    .max(100 * 1024 * 1024 * 1024)
+    .nullable()
+    .optional(),
+  maxFileBytes: z
     .number()
     .int()
     .positive()
@@ -126,7 +148,14 @@ async function loadLink(token: string) {
     where: { token },
     include: {
       gallery: {
-        select: { id: true, tenantId: true, status: true },
+        select: {
+          id: true,
+          tenantId: true,
+          status: true,
+          // tenant.maxUploadMib brauchen wir im Init-Endpoint zur
+          // effektiven Limit-Berechnung
+          tenant: { select: { maxUploadMib: true } },
+        },
       },
     },
   });
@@ -182,6 +211,7 @@ export async function registerUploadLinkRoutes(app: FastifyInstance) {
           active: true,
           maxFiles: true,
           maxBytesTotal: true,
+          maxFileBytes: true,
           expiresAt: true,
           uploadCount: true,
           bytesUploaded: true,
@@ -198,6 +228,7 @@ export async function registerUploadLinkRoutes(app: FastifyInstance) {
         passwordHash: undefined,
         hasPassword: l.passwordHash !== null,
         maxBytesTotal: l.maxBytesTotal?.toString() ?? null,
+        maxFileBytes: l.maxFileBytes?.toString() ?? null,
         bytesUploaded: l.bytesUploaded.toString(),
       }));
     }
@@ -218,6 +249,7 @@ export async function registerUploadLinkRoutes(app: FastifyInstance) {
           active: true,
           maxFiles: true,
           maxBytesTotal: true,
+          maxFileBytes: true,
           expiresAt: true,
           uploadCount: true,
           bytesUploaded: true,
@@ -233,6 +265,7 @@ export async function registerUploadLinkRoutes(app: FastifyInstance) {
         passwordHash: undefined,
         hasPassword: link.passwordHash !== null,
         maxBytesTotal: link.maxBytesTotal?.toString() ?? null,
+        maxFileBytes: link.maxFileBytes?.toString() ?? null,
         bytesUploaded: link.bytesUploaded.toString(),
       };
     }
@@ -249,6 +282,26 @@ export async function registerUploadLinkRoutes(app: FastifyInstance) {
 
       const body = createSchema.parse(req.body);
 
+      // Link-Per-File-Limit darf nicht über Tenant-Limit. Wir holen
+      // das Tenant-Limit und werten effektiv aus — Link soll runter
+      // dürfen, nie rauf.
+      if (body.maxFileBytes !== undefined && body.maxFileBytes !== null) {
+        const tenant = await prisma.tenant.findUnique({
+          where: { id: req.tenantId },
+          select: { maxUploadMib: true },
+        });
+        const tenantLimit = effectiveUploadLimitBytes({
+          tenantMaxUploadMib: tenant?.maxUploadMib ?? null,
+        });
+        if (BigInt(body.maxFileBytes) > tenantLimit) {
+          return reply.status(400).send({
+            error: "link_limit_exceeds_tenant",
+            message: `Link limit ${formatLimit(BigInt(body.maxFileBytes))} exceeds tenant limit ${formatLimit(tenantLimit)}`,
+            tenantLimitBytes: tenantLimit.toString(),
+          });
+        }
+      }
+
       const passwordHash = body.password
         ? await hashPassword(body.password)
         : null;
@@ -263,6 +316,10 @@ export async function registerUploadLinkRoutes(app: FastifyInstance) {
           maxBytesTotal:
             body.maxBytesTotal !== undefined && body.maxBytesTotal !== null
               ? BigInt(body.maxBytesTotal)
+              : null,
+          maxFileBytes:
+            body.maxFileBytes !== undefined && body.maxFileBytes !== null
+              ? BigInt(body.maxFileBytes)
               : null,
           expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
         },
@@ -286,6 +343,7 @@ export async function registerUploadLinkRoutes(app: FastifyInstance) {
         hasPassword: link.passwordHash !== null,
         maxFiles: link.maxFiles,
         maxBytesTotal: link.maxBytesTotal?.toString() ?? null,
+        maxFileBytes: link.maxFileBytes?.toString() ?? null,
         expiresAt: link.expiresAt,
         uploadCount: link.uploadCount,
         bytesUploaded: link.bytesUploaded.toString(),
@@ -328,6 +386,28 @@ export async function registerUploadLinkRoutes(app: FastifyInstance) {
         data.maxBytesTotal =
           body.maxBytesTotal !== null ? BigInt(body.maxBytesTotal) : null;
       }
+      if (body.maxFileBytes !== undefined) {
+        if (body.maxFileBytes !== null) {
+          // Gegen Tenant-Limit prüfen — Link darf nur runter
+          const tenant = await prisma.tenant.findUnique({
+            where: { id: req.tenantId },
+            select: { maxUploadMib: true },
+          });
+          const tenantLimit = effectiveUploadLimitBytes({
+            tenantMaxUploadMib: tenant?.maxUploadMib ?? null,
+          });
+          if (BigInt(body.maxFileBytes) > tenantLimit) {
+            return reply.status(400).send({
+              error: "link_limit_exceeds_tenant",
+              message: `Link limit ${formatLimit(BigInt(body.maxFileBytes))} exceeds tenant limit ${formatLimit(tenantLimit)}`,
+              tenantLimitBytes: tenantLimit.toString(),
+            });
+          }
+          data.maxFileBytes = BigInt(body.maxFileBytes);
+        } else {
+          data.maxFileBytes = null;
+        }
+      }
       if (body.expiresAt !== undefined) {
         data.expiresAt = body.expiresAt ? new Date(body.expiresAt) : null;
       }
@@ -357,6 +437,7 @@ export async function registerUploadLinkRoutes(app: FastifyInstance) {
         hasPassword: updated.passwordHash !== null,
         maxFiles: updated.maxFiles,
         maxBytesTotal: updated.maxBytesTotal?.toString() ?? null,
+        maxFileBytes: updated.maxFileBytes?.toString() ?? null,
         expiresAt: updated.expiresAt,
       };
     }
@@ -651,6 +732,13 @@ export async function registerUploadLinkRoutes(app: FastifyInstance) {
         select: { title: true, slug: true },
       });
 
+      // Effektives Pro-File-Limit damit Drop-Zone schon vor dem
+      // Upload zeigen kann was geht.
+      const effectivePerFile = effectiveUploadLimitBytes({
+        tenantMaxUploadMib: link.gallery.tenant.maxUploadMib,
+        linkMaxFileBytes: link.maxFileBytes,
+      });
+
       return {
         label: link.label,
         galleryTitle: gallery?.title ?? "",
@@ -661,6 +749,11 @@ export async function registerUploadLinkRoutes(app: FastifyInstance) {
         limits: {
           maxFiles: link.maxFiles,
           maxBytesTotal: link.maxBytesTotal?.toString() ?? null,
+          maxFileBytes: link.maxFileBytes?.toString() ?? null,
+          /** Effektives Pro-File-Limit (Tenant-Setting + Link-Override
+           *  + Hard-Cap zusammen aufgelöst). Frontend nutzt das für
+           *  den "max X GB pro Datei"-Hinweis in der Drop-Zone. */
+          effectivePerFileBytes: effectivePerFile.toString(),
           usedFiles: link.uploadCount,
           usedBytes: link.bytesUploaded.toString(),
         },
@@ -722,13 +815,19 @@ export async function registerUploadLinkRoutes(app: FastifyInstance) {
 
       const body = uploadInitSchema.parse(req.body);
 
-      // File-size Hard-Limit (gilt für alle Uploads, auch UploadLink)
-      const maxBytes = config.MAX_FILE_SIZE_MIB * 1024 * 1024;
+      // Pro-File Limit: effektiv aus Tenant-Setting + Link-Override.
+      // Link kann nur runter gehen, nie über Tenant (Validierung beim
+      // Create/Patch). Hard-Cap greift OBEN als letzte Schutzlinie.
+      const maxBytes = effectiveUploadLimitBytes({
+        tenantMaxUploadMib: link.gallery.tenant.maxUploadMib,
+        linkMaxFileBytes: link.maxFileBytes,
+      });
       for (const f of body.files) {
-        if (f.sizeBytes > maxBytes) {
+        if (BigInt(f.sizeBytes) > maxBytes) {
           return reply.status(413).send({
             error: "file_too_large",
-            message: `${f.filename}: max ${config.MAX_FILE_SIZE_MIB} MiB`,
+            message: `${f.filename}: max ${formatLimit(maxBytes)}`,
+            limitBytes: maxBytes.toString(),
           });
         }
       }

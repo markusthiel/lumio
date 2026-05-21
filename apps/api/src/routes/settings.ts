@@ -27,6 +27,10 @@ const updateSettingsSchema = z.object({
     .regex(/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/i)
     .nullable()
     .optional(),
+  /** Pro-File Upload-Limit in MiB. Null = ENV-Default verwenden.
+   * API-Validation greift nicht hier (Schema kennt kein Hard-Cap),
+   * sondern in der PATCH-Route. */
+  maxUploadMib: z.number().int().positive().nullable().optional(),
 });
 
 const initWatermarkUploadSchema = z.object({
@@ -52,10 +56,19 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
         watermarkText: true,
         watermarkImageKey: true,
         customDomain: true,
+        maxUploadMib: true,
       },
     });
     if (!tenant) return reply.status(404).send({ error: "not_found" });
-    return { tenant };
+    return {
+      tenant,
+      // Hilfsinformationen damit das Frontend Default + Cap kennt,
+      // ohne dass es die ENV-Variablen lesen muss.
+      uploadLimits: {
+        defaultMib: config.MAX_FILE_SIZE_MIB,
+        hardCapMib: config.MAX_UPLOAD_HARD_CAP_MIB,
+      },
+    };
   });
 
   // -------------------------------------------------------------------------
@@ -102,6 +115,19 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
       }
     }
 
+    // maxUploadMib gegen Hard-Cap prüfen. null = zurück auf ENV-Default.
+    if (
+      body.maxUploadMib !== undefined &&
+      body.maxUploadMib !== null &&
+      body.maxUploadMib > config.MAX_UPLOAD_HARD_CAP_MIB
+    ) {
+      return reply.status(400).send({
+        error: "exceeds_hard_cap",
+        message: `Max upload size cannot exceed ${config.MAX_UPLOAD_HARD_CAP_MIB} MiB (hard cap).`,
+        hardCapMib: config.MAX_UPLOAD_HARD_CAP_MIB,
+      });
+    }
+
     const tenant = await prisma.tenant.update({
       where: { id: req.tenantId },
       data: {
@@ -111,6 +137,9 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
         ...(body.customDomain !== undefined
           ? { customDomain: body.customDomain }
           : {}),
+        ...(body.maxUploadMib !== undefined
+          ? { maxUploadMib: body.maxUploadMib }
+          : {}),
       },
       select: {
         id: true,
@@ -119,6 +148,7 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
         watermarkText: true,
         watermarkImageKey: true,
         customDomain: true,
+        maxUploadMib: true,
       },
     });
     return { tenant };

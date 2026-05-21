@@ -22,6 +22,10 @@ import { prisma } from "../db.js";
 import { config } from "../config.js";
 import { detectFileKind } from "../services/filekind.js";
 import {
+  effectiveUploadLimitBytes,
+  formatLimit,
+} from "../services/upload-limit.js";
+import {
   originalKey,
   presignPut,
   presignGet,
@@ -76,14 +80,18 @@ export async function registerFileRoutes(app: FastifyInstance) {
     const s = req.requireAuth();
     const body = uploadInitSchema.parse(req.body);
 
-    // Gallery-Ownership prüfen
+    // Gallery-Ownership + Tenant-Settings in einem Query — wir brauchen
+    // maxUploadMib für die Limit-Berechnung.
     const gallery = await prisma.gallery.findFirst({
       where: {
         id: body.galleryId,
         tenantId: req.tenantId,
         ownerId: s.user.id,
       },
-      select: { id: true },
+      select: {
+        id: true,
+        tenant: { select: { maxUploadMib: true } },
+      },
     });
     if (!gallery) {
       return reply
@@ -91,13 +99,18 @@ export async function registerFileRoutes(app: FastifyInstance) {
         .send({ error: "gallery_not_found", message: "Gallery not found" });
     }
 
-    // Globales Größenlimit pro File
-    const maxBytes = config.MAX_FILE_SIZE_MIB * 1024 * 1024;
+    // Effektives Pro-File-Limit aus Tenant-Settings + ENV-Default +
+    // Hard-Cap. Studio-Uploads kennen keinen Upload-Link, daher kein
+    // linkMaxFileBytes.
+    const maxBytes = effectiveUploadLimitBytes({
+      tenantMaxUploadMib: gallery.tenant.maxUploadMib,
+    });
     for (const f of body.files) {
-      if (f.sizeBytes > maxBytes) {
+      if (BigInt(f.sizeBytes) > maxBytes) {
         return reply.status(413).send({
           error: "file_too_large",
-          message: `File ${f.filename} exceeds limit of ${config.MAX_FILE_SIZE_MIB} MiB`,
+          message: `File ${f.filename} exceeds limit of ${formatLimit(maxBytes)}`,
+          limitBytes: maxBytes.toString(),
         });
       }
     }

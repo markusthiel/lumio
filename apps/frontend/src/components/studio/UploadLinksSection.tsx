@@ -213,6 +213,8 @@ function CreateLinkDialog({
   const [password, setPassword] = useState("");
   const [maxFiles, setMaxFiles] = useState("");
   const [maxGB, setMaxGB] = useState("");
+  // Per-File-Limit in MB für DIESEN Link. Leer = Tenant-Limit erben.
+  const [maxPerFileMB, setMaxPerFileMB] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -227,10 +229,14 @@ function CreateLinkDialog({
     try {
       const maxBytes =
         maxGB.trim() && !isNaN(Number(maxGB))
-          ? BigInt(Math.floor(Number(maxGB) * 1024 * 1024 * 1024)).toString()
+          ? Math.floor(Number(maxGB) * 1024 * 1024 * 1024)
           : null;
       const maxFilesNum =
         maxFiles.trim() && !isNaN(Number(maxFiles)) ? Number(maxFiles) : null;
+      const maxPerFile =
+        maxPerFileMB.trim() && !isNaN(Number(maxPerFileMB))
+          ? Math.floor(Number(maxPerFileMB) * 1024 * 1024)
+          : null;
       const expiresIso = expiresAt
         ? new Date(expiresAt).toISOString()
         : null;
@@ -239,6 +245,7 @@ function CreateLinkDialog({
         password: password.trim() || undefined,
         maxFiles: maxFilesNum,
         maxBytesTotal: maxBytes,
+        maxFileBytes: maxPerFile,
         expiresAt: expiresIso,
       });
       onCreated();
@@ -313,6 +320,25 @@ function CreateLinkDialog({
             />
           </label>
         </div>
+
+        {/* Per-File-Limit für DIESEN Link (in MB). Leer = Tenant-Wert.
+            Wenn gesetzt: Backend prüft dass es ≤ Tenant-Limit ist
+            (link_limit_exceeds_tenant Error). Sinnvoll z.B. wenn man
+            den Junggesellenabend-Trauzeugen auf 500 MB pro File
+            limitieren will, weil deren Smartphones eh nicht mehr
+            schaffen, aber der Tenant-Default 10 GB ist. */}
+        <label className="block">
+          <span className="text-ui-sm text-ink-secondary">
+            {t("studio.uploadLinks.maxPerFileField")}
+          </span>
+          <Input
+            type="number"
+            min="1"
+            value={maxPerFileMB}
+            onChange={(e) => setMaxPerFileMB(e.target.value)}
+            placeholder={t("studio.uploadLinks.maxPerFilePlaceholder")}
+          />
+        </label>
 
         <label className="block">
           <span className="text-ui-sm text-ink-secondary">

@@ -318,6 +318,8 @@ export const en: Dict = {
       passwordPlaceholder: "empty = no password",
       maxFilesField: "Max number of files (optional)",
       maxGBField: "Max GB total (optional)",
+      maxPerFileField: "Max MB per file (optional)",
+      maxPerFilePlaceholder: "empty = tenant default",
       expiresField: "Expiry date (optional)",
       create: "Create link",
       creating: "Creating…",
@@ -354,6 +356,18 @@ export const en: Dict = {
       rejectConfirmSingle: "Reject",
       rejectConfirmBulk: "Reject {count}",
       rejectedToast: "{count} rejected",
+    },
+
+    uploadLimit: {
+      heading: "Max file size per upload",
+      description:
+        "Applies to all uploads (studio + upload-links). Default: {default} MiB. Instance hard-cap: {cap} MiB.",
+      field: "Limit in MiB (empty = use default)",
+      defaultPlaceholder: "Default: {default}",
+      effective: "Currently active: {value} MiB",
+      usingDefault: "Using default",
+      errorHardCap:
+        "Value exceeds the instance hard-cap ({cap} MiB).",
     },
   },
 
@@ -556,5 +570,6 @@ export const en: Dict = {
     limitRemainingFiles: "{count} files remaining.",
     limitReachedBytes: "Storage limit reached for this link.",
     limitRemainingBytes: "~{mb} MB remaining.",
+    maxPerFile: "Max {size} per file",
   },
 };

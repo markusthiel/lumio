@@ -40,6 +40,14 @@ model Tenant {
   // Sonst: watermarkText als wiederholtes Text-Pattern (Default: tenant.name).
   watermarkImageKey String?
   watermarkText     String?
+
+  // Pro-File Upload-Limit in MiB. Null = ENV-Default (MAX_FILE_SIZE_MIB)
+  // wird benutzt. Wenn gesetzt, wird beim Upload-Init gegen diesen Wert
+  // validiert; aber NIE höher als MAX_UPLOAD_HARD_CAP_MIB (ENV-Schutz
+  // gegen Misskonfiguration und SaaS-Missbrauch). Der Wert greift
+  // sowohl für Studio-Uploads als auch für Uploads via UploadLink
+  // (Upload-Link kann nur darunter sein, nie darüber).
+  maxUploadMib Int?
   
   // Billing (siehe BillingSubscription)
   subscription BillingSubscription?
@@ -541,6 +549,12 @@ model UploadLink {
   // diese Limits sind zusätzlich pro Link.
   maxFiles        Int?     // max Anzahl Files über DIESEN Link in Summe
   maxBytesTotal   BigInt?  // max Gesamt-Größe über DIESEN Link
+  // Per-File-Limit für DIESEN Link in Bytes. Null = Tenant-Wert
+  // erbt sich durch (tenant.maxUploadMib oder ENV-Default). Wenn
+  // gesetzt: MUSS ≤ Tenant-Limit sein (Validierung im API). So
+  // kann der Studio-User einen Link explizit auf "max 50 MB pro
+  // File" setzen, z.B. für Smartphone-Schnappschüsse vom Gast.
+  maxFileBytes    BigInt?
 
   // Ablauf-Datum — nach diesem Zeitpunkt 403. Null = kein Ablauf.
   expiresAt       DateTime?

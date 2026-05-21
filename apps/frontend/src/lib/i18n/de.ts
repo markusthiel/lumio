@@ -318,6 +318,8 @@ export const de: Dict = {
       passwordPlaceholder: "leer = ohne Passwort",
       maxFilesField: "Max. Anzahl Files (optional)",
       maxGBField: "Max. GB total (optional)",
+      maxPerFileField: "Max. MB pro Datei (optional)",
+      maxPerFilePlaceholder: "leer = Tenant-Default",
       expiresField: "Ablauf-Datum (optional)",
       create: "Link erstellen",
       creating: "Erstellt…",
@@ -354,6 +356,18 @@ export const de: Dict = {
       rejectConfirmSingle: "Ablehnen",
       rejectConfirmBulk: "{count} ablehnen",
       rejectedToast: "{count} abgelehnt",
+    },
+
+    uploadLimit: {
+      heading: "Maximale Dateigröße pro Upload",
+      description:
+        "Gilt für alle Uploads (Studio + Upload-Links). Default: {default} MiB. Hard-Cap dieser Instanz: {cap} MiB.",
+      field: "Limit in MiB (leer = Default verwenden)",
+      defaultPlaceholder: "Default: {default}",
+      effective: "Aktuell aktiv: {value} MiB",
+      usingDefault: "Default verwendet",
+      errorHardCap:
+        "Wert überschreitet das Hard-Cap dieser Instanz ({cap} MiB).",
     },
   },
 
@@ -559,5 +573,6 @@ export const de: Dict = {
     limitRemainingFiles: "Noch {count} Dateien möglich.",
     limitReachedBytes: "Speicher-Limit dieses Links ist erreicht.",
     limitRemainingBytes: "Noch ~{mb} MB möglich.",
+    maxPerFile: "Max. {size} pro Datei",
   },
 };

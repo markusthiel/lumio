@@ -44,7 +44,15 @@ const envSchema = z.object({
     .default("false")
     .transform((v) => v === "true"),
 
-  MAX_FILE_SIZE_MIB: z.coerce.number().int().default(2048),
+  /** Default Pro-File-Upload-Limit in MiB. Tenants können das in
+   * ihren Settings überschreiben (tenants.maxUploadMib), aber NIE
+   * über MAX_UPLOAD_HARD_CAP_MIB. Self-Hoster setzen das auf was
+   * sie eben für ihren Storage praktisch finden. */
+  MAX_FILE_SIZE_MIB: z.coerce.number().int().default(10240),
+  /** Hard-Cap für ALLE pro-File-Limits in MiB. Letzte Schutzlinie
+   * gegen versehentliche Misskonfiguration und gegen SaaS-Miss-
+   * brauch. Tenant-Settings dürfen nicht über diesen Wert. */
+  MAX_UPLOAD_HARD_CAP_MIB: z.coerce.number().int().default(10240),
 
   BILLING_ENABLED: z
     .string()

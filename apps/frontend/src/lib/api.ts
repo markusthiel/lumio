@@ -128,6 +128,9 @@ export interface UploadLink {
   maxFiles: number | null;
   /** BigInt → string. null = unbegrenzt. */
   maxBytesTotal: string | null;
+  /** Per-File-Limit für DIESEN Link in Bytes (string wegen BigInt).
+   *  null = Tenant-Limit erben. */
+  maxFileBytes: string | null;
   expiresAt: string | null;
   uploadCount: number;
   bytesUploaded: string;
@@ -728,7 +731,10 @@ export const api = {
       label: string;
       password?: string;
       maxFiles?: number | null;
-      maxBytesTotal?: string | null;
+      // Bytes als number — 100 GB max im Backend-Schema, locker im JS-
+      // Number-Safe-Range (Number.MAX_SAFE_INTEGER ≈ 9 PB).
+      maxBytesTotal?: number | null;
+      maxFileBytes?: number | null;
       expiresAt?: string | null;
     }
   ) =>
@@ -745,7 +751,8 @@ export const api = {
       password?: string | null;
       active?: boolean;
       maxFiles?: number | null;
-      maxBytesTotal?: string | null;
+      maxBytesTotal?: number | null;
+      maxFileBytes?: number | null;
       expiresAt?: string | null;
     }
   ) =>
@@ -820,6 +827,9 @@ export const api = {
       limits: {
         maxFiles: number | null;
         maxBytesTotal: string | null;
+        maxFileBytes: string | null;
+        /** Effektives Pro-File-Limit (Tenant + Link + Hard-Cap). */
+        effectivePerFileBytes: string;
         usedFiles: number;
         usedBytes: string;
       };
@@ -1153,11 +1163,14 @@ export const api = {
 
   // Tenant Settings
   getTenantSettings: () =>
-    request<{ tenant: TenantSettings }>(`/settings`),
+    request<{ tenant: TenantSettings; uploadLimits: UploadLimits }>(
+      `/settings`
+    ),
 
   updateTenantSettings: (patch: {
     watermarkText?: string | null;
     customDomain?: string | null;
+    maxUploadMib?: number | null;
   }) =>
     request<{ tenant: TenantSettings }>(`/settings`, {
       method: "PATCH",
@@ -1533,6 +1546,15 @@ export interface TenantSettings {
   watermarkText: string | null;
   watermarkImageKey: string | null;
   customDomain?: string | null;
+  /** Pro-File Upload-Limit-Override in MiB. Null = ENV-Default. */
+  maxUploadMib: number | null;
+}
+
+/** Limits-Hilfsinfo aus dem Settings-GET — sagt der UI was Default
+ *  und Hard-Cap sind, ohne die ENV lesen zu müssen. */
+export interface UploadLimits {
+  defaultMib: number;
+  hardCapMib: number;
 }
 
 // -----------------------------------------------------------------------------
