@@ -200,35 +200,62 @@ def _process(file_row: dict) -> None:
         #    Quellauflösung wenn kleiner, AAC-Audio, +faststart damit
         #    der Browser beim Klick sofort streamt statt erst alles
         #    runterzuziehen.
-        web_mp4_path = tmpdir / "web.mp4"
-        try:
-            target_h = min(1080, height) if height > 0 else 1080
-            _make_web_mp4(
-                src_path=src_path, out_path=web_mp4_path,
-                target_height=target_h, has_audio=has_audio,
+        #
+        # Wichtig: wir erzeugen NUR dann eine Web-MP4 wenn sie auch
+        # tatsächlich kleiner ist als das Original. Wenn die Quelle
+        # schon kompakt komprimiert ist (z.B. 720p mit niedriger
+        # Bitrate), würden wir mit unserem fixen 2800k/5000k-Target
+        # eine GRÖSSERE Datei produzieren — das wäre für den Customer
+        # irreführend ("Web-Version" sollte klein sein). In dem Fall
+        # überspringen wir die Rendition; die API liefert dann beim
+        # Download "Web" einen 404 zurück und das Frontend versteckt
+        # den Button.
+        src_bitrate_kbps = _estimate_bitrate_kbps(
+            file_bytes=src_path.stat().st_size,
+            duration_s=duration,
+        )
+        target_h = min(1080, height) if height > 0 else 1080
+        target_video_kbps = _web_mp4_video_bitrate_kbps(target_h)
+        # Audio (128k bei has_audio, sonst 0) zur Output-Gesamtbitrate
+        target_total_kbps = target_video_kbps + (128 if has_audio else 0)
+
+        if src_bitrate_kbps > 0 and target_total_kbps >= src_bitrate_kbps:
+            log.info(
+                "process_video.web_mp4_skipped",
+                file_id=file_id,
+                reason="source_already_compact",
+                src_kbps=src_bitrate_kbps,
+                target_kbps=target_total_kbps,
             )
-            if web_mp4_path.exists():
-                mp4_key = rendition_key(
-                    tenant_id, gallery_id, file_id, "video_mp4", "mp4"
+        else:
+            web_mp4_path = tmpdir / "web.mp4"
+            try:
+                _make_web_mp4(
+                    src_path=src_path, out_path=web_mp4_path,
+                    target_height=target_h, has_audio=has_audio,
                 )
-                mp4_size = upload_file(
-                    str(web_mp4_path), mp4_key, "video/mp4"
-                )
-                # Wir kennen die exakte Höhe der Ausgabe nicht ohne
-                # Re-Probe — target_h ist eine gute Approximation
-                # (ffmpeg hat scale=-2:target_h, also wird die Höhe
-                # exakt target_h sein).
-                upsert_rendition(
-                    file_id=file_id, kind="video_mp4",
-                    storage_key=mp4_key, fmt="mp4",
-                    width=0, height=target_h,
-                    size_bytes=mp4_size,
-                )
-        except Exception as err:
-            # Web-MP4-Fehler ist nicht fatal — HLS + Original
-            # funktionieren weiter. Wir loggen und gehen weiter.
-            log.warn("process_video.web_mp4_failed",
-                     file_id=file_id, err=str(err))
+                if web_mp4_path.exists():
+                    mp4_key = rendition_key(
+                        tenant_id, gallery_id, file_id, "video_mp4", "mp4"
+                    )
+                    mp4_size = upload_file(
+                        str(web_mp4_path), mp4_key, "video/mp4"
+                    )
+                    # Wir kennen die exakte Höhe der Ausgabe nicht ohne
+                    # Re-Probe — target_h ist eine gute Approximation
+                    # (ffmpeg hat scale=-2:target_h, also wird die Höhe
+                    # exakt target_h sein).
+                    upsert_rendition(
+                        file_id=file_id, kind="video_mp4",
+                        storage_key=mp4_key, fmt="mp4",
+                        width=0, height=target_h,
+                        size_bytes=mp4_size,
+                    )
+            except Exception as err:
+                # Web-MP4-Fehler ist nicht fatal — HLS + Original
+                # funktionieren weiter. Wir loggen und gehen weiter.
+                log.warn("process_video.web_mp4_failed",
+                         file_id=file_id, err=str(err))
 
         # 6) Status auf ready, Dimensions des Source-Videos
         mark_file_ready(file_id, width, height)
@@ -539,14 +566,11 @@ def _make_web_mp4(
     """
     profile = profile_for(target_height)
 
-    # Bitrate-Mapping (entspricht in etwa der HLS-Top-Variante für die
-    # jeweilige Höhe, leicht großzügiger weil's eine Download-Datei ist).
-    if target_height >= 1080:
-        v_bitrate = "5000k"
-    elif target_height >= 720:
-        v_bitrate = "2800k"
-    else:
-        v_bitrate = "1400k"
+    # Bitrate-Mapping: zentral im Helper, damit der "skip-wenn-source-
+    # schon-klein"-Check oben in _process die gleiche Tabelle nutzen
+    # kann und nicht out-of-sync läuft.
+    v_bitrate_kbps = _web_mp4_video_bitrate_kbps(target_height)
+    v_bitrate = f"{v_bitrate_kbps}k"
 
     args: list[str] = [
         "ffmpeg", "-hide_banner", "-loglevel", "warning", "-y",
@@ -611,3 +635,37 @@ def _double_bitrate(rate: str) -> str:
     if rate.endswith("M"):
         return f"{int(rate[:-1]) * 2}M"
     return rate
+
+
+def _web_mp4_video_bitrate_kbps(target_height: int) -> int:
+    """Bitrate-Tabelle für die Web-MP4. Entspricht in etwa der HLS-Top-
+    Variante für die jeweilige Höhe, leicht großzügiger weil's eine
+    Download-Datei ist und der Browser nicht adaptive switchen kann.
+
+    Eine reine Funktion damit der "skip-wenn-source-schon-klein"-Check
+    in _process die gleiche Tabelle nutzt wie der eigentliche
+    Encoding-Aufruf. Sonst läuft beides out-of-sync sobald jemand die
+    Bitrates anpasst.
+    """
+    if target_height >= 1080:
+        return 5000
+    if target_height >= 720:
+        return 2800
+    return 1400
+
+
+def _estimate_bitrate_kbps(*, file_bytes: int, duration_s: float) -> int:
+    """Schätzt die Average-Bitrate eines Videos aus Dateigröße + Dauer.
+
+    Wir nutzen das statt ffprobe's 'bit_rate'-Feld, weil das nicht
+    immer im Format-Header steht (besonders bei manchen MOV/MKV-
+    Containern) und wenn doch, dann teilweise nur den Video-Stream
+    misst, nicht das Container-Total.
+
+    Rückgabe 0 wenn duration unbekannt — Caller behandelt das als
+    "Bitrate-Check übersprungen, immer encodieren".
+    """
+    if duration_s <= 0:
+        return 0
+    # bits / sec → kbit/s
+    return int((file_bytes * 8) / duration_s / 1000)
