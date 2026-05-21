@@ -673,7 +673,31 @@ function GalleryTile({
   }
 
   return (
-    <div ref={ref} className={wrapperClass} style={wrapperStyle}>
+    <div
+      ref={ref}
+      className={wrapperClass}
+      style={{
+        ...wrapperStyle,
+        // content-visibility: auto erlaubt dem Browser, Layout/Paint
+        // für offscreen-Tiles komplett zu überspringen — der DOM-Knoten
+        // bleibt, aber Style+Paint+Hit-Test laufen nur wenn das Tile
+        // im (erweiterten) Viewport ist. Bei einer Galerie mit 1000
+        // Bildern reduziert das die Style-/Layout-Kosten dramatisch
+        // — wir testen mit 500-2000 Tiles und kommen auf flüssiges
+        // Scrolling auf Mid-Range-Mobiles.
+        //
+        // contain-intrinsic-size gibt dem Browser eine Größen-
+        // Schätzung für nicht-gerenderte Tiles, damit Scrollbar und
+        // anchor-Navigation funktionieren. Bei equal-Mode sind alle
+        // Tiles quadratisch und ca. 240px breit; justified hat
+        // variable Breiten, aber 240px Höhe ist hardgecoded oben.
+        // Der Wert ist eine Schätzung — Browser cached die echte
+        // Größe nach dem ersten Render und nutzt sie ab dann.
+        contentVisibility: "auto",
+        containIntrinsicSize:
+          mode === "justified" ? "240px 240px" : "240px 240px",
+      }}
+    >
       <button
         onClick={onOpen}
         className="block w-full h-full overflow-hidden rounded bg-white/5 relative group focus:outline-none"

@@ -1,0 +1,66 @@
+# =============================================================================
+# Lumio — GPU-Beschleunigung (NVIDIA NVENC)
+# =============================================================================
+#
+# Aktiviert NVENC-Video-Encoding für den Worker. Voraussetzungen am Host:
+#
+#   1. NVIDIA-Treiber (`nvidia-smi` funktioniert)
+#   2. NVIDIA Container Toolkit installiert
+#      (Anleitung: https://docs.nvidia.com/datacenter/cloud-native/
+#       container-toolkit/install-guide.html)
+#   3. Docker mit nvidia-Runtime konfiguriert (sollte automatisch beim
+#      Toolkit-Install passieren — Check: `docker info | grep -i nvidia`)
+#
+# Verwendung:
+#
+#   docker compose \
+#     -f docker-compose.yml \
+#     -f docker-compose.prod.yml \
+#     -f docker-compose.gpu.yml \
+#     up -d
+#
+# Lumio's encoder_profile.py probt zur Laufzeit ob NVENC im ffmpeg-Build
+# da ist und ob die GPU erreichbar ist. Wenn etwas fehlt, fällt es
+# automatisch auf libx264 (Software) zurück — keine Crashes wenn der
+# Host doch keine GPU hat. Aber damit der ffmpeg im Worker NVENC
+# überhaupt sehen kann, MUSS das Toolkit installiert sein.
+#
+# Die GPU kann von mehreren Containern gleichzeitig genutzt werden
+# (z.B. Jellyfin/Immich + Lumio-Worker parallel) — NVENC ist
+# Multi-Session-fähig. Bei Consumer-GPUs (RTX 20/30/40-Serie) liegt
+# das offizielle NVENC-Session-Limit bei 5; mit dem Open-Source-Patch
+# "nvidia-patch" sind es unbegrenzt. Beides ist Sache des Host-
+# Setups, nicht von Lumio.
+
+services:
+  worker:
+    # NVIDIA Container Runtime explizit anfragen. Das ist die
+    # Compose-V2-Syntax; ältere docker-compose-Versionen (V1) brauchten
+    # `runtime: nvidia` stattdessen — die ist seit Compose V2 deprecated
+    # zugunsten des `deploy.resources`-Blocks.
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              # count: all gibt dem Worker Zugriff auf alle vorhandenen
+              # GPUs. Bei einer einzigen GPU im System ist das exakt wie
+              # count: 1. Wichtig: das ist KEINE exklusive Reservierung
+              # — andere Container (Jellyfin, Immich, etc.) können
+              # parallel dieselbe GPU benutzen. Die Sharing-Logik
+              # läuft auf NVENC-Session-Ebene im Treiber.
+              count: all
+              capabilities: [gpu, video]
+    environment:
+      # Encoder auf NVENC zwingen. Bei "auto" würde das Profil zwar auch
+      # NVENC nehmen sobald verfügbar — aber "nvenc" loggt klar im
+      # Worker-Output ob's geklappt hat, und fällt nur auf Software
+      # zurück wenn die GPU wirklich nicht erreichbar ist.
+      - LUMIO_HW_ENCODER=nvenc
+      # NVIDIA-spezifische Env-Vars zur Container-Initialisierung. Das
+      # Toolkit setzt diese normalerweise selbst über den hook, aber
+      # bei manchen Konfigurationen (Rootless-Docker, ältere Hosts)
+      # ist es nötig sie explizit zu setzen. Sind no-ops wenn der
+      # Treiber sie nicht braucht.
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=video,compute,utility

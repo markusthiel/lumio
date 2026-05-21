@@ -91,6 +91,12 @@ export default function ProofingPage() {
                     onClick={() => setDetailFile(f)}
                     className="relative aspect-square rounded overflow-hidden bg-surface-sunken border border-line-subtle hover:border-accent transition-colors duration-motion group"
                     title={f.originalFilename}
+                    style={{
+                      // Offscreen-Tiles skipt der Browser komplett —
+                      // hilft enorm bei 500+ Bildern in der Übersicht.
+                      contentVisibility: "auto",
+                      containIntrinsicSize: "120px 120px",
+                    }}
                   >
                     {f.thumbUrl ? (
                       /* eslint-disable-next-line @next/next/no-img-element */
