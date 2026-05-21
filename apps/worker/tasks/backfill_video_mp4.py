@@ -122,12 +122,18 @@ def run_global(self, limit: int = 100) -> dict:
 # Helpers
 # ---------------------------------------------------------------------------
 def _files_needing_backfill(*, gallery_id: str) -> list[dict]:
-    """Liste der Video-Files in der Galerie ohne video_mp4-Rendition."""
+    """Liste der Video-Files in der Galerie ohne video_mp4-Rendition.
+
+    tenantId steht NICHT direkt auf files — die Tenant-Zuordnung läuft
+    über galleries. Daher joinen wir auf galleries und holen
+    g.tenantId.
+    """
     with get_conn() as conn:
         rows = conn.execute(
-            'SELECT f.id, f."tenantId", f."galleryId", '
+            'SELECT f.id, g."tenantId", f."galleryId", '
             '       f."storageKey", f."originalFilename" '
             'FROM files f '
+            'JOIN galleries g ON g.id = f."galleryId" '
             'WHERE f."galleryId" = %s AND f.kind = %s AND f.status = %s '
             '  AND NOT EXISTS ( '
             '    SELECT 1 FROM renditions r '
@@ -140,12 +146,14 @@ def _files_needing_backfill(*, gallery_id: str) -> list[dict]:
 
 
 def _files_needing_backfill_global(*, limit: int) -> list[dict]:
-    """Wie _files_needing_backfill, aber tenant-übergreifend mit Limit."""
+    """Wie _files_needing_backfill, aber tenant-übergreifend mit Limit.
+    tenantId kommt aus dem galleries-Join."""
     with get_conn() as conn:
         rows = conn.execute(
-            'SELECT f.id, f."tenantId", f."galleryId", '
+            'SELECT f.id, g."tenantId", f."galleryId", '
             '       f."storageKey", f."originalFilename" '
             'FROM files f '
+            'JOIN galleries g ON g.id = f."galleryId" '
             'WHERE f.kind = %s AND f.status = %s '
             '  AND NOT EXISTS ( '
             '    SELECT 1 FROM renditions r '
