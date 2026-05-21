@@ -190,37 +190,57 @@ export default function StudioPage() {
             {collections.map((c) => {
               const active = activeCollection === c.id;
               return (
-                <button
+                <div
                   key={c.id}
-                  type="button"
-                  onClick={() => activateCollection(c.id)}
-                  className={`inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-ui-xs transition-colors duration-motion ${
+                  className={`group inline-flex items-stretch rounded-full overflow-hidden text-ui-xs transition-colors duration-motion ${
                     active
                       ? "bg-accent text-ink-on-accent"
                       : "bg-surface-sunken text-ink-secondary hover:bg-surface-overlay"
                   }`}
                 >
-                  {c.icon && <span>{c.icon}</span>}
-                  <span>{c.name}</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => activateCollection(c.id)}
+                    className="inline-flex items-center gap-1 h-7 pl-2.5 pr-2"
+                  >
+                    {c.icon && <span>{c.icon}</span>}
+                    <span>{c.name}</span>
+                  </button>
+                  <Link
+                    href={`/studio/collections/${c.id}`}
+                    className={`inline-flex items-center justify-center h-7 w-7 border-l ${
+                      active
+                        ? "border-ink-on-accent/20 hover:bg-black/10"
+                        : "border-line-subtle hover:bg-surface-base"
+                    }`}
+                    title="Bearbeiten"
+                    aria-label={`${c.name} bearbeiten`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M11.5 2 L14 4.5 L5 13.5 L1.5 14.5 L2.5 11 Z" />
+                    </svg>
+                  </Link>
+                </div>
               );
             })}
             {activeCollection && (
-              <>
-                <Link
-                  href={`/studio/collections/${activeCollection}`}
-                  className="text-ui-xs text-ink-tertiary hover:text-ink-secondary ml-2"
-                >
-                  Bearbeiten
-                </Link>
-                <button
-                  type="button"
-                  onClick={deleteActiveCollection}
-                  className="text-ui-xs text-semantic-danger/80 hover:text-semantic-danger"
-                >
-                  Löschen
-                </button>
-              </>
+              <button
+                type="button"
+                onClick={deleteActiveCollection}
+                className="text-ui-xs text-semantic-danger/80 hover:text-semantic-danger ml-2"
+              >
+                Löschen
+              </button>
             )}
           </div>
         )}
