@@ -125,6 +125,46 @@ export default function GalleryDetailPage() {
     try {
       const { gallery } = await api.getGallery(id);
       setGallery(gallery);
+
+      // Uploads-State mit der frischen Galerie abgleichen. Wenn ein
+      // Eintrag in `uploads` (oben in der UI als "wird verarbeitet"
+      // dargestellt) inzwischen in der DB den Status `ready` hat,
+      // räumen wir den Eintrag nach kurzem Delay raus. Das deckt
+      // zwei Wege ab:
+      //   1. Polling-Fallback hat geladen und der WS-Event ist nie
+      //      gekommen (Connection-Drop)
+      //   2. Page wurde gerade frisch betreten und der Upload-Tracker
+      //      war noch alt
+      const readyIds = new Set(
+        gallery.files
+          .filter((f) => f.status === "ready" || f.status === "failed")
+          .map((f) => f.id)
+      );
+      setUploads((prev) => {
+        let changed = false;
+        const next: typeof prev = { ...prev };
+        for (const [fileId, upload] of Object.entries(prev)) {
+          if (
+            readyIds.has(fileId) &&
+            upload.status !== "ready" &&
+            upload.status !== "failed"
+          ) {
+            next[fileId] = { ...upload, status: "ready", progress: 1 };
+            changed = true;
+            // Verzögert raus
+            setTimeout(() => {
+              setUploads((cur) => {
+                if (!cur[fileId]) return cur;
+                const updated = { ...cur };
+                delete updated[fileId];
+                return updated;
+              });
+            }, 2000);
+          }
+        }
+        return changed ? next : prev;
+      });
+
       return gallery;
     } catch (err) {
       if (err instanceof Error && err.message.includes("401")) {
@@ -159,7 +199,54 @@ export default function GalleryDetailPage() {
         };
         return { ...g, files: next };
       });
-      if (event.status === "ready") void load();
+
+      // Uploads-Liste oben in der UI ebenfalls aktualisieren — sonst
+      // bleibt der Eintrag ewig auf "processing 100 %" hängen, selbst
+      // wenn das File längst fertig verarbeitet ist (der Upload-Code
+      // sendet kein "ready"-Update, weil S3-Upload + Worker-Encoding
+      // zwei getrennte Stufen sind und nur die erste durch upload.ts
+      // observed wird).
+      //
+      // Strategie:
+      //   - status=ready  → nach 2 s aus der Liste entfernen (kurzer
+      //                     Bestätigungs-Flash für den User, dann weg)
+      //   - status=failed → Eintrag bleibt mit Fehler-Status, damit
+      //                     der User die Datei nicht übersieht
+      //   - status=processing/uploading → State spiegeln (passiert i.d.R.
+      //                     nicht über WS, weil der Upload-Code das schon
+      //                     macht; defensiv für später)
+      setUploads((prev) => {
+        const existing = prev[event.fileId];
+        if (!existing) return prev;
+        if (event.status === "ready") {
+          // Eintrag noch kurz auf "ready" setzen, dann timer entfernt ihn
+          return {
+            ...prev,
+            [event.fileId]: { ...existing, status: "ready", progress: 1 },
+          };
+        }
+        return {
+          ...prev,
+          [event.fileId]: {
+            ...existing,
+            status: event.status as typeof existing.status,
+          },
+        };
+      });
+      if (event.status === "ready") {
+        // Nach 2 s aus der Upload-Liste rauswerfen — File ist jetzt
+        // im normalen Galerie-Grid drunter sichtbar, kein doppeltes
+        // UI-Element mehr nötig.
+        setTimeout(() => {
+          setUploads((prev) => {
+            if (!prev[event.fileId]) return prev;
+            const next = { ...prev };
+            delete next[event.fileId];
+            return next;
+          });
+        }, 2000);
+        void load();
+      }
     } else if (event.type === "file.deleted") {
       setGallery((g) =>
         g ? { ...g, files: g.files.filter((f) => f.id !== event.fileId) } : g
