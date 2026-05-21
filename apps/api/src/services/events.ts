@@ -70,7 +70,7 @@ export type GalleryEvent =
       // Galerien reagieren beim nächsten Refresh.
       type: "file.visibility";
       fileId: string;
-      publicVisibility: "visible" | "hidden";
+      publicVisibility: "visible" | "hidden" | "rejected";
     }
   | {
       // Ein Upload-Link hat eine neue Datei empfangen. Studio-Browser-

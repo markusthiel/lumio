@@ -58,7 +58,7 @@ export type GalleryEvent =
   | {
       type: "file.visibility";
       fileId: string;
-      publicVisibility: "visible" | "hidden";
+      publicVisibility: "visible" | "hidden" | "rejected";
     }
   | {
       type: "upload_link.received";

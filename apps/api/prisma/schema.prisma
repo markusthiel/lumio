@@ -606,7 +606,17 @@ model File {
   // Customer-Sichtbarkeit. Bei studio-Uploads default "visible".
   // Bei upload_link default "hidden" — Studio sieht im Studio,
   // Customer-Galerie zeigt aber erst nach 'approve'.
-  publicVisibility String  @default("visible") // "visible" | "hidden"
+  // "rejected" = Studio hat den Upload aktiv abgelehnt; S3-Objekte
+  // wurden gelöscht (kein Thumb mehr, kein Original), DB-Row bleibt
+  // für Audit + UI-Anzeige.
+  publicVisibility String  @default("visible") // "visible" | "hidden" | "rejected"
+
+  // Reject-Metadaten — gesetzt nur wenn publicVisibility="rejected".
+  // Reason ist freitext (max 500), aus Preset-Optionen oder eigener
+  // Eingabe. rejectedBy = User-ID des Studio-Owners der abgelehnt hat.
+  rejectedAt      DateTime?
+  rejectedBy      String?  @db.Uuid
+  rejectedReason  String?
 
   // Optional einer Section/Kapitel zugeordnet. Null = File erscheint
   // im Default-Bucket der Galerie (Pre-Section-Verhalten). Section

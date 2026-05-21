@@ -334,6 +334,26 @@ export const en: Dict = {
       pendingHeaderCounter: "{count} pending approval",
       pendingFilterTitle: "Show only pending photos / reset filter",
       noPending: "No pending photos.",
+
+      // Reject — declining upload-link uploads
+      rejectedBadge: "Rejected",
+      rejectedNoReason: "Rejected (no reason given)",
+      rejectSelected: "Reject selected ({count})",
+      rejectDialogHeadingSingle: "Reject photo",
+      rejectDialogHeadingBulk: "Reject {count} photos",
+      rejectDialogHint:
+        "The original file will be deleted permanently. The reason appears in the audit log and on the tile (visible only to you — the uploader is not notified).",
+      rejectPresetBlurry: "Blurry",
+      rejectPresetInappropriate: "Inappropriate",
+      rejectPresetDuplicate: "Duplicate",
+      rejectPresetOther: "Other",
+      rejectReasonField: "Reason (optional)",
+      rejectReasonPlaceholder:
+        "e.g. \u201CBlurry, unusable\u201D — stays in the studio",
+      rejecting: "Rejecting\u2026",
+      rejectConfirmSingle: "Reject",
+      rejectConfirmBulk: "Reject {count}",
+      rejectedToast: "{count} rejected",
     },
   },
 

@@ -34,6 +34,7 @@ import {
   numberOfParts,
   chunkSizeBytes,
   MULTIPART_THRESHOLD,
+  deleteObject,
 } from "../services/storage.js";
 import { enqueue, Queues } from "../services/queue.js";
 import { publish } from "../services/events.js";
@@ -514,6 +515,122 @@ export async function registerUploadLinkRoutes(app: FastifyInstance) {
     }
   );
 
+  // -------------------------------------------------------------------------
+  // POST /galleries/:id/files/:fileId/reject
+  //   Studio-User lehnt einen via upload_link reingekommenen File ab.
+  //   S3-Objekte (Original + Renditions) werden physisch gelöscht,
+  //   DB-Row bleibt mit publicVisibility="rejected" + Audit-Daten.
+  // -------------------------------------------------------------------------
+  app.post<{ Params: { id: string; fileId: string }; Body: unknown }>(
+    "/galleries/:id/files/:fileId/reject",
+    async (req, reply) => {
+      const gallery = await findOwnedGallery(req, req.params.id);
+      if (!gallery) return reply.status(404).send({ error: "not_found" });
+
+      const bodySchema = z.object({
+        reason: z.string().max(500).optional().nullable(),
+      });
+      const body = bodySchema.safeParse(req.body);
+      if (!body.success) {
+        return reply.status(400).send({ error: "invalid_body" });
+      }
+
+      const file = await prisma.file.findFirst({
+        where: { id: req.params.fileId, galleryId: gallery.id },
+        select: {
+          id: true,
+          publicVisibility: true,
+          storageKey: true,
+          renditions: { select: { storageKey: true } },
+        },
+      });
+      if (!file) return reply.status(404).send({ error: "not_found" });
+
+      // Idempotenz: schon rejected → einfach zurückgeben
+      if (file.publicVisibility === "rejected") {
+        return { fileId: file.id, publicVisibility: "rejected" };
+      }
+
+      await rejectFile({
+        app,
+        fileId: file.id,
+        storageKey: file.storageKey,
+        renditionKeys: file.renditions.map((r) => r.storageKey),
+        reason: body.data.reason ?? null,
+        actorUserId: req.session?.user.id ?? null,
+        tenantId: req.tenantId,
+        galleryId: gallery.id,
+        ipAddress: req.ip,
+      });
+
+      return { fileId: file.id, publicVisibility: "rejected" };
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // POST /galleries/:id/uploads/reject-bulk
+  //   Mehrere Files in einem Call ablehnen mit GEMEINSAMEM Grund.
+  //   Returnt nur die IDs die tatsächlich abgelehnt wurden.
+  // -------------------------------------------------------------------------
+  app.post<{ Params: { id: string }; Body: unknown }>(
+    "/galleries/:id/uploads/reject-bulk",
+    async (req, reply) => {
+      const gallery = await findOwnedGallery(req, req.params.id);
+      if (!gallery) return reply.status(404).send({ error: "not_found" });
+
+      const bodySchema = z.object({
+        fileIds: z.array(z.string().uuid()).min(1).max(500),
+        reason: z.string().max(500).optional().nullable(),
+      });
+      const body = bodySchema.safeParse(req.body);
+      if (!body.success) {
+        return reply.status(400).send({ error: "invalid_body" });
+      }
+
+      // Nur Files dieser Galerie die NICHT schon rejected sind
+      // (anti-tampering + idempotent gegen Doppelklicks).
+      const relevant = await prisma.file.findMany({
+        where: {
+          id: { in: body.data.fileIds },
+          galleryId: gallery.id,
+          publicVisibility: { not: "rejected" },
+        },
+        select: {
+          id: true,
+          storageKey: true,
+          renditions: { select: { storageKey: true } },
+        },
+      });
+      if (relevant.length === 0) {
+        return { rejected: [] };
+      }
+
+      // Sequenziell durchgehen — bei 200 Files sind das 200 S3-Deletes,
+      // parallel wäre theoretisch schneller aber wir haben dann
+      // Connection-Pool-Druck und Audit-Reihenfolge wäre nicht-deterministisch.
+      // Bei Bulk-Rejects in dieser Größenordnung (~30 Min Junggesellenabend-
+      // Fotos) sequenziell mit ~50ms pro S3-Delete = ~10s; akzeptabel.
+      const rejectedIds: string[] = [];
+      for (const f of relevant) {
+        await rejectFile({
+          app,
+          fileId: f.id,
+          storageKey: f.storageKey,
+          renditionKeys: f.renditions.map((r) => r.storageKey),
+          reason: body.data.reason ?? null,
+          actorUserId: req.session?.user.id ?? null,
+          tenantId: req.tenantId,
+          galleryId: gallery.id,
+          ipAddress: req.ip,
+          bulk: true,
+        });
+        rejectedIds.push(f.id);
+      }
+
+      return { rejected: rejectedIds };
+    }
+  );
+
   // =========================================================================
   // Public-Routes (Token-basiert, kein Login)
   // =========================================================================
@@ -851,4 +968,89 @@ export async function registerUploadLinkRoutes(app: FastifyInstance) {
       return { fileId: file.id, status: "processing" };
     }
   );
+}
+
+// ---------------------------------------------------------------------------
+// rejectFile — gemeinsamer Helper für Single- und Bulk-Reject
+// ---------------------------------------------------------------------------
+//   1. S3-Objekte löschen (Original + alle Renditions). Errors werden
+//      geloggt aber nicht thrown — wir wollen den DB-State sauber halten
+//      auch wenn S3-Cleanup teilweise scheitert (verwaiste Objekte werden
+//      später vom Storage-GC-Job aufgeräumt).
+//   2. DB-Row updaten: publicVisibility="rejected", Audit-Felder setzen.
+//   3. Audit-Log-Eintrag schreiben.
+//   4. WS-Event 'file.visibility' pushen damit Studio-Tabs live updaten.
+//
+// Wir LÖSCHEN die Rendition-Rows ABSICHTLICH nicht — die haben kein
+// publicVisibility-Konzept und werden ohne ihr S3-Backing einfach 404en
+// wenn jemand versucht zu lesen. Das passiert aber gar nicht, weil der
+// Customer-Endpoint nur visible-Files liefert. Im Studio zeigen wir kein
+// Thumbnail mehr (file.thumbUrl im Mapping = null wenn rendition fehlt
+// oder presignGet fehlschlägt). Saubere DB-Hygiene wäre die Rendition-
+// Rows zu löschen, aber dann kollidiert es mit gleichzeitigen Worker-
+// Tasks die Renditions schreiben. Verwaiste DB-Renditions ohne S3 sind
+// Out-of-the-Way und werden vom Storage-GC ebenfalls aufgeräumt.
+interface RejectFileOpts {
+  app: { log: { warn: (obj: object, msg?: string) => void } };
+  fileId: string;
+  storageKey: string;
+  renditionKeys: string[];
+  reason: string | null;
+  actorUserId: string | null;
+  tenantId: string;
+  galleryId: string;
+  ipAddress: string;
+  bulk?: boolean;
+}
+
+async function rejectFile(opts: RejectFileOpts): Promise<void> {
+  // 1) S3: Original + Renditions löschen (best-effort)
+  await deleteObject(opts.storageKey).catch((err) =>
+    opts.app.log.warn(
+      { err, key: opts.storageKey, fileId: opts.fileId },
+      "s3 delete original failed on reject"
+    )
+  );
+  for (const key of opts.renditionKeys) {
+    await deleteObject(key).catch((err) =>
+      opts.app.log.warn(
+        { err, key, fileId: opts.fileId },
+        "s3 delete rendition failed on reject"
+      )
+    );
+  }
+
+  // 2) DB: Reject-State persistieren
+  await prisma.file.update({
+    where: { id: opts.fileId },
+    data: {
+      publicVisibility: "rejected",
+      rejectedAt: new Date(),
+      rejectedBy: opts.actorUserId,
+      rejectedReason: opts.reason,
+    },
+  });
+
+  // 3) Audit
+  await logEvent({
+    tenantId: opts.tenantId,
+    actorType: "user",
+    actorId: opts.actorUserId,
+    action: "file.reject",
+    targetType: "upload_link",
+    payload: {
+      galleryId: opts.galleryId,
+      fileId: opts.fileId,
+      reason: opts.reason,
+      bulk: opts.bulk ?? false,
+    },
+    ipAddress: opts.ipAddress,
+  });
+
+  // 4) WS-Push damit andere Studio-Tabs den State live sehen
+  publish(opts.galleryId, {
+    type: "file.visibility",
+    fileId: opts.fileId,
+    publicVisibility: "rejected",
+  });
 }

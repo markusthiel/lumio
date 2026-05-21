@@ -107,8 +107,13 @@ export interface GalleryFile {
   uploadedVia?: "studio" | "upload_link";
   uploadLinkId?: string | null;
   /** "visible" = im Customer-View. "hidden" = nur Studio sieht es
-   *  (Default für Upload-Link-Uploads bis zur Freigabe). */
-  publicVisibility?: "visible" | "hidden";
+   *  (Default für Upload-Link-Uploads bis zur Freigabe).
+   *  "rejected" = vom Studio abgelehnt, S3-Objekte gelöscht. */
+  publicVisibility?: "visible" | "hidden" | "rejected";
+  /** Nur gesetzt wenn publicVisibility === "rejected". ISO-String. */
+  rejectedAt?: string | null;
+  /** Reject-Grund (max 500 chars, Freitext oder Preset-Label). */
+  rejectedReason?: string | null;
 }
 
 /** Upload-Link: öffentlicher Drag-and-Drop-Endpunkt pro Galerie.
@@ -771,6 +776,35 @@ export const api = {
       {
         method: "POST",
         body: JSON.stringify({ fileIds }),
+      }
+    ),
+
+  /** Reject: einzelnen File ablehnen. S3-Objekte werden gelöscht,
+   * DB-Row bleibt mit publicVisibility="rejected" + Audit-Metadaten. */
+  rejectUploadedFile: (
+    galleryId: string,
+    fileId: string,
+    reason: string | null
+  ) =>
+    request<{ fileId: string; publicVisibility: "rejected" }>(
+      `/galleries/${galleryId}/files/${fileId}/reject`,
+      {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+      }
+    ),
+
+  /** Bulk-Reject: mehrere Files mit GEMEINSAMEM Grund ablehnen. */
+  rejectUploadedFilesBulk: (
+    galleryId: string,
+    fileIds: string[],
+    reason: string | null
+  ) =>
+    request<{ rejected: string[] }>(
+      `/galleries/${galleryId}/uploads/reject-bulk`,
+      {
+        method: "POST",
+        body: JSON.stringify({ fileIds, reason }),
       }
     ),
 

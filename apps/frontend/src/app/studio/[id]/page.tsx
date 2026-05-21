@@ -9,6 +9,7 @@ import { SharePanel } from "@/components/studio/SharePanel";
 import { GalleryHeaderEditor } from "@/components/studio/GalleryHeaderEditor";
 import { SectionsEditor } from "@/components/studio/SectionsEditor";
 import { UploadLinksSection } from "@/components/studio/UploadLinksSection";
+import { RejectDialog } from "@/components/studio/RejectDialog";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { TagPicker } from "@/components/studio/TagPicker";
 import { Button } from "@/components/ui";
@@ -233,6 +234,50 @@ export default function GalleryDetailPage() {
       setBulkPending(false);
     }
   }, [gallery, pushActivity, t, load]);
+
+  // Reject-Dialog State. dialogTarget kann sein:
+  //   { type: 'single', fileId }   → ein File ablehnen
+  //   { type: 'bulk', fileIds: [] } → mehrere mit gemeinsamem Grund
+  //   null                          → kein Dialog offen
+  const [rejectDialog, setRejectDialog] = useState<
+    | { type: "single"; fileId: string }
+    | { type: "bulk"; fileIds: string[] }
+    | null
+  >(null);
+
+  const performReject = useCallback(
+    async (reason: string | null) => {
+      if (!gallery || !rejectDialog) return;
+      setBulkPending(true);
+      try {
+        if (rejectDialog.type === "single") {
+          await api.rejectUploadedFile(
+            gallery.id,
+            rejectDialog.fileId,
+            reason
+          );
+          pushActivity(t("studio.uploadLinks.rejectedToast", { count: 1 }));
+        } else {
+          const res = await api.rejectUploadedFilesBulk(
+            gallery.id,
+            rejectDialog.fileIds,
+            reason
+          );
+          pushActivity(
+            t("studio.uploadLinks.rejectedToast", {
+              count: res.rejected.length,
+            })
+          );
+          setSelected(new Set());
+        }
+        setRejectDialog(null);
+        await load();
+      } finally {
+        setBulkPending(false);
+      }
+    },
+    [gallery, rejectDialog, pushActivity, t, load]
+  );
 
   useEffect(() => {
     void load();
@@ -830,16 +875,39 @@ export default function GalleryDetailPage() {
                         Auswahl sind. Selektive Anzeige verhindert den
                         Klick-Versuch auf einen No-Op. */}
                     {selectedHasPending && (
-                      <Button
-                        size="sm"
-                        variant="primary"
-                        onClick={approveSelected}
-                        disabled={bulkPending || selected.size === 0}
-                      >
-                        {t("studio.uploadLinks.approveSelected", {
-                          count: selectedPendingCount,
-                        })}
-                      </Button>
+                      <>
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          onClick={approveSelected}
+                          disabled={bulkPending || selected.size === 0}
+                        >
+                          {t("studio.uploadLinks.approveSelected", {
+                            count: selectedPendingCount,
+                          })}
+                        </Button>
+                        {/* Bulk-Reject — danger-Variante, öffnet Dialog
+                            mit Reason-Eingabe. Wirkt nur auf die pending-
+                            Files in der Auswahl (visible werden ignoriert
+                            vom Backend). */}
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          onClick={() =>
+                            setRejectDialog({
+                              type: "bulk",
+                              fileIds: pendingFiles
+                                .filter((f) => selected.has(f.id))
+                                .map((f) => f.id),
+                            })
+                          }
+                          disabled={bulkPending || selected.size === 0}
+                        >
+                          {t("studio.uploadLinks.rejectSelected", {
+                            count: selectedPendingCount,
+                          })}
+                        </Button>
+                      </>
                     )}
                     <Button
                       size="sm"
@@ -970,6 +1038,17 @@ export default function GalleryDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Reject-Dialog: Single oder Bulk, mit Reason-Eingabe + Presets */}
+      {rejectDialog && (
+        <RejectDialog
+          count={
+            rejectDialog.type === "single" ? 1 : rejectDialog.fileIds.length
+          }
+          onCancel={() => setRejectDialog(null)}
+          onConfirm={performReject}
+        />
       )}
     </>
   );
@@ -1179,6 +1258,10 @@ function FileTile({
   const isPending =
     file.uploadedVia === "upload_link" &&
     file.publicVisibility === "hidden";
+  // Rejected: Studio hat aktiv abgelehnt. S3-Objekte sind weg, DB-Row
+  // bleibt. Tile zeigt einen dunklen Platzhalter mit Reject-Badge und
+  // dem Grund als Tooltip — kein Thumbnail mehr verfügbar.
+  const isRejected = file.publicVisibility === "rejected";
 
   const {
     attributes,
@@ -1210,6 +1293,8 @@ function FileTile({
           ? "border-accent ring-1 ring-accent"
           : isFailed
           ? "border-semantic-danger/40 hover:border-semantic-danger/70"
+          : isRejected
+          ? "border-semantic-danger/30 hover:border-semantic-danger/50"
           : "border-line-subtle hover:border-line-strong"
       } ${
         selectionMode
@@ -1217,11 +1302,32 @@ function FileTile({
           : "cursor-grab active:cursor-grabbing touch-none"
       } transition-colors duration-motion`}
       onClick={selectionMode ? onToggle : undefined}
-      title={isFailed ? file.errorMessage ?? "Verarbeitung fehlgeschlagen" : undefined}
+      title={
+        isRejected
+          ? file.rejectedReason
+            ? `${t("studio.uploadLinks.rejectedBadge")}: ${file.rejectedReason}`
+            : t("studio.uploadLinks.rejectedBadge")
+          : isFailed
+          ? file.errorMessage ?? "Verarbeitung fehlgeschlagen"
+          : undefined
+      }
       {...(selectionMode ? {} : attributes)}
       {...(selectionMode ? {} : listeners)}
     >
-      {file.thumbUrl ? (
+      {isRejected ? (
+        // Rejected: S3-Objekte sind weg, kein Thumbnail mehr verfügbar.
+        // Wir zeigen einen dunklen Platzhalter mit Grund. Wenn der User
+        // den Cursor drüber hält bekommt er den vollen Reject-Reason im
+        // title-Tooltip (siehe oben).
+        <div className="w-full h-full flex items-center justify-center bg-semantic-danger/10 p-2">
+          <div className="text-center">
+            <div className="text-2xl opacity-40">⊘</div>
+            <div className="text-ui-xs text-ink-tertiary mt-1 line-clamp-2">
+              {file.rejectedReason ?? t("studio.uploadLinks.rejectedNoReason")}
+            </div>
+          </div>
+        </div>
+      ) : file.thumbUrl ? (
         // Bei failed: Thumbnail trotzdem anzeigen wenn vorhanden, aber stark
         // abgedunkelt und mit klarem Failed-Badge oben rechts. Das nimmt der
         // UI die "alles ok"-Illusion, die uns beim events-Import-Bug Stunden
@@ -1299,6 +1405,24 @@ function FileTile({
           title={t("studio.uploadLinks.pendingHint")}
         >
           {t("studio.uploadLinks.pendingBadge")}
+        </div>
+      )}
+
+      {/* Rejected-Badge — abgewiesener Upload, S3-Objekte sind weg.
+          Im Reject-Pattern legitim mit dem Hidden-Badge zu kollidieren,
+          weil rejected-Files NICHT gleichzeitig status='hidden' sind
+          (das wäre ein Studio-Workflow-State, getrennt von publicVis-
+          ibility). */}
+      {isRejected && (
+        <div
+          className="absolute top-1.5 right-1.5 text-ui-xs uppercase tracking-wider px-1.5 py-0.5 rounded-xs bg-semantic-danger/90 text-surface-canvas font-medium"
+          title={
+            file.rejectedReason
+              ? `${t("studio.uploadLinks.rejectedBadge")}: ${file.rejectedReason}`
+              : t("studio.uploadLinks.rejectedBadge")
+          }
+        >
+          {t("studio.uploadLinks.rejectedBadge")}
         </div>
       )}
 

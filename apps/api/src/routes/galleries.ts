@@ -412,6 +412,8 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
               uploadedVia: true,
               uploadLinkId: true,
               publicVisibility: true,
+              rejectedAt: true,
+              rejectedReason: true,
               renditions: {
                 select: { kind: true, storageKey: true, format: true },
               },
@@ -470,6 +472,8 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
             uploadedVia: f.uploadedVia,
             uploadLinkId: f.uploadLinkId,
             publicVisibility: f.publicVisibility,
+            rejectedAt: f.rejectedAt,
+            rejectedReason: f.rejectedReason,
           };
         })
       );

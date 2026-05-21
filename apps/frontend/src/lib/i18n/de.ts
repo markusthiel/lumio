@@ -334,6 +334,26 @@ export const de: Dict = {
       pendingHeaderCounter: "{count} wartend auf Freigabe",
       pendingFilterTitle: "Nur wartende Bilder anzeigen / Filter zurücksetzen",
       noPending: "Keine wartenden Bilder.",
+
+      // Reject — Ablehnen von Upload-Link-Uploads
+      rejectedBadge: "Abgelehnt",
+      rejectedNoReason: "Abgelehnt (kein Grund angegeben)",
+      rejectSelected: "Auswahl ablehnen ({count})",
+      rejectDialogHeadingSingle: "Foto ablehnen",
+      rejectDialogHeadingBulk: "{count} Fotos ablehnen",
+      rejectDialogHint:
+        "Die Originaldatei wird unwiderruflich gelöscht. Der Grund erscheint im Audit-Log und auf dem Tile (nur für dich sichtbar — der Uploader bekommt nichts mit).",
+      rejectPresetBlurry: "Unscharf",
+      rejectPresetInappropriate: "Unpassend",
+      rejectPresetDuplicate: "Doppelt",
+      rejectPresetOther: "Andere",
+      rejectReasonField: "Grund (optional)",
+      rejectReasonPlaceholder:
+        "z.B. \u201EUnscharf, nicht verwertbar\u201C — bleibt im Studio",
+      rejecting: "Wird abgelehnt…",
+      rejectConfirmSingle: "Ablehnen",
+      rejectConfirmBulk: "{count} ablehnen",
+      rejectedToast: "{count} abgelehnt",
     },
   },
 
