@@ -85,6 +85,15 @@ export function GalleryShell({
   const accent = overrides?.colorAccent ?? branding?.accentColor ?? "#f59e0b";
   const accentRgb = hexToRgbTriple(accent);
   const light = isLightColor(primary);
+  // Wie der Text-auf-Akzent aussehen muss: bei hellen Akzenten (Amber,
+  // Yellow, Lime) schwarz, bei dunklen (Magenta, Dark Blue, Forest
+  // Green) weiß. Wir nutzen die gleiche Luma-Logik wie für den
+  // Hintergrund. Ohne diese Variable sind Buttons mit "bg-brand-accent
+  // text-neutral-950" bei dunklen Akzenten unlesbar.
+  // Format: RGB-Triple wie --brand-accent — damit Tailwind's
+  // "text-brand-accent-contrast" mit alpha-Modifiern funktioniert.
+  const accentLight = isLightColor(accent);
+  const accentContrastRgb = accentLight ? "14 14 16" : "242 242 244";
 
   // Font-Stacks auflösen. Body-Stack wird via inline-style auf den
   // Container gesetzt; Heading-Stack via CSS-Variable, die in
@@ -118,6 +127,7 @@ export function GalleryShell({
   if (accentRgb) {
     (style as Record<string, string>)["--brand-accent"] = accentRgb;
   }
+  (style as Record<string, string>)["--brand-accent-contrast"] = accentContrastRgb;
   // Heading-Stack als CSS-Variable, damit Headings (in GalleryHero und
   // im Markdown-Welcome/-Footer) sie via [&_h1,&_h2]-Selektoren
   // anwenden können.

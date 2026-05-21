@@ -240,7 +240,7 @@ export function GalleryView({
             {stats.total > 0 && (
               <button
                 onClick={() => setSlideshowIdx(0)}
-                className="text-ui-sm px-3 h-8 rounded inline-flex items-center gap-1.5 bg-brand-accent text-neutral-950 font-medium hover:opacity-90 transition-opacity duration-motion"
+                className="text-ui-sm px-3 h-8 rounded inline-flex items-center gap-1.5 bg-brand-accent text-brand-accent-contrast font-medium hover:opacity-90 transition-opacity duration-motion"
                 title={t("gallery.slideshowStartTitle")}
               >
                 <PlayMiniIcon />
@@ -260,7 +260,7 @@ export function GalleryView({
                     }
                   }}
                   disabled={finalizing}
-                  className="text-ui-sm px-3 h-8 rounded inline-flex items-center bg-brand-accent text-neutral-950 font-medium hover:opacity-90 disabled:opacity-50 transition-opacity duration-motion"
+                  className="text-ui-sm px-3 h-8 rounded inline-flex items-center bg-brand-accent text-brand-accent-contrast font-medium hover:opacity-90 disabled:opacity-50 transition-opacity duration-motion"
                 >
                   {finalizing ? t("gallery.finalizing") : t("gallery.finalize")}
                 </button>
@@ -1306,7 +1306,7 @@ function Lightbox({
               <button
                 type="submit"
                 disabled={commentPending || !newComment.trim()}
-                className="w-full text-ui-xs h-8 rounded bg-brand-accent text-neutral-950 font-medium disabled:opacity-50 transition-opacity duration-motion"
+                className="w-full text-ui-xs h-8 rounded bg-brand-accent text-brand-accent-contrast font-medium disabled:opacity-50 transition-opacity duration-motion"
               >
                 {commentPending ? t("gallery.commentSending") : t("gallery.commentSend")}
               </button>

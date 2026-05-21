@@ -99,7 +99,7 @@ export function UnlockForm({
           <button
             type="submit"
             disabled={pending}
-            className="w-full h-10 bg-brand-accent text-neutral-950 text-ui font-medium rounded hover:opacity-90 disabled:opacity-50 transition-opacity duration-motion"
+            className="w-full h-10 bg-brand-accent text-brand-accent-contrast text-ui font-medium rounded hover:opacity-90 disabled:opacity-50 transition-opacity duration-motion"
           >
             {pending ? t("gallery.unlockChecking") : t("gallery.open")}
           </button>

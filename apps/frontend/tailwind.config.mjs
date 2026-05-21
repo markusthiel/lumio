@@ -23,6 +23,8 @@ export default {
         brand: {
           primary: "rgb(var(--brand-primary) / <alpha-value>)",
           accent: "rgb(var(--brand-accent) / <alpha-value>)",
+          "accent-contrast":
+            "rgb(var(--brand-accent-contrast) / <alpha-value>)",
         },
         surface: {
           canvas: "rgb(var(--surface-canvas) / <alpha-value>)",
