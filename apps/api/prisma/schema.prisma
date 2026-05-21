@@ -365,6 +365,7 @@ model Gallery {
   
   files           File[]
   accessTokens    GalleryAccess[]
+  uploadLinks     UploadLink[]
   downloadLogs    DownloadLog[]
   zipDownloads    ZipDownload[]
   tags            GalleryTag[]
@@ -502,6 +503,66 @@ model GalleryAccess {
 }
 
 // -----------------------------------------------------------------------------
+// Upload-Links (öffentliche Drag-and-Drop Upload-Endpunkte pro Galerie)
+// -----------------------------------------------------------------------------
+// Erlaubt es dem Studio-Owner, einen Link zu erstellen den er an Dritte
+// teilen kann ("Schick mir die Hochzeitsfotos vom Junggesellenabend").
+// Empfänger landen auf einer minimalen Upload-Page (kein Login, ggf.
+// Passwort), können Files reinziehen, sehen aber NICHTS von der
+// Galerie selbst und auch nicht die Uploads anderer.
+//
+// Files die über einen UploadLink reinkommen werden mit
+// File.uploadedVia='upload_link' und File.publicVisibility='hidden'
+// gespeichert: Studio-User sieht sie sofort (mit Badge), Customer-
+// Galerie zeigt sie erst nach manueller Freigabe.
+model UploadLink {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  galleryId       String   @db.Uuid
+  gallery         Gallery  @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+
+  // Kryptografisch zufälliger Token in der URL — analog GalleryAccess.token.
+  // 32 Bytes (urlsafe base64 → ~43 Chars). Wird beim Erstellen einmal
+  // generiert, nie geupdated.
+  token           String   @unique
+  label           String   // z.B. "Junggesellenabend Team Müller"
+
+  // Optionales Passwort (bcrypt-Hash). Wenn null: kein Login-Step, der
+  // Link allein reicht. Wenn gesetzt: Upload-Page zeigt eine Passwort-
+  // Eingabe vor dem Drag-and-Drop.
+  passwordHash    String?
+
+  // Aktiv-Schalter — wenn false, gibt der Endpoint 403 zurück und die
+  // Upload-Page zeigt "Link deaktiviert". Studio kann jederzeit
+  // toggeln ohne den Link löschen zu müssen.
+  active          Boolean  @default(true)
+
+  // Limits — alle optional. Wenn null = kein Limit für diese Dimension.
+  // Hard-Limit pro File greift IMMER (siehe config.MAX_FILE_SIZE_MIB),
+  // diese Limits sind zusätzlich pro Link.
+  maxFiles        Int?     // max Anzahl Files über DIESEN Link in Summe
+  maxBytesTotal   BigInt?  // max Gesamt-Größe über DIESEN Link
+
+  // Ablauf-Datum — nach diesem Zeitpunkt 403. Null = kein Ablauf.
+  expiresAt       DateTime?
+
+  // Live-Statistik. Werden bei jedem erfolgreichen Upload aktualisiert.
+  uploadCount     Int      @default(0)
+  bytesUploaded   BigInt   @default(0)
+  lastUploadAt    DateTime?
+
+  // Files die über diesen Link reingekommen sind. SetNull bei Delete,
+  // damit alte Files erhalten bleiben aber den Link-Bezug verlieren.
+  files           File[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([galleryId])
+  @@index([token])
+  @@map("upload_links")
+}
+
+// -----------------------------------------------------------------------------
 // Files & Renditions
 // -----------------------------------------------------------------------------
 model File {
@@ -532,6 +593,21 @@ model File {
   
   sortIndex       Int      @default(0)
   
+  // Hochlade-Quelle: wer hat das File hier reingeholt?
+  //   "studio"      → Owner/Mitarbeiter über Studio-UI (Standard)
+  //   "upload_link" → Dritte über einen UploadLink (mit Token)
+  // Files mit uploadLinkId können vom Studio noch nicht-freigegeben
+  // sein (publicVisibility='hidden') — dann sieht der Studio-User
+  // sie mit Badge, der Customer aber noch nicht.
+  uploadedVia     String   @default("studio") // "studio" | "upload_link"
+  uploadLinkId    String?  @db.Uuid
+  uploadLink      UploadLink? @relation(fields: [uploadLinkId], references: [id], onDelete: SetNull)
+
+  // Customer-Sichtbarkeit. Bei studio-Uploads default "visible".
+  // Bei upload_link default "hidden" — Studio sieht im Studio,
+  // Customer-Galerie zeigt aber erst nach 'approve'.
+  publicVisibility String  @default("visible") // "visible" | "hidden"
+
   // Optional einer Section/Kapitel zugeordnet. Null = File erscheint
   // im Default-Bucket der Galerie (Pre-Section-Verhalten). Section
   // gehört IMMER zur selben Galerie wie das File — wir prüfen das
@@ -550,8 +626,10 @@ model File {
   
   @@index([galleryId, sortIndex])
   @@index([galleryId, status])
+  @@index([galleryId, publicVisibility])
   @@index([sha256])
   @@index([sectionId])
+  @@index([uploadLinkId])
   @@map("files")
 }
 

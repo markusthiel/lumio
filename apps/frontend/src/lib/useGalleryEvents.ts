@@ -55,6 +55,17 @@ export type GalleryEvent =
       accessLabel: string | null;
       count: number;
     }
+  | {
+      type: "file.visibility";
+      fileId: string;
+      publicVisibility: "visible" | "hidden";
+    }
+  | {
+      type: "upload_link.received";
+      fileId: string;
+      uploadLinkId: string;
+      filename: string;
+    }
   | { type: "hello"; galleryId: string }
   | { type: "pong"; t: number };
 

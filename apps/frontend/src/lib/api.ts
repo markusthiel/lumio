@@ -102,6 +102,32 @@ export interface GalleryFile {
    *  benutzt, wo das Studio in voller Größe annotieren will. */
   webUrl?: string | null;
   tags?: Tag[];
+  /** "studio" = vom Owner direkt hochgeladen.
+   *  "upload_link" = von einem externen Uploader via /u/<token>. */
+  uploadedVia?: "studio" | "upload_link";
+  uploadLinkId?: string | null;
+  /** "visible" = im Customer-View. "hidden" = nur Studio sieht es
+   *  (Default für Upload-Link-Uploads bis zur Freigabe). */
+  publicVisibility?: "visible" | "hidden";
+}
+
+/** Upload-Link: öffentlicher Drag-and-Drop-Endpunkt pro Galerie.
+ *  Studio teilt die URL (mit Token), Empfänger laden hoch ohne Login. */
+export interface UploadLink {
+  id: string;
+  token: string;
+  label: string;
+  active: boolean;
+  hasPassword: boolean;
+  /** Optional. null = unbegrenzt. */
+  maxFiles: number | null;
+  /** BigInt → string. null = unbegrenzt. */
+  maxBytesTotal: string | null;
+  expiresAt: string | null;
+  uploadCount: number;
+  bytesUploaded: string;
+  lastUploadAt: string | null;
+  createdAt: string;
 }
 
 export interface GalleryDetail extends Gallery {
@@ -684,6 +710,107 @@ export const api = {
 
   deleteGallery: (id: string) =>
     request<void>(`/galleries/${id}`, { method: "DELETE" }),
+
+  // ---------------------------------------------------------------------------
+  // Upload-Links (Studio) — öffentliche Drag-and-Drop-Endpunkte pro Galerie
+  // ---------------------------------------------------------------------------
+  listUploadLinks: (galleryId: string) =>
+    request<UploadLink[]>(`/galleries/${galleryId}/upload-links`),
+
+  createUploadLink: (
+    galleryId: string,
+    input: {
+      label: string;
+      password?: string;
+      maxFiles?: number | null;
+      maxBytesTotal?: string | null;
+      expiresAt?: string | null;
+    }
+  ) =>
+    request<UploadLink>(`/galleries/${galleryId}/upload-links`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  updateUploadLink: (
+    galleryId: string,
+    linkId: string,
+    patch: {
+      label?: string;
+      password?: string | null;
+      active?: boolean;
+      maxFiles?: number | null;
+      maxBytesTotal?: string | null;
+      expiresAt?: string | null;
+    }
+  ) =>
+    request<UploadLink>(`/galleries/${galleryId}/upload-links/${linkId}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+
+  deleteUploadLink: (galleryId: string, linkId: string) =>
+    request<void>(`/galleries/${galleryId}/upload-links/${linkId}`, {
+      method: "DELETE",
+    }),
+
+  /** File-Freigabe: macht ein per Upload-Link reingekommenes File für
+   * den Customer sichtbar (publicVisibility: hidden → visible). */
+  approveUploadedFile: (galleryId: string, fileId: string) =>
+    request<{ fileId: string; publicVisibility: "visible" }>(
+      `/galleries/${galleryId}/uploads/${fileId}/approve`,
+      { method: "POST" }
+    ),
+
+  // ---------------------------------------------------------------------------
+  // Upload-Links (Public, Token-basiert, kein Login)
+  // ---------------------------------------------------------------------------
+  getUploadLinkMeta: (token: string) =>
+    request<{
+      label: string;
+      galleryTitle: string;
+      hasPassword: boolean;
+      unlocked: boolean;
+      limits: {
+        maxFiles: number | null;
+        maxBytesTotal: string | null;
+        usedFiles: number;
+        usedBytes: string;
+      };
+    }>(`/u/${token}`),
+
+  unlockUploadLink: (token: string, password: string) =>
+    request<{ ok: true }>(`/u/${token}/unlock`, {
+      method: "POST",
+      body: JSON.stringify({ password }),
+    }),
+
+  initUploadViaLink: (
+    token: string,
+    files: { filename: string; sizeBytes: number; mimeType: string }[]
+  ) =>
+    request<{ uploads: UploadInit[] }>(`/u/${token}/uploads/init`, {
+      method: "POST",
+      body: JSON.stringify({ files }),
+    }),
+
+  completeUploadViaLink: (
+    token: string,
+    fileId: string,
+    parts?: { partNumber: number; eTag: string }[],
+    uploadId?: string
+  ) => {
+    const headers: Record<string, string> = {};
+    if (uploadId) headers["X-Upload-Id"] = uploadId;
+    return request<{ fileId: string; status: string }>(
+      `/u/${token}/uploads/complete`,
+      {
+        method: "POST",
+        body: JSON.stringify({ fileId, parts }),
+        headers,
+      }
+    );
+  },
 
   // ---------------------------------------------------------------------------
   // Sections (Studio) — Kapitel-Verwaltung einer Galerie

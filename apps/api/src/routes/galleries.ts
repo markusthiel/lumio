@@ -407,6 +407,11 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
               sortIndex: true,
               sectionId: true,
               createdAt: true,
+              // Upload-Link-Metadaten — Studio kann pending-Files filtern
+              // und markieren, woher sie kommen.
+              uploadedVia: true,
+              uploadLinkId: true,
+              publicVisibility: true,
               renditions: {
                 select: { kind: true, storageKey: true, format: true },
               },
@@ -462,6 +467,9 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
             thumbUrl,
             webUrl,
             tags: f.tags.map((ft) => ft.tag),
+            uploadedVia: f.uploadedVia,
+            uploadLinkId: f.uploadLinkId,
+            publicVisibility: f.publicVisibility,
           };
         })
       );
@@ -1500,6 +1508,10 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         where: {
           galleryId: visitor.galleryId,
           status: "ready",
+          // Pending-Approval-Files (hochgeladen via UploadLink, vom
+          // Studio-User noch nicht freigegeben) bleiben aus der
+          // Customer-Galerie raus. Studio sieht sie weiterhin.
+          publicVisibility: "visible",
         },
         orderBy: { sortIndex: "asc" },
         select: {

@@ -8,6 +8,7 @@ import { uploadFiles, type UploadProgress } from "@/lib/upload";
 import { SharePanel } from "@/components/studio/SharePanel";
 import { GalleryHeaderEditor } from "@/components/studio/GalleryHeaderEditor";
 import { SectionsEditor } from "@/components/studio/SectionsEditor";
+import { UploadLinksSection } from "@/components/studio/UploadLinksSection";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { TagPicker } from "@/components/studio/TagPicker";
 import { Button } from "@/components/ui";
@@ -252,6 +253,25 @@ export default function GalleryDetailPage() {
         g ? { ...g, files: g.files.filter((f) => f.id !== event.fileId) } : g
       );
     } else if (event.type === "file.added") {
+      void load();
+    } else if (event.type === "file.visibility") {
+      // Approve/hide vom Studio oder anderem Tab — File-Liste neu laden,
+      // damit Tile-Badges + publicVisibility-Feld konsistent sind.
+      setGallery((g) => {
+        if (!g) return g;
+        const idx = g.files.findIndex((f) => f.id === event.fileId);
+        if (idx < 0) return g;
+        const next = [...g.files];
+        next[idx] = { ...next[idx], publicVisibility: event.publicVisibility };
+        return { ...g, files: next };
+      });
+    } else if (event.type === "upload_link.received") {
+      // Externer Uploader hat ein File hochgeladen via Upload-Link.
+      // Activity-Toast + Galerie reloaden, damit das neue File mit
+      // pending-Badge auftaucht.
+      pushActivity(
+        `${t("studio.uploadLinks.pendingHint")}: ${event.filename}`
+      );
       void load();
     } else if (event.type === "selection.changed") {
       // Wir laden hier NICHT die ganze Galerie neu — das ist teuer und der
@@ -670,6 +690,9 @@ export default function GalleryDetailPage() {
           />
         </section>
 
+        {/* Upload-Links: öffentliche Drag-and-Drop-Endpunkte */}
+        <UploadLinksSection galleryId={gallery.id} />
+
         {/* Files-Toolbar */}
         {gallery.files.length > 0 && (
           <section>
@@ -762,6 +785,7 @@ export default function GalleryDetailPage() {
                       selectionMode={selectionMode}
                       selected={selected.has(f.id)}
                       onToggle={() => toggleSelected(f.id)}
+                      galleryId={gallery.id}
                     />
                   ))}
                 </ul>
@@ -1004,15 +1028,38 @@ function FileTile({
   selectionMode,
   selected,
   onToggle,
+  galleryId,
 }: {
   file: GalleryFile;
   index: number;
   selectionMode: boolean;
   selected: boolean;
   onToggle: () => void;
+  galleryId: string;
 }) {
+  const t = useT();
   const isHidden = file.status === "hidden";
   const isFailed = file.status === "failed";
+  // Pending-Approval: File kam via UploadLink rein und ist noch nicht
+  // freigegeben. Studio sieht es mit Badge + Approve-Button; Customer
+  // sieht es noch gar nicht (publicVisibility-Filter im API).
+  const isPending =
+    file.uploadedVia === "upload_link" &&
+    file.publicVisibility === "hidden";
+  const [approving, setApproving] = useState(false);
+
+  async function approve(e: React.MouseEvent) {
+    e.stopPropagation();
+    setApproving(true);
+    try {
+      await api.approveUploadedFile(galleryId, file.id);
+      // file.visibility-Event vom WS reicht — der Page-State updated
+      // sich automatisch. Fallback: gar nichts, Tile-Component rendert
+      // beim Parent-Re-Render mit neuem File-State.
+    } finally {
+      setApproving(false);
+    }
+  }
 
   const {
     attributes,
@@ -1118,6 +1165,33 @@ function FileTile({
         <div className="absolute top-1.5 right-1.5 text-ui-xs uppercase tracking-wider px-1.5 py-0.5 rounded-xs bg-semantic-warning/90 text-surface-canvas font-medium">
           versteckt
         </div>
+      )}
+
+      {/* Pending-Approval: File kam via UploadLink, Studio muss freigeben.
+          Badge oben-rechts (überschneidet sich nicht mit isHidden, weil
+          publicVisibility=hidden ≠ status=hidden — File ist ready, nur
+          nicht für Customer sichtbar). Approve-Button rechts daneben,
+          weil das die häufigste Aktion ist. */}
+      {isPending && !isFailed && (
+        <>
+          <div
+            className="absolute top-1.5 right-1.5 text-ui-xs uppercase tracking-wider px-1.5 py-0.5 rounded-xs bg-accent/90 text-accent-contrast font-medium"
+            title={t("studio.uploadLinks.pendingHint")}
+          >
+            {t("studio.uploadLinks.pendingBadge")}
+          </div>
+          {!selectionMode && (
+            <button
+              onClick={approve}
+              disabled={approving}
+              className="absolute bottom-1.5 left-1.5 text-ui-xs h-7 px-2.5 rounded bg-accent text-accent-contrast font-medium hover:bg-accent-hover disabled:opacity-50 transition-colors duration-motion"
+            >
+              {approving
+                ? t("studio.uploadLinks.approving")
+                : t("studio.uploadLinks.approve")}
+            </button>
+          )}
+        </>
       )}
 
       {/* Format-Badge für RAW + HEIC. Nicht für reguläres image/video — dort

@@ -63,6 +63,22 @@ export type GalleryEvent =
       accessId: string;
       accessLabel: string | null;
       count: number;
+    }
+  | {
+      // File-Sichtbarkeit für den Customer geändert (Freigabe oder
+      // Verbergung). Studio-User-Tabs aktualisieren das Badge, Customer-
+      // Galerien reagieren beim nächsten Refresh.
+      type: "file.visibility";
+      fileId: string;
+      publicVisibility: "visible" | "hidden";
+    }
+  | {
+      // Ein Upload-Link hat eine neue Datei empfangen. Studio-Browser-
+      // Tabs zeigen einen Toast/Notification.
+      type: "upload_link.received";
+      fileId: string;
+      uploadLinkId: string;
+      filename: string;
     };
 
 type Listener = (event: GalleryEvent) => void;
