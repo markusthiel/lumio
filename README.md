@@ -93,7 +93,10 @@ cd apps/frontend && npm install && npm run dev
 cd apps/worker   && pip install -r requirements.txt && celery -A app worker -l info
 ```
 
-Siehe [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) für Details.
+Siehe [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) für Setup-Details.
+Für den laufenden Betrieb (Deploy, Re-queue, Backfills, Diagnose) siehe
+[docs/OPERATIONS.md](docs/OPERATIONS.md) — ein Cookbook für die häufigen
+Alltagsaufgaben.
 
 ---
 
