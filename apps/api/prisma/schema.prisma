@@ -51,6 +51,7 @@ model Tenant {
   events      Event[]
   webhooks    Webhook[]
   tags        Tag[]
+  smartCollections SmartCollection[]
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -85,6 +86,7 @@ model User {
   webauthnCredentials WebauthnCredential[]
   apiTokens    ApiToken[]
   passwordResetTokens PasswordResetToken[]
+  smartCollections SmartCollection[] @relation("SmartCollectionOwner")
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -1007,4 +1009,41 @@ model SuperAdminSession {
   @@index([superAdminId])
   @@index([expiresAt])
   @@map("super_admin_sessions")
+}
+
+// -----------------------------------------------------------------------------
+// Smart Collections — gespeicherte Filter-Macros über die Galerien-Liste
+// -----------------------------------------------------------------------------
+// "Wie Lightroom Smart Collections" — der User kann einen Filter-Set
+// (Mode + Status + Tags + Datums-Range) unter einem Namen speichern und
+// später aus der Sidebar wieder aufrufen. Die Collection ändert keine
+// Daten, sie ist eine reine Such-Hilfe.
+//
+// Filter-Definition liegt in einem JSON-Feld, damit wir später File-Level-
+// Filter (Kind, Likes, etc.) dazupacken können ohne Migration. Das aktuelle
+// MVP-Schema ist in apps/api/src/services/smart-collection-filter.ts
+// dokumentiert und validiert (Zod).
+//
+// Sortierung in der Sidebar via sortOrder; per Studio-UI änderbar
+// (Drag & Drop).
+model SmartCollection {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String   @db.Uuid
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
+  // Sichtbar nur für den Ersteller. Falls wir später Team-Sharing wollen
+  // (z.B. ownerScope='tenant'), bauen wir das als separate Spalte dazu.
+  ownerId     String   @db.Uuid
+  owner       User     @relation("SmartCollectionOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  
+  name        String   // "Hochzeiten 2025 mit offener Auswahl"
+  icon        String?  // optional emoji oder lucide-icon-key
+  filter      Json     // siehe smart-collection-filter.ts Schema
+  sortOrder   Int      @default(0)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([tenantId, ownerId])
+  @@map("smart_collections")
 }

@@ -489,13 +489,41 @@ export const api = {
   listWebhookDeliveries: (id: string) =>
     request<{ deliveries: WebhookDelivery[] }>(`/webhooks/${id}/deliveries`),
 
-  // Galleries (Studio)
-  listGalleries: (filter?: { tagIds?: string[] }) =>
-    request<{ galleries: Gallery[] }>(
-      filter?.tagIds && filter.tagIds.length > 0
-        ? `/galleries?tag=${filter.tagIds.join(",")}`
-        : "/galleries"
-    ),
+  // Galleries (Studio). Ad-hoc-Filter über Query-Params. Wenn ein
+  // Filter-Set gespeichert werden soll, geht das über die Smart-
+  // Collections-Routes weiter unten.
+  listGalleries: (filter?: GalleryFilter) => {
+    const qs = filterToQueryString(filter);
+    return request<{ galleries: Gallery[] }>(
+      qs ? `/galleries?${qs}` : "/galleries"
+    );
+  },
+
+  // Smart Collections — gespeicherte Filter-Macros über die
+  // Galerien-Liste. Sprint: docs/ROADMAP.md "Smart Collections".
+  listCollections: () =>
+    request<{ collections: SmartCollection[] }>("/collections"),
+  createCollection: (input: {
+    name: string;
+    icon?: string;
+    filter?: GalleryFilter;
+  }) =>
+    request<{ collection: SmartCollection }>("/collections", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  updateCollection: (
+    id: string,
+    patch: { name?: string; icon?: string | null; filter?: GalleryFilter; sortOrder?: number }
+  ) =>
+    request<{ collection: SmartCollection }>(`/collections/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+  deleteCollection: (id: string) =>
+    request<void>(`/collections/${id}`, { method: "DELETE" }),
+  runCollection: (id: string) =>
+    request<{ galleries: Gallery[] }>(`/collections/${id}/galleries`),
 
   // Tags
   listTags: () => request<{ tags: TagSummary[] }>("/tags"),
@@ -1438,6 +1466,39 @@ export interface BillingSubscriptionInfo {
   trialEndsAt: string | null;
   storageAddonGib: number;
   hasStripeId: boolean;
+}
+
+export interface GalleryFilter {
+  tagIds?: string[];
+  mode?: "collaboration" | "presentation";
+  status?: "draft" | "live" | "archived";
+  since?: string; // ISO
+  until?: string; // ISO
+}
+
+export interface SmartCollection {
+  id: string;
+  name: string;
+  icon: string | null;
+  filter: GalleryFilter;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** Übersetzt einen GalleryFilter in die Query-Param-Form
+ *  die GET /galleries akzeptiert. */
+function filterToQueryString(filter?: GalleryFilter): string {
+  if (!filter) return "";
+  const params = new URLSearchParams();
+  if (filter.tagIds && filter.tagIds.length > 0) {
+    params.set("tag", filter.tagIds.join(","));
+  }
+  if (filter.mode) params.set("mode", filter.mode);
+  if (filter.status) params.set("status", filter.status);
+  if (filter.since) params.set("since", filter.since);
+  if (filter.until) params.set("until", filter.until);
+  return params.toString();
 }
 
 export { API_URL, ApiError };

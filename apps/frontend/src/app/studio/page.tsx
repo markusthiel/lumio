@@ -9,6 +9,8 @@ import {
   type Gallery,
   type GalleryTemplate,
   type TagSummary,
+  type SmartCollection,
+  type GalleryFilter,
 } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 import { PageHeader } from "@/components/studio/PageHeader";
@@ -22,27 +24,63 @@ export default function StudioPage() {
   const [galleries, setGalleries] = useState<Gallery[]>([]);
   const [allTags, setAllTags] = useState<TagSummary[]>([]);
   const [tagFilter, setTagFilter] = useState<Set<string>>(new Set());
+  // Erweiterte Filter (mode/status). Datums-Range kommt später, wenn
+  // wir einen Datepicker integriert haben — der Backend-Endpoint
+  // akzeptiert die seit/until-Params schon.
+  const [modeFilter, setModeFilter] = useState<"" | "collaboration" | "presentation">("");
+  const [statusFilter, setStatusFilter] = useState<"" | "draft" | "live" | "archived">("");
+  // Smart Collections — gespeicherte Filter-Sets. activeCollection
+  // referenziert die gerade aufgerufene Collection; setActiveCollection(null)
+  // bedeutet "freier Filter aus den Bar-Controls".
+  const [collections, setCollections] = useState<SmartCollection[]>([]);
+  const [activeCollection, setActiveCollection] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
+  const [showSaveCollection, setShowSaveCollection] = useState(false);
+
+  // Aktuelle Filter als GalleryFilter-Objekt zusammenbauen. Wird vom
+  // refresh() und vom "Filter als Collection speichern"-Dialog
+  // gleichermaßen genutzt.
+  const currentFilter: GalleryFilter = {
+    tagIds: tagFilter.size > 0 ? Array.from(tagFilter) : undefined,
+    mode: modeFilter || undefined,
+    status: statusFilter || undefined,
+  };
+  const hasActiveFilter =
+    tagFilter.size > 0 || modeFilter !== "" || statusFilter !== "";
 
   const refresh = useCallback(async () => {
-    const list = await api.listGalleries({
-      tagIds: Array.from(tagFilter),
-    });
-    setGalleries(list.galleries);
-  }, [tagFilter]);
+    // Wenn eine Collection aktiv ist, laden wir über den Collection-
+    // Endpoint (der die Filter aus der DB nimmt). Sonst über den
+    // freien /galleries-Endpoint mit den UI-Filter-Controls.
+    if (activeCollection) {
+      const res = await api.runCollection(activeCollection);
+      setGalleries(res.galleries);
+    } else {
+      const list = await api.listGalleries(currentFilter);
+      setGalleries(list.galleries);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    activeCollection,
+    tagFilter,
+    modeFilter,
+    statusFilter,
+  ]);
 
   useEffect(() => {
     (async () => {
       try {
         const me = await api.me();
         setUser(me.user);
-        const [list, tagsRes] = await Promise.all([
+        const [list, tagsRes, colRes] = await Promise.all([
           api.listGalleries(),
           api.listTags(),
+          api.listCollections(),
         ]);
         setGalleries(list.galleries);
         setAllTags(tagsRes.tags);
+        setCollections(colRes.collections);
       } catch {
         router.replace("/login");
       } finally {
@@ -51,20 +89,73 @@ export default function StudioPage() {
     })();
   }, [router]);
 
-  // Bei jeder Filter-Änderung neu laden
+  // Bei jeder Filter-Änderung neu laden. activeCollection in der Dependency-
+  // Liste damit das Wechseln zwischen Collection und freiem Filter
+  // funktioniert.
   useEffect(() => {
     if (loading) return;
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tagFilter]);
+  }, [tagFilter, modeFilter, statusFilter, activeCollection]);
 
   function toggleTag(id: string) {
+    // Wenn der User in eine Collection-Ansicht hineinklickt und dann
+    // einen Filter ändert, ist das nicht mehr "die Collection" sondern
+    // ein freier Filter — auf null setzen damit die UI klar wird.
+    setActiveCollection(null);
     setTagFilter((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
+  }
+
+  function changeMode(v: typeof modeFilter) {
+    setActiveCollection(null);
+    setModeFilter(v);
+  }
+  function changeStatus(v: typeof statusFilter) {
+    setActiveCollection(null);
+    setStatusFilter(v);
+  }
+
+  function clearFilters() {
+    setActiveCollection(null);
+    setTagFilter(new Set());
+    setModeFilter("");
+    setStatusFilter("");
+  }
+
+  // Klick auf eine Collection in der Sidebar: lädt sie. Die UI-Filter
+  // werden NICHT mit den Collection-Werten gefüllt — die Collection
+  // ist eine Black-Box vom UI-Standpunkt; was drin steckt sieht der
+  // User in der Collection-Edit-Seite.
+  function activateCollection(id: string) {
+    setActiveCollection(id);
+    setTagFilter(new Set());
+    setModeFilter("");
+    setStatusFilter("");
+  }
+
+  // Aktuellen UI-Filter als neue Collection speichern.
+  async function saveCurrentAsCollection(name: string, icon?: string) {
+    const c = await api.createCollection({
+      name,
+      icon,
+      filter: currentFilter,
+    });
+    setCollections((cs) => [...cs, c.collection]);
+    setShowSaveCollection(false);
+  }
+
+  // Aktive Collection löschen (nur möglich wenn eine aktiv ist).
+  async function deleteActiveCollection() {
+    if (!activeCollection) return;
+    if (!confirm("Diese Smart Collection löschen?")) return;
+    await api.deleteCollection(activeCollection);
+    setCollections((cs) => cs.filter((c) => c.id !== activeCollection));
+    setActiveCollection(null);
   }
 
   if (loading) {
@@ -89,6 +180,94 @@ export default function StudioPage() {
       />
 
       <div className="px-6 sm:px-8 py-6">
+        {/* Smart-Collections-Leiste — nur wenn welche existieren oder
+            der User gerade eine aktive Collection nutzt. */}
+        {collections.length > 0 && (
+          <div className="mb-3 flex flex-wrap gap-1.5 items-center">
+            <span className="text-ui-xs uppercase tracking-[0.12em] text-ink-tertiary mr-2">
+              Smart Collections
+            </span>
+            {collections.map((c) => {
+              const active = activeCollection === c.id;
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => activateCollection(c.id)}
+                  className={`inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-ui-xs transition-colors duration-motion ${
+                    active
+                      ? "bg-accent text-ink-on-accent"
+                      : "bg-surface-sunken text-ink-secondary hover:bg-surface-overlay"
+                  }`}
+                >
+                  {c.icon && <span>{c.icon}</span>}
+                  <span>{c.name}</span>
+                </button>
+              );
+            })}
+            {activeCollection && (
+              <>
+                <Link
+                  href={`/studio/collections/${activeCollection}`}
+                  className="text-ui-xs text-ink-tertiary hover:text-ink-secondary ml-2"
+                >
+                  Bearbeiten
+                </Link>
+                <button
+                  type="button"
+                  onClick={deleteActiveCollection}
+                  className="text-ui-xs text-semantic-danger/80 hover:text-semantic-danger"
+                >
+                  Löschen
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Mode + Status Filter — kompakte Dropdown-Bar */}
+        <div className="mb-4 flex flex-wrap gap-2 items-center">
+          <select
+            value={modeFilter}
+            onChange={(e) => changeMode(e.target.value as typeof modeFilter)}
+            className="h-7 px-2 rounded-xs text-ui-xs bg-surface-sunken border border-line-subtle"
+          >
+            <option value="">Alle Modi</option>
+            <option value="collaboration">Auswahl/Proofing</option>
+            <option value="presentation">Präsentation</option>
+          </select>
+          <select
+            value={statusFilter}
+            onChange={(e) =>
+              changeStatus(e.target.value as typeof statusFilter)
+            }
+            className="h-7 px-2 rounded-xs text-ui-xs bg-surface-sunken border border-line-subtle"
+          >
+            <option value="">Alle Status</option>
+            <option value="draft">Entwurf</option>
+            <option value="live">Aktiv</option>
+            <option value="archived">Archiviert</option>
+          </select>
+          {hasActiveFilter && !activeCollection && (
+            <>
+              <button
+                type="button"
+                onClick={() => setShowSaveCollection(true)}
+                className="text-ui-xs text-accent hover:text-accent-hover ml-1"
+              >
+                Als Collection speichern…
+              </button>
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="text-ui-xs text-ink-tertiary hover:text-ink-secondary ml-1"
+              >
+                Filter zurücksetzen
+              </button>
+            </>
+          )}
+        </div>
+
         {allTags.length > 0 && (
           <div className="mb-4 flex flex-wrap gap-1.5 items-center">
             <span className="text-ui-xs uppercase tracking-[0.12em] text-ink-tertiary mr-2">
@@ -117,7 +296,10 @@ export default function StudioPage() {
             {tagFilter.size > 0 && (
               <button
                 type="button"
-                onClick={() => setTagFilter(new Set())}
+                onClick={() => {
+                  setActiveCollection(null);
+                  setTagFilter(new Set());
+                }}
                 className="text-ui-xs text-ink-tertiary hover:text-ink-secondary ml-2"
               >
                 {t("studio.tagsFilterClear")}
@@ -194,7 +376,94 @@ export default function StudioPage() {
           }}
         />
       )}
+
+      {showSaveCollection && (
+        <SaveCollectionDialog
+          onClose={() => setShowSaveCollection(false)}
+          onSave={saveCurrentAsCollection}
+        />
+      )}
     </>
+  );
+}
+
+/** Mini-Dialog für "Filter als Collection speichern". Bekommt den
+ *  aktuellen Filter NICHT als Prop — der Speicher-Callback macht
+ *  das mit dem currentFilter aus dem Eltern-State. */
+function SaveCollectionDialog({
+  onClose,
+  onSave,
+}: {
+  onClose: () => void;
+  onSave: (name: string, icon?: string) => Promise<void>;
+}) {
+  const [name, setName] = useState("");
+  const [icon, setIcon] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setSaving(true);
+    setErr(null);
+    try {
+      await onSave(name.trim(), icon.trim() || undefined);
+    } catch (e2) {
+      setErr(e2 instanceof Error ? e2.message : "Fehler");
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+      onClick={onClose}
+    >
+      <form
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={submit}
+        className="w-full max-w-md bg-surface-overlay border border-line-subtle rounded-md p-6 space-y-4 shadow-elev-3"
+      >
+        <h2 className="text-lg font-medium">Als Smart Collection speichern</h2>
+        <p className="text-ui-sm text-ink-tertiary">
+          Der aktuelle Filter (Modus, Status, Tags) wird unter einem
+          Namen gespeichert und ist dann oben in der Galerie-Liste als
+          Schnellzugriff verfügbar.
+        </p>
+        <div>
+          <label className="block text-ui-xs uppercase tracking-wide text-ink-tertiary mb-1">
+            Name
+          </label>
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="z.B. Hochzeiten 2025 mit offener Auswahl"
+            autoFocus
+          />
+        </div>
+        <div>
+          <label className="block text-ui-xs uppercase tracking-wide text-ink-tertiary mb-1">
+            Icon (optional, ein Emoji)
+          </label>
+          <Input
+            value={icon}
+            onChange={(e) => setIcon(e.target.value)}
+            placeholder="💍"
+            maxLength={4}
+          />
+        </div>
+        {err && <div className="text-semantic-danger text-ui-sm">{err}</div>}
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Abbrechen
+          </Button>
+          <Button type="submit" variant="primary" disabled={saving || !name.trim()}>
+            {saving ? "Speichert…" : "Speichern"}
+          </Button>
+        </div>
+      </form>
+    </div>
   );
 }
 

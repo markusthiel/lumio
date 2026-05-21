@@ -142,16 +142,37 @@ export async function loadVisitor(
   return { galleryId: gallery.id, accessId: claims.aid };
 }
 
+/** Parst ein ISO-Datum oder gibt undefined zurück bei Invalid-Date.
+ *  Wird für die optionalen ?since/?until-Filter-Parameter benutzt. */
+function safeDate(s: string): Date | undefined {
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? undefined : d;
+}
+
 export async function registerGalleryRoutes(app: FastifyInstance) {
   // -------------------------------------------------------------------------
   // GET /galleries — Liste eigener Galerien
   // -------------------------------------------------------------------------
-  // Optionaler Filter: ?tag=<uuid>[,<uuid>...] — Galerien, die JEDEN
-  // der angegebenen Tags tragen ("AND"-Semantik). Wir gehen mit AND statt
-  // OR, weil das Studio damit zielführend einschränkt; OR-Filter
-  // ("zeige Hochzeit ODER Portrait") hat selten praktischen Wert, der
-  // den Mental-Load wert wäre.
-  app.get<{ Querystring: { tag?: string } }>(
+  // Optionale Filter — alle als Query-Params, alle AND-verknüpft:
+  //   ?tag=<uuid>[,<uuid>...]   → Galerien, die JEDEN Tag tragen (AND)
+  //   ?mode=collaboration|presentation
+  //   ?status=draft|live|archived
+  //   ?since=<ISO>              → updatedAt >= since
+  //   ?until=<ISO>              → updatedAt <= until
+  //
+  // Filter-Macros (gespeicherte Filter-Sets) leben unter /collections/:id/galleries
+  // und nutzen die gleiche Logik server-seitig. Frontend kann ad-hoc-
+  // Filter über die Query-Params senden, BEVOR der User die Filter
+  // optional als Smart Collection speichert.
+  app.get<{
+    Querystring: {
+      tag?: string;
+      mode?: string;
+      status?: string;
+      since?: string;
+      until?: string;
+    };
+  }>(
     "/galleries",
     async (req) => {
       const s = req.requireAuth();
@@ -160,10 +181,38 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         .map((t) => t.trim())
         .filter((t) => /^[0-9a-f-]{36}$/i.test(t));
 
+      // mode/status: enum-Validierung — alles andere wird ignoriert
+      // (statt zu 400 zu werfen) damit alte Bookmarks mit kaputten
+      // Query-Params nicht abstürzen.
+      const validModes = ["collaboration", "presentation"];
+      const validStatuses = ["draft", "live", "archived"];
+      const modeFilter =
+        req.query.mode && validModes.includes(req.query.mode)
+          ? req.query.mode
+          : undefined;
+      const statusFilter =
+        req.query.status && validStatuses.includes(req.query.status)
+          ? req.query.status
+          : undefined;
+
+      // Datum-Range: invalides ISO → ignorieren (s.o.).
+      const since = req.query.since ? safeDate(req.query.since) : undefined;
+      const until = req.query.until ? safeDate(req.query.until) : undefined;
+
       const galleries = await prisma.gallery.findMany({
         where: {
           tenantId: req.tenantId,
           ownerId: s.user.id,
+          ...(modeFilter ? { mode: modeFilter } : {}),
+          ...(statusFilter ? { status: statusFilter } : {}),
+          ...(since || until
+            ? {
+                updatedAt: {
+                  ...(since ? { gte: since } : {}),
+                  ...(until ? { lte: until } : {}),
+                },
+              }
+            : {}),
           // AND-Semantik: für jeden geforderten Tag muss ein GalleryTag
           // existieren. Prisma's "AND: [...]" + "some" baut genau das.
           ...(tagFilterIds.length > 0
