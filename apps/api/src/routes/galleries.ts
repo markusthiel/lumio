@@ -1682,13 +1682,15 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         where: { id: req.params.fileId, galleryId: gallery.id },
         select: {
           id: true,
+          kind: true,
           storageKey: true,
           originalFilename: true,
           sizeBytes: true,
           renditions: {
-            // Beide Web-Renditions kommen mit; wir wählen unten web_jpeg
-            // bevorzugt, web als Fallback für Altbestand.
-            where: { kind: { in: ["web_jpeg", "web"] } },
+            // Bei Bildern: web_jpeg/web (JPEG/WebP-Großformat).
+            // Bei Videos: video_mp4 (standalone Web-MP4).
+            // Wir holen alle drei, wählen unten je nach file.kind.
+            where: { kind: { in: ["web_jpeg", "web", "video_mp4"] } },
             select: { kind: true, storageKey: true, format: true },
           },
         },
@@ -1705,27 +1707,49 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
       let bytes: bigint | null = file.sizeBytes;
 
       if (variant === "web") {
-        // Bevorzuge web_jpeg vor web — Kunden öffnen JPEG überall,
-        // webp nur in modernen Browsern und macOS Preview.
-        const webJpeg = file.renditions.find((r) => r.kind === "web_jpeg");
-        const webWebp = file.renditions.find((r) => r.kind === "web");
-        const chosen = webJpeg ?? webWebp;
-        if (!chosen) {
-          if (gallery.downloadOriginalsEnabled) {
-            // implizit auf Original umschalten, kein Fehler
-          } else {
+        if (file.kind === "video") {
+          // Videos: video_mp4-Rendition. Wenn (noch) keine existiert
+          // (z.B. Altbestand vor diesem Sprint), gibt's keine Web-
+          // Version — kein impliziter Fallback aufs Original, weil
+          // das Original viel größer ist als der Kunde erwartet.
+          const mp4 = file.renditions.find((r) => r.kind === "video_mp4");
+          if (!mp4) {
             return reply
               .status(404)
               .send({ error: "web_rendition_unavailable" });
           }
-        } else {
-          storageKey = chosen.storageKey;
+          storageKey = mp4.storageKey;
           const dotIdx = downloadFilename.lastIndexOf(".");
           const stem =
             dotIdx > 0 ? downloadFilename.slice(0, dotIdx) : downloadFilename;
-          const ext = chosen.format === "jpg" ? "jpg" : "webp";
-          downloadFilename = `${stem}_web.${ext}`;
-          bytes = null; // Größe der Rendition kennen wir hier nicht ohne extra Query
+          downloadFilename = `${stem}_web.mp4`;
+          bytes = null;
+        } else {
+          // Bilder: web_jpeg bevorzugt, web (webp) als Fallback für
+          // Altbestand. Kunden öffnen JPEG überall, webp nur in
+          // modernen Browsern und macOS Preview.
+          const webJpeg = file.renditions.find((r) => r.kind === "web_jpeg");
+          const webWebp = file.renditions.find((r) => r.kind === "web");
+          const chosen = webJpeg ?? webWebp;
+          if (!chosen) {
+            if (gallery.downloadOriginalsEnabled) {
+              // implizit auf Original umschalten, kein Fehler
+            } else {
+              return reply
+                .status(404)
+                .send({ error: "web_rendition_unavailable" });
+            }
+          } else {
+            storageKey = chosen.storageKey;
+            const dotIdx = downloadFilename.lastIndexOf(".");
+            const stem =
+              dotIdx > 0
+                ? downloadFilename.slice(0, dotIdx)
+                : downloadFilename;
+            const ext = chosen.format === "jpg" ? "jpg" : "webp";
+            downloadFilename = `${stem}_web.${ext}`;
+            bytes = null;
+          }
         }
       }
 

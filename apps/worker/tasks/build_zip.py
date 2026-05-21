@@ -245,27 +245,32 @@ def _dedupe_name(name: str, seen: set[str]) -> str:
 def _fetch_files(gallery_id: str,
                  file_ids: list[str] | None,
                  variant: str = "original") -> list[dict]:
-    """Lädt Files aus der DB. Bei variant="web" bevorzugen wir die
-    web_jpeg-Rendition (kunden-freundliches JPEG) und fallen auf web
-    (webp) zurück, wenn keine JPEG-Variante existiert — relevant für
-    Altbestand, der vor der web_jpeg-Pipeline hochgeladen wurde.
+    """Lädt Files aus der DB.
 
-    Filenames werden in beiden Fällen auf "<stem>_web.<ext>" umgebaut
-    (jpg bzw. webp), damit die Endung das tatsächlich gelieferte Format
-    widerspiegelt.
+    Bei variant="web" bevorzugen wir je nach file.kind:
+      - Videos:    'video_mp4' (standalone MP4, Download-fähig)
+      - Bilder:    'web_jpeg' (Kunden-freundliches JPEG), Fallback 'web'
+                   (webp) für Altbestand vor der web_jpeg-Pipeline
 
-    Files ohne irgendeine Web-Rendition werden weggefiltert — sollte
-    nicht passieren wenn der Worker durchgelaufen ist, aber wir bauen
-    lieber eine kleinere ZIP als eine kaputte."""
+    Files ohne passende Web-Rendition werden weggefiltert — bei
+    Videos kann das passieren wenn der Backfill für video_mp4 noch
+    nicht durchgelaufen ist. Wir bauen lieber eine kleinere ZIP
+    ohne diese Videos als eine kaputte mit Standbildern statt
+    Videos.
+
+    Filenames werden auf "<stem>_web.<ext>" umgebaut, mit ext je
+    nach Rendition-Format (mp4, jpg, webp).
+    """
     with get_conn() as conn:
         if variant == "web":
-            # Wir nehmen pro File die "beste" Web-Rendition: web_jpeg bevorzugt,
-            # sonst web. Postgres' DISTINCT ON mit passender ORDER BY ist
-            # dafür gemacht.
+            # DISTINCT ON pro File-ID, mit ORDER-BY-Präferenz die beim
+            # picken die "richtige" Rendition zieht: video_mp4 für
+            # Videos, web_jpeg für Bilder (Fallback web/webp).
             if file_ids:
                 rows = conn.execute(
                     'SELECT DISTINCT ON (f.id) '
                     '  f.id, f."originalFilename" AS original_filename, '
+                    '  f.kind AS file_kind, '
                     '  r."storageKey" AS storage_key, '
                     '  r."sizeBytes" AS size_bytes, '
                     '  r.kind AS rkind, r.format AS rformat '
@@ -273,44 +278,64 @@ def _fetch_files(gallery_id: str,
                     'JOIN renditions r ON r."fileId" = f.id '
                     'WHERE f."galleryId" = %s AND f.id = ANY(%s) '
                     '  AND f.status = %s '
-                    '  AND r.kind IN (%s, %s) '
+                    '  AND ( '
+                    '    (f.kind = %s AND r.kind = %s) '
+                    '    OR (f.kind <> %s AND r.kind IN (%s, %s)) '
+                    '  ) '
                     'ORDER BY f.id, '
-                    '  CASE r.kind WHEN %s THEN 0 ELSE 1 END, '
+                    '  CASE r.kind '
+                    '    WHEN %s THEN 0 '
+                    '    WHEN %s THEN 0 '
+                    '    ELSE 1 '
+                    '  END, '
                     '  f."sortIndex"',
                     (gallery_id, file_ids, "ready",
-                     "web_jpeg", "web",
-                     "web_jpeg"),
+                     "video", "video_mp4",
+                     "video", "web_jpeg", "web",
+                     "video_mp4", "web_jpeg"),
                 ).fetchall()
             else:
                 rows = conn.execute(
                     'SELECT DISTINCT ON (f.id) '
                     '  f.id, f."originalFilename" AS original_filename, '
+                    '  f.kind AS file_kind, '
                     '  r."storageKey" AS storage_key, '
                     '  r."sizeBytes" AS size_bytes, '
                     '  r.kind AS rkind, r.format AS rformat '
                     'FROM files f '
                     'JOIN renditions r ON r."fileId" = f.id '
                     'WHERE f."galleryId" = %s AND f.status = %s '
-                    '  AND r.kind IN (%s, %s) '
+                    '  AND ( '
+                    '    (f.kind = %s AND r.kind = %s) '
+                    '    OR (f.kind <> %s AND r.kind IN (%s, %s)) '
+                    '  ) '
                     'ORDER BY f.id, '
-                    '  CASE r.kind WHEN %s THEN 0 ELSE 1 END, '
+                    '  CASE r.kind '
+                    '    WHEN %s THEN 0 '
+                    '    WHEN %s THEN 0 '
+                    '    ELSE 1 '
+                    '  END, '
                     '  f."sortIndex"',
                     (gallery_id, "ready",
-                     "web_jpeg", "web",
-                     "web_jpeg"),
+                     "video", "video_mp4",
+                     "video", "web_jpeg", "web",
+                     "video_mp4", "web_jpeg"),
                 ).fetchall()
 
             files = list(rows)
-            # Filenames in *_web.<ext> umbauen. Die Extension richtet
-            # sich nach dem tatsächlich ausgewählten Format — also jpg
-            # wenn web_jpeg verfügbar war, webp als Fallback. Letzteres
-            # tritt nur bei Galerien auf, die vor der web_jpeg-Pipeline
-            # hochgeladen wurden.
+            # Filenames in *_web.<ext> umbauen. Extension je nach
+            # tatsächlichem Format: mp4 bei Videos, jpg bei web_jpeg,
+            # webp bei legacy web-Renditions.
             for f in files:
                 fn = f["original_filename"]
                 dot = fn.rfind(".")
                 stem = fn[:dot] if dot > 0 else fn
-                ext = "jpg" if f["rformat"] == "jpg" else "webp"
+                if f["rkind"] == "video_mp4":
+                    ext = "mp4"
+                elif f["rformat"] == "jpg":
+                    ext = "jpg"
+                else:
+                    ext = "webp"
                 f["original_filename"] = f"{stem}_web.{ext}"
             return files
 

@@ -1098,9 +1098,18 @@ function Lightbox({
             <a
               href={webDownloadUrl}
               className="h-8 px-3 rounded text-ui-xs inline-flex items-center text-white/70 hover:text-white hover:bg-white/10 transition-colors duration-motion"
-              title={t("gallery.downloadWebHint")}
+              title={
+                file.kind === "video"
+                  ? t("gallery.downloadWebVideoHint")
+                  : t("gallery.downloadWebHint")
+              }
             >
               ↓ {t("gallery.downloadWeb")}
+              {file.kind === "video" && (
+                <span className="ml-1.5 font-mono text-[10px] opacity-70">
+                  MP4
+                </span>
+              )}
             </a>
           )}
         </div>

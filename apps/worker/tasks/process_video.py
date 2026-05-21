@@ -2,10 +2,13 @@
 Lumio Worker — process_video
 
 Video-Verarbeitung via ffmpeg:
-  - poster:   Frame bei ~10 % der Laufzeit als JPEG
-  - hls:      Adaptive Bitrate HLS (480p / 720p / 1080p, je nach Quelle)
-              mit Master-Playlist + Segmenten
-  - sprite:   Scrubbing-Sprite-Sheet (1 Frame alle 10s, 10×10 Kacheln)
+  - poster:    Frame bei ~10 % der Laufzeit als JPEG
+  - hls:       Adaptive Bitrate HLS (480p / 720p / 1080p, je nach Quelle)
+               mit Master-Playlist + Segmenten — für Streaming im Browser
+  - sprite:    Scrubbing-Sprite-Sheet (1 Frame alle 10s, 10×10 Kacheln)
+  - video_mp4: Standalone-MP4 in 1080p (oder Quellauflösung wenn kleiner)
+               für den Customer-Download als "Web-Version" — eine Datei,
+               +faststart, libx264/HW je nach Encoder-Profil
 
 Codec: H.264 + AAC. Encoder ist konfigurierbar via LUMIO_HW_ENCODER
 (auto/nvenc/qsv/vaapi/software, default 'auto'). 'auto' probiert
@@ -17,11 +20,13 @@ Storage-Layout:
   renditions/hls/<file_id>/master.m3u8
   renditions/hls/<file_id>/v0/...  v1/...  v2/...
   renditions/sprite.jpg
+  renditions/video_mp4.mp4
 
-Wir tracken in der `renditions`-Tabelle nur den Hauptpfad pro kind:
-  - 'poster'  → Poster-JPEG
-  - 'hls'     → master.m3u8 (Browser fetcht den Rest relativ)
-  - 'sprite'  → Sprite-JPEG
+Wir tracken in der `renditions`-Tabelle den Hauptpfad pro kind:
+  - 'poster'    → Poster-JPEG
+  - 'hls'       → master.m3u8 (Browser fetcht den Rest relativ)
+  - 'sprite'    → Sprite-JPEG
+  - 'video_mp4' → standalone MP4 (Web-Download)
 """
 from __future__ import annotations
 
@@ -189,7 +194,42 @@ def _process(file_row: dict) -> None:
                     metadata=sprite_meta,
                 )
 
-        # 5) Status auf ready, Dimensions des Source-Videos
+        # 5) Web-MP4 — downloadbare Variante als 'Web-Version'. Eine
+        #    einzelne MP4-Datei (nicht HLS-Segmente), 1080p oder
+        #    Quellauflösung wenn kleiner, AAC-Audio, +faststart damit
+        #    der Browser beim Klick sofort streamt statt erst alles
+        #    runterzuziehen.
+        web_mp4_path = tmpdir / "web.mp4"
+        try:
+            target_h = min(1080, height) if height > 0 else 1080
+            _make_web_mp4(
+                src_path=src_path, out_path=web_mp4_path,
+                target_height=target_h, has_audio=has_audio,
+            )
+            if web_mp4_path.exists():
+                mp4_key = rendition_key(
+                    tenant_id, gallery_id, file_id, "video_mp4", "mp4"
+                )
+                mp4_size = upload_file(
+                    str(web_mp4_path), mp4_key, "video/mp4"
+                )
+                # Wir kennen die exakte Höhe der Ausgabe nicht ohne
+                # Re-Probe — target_h ist eine gute Approximation
+                # (ffmpeg hat scale=-2:target_h, also wird die Höhe
+                # exakt target_h sein).
+                upsert_rendition(
+                    file_id=file_id, kind="video_mp4",
+                    storage_key=mp4_key, fmt="mp4",
+                    width=0, height=target_h,
+                    size_bytes=mp4_size,
+                )
+        except Exception as err:
+            # Web-MP4-Fehler ist nicht fatal — HLS + Original
+            # funktionieren weiter. Wir loggen und gehen weiter.
+            log.warn("process_video.web_mp4_failed",
+                     file_id=file_id, err=str(err))
+
+        # 6) Status auf ready, Dimensions des Source-Videos
         mark_file_ready(file_id, width, height)
         _publish_status(gallery_id, file_id, "ready",
                         width=width, height=height)
@@ -471,3 +511,106 @@ def _make_sprite(src: Path, dest: Path, duration_s: float) -> dict | None:
         "tileHeight": tile_h,
         "frames": frames,
     }
+
+
+# ---------------------------------------------------------------------------
+# Web-MP4 (downloadbare Variante)
+# ---------------------------------------------------------------------------
+def _make_web_mp4(
+    *, src_path: Path, out_path: Path,
+    target_height: int, has_audio: bool,
+) -> None:
+    """Erzeugt eine einzelne MP4-Datei in 1080p (oder Quellauflösung
+    wenn niedriger). Wird als 'Web-Version' zum Download angeboten —
+    Kunden bekommen damit eine deutlich kleinere Datei als das Original,
+    die im Browser direkt abspielbar ist und überall hin geteilt werden
+    kann.
+
+    Wichtige Unterschiede zur HLS-Pipeline:
+      - Single-File, keine Segmente (nicht für adaptives Streaming)
+      - +faststart Flag (moov-atom an den Anfang) → Browser startet
+        sofort beim Klick statt zu warten bis alles geladen ist
+      - Bitrate konservativ (~5 Mbit/s bei 1080p) — Tradeoff zwischen
+        Dateigröße und sichtbarer Qualität. Bei niedriger aufgelöstem
+        Source skalieren wir die Bitrate runter.
+      - yuv420p, weil's überall abgespielt wird (auch Quicktime, ältere
+        Browser, Mobile)
+
+    Encoder via select_encoder() wie bei HLS — Hardware wenn verfügbar.
+    """
+    from encoder_profile import profile_for
+
+    profile = profile_for(target_height)
+
+    # Bitrate-Mapping (entspricht in etwa der HLS-Top-Variante für die
+    # jeweilige Höhe, leicht großzügiger weil's eine Download-Datei ist).
+    if target_height >= 1080:
+        v_bitrate = "5000k"
+    elif target_height >= 720:
+        v_bitrate = "2800k"
+    else:
+        v_bitrate = "1400k"
+
+    args: list[str] = [
+        "ffmpeg", "-hide_banner", "-loglevel", "warning", "-y",
+        *profile.extra_input_args,
+        "-i", str(src_path),
+    ]
+
+    # Filter-Graph: skalieren auf target_height (breite mit -2 → gerade,
+    # Aspect-Ratio bleibt). Bei VAAPI brauchen wir hwupload+format=nv12,
+    # weil der Encoder GPU-Memory erwartet.
+    if profile.name == "vaapi":
+        vf = (
+            f"scale_vaapi=w=-2:h={target_height}:format=nv12"
+        )
+    else:
+        vf = f"scale=-2:{target_height}:flags=lanczos,format=yuv420p"
+
+    args += ["-vf", vf]
+
+    # Video-Codec + Preset + Bitrate
+    args += ["-c:v", profile.codec]
+    if profile.preset:
+        # NVENC nutzt -preset für p1..p7, libx264 ebenso. VAAPI hat
+        # kein klassisches Preset (profile.preset ist leer).
+        args += ["-preset", profile.preset]
+    args += [
+        "-b:v", v_bitrate,
+        "-maxrate", v_bitrate,
+        "-bufsize", _double_bitrate(v_bitrate),
+    ]
+    args += profile.extra_video_args
+
+    # Audio
+    if has_audio:
+        args += [
+            "-c:a", "aac",
+            "-b:a", "128k",
+            "-ac", "2",
+        ]
+    else:
+        args += ["-an"]
+
+    # Container-Tuning für Web-Playback
+    args += [
+        "-movflags", "+faststart",
+        "-pix_fmt", "yuv420p" if profile.name != "vaapi" else "nv12",
+        str(out_path),
+    ]
+
+    log.info("process_video.web_mp4.start",
+             encoder=profile.name, target_height=target_height,
+             bitrate=v_bitrate)
+
+    subprocess.run(args, check=True)
+
+
+def _double_bitrate(rate: str) -> str:
+    """ '5000k' -> '10000k' — bufsize wird typischerweise als 2× bitrate
+    gesetzt damit kurze Spitzen abgefedert werden."""
+    if rate.endswith("k"):
+        return f"{int(rate[:-1]) * 2}k"
+    if rate.endswith("M"):
+        return f"{int(rate[:-1]) * 2}M"
+    return rate

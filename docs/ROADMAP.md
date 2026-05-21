@@ -87,6 +87,7 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 - [x] Video-Scrubbing-Vorschau im Player nutzen (Sprite-Sheet ist da; Hover über Progress-Bar zeigt Frame-Thumbnail mit Zeit-Tooltip)
 - [x] HW-Beschleunigung optional (NVENC/QSV/VAAPI via LUMIO_HW_ENCODER, fällt auf libx264 zurück; siehe DEVELOPMENT.md)
 - [x] HEIC/HEIF in der API als eigene Kind detection (eigene `"heic"`-Variante, Format-Badge im Studio + Customer-Tile, Windows-Hinweis am Lightbox-Download)
+- [x] Video-Web-Download als standalone-MP4 (neue `video_mp4`-Rendition: 1080p oder Quellauflösung, +faststart, encoder via select_encoder()/profile_for(); Customer-Single-Download und ZIP-Builder beide angepasst; Backfill-Task `backfill_video_mp4` für Altbestand pro Galerie oder global)
 - [ ] PSD-Preview-Extraktion
 
 ### Branding & Whitelabel ✅ (Phase 1)
