@@ -1269,7 +1269,7 @@ function Lightbox({
     : null;
 
   return (
-    <div className="fixed inset-0 bg-black z-50 flex flex-col animate-fade-in">
+    <div className="fixed inset-0 bg-black text-white z-50 flex flex-col animate-fade-in">
       {/* Top Bar */}
       <div className="flex items-center justify-between px-3 sm:px-5 py-2.5 border-b border-white/5 text-ui-sm">
         <button
@@ -1477,7 +1477,7 @@ function Lightbox({
 
         {/* Sidebar (Kommentare) */}
         {showComments && meta.commentsEnabled && (
-          <aside className="w-80 border-l border-white/5 flex flex-col bg-black/50 backdrop-blur-sm">
+          <aside className="w-80 border-l border-white/5 flex flex-col bg-black/50 backdrop-blur-sm text-white">
             <div className="px-4 py-3 border-b border-white/5 text-ui-sm font-medium text-white/90">
               {t("gallery.comments")}
             </div>
@@ -1488,8 +1488,8 @@ function Lightbox({
                 <div className="text-ui-xs opacity-50">{t("gallery.commentsEmpty")}</div>
               ) : (
                 comments.map((c) => (
-                  <div key={c.id} className="text-ui">
-                    <div className="text-ui-xs opacity-60 mb-0.5">
+                  <div key={c.id} className="text-ui text-white">
+                    <div className="text-ui-xs text-white/60 mb-0.5">
                       {c.authorLabel}
                       {c.authorIsStudio && (
                         <span className="ml-1.5 text-[10px] bg-brand-accent/30 text-brand-accent px-1.5 py-0.5 rounded-xs">
@@ -1511,7 +1511,7 @@ function Lightbox({
                 onChange={(e) => setNewComment(e.target.value)}
                 placeholder={t("gallery.commentPlaceholder")}
                 rows={2}
-                className="w-full bg-white/5 border border-white/15 rounded p-2 text-ui placeholder:opacity-40 focus:outline-none focus:border-brand-accent transition-colors duration-motion"
+                className="w-full bg-white/5 border border-white/15 rounded p-2 text-ui text-white placeholder:text-white/40 focus:outline-none focus:border-brand-accent transition-colors duration-motion"
               />
               <button
                 type="submit"
