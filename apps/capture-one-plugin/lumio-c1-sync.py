@@ -10,7 +10,7 @@ Subkommandos auf:
 
 Config liegt unter ~/.lumio-c1.json:
 
-  { "host": "https://lumio-cloud.de", "token": "lum_xxx..." }
+  { "host": "https://studio.lumio-cloud.de", "token": "lum_xxx..." }
 
 Dies separat von AppleScript zu halten hat zwei Vorteile:
 
@@ -45,7 +45,7 @@ def load_config() -> dict[str, str]:
         sys.stderr.write(
             f"Konfigurationsdatei fehlt: {CONFIG_PATH}\n"
             f"Beispiel-Inhalt:\n"
-            f'  {{ "host": "https://lumio-cloud.de", "token": "lum_xxx..." }}\n'
+            f'  {{ "host": "https://studio.lumio-cloud.de", "token": "lum_xxx..." }}\n'
         )
         sys.exit(2)
     try:

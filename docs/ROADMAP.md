@@ -189,6 +189,22 @@ Hosted-Service-Layer obendrauf.
 - [x] Gated über `BILLING_ENABLED` env — Self-Hosted ohne Billing
       läuft komplett unverändert
 
+### Domain-Trennung App ↔ Marketing
+
+- [x] App-Code-Stellen mit hardcoded `lumio-cloud.de` auf
+      `studio.lumio-cloud.de` umgestellt (Plugin-Defaults Lightroom
+      und Capture-One, README-Beispiele, Code-Kommentare)
+- [x] Caddy-Doku auf neue Domain. Plus Notiz dass die Marketing-
+      Seiten in eigenen Repos leben.
+- [x] MULTI_TENANT.md: App-Referenzen auf studio.lumio-cloud.de,
+      Tenant-Subdomains bleiben bewusst auf `*.lumio-cloud.de`
+      (DNS-Wildcard ist getrennt von Marketing-Site-Root)
+- [ ] DNS: A-Record `studio.lumio-cloud.de` → Server-IP setzen
+- [ ] Externer Reverse-Proxy: `studio.lumio-cloud.de` → App-Container
+- [ ] Tenant-Subdomain-Frage (`<slug>.lumio-cloud.de` vs.
+      `<slug>.studio.lumio-cloud.de`) bewusst aufgeschoben — kommt
+      mit echtem Multi-Tenant-Setup
+
 ### Stripe-Integration (Sprint 2 — offen)
 
 - [ ] Stripe-Konto + Produkte/Prices anlegen, IDs in

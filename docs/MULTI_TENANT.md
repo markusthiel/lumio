@@ -52,7 +52,7 @@ automatisch geholt — kein DNS-Plugin nötig, läuft mit dem Stock-Caddy.
    Dann `caddy reload` (oder Caddy-Container neu starten). Cert wird
    per HTTP-Challenge automatisch geholt sobald die Domain auflöst.
 
-3. **Im Super-Admin** auf `https://lumio-cloud.de/super/login`:
+3. **Im Super-Admin** auf `https://studio.lumio-cloud.de/super/login`:
    - „+ Neuer Tenant"
    - Slug, Name, **Custom-Domain `studio-mueller.de`** eintragen
    - Owner-Name + Owner-E-Mail
@@ -126,7 +126,7 @@ spricht der Client direkt mit der API-URL und schickt einen Header mit:
 
 ```
 GET /api/v1/galleries HTTP/1.1
-Host: lumio-cloud.de
+Host: studio.lumio-cloud.de
 X-Lumio-Tenant: studio-mueller
 ```
 

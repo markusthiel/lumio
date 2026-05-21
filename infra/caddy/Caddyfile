@@ -18,16 +18,21 @@
 #
 #   Produktion mit eigener Domain — LUMIO_HOST ist eine echte
 #   Hostname, der Catch-All fängt Custom-Domains der Kunden ab:
-#     LUMIO_HOST=lumio-cloud.de
+#     LUMIO_HOST=studio.lumio-cloud.de
 #     LUMIO_S3_HOST=s3.lumio-cloud.de
 #
 #   Hinter externem Reverse-Proxy (TLS-Termination woanders):
-#     LUMIO_HOST=lumio-cloud.de   # Host bleibt nötig für spezifischen Block
+#     LUMIO_HOST=studio.lumio-cloud.de   # Host bleibt nötig für spezifischen Block
 #     LUMIO_S3_HOST=s3.lumio-cloud.de
-#     externer Proxy: lumio-cloud.de     → docker-host:CADDY_HTTP_PORT
-#     externer Proxy: s3.lumio-cloud.de  → docker-host:CADDY_HTTP_PORT
-#     externer Proxy: foto-kunde.de      → docker-host:CADDY_HTTP_PORT
+#     externer Proxy: studio.lumio-cloud.de → docker-host:CADDY_HTTP_PORT
+#     externer Proxy: s3.lumio-cloud.de     → docker-host:CADDY_HTTP_PORT
+#     externer Proxy: foto-kunde.de         → docker-host:CADDY_HTTP_PORT
 #     (Custom-Domains werden ohne Env-Änderung vom Catch-All bedient)
+#
+# Hinweis: die Marketing-Seiten lumio-cloud.de (SaaS-Pitch) und
+# lumio-app.de (Open-Source-Pitch) leben in eigenen Repos und werden
+# NICHT über diesen Caddy bedient — der externe Reverse-Proxy routet
+# diese Domains auf separate Container.
 #
 # trusted_proxies sorgt dafür, dass X-Forwarded-Proto eines externen
 # Reverse-Proxies respektiert wird (siehe Kommentar dort).
@@ -61,7 +66,7 @@
 # -----------------------------------------------------------------------------
 # Hauptseite — Frontend + API
 # -----------------------------------------------------------------------------
-# In Produktion ist LUMIO_HOST=lumio-cloud.de gesetzt → spezifischer
+# In Produktion ist LUMIO_HOST=studio.lumio-cloud.de gesetzt → spezifischer
 # Block, greift vor dem Catch-All darunter. In lokalem Dev ohne
 # LUMIO_HOST entfällt dieser Block (Default 127.0.0.1:9 = unerreichbar,
 # Caddy startet ohne Fehler), und der http://-Catch-All bedient alles.

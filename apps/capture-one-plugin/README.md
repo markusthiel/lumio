@@ -61,7 +61,7 @@ Sterne-Bewertungen und Picks landen direkt auf den Variants.
 
    ```json
    {
-     "host": "https://lumio-cloud.de",
+     "host": "https://studio.lumio-cloud.de",
      "token": "lum_xxxxxxxxxxxxxxxxxxxxxx"
    }
    ```

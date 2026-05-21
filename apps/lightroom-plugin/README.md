@@ -33,7 +33,7 @@ umbenennen (oder per Rechtsklick → „Paketinhalt zeigen").
 2. Im Zusatzmodul-Manager das Lumio-Plugin auswählen, im rechten
    Bereich „Lumio Verbindung":
    - **Server**: deine Lumio-URL inklusive `https://`, z.B.
-     `https://lumio-cloud.de`
+     `https://studio.lumio-cloud.de`
    - **API-Token**: den eben erzeugten Token einfügen
 3. **Verbindung testen** klicken. Erwartete Ausgabe:
    `✓ Verbunden (API v1)`.

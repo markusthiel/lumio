@@ -15,7 +15,7 @@
  * laufen, falls wir mal skalieren).
  *
  * RP-Konfiguration:
- *   rpID     = host ohne Port (also "lumio-cloud.de", nicht "https://...")
+ *   rpID     = host ohne Port (z.B. "studio.lumio-cloud.de", nicht "https://...")
  *   rpName   = "Lumio"
  *   origin   = config.PUBLIC_URL (mit Protokoll, ohne Trailing-Slash)
  *
@@ -40,7 +40,10 @@ import { logger } from "../logger.js";
 const RP_NAME = "Lumio";
 
 function rpID(): string {
-  // PUBLIC_URL ist z.B. "https://lumio-cloud.de" — wir wollen nur den Host.
+  // PUBLIC_URL ist z.B. "https://studio.lumio-cloud.de" — wir wollen
+  // nur den Host. Wichtig: ein Domain-Wechsel zwischen Registrierung
+  // eines Passkeys und späterem Login invalidiert den Passkey, weil
+  // der WebAuthn-Spec rpID an die Domain bindet.
   try {
     return new URL(config.PUBLIC_URL).hostname;
   } catch {

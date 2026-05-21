@@ -49,7 +49,7 @@ export async function fetchPublicGallery(
  * Akzeptiert sowohl absolute URLs (Presigned-S3 vom Backend für
  * heroFileId-Auflösung) als auch relative API-Pfade (`/api/v1/g/...`
  * für hochgeladene Assets / Logos). PUBLIC_BASE ist die Origin auf der
- * die App von außen erreichbar ist — z.B. https://lumio-cloud.de.
+ * die App von außen erreichbar ist — z.B. https://studio.lumio-cloud.de.
  */
 export function fetchAssetAbsolute(maybeRelative: string): string {
   if (/^https?:\/\//.test(maybeRelative)) return maybeRelative;

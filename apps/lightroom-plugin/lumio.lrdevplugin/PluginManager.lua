@@ -46,7 +46,7 @@ return {
         local f = viewFactory
 
         local bindable = LrBinding.makePropertyTable(_propertyTable.context)
-        bindable.host       = prefs.host or "https://lumio-cloud.de"
+        bindable.host       = prefs.host or "https://studio.lumio-cloud.de"
         bindable.token      = prefs.token or ""
         bindable.testStatus = ""
 
@@ -68,7 +68,7 @@ return {
                         value = LrView.bind("host"),
                         width_in_chars = 40,
                         immediate = true,
-                        placeholder_string = "https://lumio-cloud.de",
+                        placeholder_string = "https://studio.lumio-cloud.de",
                     },
                 },
                 f:row {

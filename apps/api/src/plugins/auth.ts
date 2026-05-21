@@ -118,7 +118,7 @@ async function resolveTenant(req: FastifyRequest): Promise<string> {
   }
 
   // (2) Expliziter X-Lumio-Tenant-Header. Vor allem für die Mobile-App
-  //     gedacht, die über die nackte API-URL (z.B. lumio-cloud.de)
+  //     gedacht, die über die nackte API-URL (z.B. studio.lumio-cloud.de)
   //     spricht — ohne Subdomain, ohne Custom-Domain. Der Header
   //     trägt den Tenant-Slug; wir matchen auf tenants.slug.
   //
