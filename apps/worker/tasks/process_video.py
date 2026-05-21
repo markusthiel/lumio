@@ -40,6 +40,7 @@ import structlog
 
 from app import app
 from db import fetch_file, mark_file_ready, mark_file_failed, upsert_rendition
+from encoder_profile import profile_for
 from rt import file_status as _publish_status
 from storage import (
     download_to_file,
@@ -325,8 +326,6 @@ def _make_hls(*, src_path: Path, out_dir: Path, source_height: int,
     je nach Codec leicht andere Filter- und Encoder-Args, aber die HLS-
     Muxer-Args bleiben identisch.
     """
-    from encoder_profile import profile_for
-
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # Welche Varianten machen wir? Nichts upscalen.
@@ -538,8 +537,6 @@ def _make_web_mp4(
 
     Encoder via select_encoder() wie bei HLS — Hardware wenn verfügbar.
     """
-    from encoder_profile import profile_for
-
     profile = profile_for(target_height)
 
     # Bitrate-Mapping (entspricht in etwa der HLS-Top-Variante für die
