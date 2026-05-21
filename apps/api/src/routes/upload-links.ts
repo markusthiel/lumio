@@ -444,6 +444,76 @@ export async function registerUploadLinkRoutes(app: FastifyInstance) {
     }
   );
 
+  // -------------------------------------------------------------------------
+  // POST /galleries/:id/uploads/approve-bulk
+  //   Mehrere Files in einem Call freigeben. Erwartet { fileIds: [] }.
+  //   Returnt nur die IDs die wirklich freigegeben wurden — IDs die
+  //   schon visible waren oder nicht zur Galerie gehören werden
+  //   stillschweigend übersprungen (Idempotenz).
+  // -------------------------------------------------------------------------
+  app.post<{ Params: { id: string }; Body: unknown }>(
+    "/galleries/:id/uploads/approve-bulk",
+    async (req, reply) => {
+      const gallery = await findOwnedGallery(req, req.params.id);
+      if (!gallery) return reply.status(404).send({ error: "not_found" });
+
+      const bodySchema = z.object({
+        fileIds: z.array(z.string().uuid()).min(1).max(500),
+      });
+      const body = bodySchema.safeParse(req.body);
+      if (!body.success) {
+        return reply.status(400).send({ error: "invalid_body" });
+      }
+
+      // Erst raussuchen welche Files überhaupt approve-relevant sind:
+      // - gehören zur Galerie (Anti-Tampering)
+      // - sind heute pending (publicVisibility=hidden)
+      // visible-Files filtern wir raus damit wir keinen unnötigen
+      // UPDATE machen und keinen Approve-Audit-Eintrag schreiben für
+      // einen No-Op.
+      const relevant = await prisma.file.findMany({
+        where: {
+          id: { in: body.data.fileIds },
+          galleryId: gallery.id,
+          publicVisibility: "hidden",
+        },
+        select: { id: true },
+      });
+      if (relevant.length === 0) {
+        return { approved: [] };
+      }
+      const ids = relevant.map((f) => f.id);
+
+      await prisma.file.updateMany({
+        where: { id: { in: ids } },
+        data: { publicVisibility: "visible" },
+      });
+
+      // Ein Audit-Event pro File. Bei großen Bulks (z.B. 200 Files)
+      // könnte man ein einzelnes Aggregat-Event loggen, aber dann
+      // verliert man die Auswertbarkeit pro File. Für die
+      // Sichtbarkeits-History ist pro-File besser.
+      for (const fileId of ids) {
+        await logEvent({
+          tenantId: req.tenantId,
+          actorType: "user",
+          actorId: req.session?.user.id,
+          action: "file.approve",
+          targetType: "upload_link",
+          payload: { galleryId: gallery.id, fileId, bulk: true },
+          ipAddress: req.ip,
+        });
+        publish(gallery.id, {
+          type: "file.visibility",
+          fileId,
+          publicVisibility: "visible",
+        });
+      }
+
+      return { approved: ids };
+    }
+  );
+
   // =========================================================================
   // Public-Routes (Token-basiert, kein Login)
   // =========================================================================

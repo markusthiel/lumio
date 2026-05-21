@@ -325,6 +325,15 @@ export const en: Dict = {
       pendingHint: "Awaiting approval",
       approve: "Approve",
       approving: "Approving…",
+      approveSelected: "Approve selected ({count})",
+      approveAll: "Approve all ({count})",
+      confirmApproveAll:
+        "Really approve all {count} pending photos? They will become visible in the customer gallery afterwards.",
+      bulkApproved: "{count} approved",
+      pendingCounter: "{count} pending",
+      pendingHeaderCounter: "{count} pending approval",
+      pendingFilterTitle: "Show only pending photos / reset filter",
+      noPending: "No pending photos.",
     },
   },
 

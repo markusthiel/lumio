@@ -66,6 +66,11 @@ export default function GalleryDetailPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkPending, setBulkPending] = useState(false);
 
+  // File-Filter: 'all' (default) oder 'pending' (nur wartende
+  // Upload-Link-Files). Wird auch via Header-Counter gesteuert,
+  // der direkt darauf umschaltet.
+  const [fileFilter, setFileFilter] = useState<"all" | "pending">("all");
+
   // DnD-Sensoren (siehe Sprint 17)
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -176,6 +181,58 @@ export default function GalleryDetailPage() {
       setLoading(false);
     }
   }, [id, router]);
+
+  // Bulk-Approve: alle ausgewählten pending-Files in einem Call
+  // freigeben. Backend filtert no-ops raus (Files die schon visible
+  // sind), wir kriegen die Anzahl tatsächlich freigegebener zurück.
+  const approveSelected = useCallback(async () => {
+    if (!gallery) return;
+    const ids = Array.from(selected);
+    if (ids.length === 0) return;
+    setBulkPending(true);
+    try {
+      const res = await api.approveUploadedFilesBulk(gallery.id, ids);
+      pushActivity(
+        t("studio.uploadLinks.bulkApproved", { count: res.approved.length })
+      );
+      setSelected(new Set());
+      // file.visibility-Events vom WS aktualisieren den File-State,
+      // aber wir laden defensiv noch mal — schneller UI-Feedback.
+      await load();
+    } finally {
+      setBulkPending(false);
+    }
+  }, [gallery, selected, pushActivity, t, load]);
+
+  // Quickaction für die ganze Galerie — alle wartenden Files in
+  // einem Call freigeben. Ohne Selection-Mode erreichbar.
+  const approveAllPending = useCallback(async () => {
+    if (!gallery) return;
+    const pendingIds = gallery.files
+      .filter(
+        (f) =>
+          f.uploadedVia === "upload_link" && f.publicVisibility === "hidden"
+      )
+      .map((f) => f.id);
+    if (pendingIds.length === 0) return;
+    if (
+      !confirm(
+        t("studio.uploadLinks.confirmApproveAll", { count: pendingIds.length })
+      )
+    ) {
+      return;
+    }
+    setBulkPending(true);
+    try {
+      const res = await api.approveUploadedFilesBulk(gallery.id, pendingIds);
+      pushActivity(
+        t("studio.uploadLinks.bulkApproved", { count: res.approved.length })
+      );
+      await load();
+    } finally {
+      setBulkPending(false);
+    }
+  }, [gallery, pushActivity, t, load]);
 
   useEffect(() => {
     void load();
@@ -434,6 +491,21 @@ export default function GalleryDetailPage() {
     );
   }
 
+  // Derived: Pending-Files (Upload-Link-Uploads, noch nicht freigegeben).
+  // Wir zählen pro-Render aus gallery.files — günstig genug bei den
+  // typischen 100-2000 Files, und der Code bleibt synchron mit dem
+  // gallery-State.
+  const pendingFiles = gallery.files.filter(
+    (f) => f.uploadedVia === "upload_link" && f.publicVisibility === "hidden"
+  );
+  const pendingCount = pendingFiles.length;
+  const visibleFiles =
+    fileFilter === "pending" ? pendingFiles : gallery.files;
+  const selectedPendingCount = pendingFiles.filter((f) =>
+    selected.has(f.id)
+  ).length;
+  const selectedHasPending = selectedPendingCount > 0;
+
   return (
     <>
       {/* Live-Activity-Toasts: fixiert oben, rechts der Sidebar.
@@ -525,6 +597,18 @@ export default function GalleryDetailPage() {
               {gallery.files.filter((f) => f.status === "failed").length}{" "}
               {t("studio.failedCount")}
             </span>
+          </>
+        )}
+        {pendingCount > 0 && (
+          <>
+            <span className="text-ink-tertiary/40">·</span>
+            <button
+              onClick={() => setFileFilter("pending")}
+              className="text-accent hover:text-accent-hover underline underline-offset-2"
+              title={t("studio.uploadLinks.pendingFilterTitle")}
+            >
+              {t("studio.uploadLinks.pendingHeaderCounter", { count: pendingCount })}
+            </button>
           </>
         )}
       </div>
@@ -697,12 +781,27 @@ export default function GalleryDetailPage() {
         {gallery.files.length > 0 && (
           <section>
             <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
-              <h2 className="text-ui-md font-medium text-ink-primary">
-                {t("studio.files")}
+              <h2 className="text-ui-md font-medium text-ink-primary flex items-center gap-2 flex-wrap">
+                <span>{t("studio.files")}</span>
                 {selectionMode && selected.size > 0 && (
-                  <span className="ml-2 text-ui-sm text-ink-tertiary font-normal">
+                  <span className="text-ui-sm text-ink-tertiary font-normal">
                     · {selected.size} {t("studio.selectedSuffix")}
                   </span>
+                )}
+                {pendingCount > 0 && (
+                  <button
+                    onClick={() =>
+                      setFileFilter((f) => (f === "pending" ? "all" : "pending"))
+                    }
+                    className={`text-ui-xs uppercase tracking-wider px-2 py-0.5 rounded-xs font-medium transition-colors duration-motion ${
+                      fileFilter === "pending"
+                        ? "bg-accent text-accent-contrast"
+                        : "bg-accent/15 text-accent hover:bg-accent/25"
+                    }`}
+                    title={t("studio.uploadLinks.pendingFilterTitle")}
+                  >
+                    {t("studio.uploadLinks.pendingCounter", { count: pendingCount })}
+                  </button>
                 )}
               </h2>
               <div className="flex items-center gap-1.5">
@@ -712,7 +811,9 @@ export default function GalleryDetailPage() {
                       size="sm"
                       variant="secondary"
                       onClick={() =>
-                        setSelected(new Set(gallery.files.map((f) => f.id)))
+                        setSelected(
+                          new Set(visibleFiles.map((f) => f.id))
+                        )
                       }
                     >
                       {t("studio.selectAll")}
@@ -725,6 +826,21 @@ export default function GalleryDetailPage() {
                     >
                       {t("studio.selectNone")}
                     </Button>
+                    {/* Bulk-Approve nur sichtbar wenn pending-Files in der
+                        Auswahl sind. Selektive Anzeige verhindert den
+                        Klick-Versuch auf einen No-Op. */}
+                    {selectedHasPending && (
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={approveSelected}
+                        disabled={bulkPending || selected.size === 0}
+                      >
+                        {t("studio.uploadLinks.approveSelected", {
+                          count: selectedPendingCount,
+                        })}
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="secondary"
@@ -759,25 +875,39 @@ export default function GalleryDetailPage() {
                     </Button>
                   </>
                 ) : (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => setSelectionMode(true)}
-                  >
-                    {t("studio.selectFiles")}
-                  </Button>
+                  <>
+                    {/* Quickaction: alle wartenden freigeben — sichtbar
+                        wenn überhaupt was wartet, unabhängig von Filter. */}
+                    {pendingCount > 0 && (
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        onClick={approveAllPending}
+                        disabled={bulkPending}
+                      >
+                        {t("studio.uploadLinks.approveAll", { count: pendingCount })}
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => setSelectionMode(true)}
+                    >
+                      {t("studio.selectFiles")}
+                    </Button>
+                  </>
                 )}
               </div>
             </div>
 
             <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
               <SortableContext
-                items={gallery.files.map((f) => f.id)}
+                items={visibleFiles.map((f) => f.id)}
                 strategy={rectSortingStrategy}
-                disabled={selectionMode}
+                disabled={selectionMode || fileFilter !== "all"}
               >
                 <ul className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5">
-                  {gallery.files.map((f, i) => (
+                  {visibleFiles.map((f, i) => (
                     <FileTile
                       key={f.id}
                       file={f}
@@ -785,10 +915,14 @@ export default function GalleryDetailPage() {
                       selectionMode={selectionMode}
                       selected={selected.has(f.id)}
                       onToggle={() => toggleSelected(f.id)}
-                      galleryId={gallery.id}
                     />
                   ))}
                 </ul>
+                {visibleFiles.length === 0 && fileFilter === "pending" && (
+                  <div className="text-ui-sm text-ink-tertiary text-center py-12">
+                    {t("studio.uploadLinks.noPending")}
+                  </div>
+                )}
               </SortableContext>
             </DndContext>
           </section>
@@ -1028,38 +1162,23 @@ function FileTile({
   selectionMode,
   selected,
   onToggle,
-  galleryId,
 }: {
   file: GalleryFile;
   index: number;
   selectionMode: boolean;
   selected: boolean;
   onToggle: () => void;
-  galleryId: string;
 }) {
   const t = useT();
   const isHidden = file.status === "hidden";
   const isFailed = file.status === "failed";
-  // Pending-Approval: File kam via UploadLink rein und ist noch nicht
-  // freigegeben. Studio sieht es mit Badge + Approve-Button; Customer
-  // sieht es noch gar nicht (publicVisibility-Filter im API).
+  // Pending-Approval: File kam via UploadLink und ist noch nicht
+  // freigegeben. Studio sieht es mit Badge; Customer noch nicht
+  // (publicVisibility-Filter im API). Freigabe läuft über die
+  // Bulk-Toolbar oben, nicht über den Tile selbst.
   const isPending =
     file.uploadedVia === "upload_link" &&
     file.publicVisibility === "hidden";
-  const [approving, setApproving] = useState(false);
-
-  async function approve(e: React.MouseEvent) {
-    e.stopPropagation();
-    setApproving(true);
-    try {
-      await api.approveUploadedFile(galleryId, file.id);
-      // file.visibility-Event vom WS reicht — der Page-State updated
-      // sich automatisch. Fallback: gar nichts, Tile-Component rendert
-      // beim Parent-Re-Render mit neuem File-State.
-    } finally {
-      setApproving(false);
-    }
-  }
 
   const {
     attributes,
@@ -1170,28 +1289,17 @@ function FileTile({
       {/* Pending-Approval: File kam via UploadLink, Studio muss freigeben.
           Badge oben-rechts (überschneidet sich nicht mit isHidden, weil
           publicVisibility=hidden ≠ status=hidden — File ist ready, nur
-          nicht für Customer sichtbar). Approve-Button rechts daneben,
-          weil das die häufigste Aktion ist. */}
+          nicht für Customer sichtbar). Freigabe passiert über die
+          Toolbar (Bulk-Action), nicht über den Tile selbst — auf dem
+          Tile würde der Approve-Button mit dem Drag-and-Drop kollidieren
+          (Klick wird als Drag-Start interpretiert). */}
       {isPending && !isFailed && (
-        <>
-          <div
-            className="absolute top-1.5 right-1.5 text-ui-xs uppercase tracking-wider px-1.5 py-0.5 rounded-xs bg-accent/90 text-accent-contrast font-medium"
-            title={t("studio.uploadLinks.pendingHint")}
-          >
-            {t("studio.uploadLinks.pendingBadge")}
-          </div>
-          {!selectionMode && (
-            <button
-              onClick={approve}
-              disabled={approving}
-              className="absolute bottom-1.5 left-1.5 text-ui-xs h-7 px-2.5 rounded bg-accent text-accent-contrast font-medium hover:bg-accent-hover disabled:opacity-50 transition-colors duration-motion"
-            >
-              {approving
-                ? t("studio.uploadLinks.approving")
-                : t("studio.uploadLinks.approve")}
-            </button>
-          )}
-        </>
+        <div
+          className="absolute top-1.5 right-1.5 text-ui-xs uppercase tracking-wider px-1.5 py-0.5 rounded-xs bg-accent/90 text-accent-contrast font-medium"
+          title={t("studio.uploadLinks.pendingHint")}
+        >
+          {t("studio.uploadLinks.pendingBadge")}
+        </div>
       )}
 
       {/* Format-Badge für RAW + HEIC. Nicht für reguläres image/video — dort

@@ -758,8 +758,20 @@ export const api = {
    * den Customer sichtbar (publicVisibility: hidden → visible). */
   approveUploadedFile: (galleryId: string, fileId: string) =>
     request<{ fileId: string; publicVisibility: "visible" }>(
-      `/galleries/${galleryId}/uploads/${fileId}/approve`,
+      `/galleries/${galleryId}/files/${fileId}/approve`,
       { method: "POST" }
+    ),
+
+  /** Bulk-Freigabe: mehrere pending-Files in einem Call freigeben.
+   * Endpoint returnt die freigegebenen IDs (kann weniger sein wenn
+   * manche schon visible waren oder nicht zur Galerie gehören). */
+  approveUploadedFilesBulk: (galleryId: string, fileIds: string[]) =>
+    request<{ approved: string[] }>(
+      `/galleries/${galleryId}/uploads/approve-bulk`,
+      {
+        method: "POST",
+        body: JSON.stringify({ fileIds }),
+      }
     ),
 
   // ---------------------------------------------------------------------------

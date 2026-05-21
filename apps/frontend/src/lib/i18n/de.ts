@@ -325,6 +325,15 @@ export const de: Dict = {
       pendingHint: "Wartet auf Freigabe",
       approve: "Freigeben",
       approving: "Wird freigegeben…",
+      approveSelected: "Auswahl freigeben ({count})",
+      approveAll: "Alle freigeben ({count})",
+      confirmApproveAll:
+        "Wirklich alle {count} wartenden Bilder freigeben? Die Bilder werden danach in der Kundengalerie sichtbar.",
+      bulkApproved: "{count} freigegeben",
+      pendingCounter: "{count} wartend",
+      pendingHeaderCounter: "{count} wartend auf Freigabe",
+      pendingFilterTitle: "Nur wartende Bilder anzeigen / Filter zurücksetzen",
+      noPending: "Keine wartenden Bilder.",
     },
   },
 
