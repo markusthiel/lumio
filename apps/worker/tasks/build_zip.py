@@ -142,6 +142,15 @@ def _build(*, tenant_id: str, gallery_id: str,
                 # Wir loggen das File und gehen weiter. Der Customer
                 # bekommt ein ZIP mit den anderen Files; die fehlenden
                 # erscheinen in den Worker-Logs für Debugging.
+                #
+                # Wir catchen sowohl s3.exceptions.NoSuchKey (boto3
+                # >=1.20) als auch ClientError mit verschiedenen
+                # Codes (MinIO meldet manchmal NoSuchKey, manchmal
+                # '404', manchmal 'NoSuchBucket' wenn die Tenant-
+                # Bucket-Konvention durcheinander geraten ist).
+                # Default: alles was 404-artig aussieht skippen,
+                # andere ClientErrors (Auth-Probleme, 5xx) bubbeln
+                # weiter und brechen den Build ab.
                 try:
                     obj = s3.get_object(Bucket=bucket, Key=f["storage_key"])
                 except s3.exceptions.NoSuchKey:
@@ -149,6 +158,7 @@ def _build(*, tenant_id: str, gallery_id: str,
                         "file_id": f.get("id"),
                         "key": f["storage_key"],
                         "filename": f["original_filename"],
+                        "error": "NoSuchKey",
                     })
                     log.warning(
                         "build_zip.skip_missing_key",
@@ -158,23 +168,52 @@ def _build(*, tenant_id: str, gallery_id: str,
                     )
                     continue
                 except ClientError as e:
-                    # S3-seitige Fehler (z.B. 403, Network) — auch
-                    # skippen statt Build abbrechen.
-                    code = e.response.get("Error", {}).get("Code", "")
-                    if code in ("NoSuchKey", "AccessDenied"):
+                    err = e.response.get("Error", {})
+                    code = err.get("Code", "")
+                    status = (
+                        e.response.get("ResponseMetadata", {}).get(
+                            "HTTPStatusCode"
+                        )
+                    )
+                    # Skip auf alles was nach "Objekt nicht da" aussieht
+                    # — egal welcher Code-String, solange HTTP 404 oder
+                    # einer der bekannten S3/MinIO-Codes.
+                    is_not_found = (
+                        status == 404
+                        or code
+                        in (
+                            "NoSuchKey",
+                            "NoSuchBucket",
+                            "404",
+                            "NotFound",
+                        )
+                    )
+                    if is_not_found:
                         skipped.append({
                             "file_id": f.get("id"),
                             "key": f["storage_key"],
                             "filename": f["original_filename"],
-                            "error": code,
+                            "error": code or f"HTTP{status}",
                         })
                         log.warning(
-                            "build_zip.skip_s3_error",
+                            "build_zip.skip_s3_not_found",
                             file_id=str(f.get("id")),
                             key=f["storage_key"],
+                            filename=f["original_filename"],
                             code=code,
+                            status=status,
                         )
                         continue
+                    # Andere S3-Fehler: loggen und re-raisen — die
+                    # darf der Worker nicht stillschweigend schlucken.
+                    log.error(
+                        "build_zip.s3_error_unrecoverable",
+                        file_id=str(f.get("id")),
+                        key=f["storage_key"],
+                        code=code,
+                        status=status,
+                        message=err.get("Message", ""),
+                    )
                     raise
 
                 with zf.open(zinfo, "w") as zentry:
