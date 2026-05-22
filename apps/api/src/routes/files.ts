@@ -25,6 +25,7 @@ import {
   effectiveUploadLimitBytes,
   formatLimit,
 } from "../services/upload-limit.js";
+import { invalidateZipCacheForGallery } from "../services/zip-cache.js";
 import {
   originalKey,
   presignPut,
@@ -287,6 +288,19 @@ export async function registerFileRoutes(app: FastifyInstance) {
       }
     );
 
+    // ZIP-Cache invalidieren — neues File ist in der Galerie, alte
+    // ZIPs hätten es nicht drin. Beim nächsten Customer-Download
+    // wird neu gebaut. Wir machen das schon hier statt erst beim
+    // process_*-Worker-Erfolg, weil der File-Eintrag jetzt zwar
+    // status=processing hat (also noch nicht in den ZIP-Where-
+    // Clauses, die nur status='ready' wollen), aber sobald
+    // er ready wird, ist's konsistent — und Customer-Downloads
+    // während processing sind ohnehin selten.
+    await invalidateZipCacheForGallery(file.gallery.id, {
+      log: app.log,
+      reason: "file_uploaded",
+    });
+
     return { fileId: file.id, status: "processing" };
   });
 
@@ -352,6 +366,15 @@ export async function registerFileRoutes(app: FastifyInstance) {
 
     await prisma.file.delete({ where: { id: file.id } });
     void abortMultipartUpload;
+
+    // ZIP-Cache invalidieren — gelöschtes File darf in keinem
+    // existierenden ZIP mehr referenziert sein, sonst würde der
+    // Worker beim nächsten Re-Build mit NoSuchKey skippen oder ein
+    // alter ZIP-Cache würde den toten storageKey enthalten.
+    await invalidateZipCacheForGallery(file.galleryId, {
+      log: app.log,
+      reason: "file_deleted",
+    });
 
     await logEvent({
       tenantId: req.tenantId,
@@ -457,6 +480,10 @@ export async function registerFileRoutes(app: FastifyInstance) {
       for (const f of files) {
         publish(gallery.id, { type: "file.deleted", fileId: f.id });
       }
+      await invalidateZipCacheForGallery(gallery.id, {
+        log: app.log,
+        reason: `bulk_delete_${result.count}`,
+      });
       await logEvent({
         tenantId: req.tenantId,
         actorType: "user",
@@ -489,6 +516,13 @@ export async function registerFileRoutes(app: FastifyInstance) {
         status: newStatus,
       });
     }
+    // hide entfernt die Files aus dem Customer-View und damit aus
+    // künftigen ZIPs; show fügt sie wieder rein. Beide Richtungen
+    // brauchen Cache-Invalidierung.
+    await invalidateZipCacheForGallery(gallery.id, {
+      log: app.log,
+      reason: `bulk_${body.action}_${result.count}`,
+    });
     await logEvent({
       tenantId: req.tenantId,
       actorType: "user",

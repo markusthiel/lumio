@@ -29,6 +29,7 @@ import {
   effectiveUploadLimitBytes,
   formatLimit,
 } from "../services/upload-limit.js";
+import { invalidateZipCacheForGallery } from "../services/zip-cache.js";
 import {
   originalKey,
   presignPut,
@@ -522,6 +523,13 @@ export async function registerUploadLinkRoutes(app: FastifyInstance) {
         publicVisibility: "visible",
       });
 
+      // ZIP-Cache invalidieren — File ist jetzt im Customer-View und
+      // damit in künftigen ZIPs enthalten.
+      await invalidateZipCacheForGallery(gallery.id, {
+        log: app.log,
+        reason: "file_approved",
+      });
+
       return { fileId: file.id, publicVisibility: "visible" };
     }
   );
@@ -592,6 +600,13 @@ export async function registerUploadLinkRoutes(app: FastifyInstance) {
         });
       }
 
+      // Cache einmal invalidieren statt N-mal — alle ids gehören
+      // zur selben Galerie, also reicht ein Aufruf am Ende.
+      await invalidateZipCacheForGallery(gallery.id, {
+        log: app.log,
+        reason: `bulk_approve_${ids.length}`,
+      });
+
       return { approved: ids };
     }
   );
@@ -642,6 +657,14 @@ export async function registerUploadLinkRoutes(app: FastifyInstance) {
         tenantId: req.tenantId,
         galleryId: gallery.id,
         ipAddress: req.ip,
+      });
+
+      // ZIP-Cache invalidieren — File ist jetzt rejected, S3-Objekte
+      // sind weg, alte ZIPs die das File enthielten oder einen
+      // dangling storageKey hätten sind ungültig.
+      await invalidateZipCacheForGallery(gallery.id, {
+        log: app.log,
+        reason: "file_rejected",
       });
 
       return { fileId: file.id, publicVisibility: "rejected" };
@@ -706,6 +729,13 @@ export async function registerUploadLinkRoutes(app: FastifyInstance) {
           bulk: true,
         });
         rejectedIds.push(f.id);
+      }
+
+      if (rejectedIds.length > 0) {
+        await invalidateZipCacheForGallery(gallery.id, {
+          log: app.log,
+          reason: `bulk_reject_${rejectedIds.length}`,
+        });
       }
 
       return { rejected: rejectedIds };
