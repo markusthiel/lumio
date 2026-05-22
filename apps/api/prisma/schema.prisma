@@ -60,10 +60,18 @@ model Tenant {
   webhooks    Webhook[]
   tags        Tag[]
   smartCollections SmartCollection[]
-  
+
+  // Stripe-Customer-ID: lifetime-stabil pro Tenant. Wir setzen sie
+  // beim ersten Checkout-Session-Create und nutzen sie wieder bei
+  // Plan-Wechseln, Storage-Pack-Käufen, Customer-Portal-Calls.
+  // Wenn Tenant gelöscht wird: Stripe-Customer wird NICHT automatisch
+  // gelöscht (Audit-Trail bleibt im Stripe-Dashboard). Manuell im
+  // Stripe-Dashboard archivieren falls gewünscht.
+  stripeCustomerId String?  @unique
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  
+
   @@index([slug])
   @@map("tenants")
 }
@@ -839,6 +847,13 @@ model BillingSubscription {
   // Stripe
   stripeCustomerId   String?
   stripeSubscriptionId String? @unique
+
+  // Subscription-Item-IDs — jedes Stripe-Subscription-Item entspricht
+  // einer Price (Plan oder Storage-Pack). Wir tracken sie separat,
+  // damit Webhook-Updates und Storage-Pack-Quantity-Changes gezielt
+  // das richtige Item updaten können (POST /subscription_items/<id>).
+  stripePlanItemId         String?
+  stripeStorageAddonItemId String?
   
   currentPeriodStart DateTime?
   currentPeriodEnd   DateTime?
@@ -883,6 +898,56 @@ model BillingUsageRecord {
   
   @@index([tenantId, periodStart])
   @@map("billing_usage_records")
+}
+
+// -----------------------------------------------------------------------------
+// Stripe-Webhook-Events: Dedup + Audit-Trail
+// -----------------------------------------------------------------------------
+// Stripe garantiert at-least-once delivery für Webhooks. Bei Network-Flakes
+// oder unserem 5xx kommt derselbe Event mehrfach an. Wir tracken die
+// Event-IDs hier und skippen duplicates beim Worker-Processing.
+//
+// Plus: ein Auditing-Trail, wer wann welchen Webhook empfangen hat. Wichtig
+// für Debugging ("warum ist die Subscription auf past_due gegangen?").
+//
+// Lifecycle:
+//   1. POST /billing/webhook empfängt Event, prüft Signatur, schreibt
+//      Row mit status='received', enqueued Job in Redis-Stream.
+//   2. Stripe-Worker holt Job, processed Event-Body, updated Subscription/
+//      Tenant-Felder. Setzt status='processed' (oder 'failed' bei Error).
+//   3. Doppelter Receive: API prüft existing Row, skippt enqueue.
+model StripeWebhookEvent {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  // Stripe's Event-ID (z.B. "evt_1234abcd"). Unique-Constraint sorgt
+  // für Dedup: bei doppeltem Receive würde der INSERT fehlschlagen,
+  // wir fangen den unique-conflict ab und skippen.
+  stripeEventId String @unique
+
+  // Event-Type ("customer.subscription.updated", "invoice.paid", etc.)
+  type        String
+
+  // Roher Event-Body (JSON) — der Worker arbeitet damit. Bei
+  // großen Events (z.B. Invoice mit vielen Items) sind das ~5-50 KB.
+  payload     Json
+
+  // "received" → enqueued → "processed" / "failed"
+  status      String   @default("received")
+  errorMessage String?
+
+  // Beziehungs-Felder: bei welchem Tenant ist das angekommen?
+  // Können auch null sein, wenn der Event vor dem Customer-Mapping
+  // ankommt (z.B. checkout.session.completed bevor wir die customer-
+  // id zum Tenant gemappt haben).
+  tenantId    String?  @db.Uuid
+
+  createdAt   DateTime @default(now())
+  processedAt DateTime?
+
+  @@index([tenantId, createdAt])
+  @@index([type, createdAt])
+  @@index([status, createdAt])
+  @@map("stripe_webhook_events")
 }
 
 // -----------------------------------------------------------------------------

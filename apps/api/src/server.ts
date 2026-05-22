@@ -51,6 +51,36 @@ async function buildServer() {
   // Core-Plugins
   await app.register(sensible);
   await app.register(cookie, { secret: config.SESSION_SECRET });
+
+  // Stripe Webhook braucht raw Body für die Signatur-Validierung.
+  // Wir registrieren einen Content-Type-Parser der den Body als
+  // Buffer AUSSCHLIESSLICH für den /billing/webhook-Pfad mit-speichert.
+  // Für alle anderen Routen läuft Fastify's Default-JSON-Parser weiter.
+  //
+  // Standard-JSON-Parser wird damit auch nicht ersetzt — wir nutzen
+  // einen separaten Parser für "application/json" der den raw Body
+  // als req.rawBody anhängt UND danach normal JSON-parsed.
+  app.addContentTypeParser(
+    "application/json",
+    { parseAs: "buffer" },
+    (req, body, done) => {
+      try {
+        const isWebhook =
+          req.url === "/api/v1/billing/webhook" ||
+          req.url.startsWith("/api/v1/billing/webhook?");
+        if (isWebhook) {
+          // raw Buffer für Signatur-Check vorhalten
+          (req as { rawBody?: Buffer }).rawBody = body as Buffer;
+        }
+        // Normaler JSON-Parse für alle Routen
+        const parsed = body.length ? JSON.parse(body.toString("utf8")) : null;
+        done(null, parsed);
+      } catch (err) {
+        done(err as Error, undefined);
+      }
+    }
+  );
+
   await app.register(cors, {
     origin: config.NODE_ENV === "production" ? config.PUBLIC_URL : true,
     credentials: true,

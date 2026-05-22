@@ -41,6 +41,11 @@ STREAMS = {
     "lumio:jobs:video_processing": "video",
     "lumio:jobs:zip_build": "zip",
     "lumio:jobs:webhook_delivery": "webhook",
+    # Stripe-Webhook-Verarbeitung läuft im selben Worker-Prozess,
+    # aber als separater Stream. So können wir Backlog + Lag pro
+    # Type beobachten und Stripe-Verarbeitung pausieren ohne die
+    # File-Pipeline anzuhalten.
+    "lumio:jobs:stripe_webhook": "stripe",
 }
 
 log = structlog.get_logger("lumio.consumer")
@@ -106,6 +111,13 @@ def _dispatch(stream: str, payload: dict) -> None:
         app.send_task(
             "tasks.webhook_delivery.deliver",
             args=[payload.get("deliveryId")],
+        )
+    elif job_type == "stripe_webhook":
+        # Wie bei webhook_delivery: nur die eventId — der Worker
+        # lookups payload + status aus stripe_webhook_events.
+        app.send_task(
+            "tasks.billing.process_stripe_event",
+            args=[payload.get("eventId")],
         )
     else:
         log.warning("consumer.unknown_job_type",

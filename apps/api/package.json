@@ -39,6 +39,7 @@
     "pino": "^9.5.0",
     "pino-pretty": "^11.3.0",
     "qrcode": "^1.5.4",
+    "stripe": "^18.5.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {

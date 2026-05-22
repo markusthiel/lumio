@@ -37,6 +37,11 @@ export const Queues = {
   VIDEO_PROCESSING: "lumio:jobs:video_processing",
   ZIP_BUILD: "lumio:jobs:zip_build",
   WEBHOOK_DELIVERY: "lumio:jobs:webhook_delivery",
+  /** Stripe-Webhook-Verarbeitung. Jeder Job verweist auf eine
+   * stripe_webhook_events-Row, der Worker liest den Payload daraus
+   * (statt ihn nochmal im Stream zu duplizieren — Payload kann groß
+   * sein und Stream-Storage wäre teuer). */
+  STRIPE_WEBHOOK: "lumio:jobs:stripe_webhook",
 } as const;
 export type QueueName = (typeof Queues)[keyof typeof Queues];
 
@@ -58,27 +63,30 @@ export interface ZipBuildJob {
   type: "build_zip";
   tenantId: string;
   galleryId: string;
-  fileIds: string[] | null; // null = alle Files der Galerie
+  fileIds: string[] | null;
   label: string;
-  accessId?: string; // wenn aus Kunden-Auswahl gebaut
-  zipDownloadId: string; // FK auf zip_downloads.id, Worker updated den Status
-  // "original" packt die hochgeladenen Originaldateien, "web" packt die
-  // ~2560px webp Web-Renditions. Default "original" (alte Jobs vor dem
-  // Feature haben das Feld nicht — Worker behandelt fehlende variant als
-  // "original").
+  accessId?: string;
+  zipDownloadId: string;
   variant?: "original" | "web";
 }
 
 export interface WebhookDeliveryJob {
   type: "webhook_delivery";
-  deliveryId: string; // FK auf webhook_deliveries.id; alles andere holt der Worker daraus
+  deliveryId: string;
+}
+
+export interface StripeWebhookJob {
+  type: "stripe_webhook";
+  /** Stripe's Event-ID. Worker lookups das via stripe_webhook_events. */
+  eventId: string;
 }
 
 export type AnyJob =
   | FileProcessingJob
   | VideoProcessingJob
   | ZipBuildJob
-  | WebhookDeliveryJob;
+  | WebhookDeliveryJob
+  | StripeWebhookJob;
 
 /**
  * Job in den passenden Stream legen. Gibt die Stream-ID zurück (für Logging).

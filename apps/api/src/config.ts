@@ -60,6 +60,22 @@ const envSchema = z.object({
     .transform((v) => v === "true"),
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  /** Publishable key — wird ans Frontend gegeben für Checkout-Forms.
+   * Frontend braucht den, weil Stripe-Elements im Browser laufen.
+   * Beginnt mit pk_test_ oder pk_live_. */
+  STRIPE_PUBLISHABLE_KEY: z.string().optional(),
+  /** URL-Basis für Checkout/Portal-Returns. Default = SaaS-Domain.
+   * Wird in der success_url / cancel_url verwendet. */
+  STRIPE_RETURN_URL_BASE: z
+    .string()
+    .default("https://studio.lumio-cloud.de"),
+  /** Test-Mode-Flag: Stripe-Calls gegen Test-Endpoints, Tenants
+   * mit dem ?test=1-Query-Parameter dürfen Test-Sign-ups machen.
+   * In Production auf false, dann ist Test-Mode-Sign-up gesperrt. */
+  STRIPE_TEST_MODE: z
+    .string()
+    .default("true")
+    .transform((v) => v === "true"),
 });
 
 let parsed: z.infer<typeof envSchema>;
