@@ -41,6 +41,7 @@ import zipfile
 from datetime import datetime
 
 import structlog
+from botocore.exceptions import ClientError
 
 from app import app
 from storage import get_s3_client, get_bucket
@@ -127,13 +128,55 @@ def _build(*, tenant_id: str, gallery_id: str,
             allowZip64=True,
         ) as zf:
             seen_names: set[str] = set()
+            skipped: list[dict] = []
             for f in files:
                 arcname = _dedupe_name(f["original_filename"], seen_names)
                 zinfo = zipfile.ZipInfo(filename=arcname)
                 zinfo.compress_type = zipfile.ZIP_STORED
                 zinfo.date_time = datetime.utcnow().timetuple()[:6]
 
-                obj = s3.get_object(Bucket=bucket, Key=f["storage_key"])
+                # Defensives Skipping: wenn das S3-Objekt fehlt (z.B.
+                # weil ein reject-Cleanup die Rendition-Datei gelöscht
+                # hat, oder weil jemand direkt im Bucket manipuliert
+                # hat), wollen wir nicht den ganzen ZIP-Build sprengen.
+                # Wir loggen das File und gehen weiter. Der Customer
+                # bekommt ein ZIP mit den anderen Files; die fehlenden
+                # erscheinen in den Worker-Logs für Debugging.
+                try:
+                    obj = s3.get_object(Bucket=bucket, Key=f["storage_key"])
+                except s3.exceptions.NoSuchKey:
+                    skipped.append({
+                        "file_id": f.get("id"),
+                        "key": f["storage_key"],
+                        "filename": f["original_filename"],
+                    })
+                    log.warning(
+                        "build_zip.skip_missing_key",
+                        file_id=str(f.get("id")),
+                        key=f["storage_key"],
+                        filename=f["original_filename"],
+                    )
+                    continue
+                except ClientError as e:
+                    # S3-seitige Fehler (z.B. 403, Network) — auch
+                    # skippen statt Build abbrechen.
+                    code = e.response.get("Error", {}).get("Code", "")
+                    if code in ("NoSuchKey", "AccessDenied"):
+                        skipped.append({
+                            "file_id": f.get("id"),
+                            "key": f["storage_key"],
+                            "filename": f["original_filename"],
+                            "error": code,
+                        })
+                        log.warning(
+                            "build_zip.skip_s3_error",
+                            file_id=str(f.get("id")),
+                            key=f["storage_key"],
+                            code=code,
+                        )
+                        continue
+                    raise
+
                 with zf.open(zinfo, "w") as zentry:
                     body = obj["Body"]
                     while True:
@@ -141,6 +184,13 @@ def _build(*, tenant_id: str, gallery_id: str,
                         if not chunk:
                             break
                         zentry.write(chunk)
+
+            if skipped:
+                log.warning(
+                    "build_zip.completed_with_skips",
+                    count=len(skipped),
+                    total=len(files),
+                )
 
         tmp.close()
         zip_size = os.path.getsize(tmp_path)
@@ -278,6 +328,7 @@ def _fetch_files(gallery_id: str,
                     'JOIN renditions r ON r."fileId" = f.id '
                     'WHERE f."galleryId" = %s AND f.id = ANY(%s) '
                     '  AND f.status = %s '
+                    '  AND f."publicVisibility" = %s '
                     '  AND ( '
                     '    (f.kind = %s AND r.kind = %s) '
                     '    OR (f.kind <> %s AND r.kind IN (%s, %s)) '
@@ -289,7 +340,7 @@ def _fetch_files(gallery_id: str,
                     '    ELSE 1 '
                     '  END, '
                     '  f."sortIndex"',
-                    (gallery_id, file_ids, "ready",
+                    (gallery_id, file_ids, "ready", "visible",
                      "video", "video_mp4",
                      "video", "web_jpeg", "web",
                      "video_mp4", "web_jpeg"),
@@ -305,6 +356,7 @@ def _fetch_files(gallery_id: str,
                     'FROM files f '
                     'JOIN renditions r ON r."fileId" = f.id '
                     'WHERE f."galleryId" = %s AND f.status = %s '
+                    '  AND f."publicVisibility" = %s '
                     '  AND ( '
                     '    (f.kind = %s AND r.kind = %s) '
                     '    OR (f.kind <> %s AND r.kind IN (%s, %s)) '
@@ -316,7 +368,7 @@ def _fetch_files(gallery_id: str,
                     '    ELSE 1 '
                     '  END, '
                     '  f."sortIndex"',
-                    (gallery_id, "ready",
+                    (gallery_id, "ready", "visible",
                      "video", "video_mp4",
                      "video", "web_jpeg", "web",
                      "video_mp4", "web_jpeg"),
@@ -346,8 +398,9 @@ def _fetch_files(gallery_id: str,
                 '"storageKey" AS storage_key, "sizeBytes" AS size_bytes '
                 'FROM files '
                 'WHERE "galleryId" = %s AND id = ANY(%s) AND status = %s '
+                '  AND "publicVisibility" = %s '
                 'ORDER BY "sortIndex", "originalFilename"',
-                (gallery_id, file_ids, "ready"),
+                (gallery_id, file_ids, "ready", "visible"),
             ).fetchall()
         else:
             rows = conn.execute(
@@ -355,8 +408,9 @@ def _fetch_files(gallery_id: str,
                 '"storageKey" AS storage_key, "sizeBytes" AS size_bytes '
                 'FROM files '
                 'WHERE "galleryId" = %s AND status = %s '
+                '  AND "publicVisibility" = %s '
                 'ORDER BY "sortIndex", "originalFilename"',
-                (gallery_id, "ready"),
+                (gallery_id, "ready", "visible"),
             ).fetchall()
     return list(rows)
 
