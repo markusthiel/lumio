@@ -22,6 +22,7 @@
  * Mail (Sprint 2 Phase 3).
  */
 import type { FastifyInstance } from "fastify";
+import type Stripe from "stripe";
 import { z } from "zod";
 import { prisma } from "../db.js";
 import { config } from "../config.js";
@@ -191,43 +192,57 @@ export async function registerSignupRoutes(app: FastifyInstance) {
       return { tenantId: tenant.id, userId: user.id };
     });
 
-    // Stripe-Customer erstellen + Tenant-Row mit ID updaten.
-    // Kein ensureStripeCustomer-Helper-Call weil wir den Tenant gerade
-    // angelegt haben (Owner-User-Query wäre redundant).
+    // Stripe-Customer + Checkout-Session erstellen. Wir tun das
+    // AUSSERHALB der DB-Transaktion (Stripe-API-Calls in einer TX
+    // wären lange Locks). Aber: wenn Stripe failed, müssen wir die
+    // DB-Sachen rollbacken — sonst hängt ein Zombie-Tenant ohne
+    // funktionierende Subscription, und der User kann sich nicht
+    // mit derselben E-Mail neu anmelden.
     const stripe = getStripe();
-    const customer = await stripe.customers.create({
-      email: body.email,
-      name: body.studioName,
-      metadata: {
-        lumio_tenant_id: tenantId,
-        lumio_tenant_slug: slug,
-      },
-      tax: { validate_location: "deferred" },
-    });
-    await prisma.tenant.update({
-      where: { id: tenantId },
-      data: { stripeCustomerId: customer.id },
-    });
-
-    // Checkout-Session erstellen. Trial=14 Tage, Karte wird im Checkout
-    // gefordert (collect_payment_method) — aber NICHT belastet (Setup-
-    // Intent + Trial-Period-Days).
-    const session = await stripe.checkout.sessions.create({
-      mode: "subscription",
-      customer: customer.id,
-      line_items: [{ price: priceId, quantity: 1 }],
-      subscription_data: {
-        trial_period_days: 14,
+    let customerId: string | null = null;
+    let session: Stripe.Checkout.Session | null = null;
+    try {
+      const customer = await stripe.customers.create({
+        email: body.email,
+        name: body.studioName,
         metadata: {
           lumio_tenant_id: tenantId,
+          lumio_tenant_slug: slug,
         },
-      },
-      // Karte zwingend erfordern auch bei Trial.
-      payment_method_collection: "always",
-      // Stripe Tax automatisch berechnen.
-      automatic_tax: { enabled: true },
-      // Tax-IDs erfassen (USt-IdNr für B2B-Reverse-Charge).
-      tax_id_collection: { enabled: true },
+        tax: { validate_location: "deferred" },
+      });
+      customerId = customer.id;
+      await prisma.tenant.update({
+        where: { id: tenantId },
+        data: { stripeCustomerId: customer.id },
+      });
+
+      session = await stripe.checkout.sessions.create({
+        mode: "subscription",
+        customer: customer.id,
+        // Damit Stripe Tax die Adresse zur MwSt-Berechnung verwenden kann,
+        // brauchen wir entweder eine vorab gesetzte Adresse am Customer
+        // (haben wir nicht — User füllt sie ja gerade aus) oder das hier:
+        // customer_update.address='auto' kopiert die im Checkout eingegebene
+        // Billing-Adresse zurück auf den Customer. Erforderlich für
+        // automatic_tax + Reverse-Charge-Detection bei EU-B2B.
+        customer_update: {
+          address: "auto",
+          name: "auto",
+        },
+        line_items: [{ price: priceId, quantity: 1 }],
+        subscription_data: {
+          trial_period_days: 14,
+          metadata: {
+            lumio_tenant_id: tenantId,
+          },
+        },
+        // Karte zwingend erfordern auch bei Trial.
+        payment_method_collection: "always",
+        // Stripe Tax automatisch berechnen.
+        automatic_tax: { enabled: true },
+        // Tax-IDs erfassen (USt-IdNr für B2B-Reverse-Charge).
+        tax_id_collection: { enabled: true },
       // Konsent zur Billing-Adresse für korrekte Tax-Berechnung.
       billing_address_collection: "required",
       // Erlaube Promotion-Codes — kein eigener Code nötig, aber Stripe-
@@ -241,6 +256,51 @@ export async function registerSignupRoutes(app: FastifyInstance) {
         lumio_signup: "true",
       },
     });
+    } catch (err) {
+      // Stripe-Fehler: DB-Sachen rollback machen damit der User
+      // sich nicht von einem Zombie-Tenant blockieren lässt. Wir
+      // löschen Tenant cascadiert (User, Subscription gehen mit).
+      // Den Stripe-Customer (falls schon angelegt) löschen wir AUCH —
+      // sonst hat Stripe einen Customer ohne Lumio-Anker.
+      app.log.warn(
+        {
+          err: err instanceof Error ? err.message : String(err),
+          tenantId,
+          customerId,
+        },
+        "signup.stripe_failed_rolling_back"
+      );
+      if (customerId) {
+        // Best-effort — wenn das Löschen scheitert, hängt der Customer
+        // weiter in Stripe, aber der Lumio-Side ist sauber.
+        await stripe.customers.del(customerId).catch(() => undefined);
+      }
+      await prisma.tenant.delete({ where: { id: tenantId } }).catch(() => undefined);
+
+      // Stripe-Fehler durchreichen (mit Stripe-eigenem Status-Code wenn
+      // möglich — z.B. customer_tax_location_invalid kommt mit 400).
+      const status =
+        err && typeof err === "object" && "statusCode" in err
+          ? Number((err as { statusCode: number }).statusCode)
+          : 500;
+      const code =
+        err && typeof err === "object" && "code" in err
+          ? String((err as { code: string }).code)
+          : "stripe_error";
+      const message =
+        err && typeof err === "object" && "message" in err
+          ? String((err as { message: string }).message)
+          : "Stripe-Fehler beim Sign-up.";
+      return reply.status(status >= 400 && status < 600 ? status : 500).send({
+        error: code,
+        message,
+      });
+    }
+
+    if (!session) {
+      // Sollte unmöglich sein nach erfolgreichem try-Block, aber TS will's
+      return reply.status(500).send({ error: "session_missing" });
+    }
 
     // Session-Cookie schon mal setzen — User ist als Owner eingeloggt
     // egal ob er Checkout abbricht oder nicht. Bei Cancel wandert er

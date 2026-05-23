@@ -229,6 +229,12 @@ export async function registerBillingRoutes(app: FastifyInstance) {
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
+      // Siehe signup.ts: notwendig damit Stripe Tax die im Checkout
+      // eingegebene Adresse für die MwSt-Berechnung verwenden kann.
+      customer_update: {
+        address: "auto",
+        name: "auto",
+      },
       line_items: [{ price: priceId, quantity: 1 }],
       subscription_data: {
         metadata: { lumio_tenant_id: req.tenantId },
