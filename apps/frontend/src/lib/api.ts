@@ -617,13 +617,34 @@ export const api = {
   getGalleryStats: (id: string) =>
     request<GalleryStats>(`/galleries/${id}/stats`),
 
-  // Billing — Sprint 1 (read-only Endpoints, Stripe-Aktionen kommen
-  // in Sprint 2). usage liefert den vollständigen Plan-Status für die
-  // "Plan & Speicher"-Seite und Banner.
+  // Billing — Read-Only-Endpoints + Sprint 2 Stripe-Aktionen
   getBillingPlans: () => request<BillingPlansResponse>(`/billing/plans`),
   getBillingUsage: () => request<BillingUsage>(`/billing/usage`),
   getBillingSubscription: () =>
     request<BillingSubscriptionInfo>(`/billing/subscription`),
+
+  /** Startet einen Plan-Wechsel oder ein erstmaliges Abo nach Trial.
+   * Bei aktiver Subscription: Server macht in-place-Update und gibt
+   * { upgraded: true } zurück. Bei fehlender Subscription: Server
+   * gibt eine Stripe-Checkout-URL zurück, der Client redirected. */
+  startSubscription: (input: {
+    plan: "solo" | "studio" | "pro";
+    interval?: "monthly" | "yearly";
+  }) =>
+    request<
+      | { upgraded: true; message?: string }
+      | { checkoutUrl: string; sessionId: string }
+    >(`/billing/subscription`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  /** Erstellt einen Stripe-Customer-Portal-Link. Client redirected
+   * den User dorthin — Stripe hostet Karte/Rechnungen/Cancel. */
+  startBillingPortal: () =>
+    request<{ portalUrl: string }>(`/billing/portal`, {
+      method: "POST",
+    }),
 
   searchGlobal: (q: string, limit = 5) =>
     request<SearchResults>(
@@ -1646,6 +1667,8 @@ export interface BillingPlan {
   teamMembers: number;
   watermarkAllowed: boolean;
   priceMonthlyCents: number;
+  /** Jahres-Preis in Cent. Üblich = 10 Monatspreise (~17% Rabatt). */
+  priceYearlyCents: number;
 }
 
 export interface BillingPlansResponse {
@@ -1672,14 +1695,32 @@ export interface BillingUsage {
 
 export interface BillingSubscriptionInfo {
   planSlug: string;
+  planName: string;
   status: string;
   billingInterval: string;
   currentPeriodStart: string | null;
   currentPeriodEnd: string | null;
   cancelAtPeriodEnd: boolean;
   trialEndsAt: string | null;
+  /** Tage bis Trial endet. null wenn nicht in Trial. */
+  trialDaysRemaining: number | null;
+  /** Wann Read-only-Modus begann (= 14d-Trial expired ohne Karte).
+   * null wenn nicht read-only. */
+  readOnlySince: string | null;
+  /** Tage seit Read-only-Beginn. UI nutzt das für den
+   * Suspend-Countdown (30 Tage bis Galerien archiviert werden). */
+  readOnlyDays: number | null;
   storageAddonGib: number;
   hasStripeId: boolean;
+  limits: {
+    storageGib: number;
+    galleriesMax: number | null;
+    customDomain: boolean;
+    watermarking: boolean;
+    priceMonthlyCents: number;
+    priceYearlyCents: number;
+    currency: string;
+  };
 }
 
 export interface GalleryFilter {

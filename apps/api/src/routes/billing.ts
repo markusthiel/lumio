@@ -116,16 +116,44 @@ export async function registerBillingRoutes(app: FastifyInstance) {
     if (!sub) {
       return reply.status(404).send({ error: "no_subscription" });
     }
+    // Trial-Restlaufzeit in Tagen, gerundet. Wenn schon vorbei: 0.
+    let trialDaysRemaining: number | null = null;
+    if (sub.trialEndsAt) {
+      const msLeft = sub.trialEndsAt.getTime() - Date.now();
+      trialDaysRemaining = Math.max(0, Math.ceil(msLeft / 86400000));
+    }
+    // Tage seit Read-only — UI kann damit den 30-Tage-Countdown zur
+    // Suspension zeigen ("noch 12 Tage bis zur Archivierung").
+    let readOnlyDays: number | null = null;
+    if (sub.readOnlySince) {
+      readOnlyDays = Math.floor(
+        (Date.now() - sub.readOnlySince.getTime()) / 86400000
+      );
+    }
     return {
       planSlug: sub.plan.slug,
+      planName: sub.plan.name,
       status: sub.status,
       billingInterval: sub.billingInterval,
       currentPeriodStart: sub.currentPeriodStart?.toISOString() ?? null,
       currentPeriodEnd: sub.currentPeriodEnd?.toISOString() ?? null,
       cancelAtPeriodEnd: sub.cancelAtPeriodEnd,
       trialEndsAt: sub.trialEndsAt?.toISOString() ?? null,
+      trialDaysRemaining,
+      readOnlySince: sub.readOnlySince?.toISOString() ?? null,
+      readOnlyDays,
       storageAddonGib: sub.storageAddonGib,
       hasStripeId: Boolean(sub.stripeSubscriptionId),
+      // Plan-Limits für UI-Anzeige (Storage-Bar, Galerie-Counter)
+      limits: {
+        storageGib: sub.plan.storageGib,
+        galleriesMax: sub.plan.galleriesMax,
+        customDomain: sub.plan.customDomain,
+        watermarking: sub.plan.watermarking,
+        priceMonthlyCents: sub.plan.priceMonthlyCents,
+        priceYearlyCents: sub.plan.priceYearlyCents,
+        currency: sub.plan.currency,
+      },
     };
   });
 

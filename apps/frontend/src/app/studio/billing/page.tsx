@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { api, type BillingUsage, type BillingPlan } from "@/lib/api";
+import {
+  api,
+  type BillingUsage,
+  type BillingPlan,
+  type BillingSubscriptionInfo,
+} from "@/lib/api";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { Card } from "@/components/ui";
 
@@ -17,24 +22,70 @@ import { Card } from "@/components/ui";
 export default function BillingPage() {
   const [usage, setUsage] = useState<BillingUsage | null>(null);
   const [plans, setPlans] = useState<BillingPlan[]>([]);
+  const [sub, setSub] = useState<BillingSubscriptionInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  // UI-Zustand für monatlich/jährlich-Toggle in der Plan-Auswahl.
+  // Initial vom Server (existing Subscription) oder Default monthly.
+  const [interval, setInterval] = useState<"monthly" | "yearly">("monthly");
+  // busy-State für die Action-Buttons (Plan-Wechsel + Portal). Wir
+  // disablen während Stripe-Calls laufen, sonst doppelte Checkouts.
+  const [busyAction, setBusyAction] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
-      const [u, p] = await Promise.all([
+      // Subscription-Get ist optional — wenn der Tenant noch keine hat
+      // (alte Self-Host-Installation ohne Billing), bleibt sub null.
+      const [u, p, s] = await Promise.all([
         api.getBillingUsage(),
         api.getBillingPlans(),
+        api.getBillingSubscription().catch(() => null),
       ]);
       setUsage(u);
       setPlans(p.plans);
+      setSub(s);
+      if (s?.billingInterval === "yearly" || s?.billingInterval === "monthly") {
+        setInterval(s.billingInterval);
+      }
     } catch (e) {
-      // 404 bedeutet: dieser Tenant hat noch keine Subscription. Das
-      // sollte nach der Migration nicht mehr vorkommen, aber defensiv.
-      // 401 → nicht eingeloggt, soll das Layout fangen.
       setErr(e instanceof Error ? e.message : "Fehler beim Laden");
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  /** Plan-Wechsel oder erstmaliges Abo. Backend entscheidet ob in-place-
+   * Update (existing sub) oder Checkout-Session. */
+  const handleSelectPlan = useCallback(
+    async (planSlug: "solo" | "studio" | "pro") => {
+      setBusyAction(`plan:${planSlug}`);
+      try {
+        const result = await api.startSubscription({
+          plan: planSlug,
+          interval,
+        });
+        if ("checkoutUrl" in result) {
+          window.location.href = result.checkoutUrl;
+        } else {
+          // upgraded === true. Page reloaden um den neuen Plan zu sehen.
+          window.location.reload();
+        }
+      } catch (e) {
+        setErr(e instanceof Error ? e.message : "Plan-Wechsel fehlgeschlagen");
+        setBusyAction(null);
+      }
+    },
+    [interval]
+  );
+
+  const handleOpenPortal = useCallback(async () => {
+    setBusyAction("portal");
+    try {
+      const { portalUrl } = await api.startBillingPortal();
+      window.location.href = portalUrl;
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Portal-Öffnen fehlgeschlagen");
+      setBusyAction(null);
     }
   }, []);
 
@@ -210,10 +261,44 @@ export default function BillingPage() {
 
       {/* Plan-Vergleich für Upgrade */}
       <Card className="p-5">
-        <h3 className="text-ui-md font-medium mb-3">Andere Pläne</h3>
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <h3 className="text-ui-md font-medium">Andere Pläne</h3>
+          {/* Monthly / Yearly Toggle. Yearly = 17% Rabatt (10 Monate
+              statt 12) — wir zeigen das als Badge an. */}
+          <div className="inline-flex rounded border border-line-subtle p-0.5">
+            <button
+              onClick={() => setInterval("monthly")}
+              className={`text-ui-sm px-3 h-7 rounded transition-colors ${
+                interval === "monthly"
+                  ? "bg-surface-canvas text-ink-primary"
+                  : "text-ink-tertiary hover:text-ink-secondary"
+              }`}
+            >
+              Monatlich
+            </button>
+            <button
+              onClick={() => setInterval("yearly")}
+              className={`text-ui-sm px-3 h-7 rounded transition-colors flex items-center gap-1 ${
+                interval === "yearly"
+                  ? "bg-surface-canvas text-ink-primary"
+                  : "text-ink-tertiary hover:text-ink-secondary"
+              }`}
+            >
+              Jährlich
+              <span className="text-ui-xs bg-accent/15 text-accent px-1.5 py-0.5 rounded">
+                −17 %
+              </span>
+            </button>
+          </div>
+        </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {plans.map((p) => {
-            const isCurrent = p.slug === usage.plan.slug;
+            const isCurrent =
+              p.slug === usage.plan.slug &&
+              (sub?.billingInterval ?? "monthly") === interval;
+            const priceCents =
+              interval === "yearly" ? p.priceYearlyCents : p.priceMonthlyCents;
+            const slug = p.slug as "solo" | "studio" | "pro";
             return (
               <div
                 key={p.slug}
@@ -225,13 +310,18 @@ export default function BillingPage() {
               >
                 <div className="font-medium text-ink-primary">{p.name}</div>
                 <div className="text-2xl font-medium text-ink-primary mt-2">
-                  {(p.priceMonthlyCents / 100).toFixed(0)} €
+                  {(priceCents / 100).toFixed(0)} €
                   <span className="text-ui-xs text-ink-tertiary font-normal">
                     {" "}
-                    / Monat
+                    / {interval === "yearly" ? "Jahr" : "Monat"}
                   </span>
                 </div>
-                <div className="text-ui-xs text-ink-secondary mt-2 space-y-1">
+                {interval === "yearly" && (
+                  <div className="text-ui-xs text-ink-tertiary mt-0.5">
+                    ≈ {(priceCents / 1200).toFixed(0)} €/Monat
+                  </div>
+                )}
+                <div className="text-ui-xs text-ink-secondary mt-3 space-y-1">
                   <div>{p.storageGib} GB Speicher</div>
                   <div>
                     {p.activeGalleries === null
@@ -240,7 +330,10 @@ export default function BillingPage() {
                     aktive Galerien
                   </div>
                   {p.brandings > 0 && (
-                    <div>{p.brandings} Branding-Profil{p.brandings > 1 ? "e" : ""}</div>
+                    <div>
+                      {p.brandings} Branding-Profil
+                      {p.brandings > 1 ? "e" : ""}
+                    </div>
                   )}
                   {p.customDomains !== 0 && (
                     <div>
@@ -250,23 +343,62 @@ export default function BillingPage() {
                       Custom-Domain{p.customDomains !== 1 ? "s" : ""}
                     </div>
                   )}
+                  {p.teamMembers > 1 && (
+                    <div>
+                      bis {p.teamMembers} Team-Mitglieder
+                    </div>
+                  )}
                 </div>
-                {isCurrent ? (
-                  <div className="text-ui-xs text-accent mt-3">Aktuell</div>
-                ) : (
-                  <div className="text-ui-xs text-ink-tertiary mt-3">
-                    Plan-Wechsel kommt bald
-                  </div>
-                )}
+                <div className="mt-4">
+                  {isCurrent ? (
+                    <div className="text-ui-sm text-accent font-medium">
+                      Aktueller Plan
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => handleSelectPlan(slug)}
+                      disabled={busyAction !== null}
+                      className="w-full text-ui-sm h-9 rounded bg-accent text-accent-contrast font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+                    >
+                      {busyAction === `plan:${slug}`
+                        ? "Wird vorbereitet …"
+                        : sub?.planSlug === p.slug
+                        ? `Auf ${interval === "yearly" ? "Jahres-" : "Monats-"}Abrechnung wechseln`
+                        : "Diesen Plan wählen"}
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}
         </div>
-        <div className="text-ui-xs text-ink-tertiary mt-3">
-          Plan-Wechsel über Stripe wird in Kürze freigeschaltet. Bei Fragen
-          gerne <Link href="mailto:support@lumio-cloud.de" className="text-accent hover:underline">support kontaktieren</Link>.
-        </div>
+        {sub?.hasStripeId && (
+          <div className="text-ui-xs text-ink-tertiary mt-3">
+            Plan-Wechsel wird sofort wirksam. Bei höher dann anteilige
+            Berechnung. Bei niedriger Plan: Guthaben fürs nächste Intervall.
+          </div>
+        )}
       </Card>
+
+      {/* Stripe Customer Portal — Karte, Rechnungen, Cancel */}
+      {sub?.hasStripeId && (
+        <Card className="p-5">
+          <h3 className="text-ui-md font-medium mb-1">
+            Karte & Rechnungen verwalten
+          </h3>
+          <p className="text-ui-sm text-ink-secondary mb-3">
+            Karte aktualisieren, Rechnungen herunterladen, Adresse ändern
+            oder kündigen — alles im Stripe-Portal.
+          </p>
+          <button
+            onClick={handleOpenPortal}
+            disabled={busyAction !== null}
+            className="text-ui-sm h-9 px-4 rounded border border-line-strong text-ink-primary font-medium hover:bg-surface-sunken disabled:opacity-50 transition-colors"
+          >
+            {busyAction === "portal" ? "Wird geöffnet …" : "Portal öffnen"}
+          </button>
+        </Card>
+      )}
     </div>
   );
 }

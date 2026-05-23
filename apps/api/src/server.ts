@@ -23,6 +23,7 @@ import { registerFileRoutes } from "./routes/files.js";
 import { registerProofingRoutes } from "./routes/proofing.js";
 import { registerBillingRoutes } from "./routes/billing.js";
 import { registerSignupRoutes } from "./routes/signup.js";
+import { registerReadOnlyEnforcement } from "./plugins/read-only.js";
 import { registerHlsRoutes } from "./routes/hls.js";
 import { registerZipRoutes } from "./routes/zip.js";
 import { registerSettingsRoutes } from "./routes/settings.js";
@@ -105,6 +106,13 @@ async function buildServer() {
   await registerHealthRoute(app);
   await app.register(
     async (api) => {
+      // Read-only-Enforcement-Hook — greift für alle Schreibmethoden
+      // im /api/v1-Scope wenn der Tenant in read-only ist. Muss VOR
+      // den Routen registriert werden damit der preHandler bei allen
+      // greift. Auth + Billing-Endpoints stehen in der Allowlist
+      // (siehe plugins/read-only.ts).
+      registerReadOnlyEnforcement(api);
+
       await registerAuthRoutes(api);
       await registerGalleryRoutes(api);
       await registerAccessRoutes(api);

@@ -25,6 +25,7 @@ import { useT } from "@/lib/i18n";
 import { api } from "@/lib/api";
 import { GlobalSearchModal } from "@/components/studio/GlobalSearchModal";
 import { StorageBanner } from "@/components/studio/StorageBanner";
+import { SubscriptionBanner } from "@/components/studio/SubscriptionBanner";
 
 interface NavItem {
   href: string;
@@ -150,6 +151,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
 
       {/* Main Area */}
       <main className="flex-1 min-w-0 min-h-screen">
+        <SubscriptionBanner />
         <StorageBanner />
         {children}
       </main>
