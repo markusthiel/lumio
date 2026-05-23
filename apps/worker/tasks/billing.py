@@ -106,12 +106,37 @@ def _sync_subscription(
         "yearly" if price_id == plan["stripePriceIdYearly"] else "monthly"
     )
 
-    period_start = datetime.fromtimestamp(
-        sub["current_period_start"], tz=timezone.utc
-    )
-    period_end = datetime.fromtimestamp(
-        sub["current_period_end"], tz=timezone.utc
-    )
+    # current_period_start / _end: in Stripe API 2025-08-27+ liegen
+    # sie auf den SUBSCRIPTION ITEMS, nicht mehr auf der Subscription
+    # selbst. Wir lesen primär vom Plan-Item, mit Fallback auf das
+    # Subscription-Object (für ältere API-Versionen oder Edge-Cases).
+    # Wenn beides fehlt: NULL — die Subscription ist dann wahrscheinlich
+    # gerade erst created und Stripe schickt das Update später nach.
+    def _period_ts(key: str) -> int | None:
+        v = plan_item.get(key)
+        if v:
+            return v
+        v = sub.get(key)
+        if v:
+            return v
+        # Manchmal liegt's im trial-Window: current_period_end ist dann
+        # leer, aber trial_end gibt Auskunft.
+        if key == "current_period_end":
+            return sub.get("trial_end")
+        if key == "current_period_start":
+            return sub.get("start_date") or sub.get("created")
+        return None
+
+    period_start_ts = _period_ts("current_period_start")
+    period_end_ts = _period_ts("current_period_end")
+    if not period_start_ts or not period_end_ts:
+        raise RuntimeError(
+            f"Subscription {sub['id']} hat keine current_period_*-Werte — "
+            f"verfügbare Sub-Keys: {sorted(sub.keys())[:20]}, "
+            f"Item-Keys: {sorted(plan_item.keys())[:20]}"
+        )
+    period_start = datetime.fromtimestamp(period_start_ts, tz=timezone.utc)
+    period_end = datetime.fromtimestamp(period_end_ts, tz=timezone.utc)
     trial_end = (
         datetime.fromtimestamp(sub["trial_end"], tz=timezone.utc)
         if sub.get("trial_end")

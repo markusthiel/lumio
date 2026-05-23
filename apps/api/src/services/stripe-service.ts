@@ -135,6 +135,35 @@ export async function syncSubscriptionFromStripe(
   const billingInterval =
     planItem.price.id === plan.stripePriceIdYearly ? "yearly" : "monthly";
 
+  // Stripe API 2025-08-27+: current_period_start/end leben auf den
+  // Subscription-Items, nicht mehr auf der Subscription selbst.
+  // Wir lesen primär vom Item, fallback auf die Sub.
+  type WithPeriod = {
+    current_period_start?: number;
+    current_period_end?: number;
+  };
+  const planItemAny = planItem as WithPeriod;
+  const subAny = sub as Stripe.Subscription & WithPeriod;
+  const periodStartTs =
+    planItemAny.current_period_start ??
+    subAny.current_period_start ??
+    sub.start_date ??
+    null;
+  const periodEndTs =
+    planItemAny.current_period_end ??
+    subAny.current_period_end ??
+    sub.trial_end ??
+    null;
+  if (!periodStartTs || !periodEndTs) {
+    throw new Error(
+      `Subscription ${sub.id} hat keine current_period_*-Werte — ` +
+        `Sub-Keys: ${Object.keys(sub).slice(0, 20).join(",")}, ` +
+        `Item-Keys: ${Object.keys(planItem).slice(0, 20).join(",")}`
+    );
+  }
+  const currentPeriodStart = new Date(periodStartTs * 1000);
+  const currentPeriodEnd = new Date(periodEndTs * 1000);
+
   await prisma.billingSubscription.upsert({
     where: { tenantId },
     update: {
@@ -145,12 +174,8 @@ export async function syncSubscriptionFromStripe(
       stripePlanItemId: planItem.id,
       stripeStorageAddonItemId: storageAddonItem?.id ?? null,
       storageAddonGib,
-      currentPeriodStart: new Date(
-        (sub as Stripe.Subscription & { current_period_start: number }).current_period_start * 1000
-      ),
-      currentPeriodEnd: new Date(
-        (sub as Stripe.Subscription & { current_period_end: number }).current_period_end * 1000
-      ),
+      currentPeriodStart,
+      currentPeriodEnd,
       cancelAtPeriodEnd: sub.cancel_at_period_end,
       trialEndsAt: sub.trial_end ? new Date(sub.trial_end * 1000) : null,
       // readOnlySince beim Recovery zurücksetzen
@@ -167,12 +192,8 @@ export async function syncSubscriptionFromStripe(
       stripePlanItemId: planItem.id,
       stripeStorageAddonItemId: storageAddonItem?.id ?? null,
       storageAddonGib,
-      currentPeriodStart: new Date(
-        (sub as Stripe.Subscription & { current_period_start: number }).current_period_start * 1000
-      ),
-      currentPeriodEnd: new Date(
-        (sub as Stripe.Subscription & { current_period_end: number }).current_period_end * 1000
-      ),
+      currentPeriodStart,
+      currentPeriodEnd,
       cancelAtPeriodEnd: sub.cancel_at_period_end,
       trialEndsAt: sub.trial_end ? new Date(sub.trial_end * 1000) : null,
     },
