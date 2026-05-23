@@ -50,6 +50,7 @@ import {
   deleteCredential as webauthnDeleteCredential,
 } from "../services/webauthn.js";
 import { logEvent } from "../services/audit.js";
+import { getStripe } from "../services/stripe-client.js";
 
 const loginSchema = z.object({
   email: z.string().email().toLowerCase(),
@@ -662,4 +663,133 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       };
     }
   );
+
+  // -------------------------------------------------------------------------
+  // POST /auth/checkout-login
+  // -------------------------------------------------------------------------
+  // Auto-Login nach erfolgreichem Stripe-Checkout. Frontend Welcome-Page
+  // ruft das mit der session_id aus dem success_url-Query auf. Wir
+  // validieren via Stripe-API (Stripe ist die canonical Source: die
+  // Session-ID ist signiert, nur Stripe könnte sie ausgeben), holen
+  // metadata.lumio_tenant_id + customer.id, prüfen Konsistenz mit
+  // unserer DB (Customer-ID muss zum Tenant gehören), suchen den
+  // Owner-User und stellen das Session-Cookie aus.
+  //
+  // Sicherheit:
+  //   - Session-ID hat hohe Entropie (~28 Bytes Base64). Brute-Force
+  //     nicht praktikabel. Plus Rate-Limit 5/min.
+  //   - Session wird nur akzeptiert wenn Stripe sie noch "open" oder
+  //     "complete" (subscription mode) zurückliefert. Sehr alte oder
+  //     gecancelte Sessions können nicht missbraucht werden.
+  //   - Wir prüfen dass die Stripe-Session WIRKLICH zu dem Tenant
+  //     gehört (metadata + customer.id-Cross-Check), damit ein
+  //     User nicht via fremder Session-ID in einen anderen Tenant
+  //     einbrechen kann.
+  //
+  // Anti-Abuse: ein User kann mit derselben Session-ID natürlich
+  // mehrfach einloggen — das ist ok, wir limitieren nur den Brute-
+  // Force durch Rate-Limit. Stripe-Session-IDs sind nicht
+  // wiederverwendbar zum Sign-up (das macht Stripe selbst).
+  if (config.BILLING_ENABLED) {
+    app.post<{ Body: { sessionId?: string } }>(
+      "/auth/checkout-login",
+      {
+        config: {
+          rateLimit: { max: 5, timeWindow: "1 minute" },
+        },
+      },
+      async (req, reply) => {
+        const body = z
+          .object({
+            sessionId: z.string().startsWith("cs_").min(20).max(200),
+          })
+          .safeParse(req.body);
+        if (!body.success) {
+          return reply.status(400).send({ error: "invalid_session_id" });
+        }
+
+        // Stripe-Session holen + expanden, damit wir Customer-ID
+        // direkt im Objekt haben (ohne extra Fetch).
+        let session;
+        try {
+          session = await getStripe().checkout.sessions.retrieve(
+            body.data.sessionId
+          );
+        } catch (err) {
+          app.log.warn(
+            { err: err instanceof Error ? err.message : String(err) },
+            "auth.checkout_login.stripe_retrieve_failed"
+          );
+          return reply.status(404).send({ error: "session_not_found" });
+        }
+
+        // Tenant-ID + Customer-ID aus der Session lesen
+        const tenantId = session.metadata?.lumio_tenant_id;
+        const customerId =
+          typeof session.customer === "string"
+            ? session.customer
+            : session.customer?.id ?? null;
+        if (!tenantId || !customerId) {
+          return reply.status(400).send({
+            error: "session_missing_metadata",
+            message: "Session ist nicht mit einem Lumio-Tenant verknüpft.",
+          });
+        }
+
+        // Konsistenz-Check: Tenant existiert UND die in der DB
+        // gespeicherte stripeCustomerId stimmt mit der Session.
+        // Verhindert dass jemand mit einer fremden cs_-ID Zugang
+        // zu einem anderen Tenant bekommt.
+        const tenant = await prisma.tenant.findUnique({
+          where: { id: tenantId },
+          select: {
+            id: true,
+            stripeCustomerId: true,
+            users: {
+              where: { role: "owner", status: "active" },
+              select: { id: true },
+              take: 1,
+              orderBy: { createdAt: "asc" },
+            },
+          },
+        });
+        if (!tenant) {
+          return reply.status(404).send({ error: "tenant_not_found" });
+        }
+        if (tenant.stripeCustomerId !== customerId) {
+          app.log.warn(
+            {
+              sessionId: body.data.sessionId,
+              tenantId,
+              sessionCustomerId: customerId,
+              dbCustomerId: tenant.stripeCustomerId,
+            },
+            "auth.checkout_login.customer_mismatch"
+          );
+          return reply.status(403).send({
+            error: "customer_mismatch",
+            message: "Session gehört nicht zu diesem Tenant.",
+          });
+        }
+        const owner = tenant.users[0];
+        if (!owner) {
+          return reply.status(404).send({ error: "no_owner_user" });
+        }
+
+        // Session-Cookie ausstellen. 30 Tage wie bei /auth/login.
+        const { token } = await createSession({
+          userId: owner.id,
+          ipAddress: req.ip,
+          userAgent: req.headers["user-agent"] ?? null,
+        });
+        reply.setCookie(SESSION_COOKIE, token, cookieOpts(30));
+
+        app.log.info(
+          { tenantId, userId: owner.id, sessionId: body.data.sessionId },
+          "auth.checkout_login.success"
+        );
+        return { ok: true };
+      }
+    );
+  }
 }

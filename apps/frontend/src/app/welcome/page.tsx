@@ -3,17 +3,26 @@
 /**
  * Lumio Studio — Welcome-Page nach erfolgreichem Stripe-Checkout
  *
- * Stripe redirected hierher mit ?session_id=cs_test_... Wir zeigen
- * eine kurze Bestätigung + Button zum Studio. Die Subscription wird
- * vom Webhook-Worker im Hintergrund angelegt — wir warten kurz und
- * machen dann den Übergang.
+ * Stripe redirected hierher mit ?session_id=cs_test_... Wir tun zwei
+ * Dinge parallel:
+ *   1. Auto-Login via api.checkoutLogin(sessionId) — Backend validiert
+ *      die Session bei Stripe, prüft Tenant-Konsistenz, stellt Session-
+ *      Cookie aus. Wenn das klappt, ist der User nahtlos eingeloggt
+ *      (kein Re-Login auf studio.lumio-cloud.de nach Cross-Domain-
+ *      Signup).
+ *   2. 3-Sek-Countdown bis Redirect zu /studio. Falls Auto-Login
+ *      scheitert, landet der User auf der Login-Page und kann sich
+ *      manuell anmelden — Daten sind ja in der DB.
+ *
+ * Subscription wird vom Webhook-Worker im Hintergrund angelegt — sollte
+ * spätestens bis zum Studio-Visit fertig sein.
  *
  * Next.js 16 verlangt useSearchParams() unter einer Suspense-Boundary
- * für Prerender-Fähigkeit. Wir trennen den params-lesenden Teil von
- * der äußeren Hülle und wrappen mit <Suspense>.
+ * für Prerender-Fähigkeit.
  */
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { api } from "@/lib/api";
 import { Button } from "@/components/ui";
 
 function WelcomeContent() {
@@ -21,6 +30,38 @@ function WelcomeContent() {
   const params = useSearchParams();
   const sessionId = params.get("session_id");
   const [countdown, setCountdown] = useState(3);
+  // Auto-Login-State: 'pending' = noch nicht versucht, 'ok' = klappt,
+  // 'fail' = Backend wollte nicht. Bei fail leiten wir trotzdem zu
+  // /studio um — die Login-Page sieht halt den User-Wunsch und macht
+  // ihre Sache. Wir loggen die Fail-Reason in der Konsole.
+  const [autoLogin, setAutoLogin] = useState<"pending" | "ok" | "fail">(
+    "pending"
+  );
+
+  // Auto-Login beim Mount triggern. Wenn keine session_id da ist
+  // (Direkt-Aufruf der /welcome-Page), skippen wir das.
+  useEffect(() => {
+    if (!sessionId) {
+      setAutoLogin("fail");
+      return;
+    }
+    let cancelled = false;
+    api
+      .checkoutLogin(sessionId)
+      .then(() => {
+        if (!cancelled) setAutoLogin("ok");
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          // Stiller Fail — User merkt es spätestens am Login-Screen
+          console.warn("checkout-login failed", err);
+          setAutoLogin("fail");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId]);
 
   useEffect(() => {
     if (countdown <= 0) {
@@ -43,10 +84,8 @@ function WelcomeContent() {
         </p>
       </div>
       <div className="text-ui-sm text-ink-tertiary">
-        {sessionId && (
-          <div className="mb-2 font-mono text-ui-xs break-all opacity-60">
-            {sessionId}
-          </div>
+        {autoLogin === "pending" && (
+          <div className="text-ui-xs opacity-60 mb-1">Anmelden…</div>
         )}
         Du wirst in {countdown} Sekunden ins Studio weitergeleitet…
       </div>
@@ -61,8 +100,6 @@ function WelcomeContent() {
   );
 }
 
-/** Fallback während die useSearchParams-Komponente noch nicht hydriert
- *  ist. Statischer Inhalt ohne client-side state — Next prerendert das. */
 function WelcomeFallback() {
   return (
     <div className="max-w-md w-full bg-surface-raised border border-line-subtle rounded-lg p-8 text-center space-y-6">
@@ -71,9 +108,7 @@ function WelcomeFallback() {
         <h1 className="text-display-md text-ink-primary font-medium mb-2">
           Willkommen bei Lumio!
         </h1>
-        <p className="text-ui text-ink-secondary">
-          Wird geladen…
-        </p>
+        <p className="text-ui text-ink-secondary">Wird geladen…</p>
       </div>
     </div>
   );

@@ -419,6 +419,16 @@ export const api = {
   logout: () => request<{ ok: true }>("/auth/logout", { method: "POST" }),
   me: () => request<{ user: ApiUser }>("/auth/me"),
 
+  /** Auto-Login nach Stripe-Checkout. Welcome-Page ruft das mit der
+   *  session_id aus der URL auf — Backend validiert via Stripe und
+   *  stellt das Session-Cookie aus. Returnt {ok:true} bei Erfolg,
+   *  wirft sonst (Session ungültig, falscher Tenant, etc.). */
+  checkoutLogin: (sessionId: string) =>
+    request<{ ok: true }>("/auth/checkout-login", {
+      method: "POST",
+      body: JSON.stringify({ sessionId }),
+    }),
+
   setupTotp: () =>
     request<{ qrDataUrl: string; otpauthUri: string }>("/auth/totp/setup", {
       method: "POST",
