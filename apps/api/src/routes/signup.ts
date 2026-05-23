@@ -99,8 +99,34 @@ export async function registerSignupRoutes(app: FastifyInstance) {
 
     const parsed = signupSchema.safeParse(req.body);
     if (!parsed.success) {
+      app.log.warn(
+        {
+          issues: parsed.error.issues,
+          bodyKeys: req.body && typeof req.body === "object"
+            ? Object.keys(req.body as Record<string, unknown>)
+            : null,
+        },
+        "signup.invalid_input"
+      );
+      // Detail-Message generieren damit der User weiss was los ist —
+      // statt nur 'invalid_input' kriegt das Frontend "email ist
+      // erforderlich" o.ä. Zod-Issues haben path + message.
+      const firstIssue = parsed.error.issues[0];
+      const fieldName = firstIssue?.path.join(".") ?? "unknown";
+      const messageMap: Record<string, string> = {
+        email: "Bitte gib eine gültige E-Mail-Adresse ein.",
+        password: "Passwort muss mindestens 8 Zeichen lang sein.",
+        studioName: "Studio-Name darf nicht leer sein.",
+        name: "Name ist zu lang.",
+        plan: "Ungültiger Plan.",
+        interval: "Ungültiges Intervall.",
+      };
       return reply.status(400).send({
         error: "invalid_input",
+        field: fieldName,
+        message:
+          messageMap[fieldName] ??
+          `${fieldName}: ${firstIssue?.message ?? "ungültig"}`,
         issues: parsed.error.issues,
       });
     }
