@@ -19,11 +19,13 @@
 import type { FastifyInstance } from "fastify";
 import type Stripe from "stripe";
 import type { Prisma } from "@prisma/client";
+import { z } from "zod";
 import { prisma } from "../db.js";
 import { config } from "../config.js";
 import { getTenantUsage } from "../services/usage.js";
 import { PLANS, STORAGE_ADDON, type PlanSlug } from "../services/plans.js";
 import { getStripe, isStripeEnabled } from "../services/stripe-client.js";
+import { ensureStripeCustomer } from "../services/stripe-service.js";
 import { enqueue, Queues } from "../services/queue.js";
 
 export async function registerBillingRoutes(app: FastifyInstance) {
@@ -128,24 +130,156 @@ export async function registerBillingRoutes(app: FastifyInstance) {
   });
 
   // -------------------------------------------------------------------------
-  // POST /billing/subscription   (Sprint 2 — Checkout-Session-Create kommt
-  //                                im nächsten Foundation-Commit)
+  // POST /billing/subscription
   // -------------------------------------------------------------------------
-  app.post("/billing/subscription", async (_req, reply) => {
-    return reply.status(501).send({
-      error: "not_implemented",
-      message: "Subscription-Erstellung kommt im nächsten Sprint-2-Commit.",
+  // Plan-Upgrade oder erstmaliges Abonnement nach Trial. Tenant muss
+  // eingeloggt sein, gibt seinen Wunsch-Plan an, kriegt eine Stripe-
+  // Checkout-URL zurück. Bei bestehender Subscription = Upgrade-Flow
+  // (Stripe rechnet Proration automatisch).
+  //
+  // Body: { plan: "solo"|"studio"|"pro", interval: "monthly"|"yearly" }
+  app.post("/billing/subscription", async (req, reply) => {
+    const s = req.requireAuth();
+    if (!req.tenantId) {
+      return reply.status(400).send({ error: "no_tenant" });
+    }
+    if (!isStripeEnabled()) {
+      return reply.status(503).send({ error: "billing_disabled" });
+    }
+
+    const body = z
+      .object({
+        plan: z.enum(["solo", "studio", "pro"]),
+        interval: z.enum(["monthly", "yearly"]).default("monthly"),
+      })
+      .safeParse(req.body);
+    if (!body.success) {
+      return reply.status(400).send({
+        error: "invalid_input",
+        issues: body.error.issues,
+      });
+    }
+
+    const plan = await prisma.billingPlan.findUnique({
+      where: { slug: body.data.plan },
     });
+    if (!plan) {
+      return reply.status(500).send({ error: "plan_not_configured" });
+    }
+    const priceId =
+      body.data.interval === "yearly"
+        ? plan.stripePriceIdYearly
+        : plan.stripePriceIdMonthly;
+    if (!priceId) {
+      return reply.status(500).send({ error: "price_not_configured" });
+    }
+
+    // Stripe-Customer sicherstellen (idempotent — bei bestehendem
+    // Tenant fast immer schon angelegt vom Sign-up)
+    const customerId = await ensureStripeCustomer(req.tenantId);
+
+    // Bestehende Subscription? → Update-Flow direkt, KEINE Checkout-
+    // Session. Stripe rechnet Proration automatisch.
+    const existing = await prisma.billingSubscription.findUnique({
+      where: { tenantId: req.tenantId },
+      select: {
+        stripeSubscriptionId: true,
+        stripePlanItemId: true,
+        status: true,
+      },
+    });
+
+    if (
+      existing?.stripeSubscriptionId &&
+      existing?.stripePlanItemId &&
+      ["active", "trialing", "past_due"].includes(existing.status)
+    ) {
+      // Direct Item-Update — Stripe lässt es proraten + die nächste
+      // Invoice spiegelt die Differenz. Webhook updated dann unsere DB.
+      const stripe = getStripe();
+      await stripe.subscriptions.update(existing.stripeSubscriptionId, {
+        items: [
+          {
+            id: existing.stripePlanItemId,
+            price: priceId,
+          },
+        ],
+        proration_behavior: "create_prorations",
+      });
+
+      app.log.info(
+        {
+          tenantId: req.tenantId,
+          userId: s.user.id,
+          newPlan: body.data.plan,
+          newInterval: body.data.interval,
+        },
+        "billing.plan_changed_in_place"
+      );
+      return {
+        upgraded: true,
+        message: "Plan-Wechsel sofort wirksam. Rechnung folgt anteilig.",
+      };
+    }
+
+    // Sonst: neue Checkout-Session (für nicht-aktive oder gar nicht
+    // existente Subscription). Trial gibt's bei manuellem Upgrade
+    // nicht mehr.
+    const stripe = getStripe();
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      customer: customerId,
+      line_items: [{ price: priceId, quantity: 1 }],
+      subscription_data: {
+        metadata: { lumio_tenant_id: req.tenantId },
+      },
+      payment_method_collection: "always",
+      automatic_tax: { enabled: true },
+      tax_id_collection: { enabled: true },
+      billing_address_collection: "required",
+      allow_promotion_codes: true,
+      success_url: `${config.STRIPE_RETURN_URL_BASE}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${config.STRIPE_RETURN_URL_BASE}/billing`,
+      metadata: {
+        lumio_tenant_id: req.tenantId,
+      },
+    });
+
+    return { checkoutUrl: session.url, sessionId: session.id };
   });
 
   // -------------------------------------------------------------------------
-  // POST /billing/portal   (Sprint 2 — kommt nächste Session)
+  // POST /billing/portal
   // -------------------------------------------------------------------------
-  app.post("/billing/portal", async (_req, reply) => {
-    return reply.status(501).send({
-      error: "not_implemented",
-      message: "Stripe Customer-Portal kommt im nächsten Sprint-2-Commit.",
+  // Customer Portal — Stripe-hostet alles: Karte ändern, Rechnungen
+  // ansehen, Plan wechseln, kündigen. Wir generieren nur den Link mit
+  // return_url zurück ins Studio.
+  app.post("/billing/portal", async (req, reply) => {
+    req.requireAuth();
+    if (!req.tenantId) {
+      return reply.status(400).send({ error: "no_tenant" });
+    }
+    if (!isStripeEnabled()) {
+      return reply.status(503).send({ error: "billing_disabled" });
+    }
+
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: req.tenantId },
+      select: { stripeCustomerId: true },
     });
+    if (!tenant?.stripeCustomerId) {
+      return reply.status(409).send({
+        error: "no_stripe_customer",
+        message: "Noch keine Stripe-Verknüpfung. Bitte Plan abonnieren.",
+      });
+    }
+
+    const stripe = getStripe();
+    const portalSession = await stripe.billingPortal.sessions.create({
+      customer: tenant.stripeCustomerId,
+      return_url: `${config.STRIPE_RETURN_URL_BASE}/studio/settings`,
+    });
+    return { portalUrl: portalSession.url };
   });
 
   // -------------------------------------------------------------------------

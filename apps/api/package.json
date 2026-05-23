@@ -16,7 +16,9 @@
     "create-admin": "node dist/scripts/create-admin.js",
     "create-admin:dev": "tsx src/scripts/create-admin.ts",
     "create-super-admin": "node dist/scripts/create-super-admin.js",
-    "create-super-admin:dev": "tsx src/scripts/create-super-admin.ts"
+    "create-super-admin:dev": "tsx src/scripts/create-super-admin.ts",
+    "stripe-bootstrap": "node dist/scripts/stripe-bootstrap.js",
+    "stripe-bootstrap:dev": "tsx src/scripts/stripe-bootstrap.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.658.0",

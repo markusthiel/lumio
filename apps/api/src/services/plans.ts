@@ -27,7 +27,6 @@ export interface PlanLimits {
   // Maximal aktive (nicht-archivierte) Galerien. Infinity = unbegrenzt.
   activeGalleries: number;
   // Wie viele Branding-Profile darf der Tenant anlegen.
-  // 0 = nur Lumio-Default, 1 = ein eigenes, etc.
   brandings: number;
   // Custom-Domains: 0 = nicht erlaubt, 1 = eine, Infinity = beliebig viele.
   customDomains: number;
@@ -37,6 +36,9 @@ export interface PlanLimits {
   watermarkAllowed: boolean;
   // Stripe-Preis pro Monat in Cent (0 = Trial)
   priceMonthlyCents: number;
+  /** Stripe-Preis pro Jahr in Cent. Idee: 10 Monatspreise = ~17%
+   *  Rabatt (2 Monate gratis). Trial hat keinen Yearly-Plan. */
+  priceYearlyCents: number;
 }
 
 export const PLANS: Record<PlanSlug, PlanLimits> = {
@@ -50,6 +52,7 @@ export const PLANS: Record<PlanSlug, PlanLimits> = {
     teamMembers: 1,
     watermarkAllowed: true,
     priceMonthlyCents: 0,
+    priceYearlyCents: 0,
   },
   solo: {
     name: "Solo",
@@ -61,6 +64,7 @@ export const PLANS: Record<PlanSlug, PlanLimits> = {
     teamMembers: 1,
     watermarkAllowed: false,
     priceMonthlyCents: 1900,
+    priceYearlyCents: 19000, // 10 Monate * 1900
   },
   studio: {
     name: "Studio",
@@ -72,6 +76,7 @@ export const PLANS: Record<PlanSlug, PlanLimits> = {
     teamMembers: 1,
     watermarkAllowed: true,
     priceMonthlyCents: 3900,
+    priceYearlyCents: 39000,
   },
   pro: {
     name: "Pro",
@@ -83,15 +88,36 @@ export const PLANS: Record<PlanSlug, PlanLimits> = {
     teamMembers: 3,
     watermarkAllowed: true,
     priceMonthlyCents: 8900,
+    priceYearlyCents: 89000,
   },
 };
 
 /** Storage Add-On: pro 50 GB extra +9 EUR/Monat. Wird in Sprint 2 als
- *  separater Stripe-Subscription-Item gebucht. */
+ *  separater Stripe-Subscription-Item gebucht. Yearly identisch zum
+ *  monatlichen Preis * 10 (= 90 EUR/Jahr für 50 GB). */
 export const STORAGE_ADDON = {
   gibPerUnit: 50,
   priceMonthlyCents: 900,
+  priceYearlyCents: 9000,
 };
+
+/** Stripe lookup_keys — sprechend + stabil pro Plan. Bootstrap-Script
+ *  legt mit diesen Keys Prices in Stripe an; Webhook-Worker matched
+ *  via lookup_key auf den BillingPlan. Schema:
+ *    plan_<slug>_<interval>   z.B. plan_solo_monthly, plan_pro_yearly
+ *    storage_pack_<interval>  z.B. storage_pack_monthly */
+export function planLookupKey(
+  slug: Exclude<PlanSlug, "trial">,
+  interval: "monthly" | "yearly"
+): string {
+  return `plan_${slug}_${interval}`;
+}
+
+export function storagePackLookupKey(
+  interval: "monthly" | "yearly"
+): string {
+  return `storage_pack_${interval}`;
+}
 
 /** Liefert das Plan-Limit-Objekt für einen gegebenen Plan-Slug.
  *  Fallback: "trial" — defensiv, damit Limit-Checks nicht durchrutschen

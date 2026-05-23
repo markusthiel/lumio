@@ -22,6 +22,7 @@ import { registerAccessRoutes } from "./routes/access.js";
 import { registerFileRoutes } from "./routes/files.js";
 import { registerProofingRoutes } from "./routes/proofing.js";
 import { registerBillingRoutes } from "./routes/billing.js";
+import { registerSignupRoutes } from "./routes/signup.js";
 import { registerHlsRoutes } from "./routes/hls.js";
 import { registerZipRoutes } from "./routes/zip.js";
 import { registerSettingsRoutes } from "./routes/settings.js";
@@ -130,6 +131,7 @@ async function buildServer() {
       await api.register(registerSuperTenantRoutes);
       if (config.BILLING_ENABLED) {
         await registerBillingRoutes(api);
+        await registerSignupRoutes(api);
       }
     },
     { prefix: "/api/v1" }

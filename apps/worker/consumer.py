@@ -136,10 +136,13 @@ def run() -> None:
         _ensure_group(r, stream)
 
     last_webhook_sweep = 0.0
+    # billing.enforce_limits läuft alle 10 Minuten — Trial-Expiry,
+    # read-only-Escalation, Suspend-Lifecycle. Wir machen das eigent-
+    # lich nur einmal pro Stunde nötig, aber 10-Min-Cadence gibt
+    # schnelleren Recovery bei z.B. einem späten Webhook-Eintrag.
+    last_billing_enforce = 0.0
     while not _stop:
         try:
-            # 1) Auf neue Messages warten ('>' bedeutet "alles ab dem letzten
-            #    delivered id"). Wir lesen aus allen Streams gleichzeitig.
             streams_arg = {s: ">" for s in STREAMS}
             resp = r.xreadgroup(
                 groupname=CONSUMER_GROUP,
@@ -149,15 +152,13 @@ def run() -> None:
                 block=BLOCK_MS,
             )
 
-            # Webhook-Retry-Sweep: einmal pro Minute pending-Deliveries mit
-            # erreichtem nextAttemptAt in den Stream legen. Wir hängen das
-            # nach jedem Read-Cycle ein (egal ob Messages kamen oder nicht),
-            # gating per Wall-Clock — sonst würde das in busy-Phasen zu oft
-            # laufen und in idle-Phasen zu selten (BLOCK_MS=5s).
             now = time.time()
             if now - last_webhook_sweep >= 60:
                 _trigger_webhook_sweep()
                 last_webhook_sweep = now
+            if now - last_billing_enforce >= 600:
+                _trigger_billing_enforce()
+                last_billing_enforce = now
 
             if not resp:
                 # Idle: auch hängende Messages anderer Consumer claimen
@@ -185,6 +186,18 @@ def _trigger_webhook_sweep() -> None:
         app.send_task("tasks.webhook_delivery.sweep")
     except Exception:
         log.exception("consumer.webhook_sweep_send_failed")
+
+
+def _trigger_billing_enforce() -> None:
+    """Schickt den Trial-Lifecycle + Limit-Enforcement-Job an Celery.
+    Nur wenn BILLING_ENABLED — sonst skippen wir, um leere Worker-
+    Logs zu vermeiden."""
+    if os.environ.get("BILLING_ENABLED", "false").lower() != "true":
+        return
+    try:
+        app.send_task("tasks.billing.enforce_limits")
+    except Exception:
+        log.exception("consumer.billing_enforce_send_failed")
 
 
 def _handle(r: redis.Redis, stream: str, msg_id: str, fields: dict) -> None:

@@ -389,10 +389,94 @@ def update_tenant_usage(tenant_id: str | None = None) -> dict:
 
 @app.task(name="tasks.billing.enforce_limits")
 def enforce_limits() -> dict:
-    """Trial-Lifecycle + Storage-Limit-Enforcement. Read-only nach 14 Tagen
-    ohne Subscription, archiviert nach 44."""
-    log.info("billing.enforce_limits")
-    return {"status": "stub"}
+    """Trial-Lifecycle-Job + Storage-Limit-Enforcement.
+
+    Wird stündlich von Celery Beat aufgerufen.
+
+    Logik:
+      1. Tenants mit billing_subscriptions.status='trialing' AND
+         trialEndsAt < NOW() AND NO stripeSubscriptionId
+         -> readOnlySince=NOW() (hart, kein Grace)
+         (Wenn stripeSubscriptionId gesetzt ist, hat der User die
+          Karte hinterlegt — Stripe macht den Lifecycle dann selbst,
+          past_due-Webhook kommt eh.)
+
+      2. Tenants mit readOnlySince < NOW() - 30 days
+         -> Galerien archivieren (status='archived')
+         (Customer-URLs zeigen dann 'Galerie nicht verfügbar')
+
+      3. Tenants mit readOnlySince < NOW() - 30 days
+         -> tenant.status='suspended'
+         (Studio-Login geht weiter, aber alle Schreibvorgänge sind
+          geblockt. Customer-Subdomain antwortet 404.)
+
+    Idempotent. Wird häufig laufen aber tut nur etwas wenn Schwellen
+    überschritten sind.
+    """
+    counts = {"to_readonly": 0, "to_archived": 0, "to_suspended": 0}
+
+    with get_conn() as conn:
+        # 1) Trial abgelaufen ohne Subscription → read-only
+        result = conn.execute(
+            '''
+            UPDATE billing_subscriptions
+            SET "readOnlySince" = NOW(), "updatedAt" = NOW()
+            WHERE status = %s
+              AND "trialEndsAt" IS NOT NULL
+              AND "trialEndsAt" < NOW()
+              AND "stripeSubscriptionId" IS NULL
+              AND "readOnlySince" IS NULL
+            RETURNING "tenantId"
+            ''',
+            ("trialing",),
+        ).fetchall()
+        counts["to_readonly"] = len(result)
+        for row in result:
+            log.warning(
+                "billing.trial_expired_readonly",
+                tenant_id=str(row["tenantId"]),
+            )
+
+        # 2) Read-only > 30 Tage → Galerien archivieren
+        # Wir lockern das auf: nur ACTIVE Galerien (nicht schon archived/draft)
+        result = conn.execute(
+            '''
+            UPDATE galleries g
+            SET status = %s, "updatedAt" = NOW()
+            FROM billing_subscriptions bs
+            WHERE g."tenantId" = bs."tenantId"
+              AND bs."readOnlySince" IS NOT NULL
+              AND bs."readOnlySince" < NOW() - INTERVAL '30 days'
+              AND g.status = %s
+            RETURNING g.id
+            ''',
+            ("archived", "live"),
+        ).fetchall()
+        counts["to_archived"] = len(result)
+
+        # 3) Tenants im read-only > 30 Tage → suspended
+        result = conn.execute(
+            '''
+            UPDATE tenants t
+            SET status = %s, "updatedAt" = NOW()
+            FROM billing_subscriptions bs
+            WHERE t.id = bs."tenantId"
+              AND bs."readOnlySince" IS NOT NULL
+              AND bs."readOnlySince" < NOW() - INTERVAL '30 days'
+              AND t.status = %s
+            RETURNING t.id
+            ''',
+            ("suspended", "active"),
+        ).fetchall()
+        counts["to_suspended"] = len(result)
+        for row in result:
+            log.warning(
+                "billing.tenant_suspended_inactive",
+                tenant_id=str(row["id"]),
+            )
+
+    log.info("billing.enforce_limits", **counts)
+    return {"status": "ok", **counts}
 
 
 @app.task(name="tasks.billing.reset_monthly_bandwidth")
