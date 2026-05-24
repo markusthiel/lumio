@@ -92,6 +92,18 @@ interface Props {
   /** Aktiv-Werkzeug + Farbe. null/null → Pan-Modus, keine Eingaben. */
   tool: AnnotationTool | null;
   color: AnnotationColor;
+
+  /** Optionaler CSS-Skalierungsfaktor des Vorfahren-Elements (z. B.
+   *  beim Lightbox-Zoom). Wird genutzt um die Strichbreite mit-skalieren
+   *  zu lassen — sonst bleiben Striche dank `non-scaling-stroke` bei
+   *  konstanter Display-Pixel-Breite und wirken im stark gezoomten Bild
+   *  unangenehm dünn. Wir nutzen sqrt(scale) als gedämpfte Skalierung:
+   *  bei 4× Zoom werden Striche nur 2× dicker, bei 9× nur 3× — das
+   *  fühlt sich "natürlich mit-gezoomt" an, ohne dass die Markierungen
+   *  bei Extremzoom absurd fett werden und das Bild verdecken.
+   *  Default 1 (kein Skalieren) hält das bisherige Verhalten an allen
+   *  anderen Verwendungsstellen (Studio-Proofing-Detail) unverändert. */
+  displayScale?: number;
 }
 
 export function AnnotationOverlay({
@@ -101,8 +113,16 @@ export function AnnotationOverlay({
   author,
   tool,
   color,
+  displayScale = 1,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
+
+  // Effektive Strichbreite. sqrt-Dämpfung — siehe Kommentar bei
+  // displayScale-Prop. Math.max gegen 1, falls jemand displayScale=0
+  // reinreicht (würde Striche unsichtbar machen).
+  const swFactor = Math.sqrt(Math.max(1, displayScale));
+  const sw = STROKE_WIDTH * swFactor;
+  const swHalo = STROKE_HALO_WIDTH * swFactor;
 
   // Aktiver Draw-Stroke (Frei-Hand: wächst, Pfeil: Start+End)
   const [drawing, setDrawing] = useState<
@@ -296,7 +316,7 @@ export function AnnotationOverlay({
                 d={d}
                 fill="none"
                 stroke="rgba(0,0,0,0.35)"
-                strokeWidth={STROKE_WIDTH * 1.6}
+                strokeWidth={swHalo}
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 vectorEffect="non-scaling-stroke"
@@ -305,7 +325,7 @@ export function AnnotationOverlay({
                 d={d}
                 fill="none"
                 stroke={stroke}
-                strokeWidth={STROKE_WIDTH}
+                strokeWidth={sw}
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeDasharray={dash}
@@ -322,7 +342,7 @@ export function AnnotationOverlay({
               x2={s.to[0]}
               y2={s.to[1]}
               stroke="rgba(0,0,0,0.35)"
-              strokeWidth={STROKE_WIDTH * 1.6}
+              strokeWidth={swHalo}
               strokeLinecap="round"
               vectorEffect="non-scaling-stroke"
             />
@@ -332,7 +352,7 @@ export function AnnotationOverlay({
               x2={s.to[0]}
               y2={s.to[1]}
               stroke={stroke}
-              strokeWidth={STROKE_WIDTH}
+              strokeWidth={sw}
               strokeLinecap="round"
               strokeDasharray={dash}
               markerEnd={`url(#lumio-arrow-${s.color})`}
@@ -348,7 +368,7 @@ export function AnnotationOverlay({
           d={strokeToPath(drawing.points)}
           fill="none"
           stroke={COLOR_MAP[color]}
-          strokeWidth={STROKE_WIDTH}
+          strokeWidth={sw}
           strokeLinecap="round"
           strokeLinejoin="round"
           vectorEffect="non-scaling-stroke"
@@ -362,7 +382,7 @@ export function AnnotationOverlay({
           x2={drawing.to[0]}
           y2={drawing.to[1]}
           stroke={COLOR_MAP[color]}
-          strokeWidth={STROKE_WIDTH}
+          strokeWidth={sw}
           strokeLinecap="round"
           vectorEffect="non-scaling-stroke"
           markerEnd={`url(#lumio-arrow-${color})`}

@@ -27,6 +27,7 @@ import {
   type GalleryFile,
 } from "@/lib/api";
 import { useT } from "@/lib/i18n";
+import { useImageZoom } from "@/lib/useImageZoom";
 import {
   AnnotationOverlay,
   AnnotationToolbar,
@@ -50,6 +51,38 @@ export function ProofingFileDetail({ galleryId, file, onClose }: Props) {
   const [tool, setTool] = useState<AnnotationTool | null>("freehand");
   const [color, setColor] = useState<AnnotationColor>("red");
   const [newComment, setNewComment] = useState("");
+
+  // Zoom + Pan, identisches Verhalten wie in der Customer-Lightbox.
+  // Wenn ein Zeichen-Werkzeug aktiv ist (tool !== null), wird der Zoom
+  // deaktiviert — sonst würde Maus-Drag versuchen zu pannen statt zu
+  // zeichnen. Praxis: das Studio drückt 'Esc' oder klickt das aktive
+  // Tool nochmal an um auf null zu setzen, dann ist Zoom+Pan verfügbar.
+  // Reset bei File-Wechsel — sonst landet das Studio nach Klick auf
+  // ein anderes Foto auf einem willkürlich gezoomten neuen Bild.
+  const zoom = useImageZoom({ disabled: tool !== null });
+  useEffect(() => {
+    zoom.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file.id, tool]);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.target && (e.target as HTMLElement).tagName === "TEXTAREA") return;
+      if (e.target && (e.target as HTMLElement).tagName === "INPUT") return;
+      if (e.key === "+" || e.key === "=") {
+        e.preventDefault();
+        zoom.zoomIn();
+      } else if (e.key === "-" || e.key === "_") {
+        e.preventDefault();
+        zoom.zoomOut();
+      } else if (e.key === "0") {
+        e.preventDefault();
+        zoom.reset();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [zoom]);
 
   // Comments laden bei File-Wechsel
   useEffect(() => {
@@ -133,28 +166,131 @@ export function ProofingFileDetail({ galleryId, file, onClose }: Props) {
         {/* Bild + Annotation-Overlay */}
         <div className="flex-1 flex items-center justify-center relative bg-black/95 overflow-hidden">
           {previewUrl ? (
+            /* Zoom-Container (absolute, inset-0) liefert die volle
+               Hit-Area für Wheel/Pinch/Pan auch im schwarzen Bereich
+               rechts/links neben dem Bild. Wenn ein Zeichen-Tool aktiv
+               ist (tool !== null), wird der Zoom-Hook disabled — er
+               liefert dann pass-through-Props und der Container ist
+               event-mäßig transparent. Das Annotation-Overlay sitzt im
+               transformierten Wrapper und skaliert geometrisch
+               automatisch mit (viewBox 0 0 1 1, preserveAspectRatio
+               none). displayScale=zoom.scale lässt die Strichbreite
+               via sqrt(scale) gedämpft mit-skalieren. */
             <div
-              className="relative inline-block max-h-[calc(100vh-180px)]"
-              style={{ lineHeight: 0 }}
+              ref={zoom.containerRef}
+              {...zoom.containerProps}
+              className="absolute inset-0 overflow-hidden flex items-center justify-center z-0"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={previewUrl}
-                alt={file.originalFilename}
-                className="max-h-[calc(100vh-180px)] max-w-full object-contain block"
-                draggable={false}
-              />
-              <AnnotationOverlay
-                existing={existingAnnotations}
-                value={strokes}
-                onChange={setStrokes}
-                author="studio"
-                tool={tool}
-                color={color}
-              />
+              <div
+                className="relative inline-block max-h-[calc(100vh-180px)]"
+                style={{ lineHeight: 0, ...zoom.style }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={previewUrl}
+                  alt={file.originalFilename}
+                  className="max-h-[calc(100vh-180px)] max-w-full object-contain block"
+                  draggable={false}
+                />
+                {/* Bei zoom>1 ohne aktives Zeichen-Tool: pointer-events
+                    am Overlay deaktivieren, damit Drag im leeren
+                    Bildbereich nicht am SVG hängen bleibt. Im
+                    Zeichen-Modus (tool !== null) bleibt das Overlay
+                    interaktiv — Zoom ist dann sowieso disabled. */}
+                <div
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    pointerEvents:
+                      zoom.zoomed && tool === null ? "none" : undefined,
+                  }}
+                >
+                  <AnnotationOverlay
+                    existing={existingAnnotations}
+                    value={strokes}
+                    onChange={setStrokes}
+                    author="studio"
+                    tool={tool}
+                    color={color}
+                    displayScale={zoom.scale}
+                  />
+                </div>
+              </div>
             </div>
           ) : (
             <div className="text-white/50">{t("annotation.studioDetail.noPreview")}</div>
+          )}
+
+          {/* Zoom-Controls oben rechts. Identisches Layout wie in der
+              Customer-Lightbox — bewusste Konsistenz, sodass User die
+              den Studio-Detail-View aus der Lightbox kennen die UI
+              wiedererkennen. */}
+          {previewUrl && (
+            <div className="absolute top-3 right-3 z-30 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full p-1">
+              {zoom.zoomed && (
+                <span className="text-ui-xs text-white/80 px-2 tabular-nums select-none">
+                  {Math.round(zoom.scale * 100)}%
+                </span>
+              )}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  zoom.zoomOut();
+                }}
+                disabled={!zoom.zoomed}
+                className="w-8 h-8 rounded-full hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white/90 flex items-center justify-center transition-colors duration-motion"
+                aria-label={t("gallery.zoomOut")}
+                title={t("gallery.zoomOut")}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                >
+                  <circle cx="7" cy="7" r="5" />
+                  <path d="M4.5 7h5M11 11l3 3" />
+                </svg>
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  zoom.zoomIn();
+                }}
+                className="w-8 h-8 rounded-full hover:bg-white/10 text-white/90 flex items-center justify-center transition-colors duration-motion"
+                aria-label={t("gallery.zoomIn")}
+                title={t("gallery.zoomIn")}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                >
+                  <circle cx="7" cy="7" r="5" />
+                  <path d="M4.5 7h5M7 4.5v5M11 11l3 3" />
+                </svg>
+              </button>
+              {zoom.zoomed && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    zoom.reset();
+                  }}
+                  className="h-8 px-2.5 rounded-full hover:bg-white/10 text-ui-xs text-white/90 transition-colors duration-motion"
+                  aria-label={t("gallery.zoomReset")}
+                  title={t("gallery.zoomReset")}
+                >
+                  1:1
+                </button>
+              )}
+            </div>
           )}
 
           {/* Toolbar unten */}

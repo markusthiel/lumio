@@ -1470,6 +1470,7 @@ function Lightbox({
                           : null
                       }
                       color={annotationColor}
+                      displayScale={zoom.scale}
                     />
                   </div>
                 )}
