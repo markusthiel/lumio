@@ -305,6 +305,107 @@ export async function registerFileRoutes(app: FastifyInstance) {
   });
 
   // -------------------------------------------------------------------------
+  // POST /uploads/:fileId/resign
+  // -------------------------------------------------------------------------
+  // Erzeugt neue presigned URLs für ein File, das noch in status='uploading'
+  // hängt. Use-Cases:
+  //   - Presigned URL ist abgelaufen (Standard-TTL 1h). Bei sehr großen
+  //     Batches (1000 Files mit hoher MB-Größe) kann die letzte URL
+  //     länger als 1h auf ihren Slot warten.
+  //   - Network-Glitch hat das XHR gekillt, Browser will retry, aber
+  //     die alte URL ist potentiell schon teilweise konsumiert (S3
+  //     verträgt das eigentlich — aber bei Multipart bleibt eine alte
+  //     uploadId, die müssen wir behalten und nur frische Part-URLs
+  //     bekommen).
+  //
+  // Bei Multipart: Client schickt die uploadId mit (sie ist nur im
+  // Browser-Memory, nicht in der DB), Backend signiert dieselben
+  // Parts neu. Wenn Client nur einzelne Parts retryen will, kann er
+  // `partNumbers` mitschicken — sonst kriegt er für alle Parts neue URLs.
+  app.post<{ Params: { fileId: string } }>(
+    "/uploads/:fileId/resign",
+    async (req, reply) => {
+      const s = req.requireAuth();
+      const body = (req.body ?? {}) as {
+        uploadId?: string;
+        partNumbers?: number[];
+      };
+
+      const file = await prisma.file.findFirst({
+        where: { id: req.params.fileId },
+        include: {
+          gallery: { select: { tenantId: true, ownerId: true } },
+        },
+      });
+      if (
+        !file ||
+        file.gallery.tenantId !== req.tenantId ||
+        file.gallery.ownerId !== s.user.id
+      ) {
+        return reply.status(404).send({ error: "not_found" });
+      }
+      if (file.status !== "uploading") {
+        // Schon fertig oder failed — nicht resignbar
+        return reply.status(409).send({
+          error: "not_uploadable",
+          status: file.status,
+        });
+      }
+
+      // Single oder Multipart? Wir entscheiden anhand der File-Größe,
+      // genauso wie beim Init.
+      if (Number(file.sizeBytes) <= MULTIPART_THRESHOLD) {
+        const uploadUrl = await presignPut({
+          key: file.storageKey,
+          contentType: file.mimeType,
+          contentLength: Number(file.sizeBytes),
+        });
+        return {
+          fileId: file.id,
+          method: "single" as const,
+          uploadUrl,
+          headers: { "Content-Type": file.mimeType },
+        };
+      }
+
+      // Multipart: braucht uploadId vom Client
+      if (!body.uploadId) {
+        return reply.status(400).send({
+          error: "missing_upload_id",
+          message: "uploadId required for multipart resign",
+        });
+      }
+
+      const totalParts = numberOfParts(Number(file.sizeBytes));
+      const partSize = chunkSizeBytes();
+      const wanted =
+        body.partNumbers && body.partNumbers.length > 0
+          ? body.partNumbers
+          : Array.from({ length: totalParts }, (_, i) => i + 1);
+
+      const parts: { partNumber: number; uploadUrl: string }[] = [];
+      for (const partNumber of wanted) {
+        if (partNumber < 1 || partNumber > totalParts) continue;
+        const url = await presignUploadPart({
+          key: file.storageKey,
+          uploadId: body.uploadId,
+          partNumber,
+        });
+        parts.push({ partNumber, uploadUrl: url });
+      }
+
+      return {
+        fileId: file.id,
+        method: "multipart" as const,
+        uploadId: body.uploadId,
+        partSize,
+        totalParts,
+        parts,
+      };
+    }
+  );
+
+  // -------------------------------------------------------------------------
   // GET /files/:id/download — Original-Download
   // -------------------------------------------------------------------------
   app.get<{ Params: { id: string } }>(

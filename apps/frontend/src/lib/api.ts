@@ -1044,6 +1044,19 @@ export const api = {
       }),
     }),
 
+  /** Holt frische presigned URLs für ein File, das in status='uploading'
+   *  hängt — z.B. nach abgelaufener Signature oder mehrfachem Network-
+   *  Fail. Bei Multipart muss die uploadId mitgegeben werden, weil sie
+   *  nicht in der DB liegt. */
+  resignUpload: (
+    fileId: string,
+    input?: { uploadId?: string; partNumbers?: number[] }
+  ) =>
+    request<UploadInit>(`/uploads/${fileId}/resign`, {
+      method: "POST",
+      body: JSON.stringify(input ?? {}),
+    }),
+
   // Public Gallery (Kunden-Sicht)
   getPublicGallery: (slug: string) =>
     request<{ gallery: PublicGalleryMeta }>(`/g/${slug}`),

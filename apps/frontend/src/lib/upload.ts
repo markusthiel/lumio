@@ -156,7 +156,34 @@ export async function uploadFiles(
 }
 
 // ---------------------------------------------------------------------------
-// Einzelner File-Upload
+// Robustness-Konstanten
+// ---------------------------------------------------------------------------
+// Wieviele Sekunden ohne ANY Progress-Event bevor wir das XHR abbrechen
+// und retryen. Browser geben uns kein Signal wenn ein XHR "hängt" — die
+// Connection könnte auf eine TCP-Retransmission warten, auf einen
+// Connection-Pool-Slot, oder S3 antwortet einfach nicht mehr. 30 s ist
+// großzügig genug für RAW-Uploads über langsame Verbindungen, knapp
+// genug dass User nicht 5 Min auf eine tote Connection warten.
+const STALL_TIMEOUT_MS = 30_000;
+
+// Pro Single-PUT bzw. Multipart-Part: wieviele Versuche insgesamt?
+// 1 = nur einmal versuchen, kein Retry. 3 = original + 2 retries.
+const MAX_ATTEMPTS = 3;
+
+// Exponential Backoff zwischen Retries: 1s, 2s, 4s, ...
+const BACKOFF_BASE_MS = 1_000;
+
+// HTTP-Status die "presigned URL ist abgelaufen / kaputt" bedeuten.
+// Bei diesen Codes lohnt sich ein Resign — bei 5xx oder Network-Fail
+// retryen wir mit derselben URL (kurze Pause).
+const RESIGN_HTTP_CODES = new Set([400, 403, 410]);
+
+function sleep(ms: number) {
+  return new Promise<void>((r) => setTimeout(r, ms));
+}
+
+// ---------------------------------------------------------------------------
+// Single-File-Upload
 // ---------------------------------------------------------------------------
 async function uploadOne(
   file: File,
@@ -176,7 +203,42 @@ async function uploadSingle(
   onProgress: (p: number) => void
 ): Promise<void> {
   if (!init.uploadUrl) throw new Error("missing uploadUrl");
-  await putWithProgress(init.uploadUrl, file, init.headers ?? {}, onProgress);
+
+  let url = init.uploadUrl;
+  let headers = init.headers ?? {};
+  let lastErr: PutError | null = null;
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      await putWithProgress(url, file, headers, onProgress);
+      lastErr = null;
+      break;
+    } catch (err) {
+      const pe = err as PutError;
+      lastErr = pe;
+
+      if (attempt >= MAX_ATTEMPTS) break;
+
+      // Bei expired/forbidden frische URL holen
+      if (pe.httpStatus && RESIGN_HTTP_CODES.has(pe.httpStatus)) {
+        try {
+          const fresh = await api.resignUpload(init.fileId);
+          if (fresh.method === "single" && fresh.uploadUrl) {
+            url = fresh.uploadUrl;
+            headers = fresh.headers ?? headers;
+          }
+        } catch {
+          // Resign selbst gefailed (z.B. 409 weil File schon ready) — kein
+          // weiterer Retry, Original-Fehler bleibt
+          break;
+        }
+      }
+
+      await sleep(BACKOFF_BASE_MS * Math.pow(2, attempt - 1));
+    }
+  }
+  if (lastErr) throw lastErr;
+
   await api.completeUpload({ fileId: init.fileId });
 }
 
@@ -189,11 +251,18 @@ async function uploadMultipart(
     throw new Error("invalid multipart init");
   }
   const partSize = init.partSize;
-  const parts = init.parts;
+  const uploadId = init.uploadId;
+  // partUrls können bei Resign aktualisiert werden — daher mutable Map
+  // partNumber → uploadUrl.
+  const partUrls = new Map<number, string>(
+    init.parts.map((p) => [p.partNumber, p.uploadUrl])
+  );
+  const partNumbers = init.parts.map((p) => p.partNumber);
 
-  const partProgress = new Array(parts.length).fill(0);
+  const partProgress = new Array(partNumbers.length).fill(0);
   const reportTotal = () => {
-    const total = partProgress.reduce((sum, x) => sum + x, 0) / parts.length;
+    const total =
+      partProgress.reduce((sum, x) => sum + x, 0) / partNumbers.length;
     onProgress(total);
   };
 
@@ -204,31 +273,67 @@ async function uploadMultipart(
   async function uploadNextPart(): Promise<void> {
     while (true) {
       const idx = nextPartIdx++;
-      if (idx >= parts.length) return;
-      const part = parts[idx];
-      const start = (part.partNumber - 1) * partSize;
+      if (idx >= partNumbers.length) return;
+      const partNumber = partNumbers[idx];
+      const start = (partNumber - 1) * partSize;
       const end = Math.min(start + partSize, file.size);
       const blob = file.slice(start, end);
 
-      const eTag = await putPartWithProgress(
-        part.uploadUrl,
-        blob,
-        (p) => {
-          partProgress[idx] = p;
-          reportTotal();
+      let lastErr: PutError | null = null;
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        const url = partUrls.get(partNumber)!;
+        try {
+          const eTag = await putPartWithProgress(url, blob, (p) => {
+            partProgress[idx] = p;
+            reportTotal();
+          });
+          completed.push({ partNumber, eTag });
+          lastErr = null;
+          break;
+        } catch (err) {
+          const pe = err as PutError;
+          lastErr = pe;
+
+          if (attempt >= MAX_ATTEMPTS) break;
+
+          if (pe.httpStatus && RESIGN_HTTP_CODES.has(pe.httpStatus)) {
+            // Frische URL nur für DIESEN Part holen — die anderen
+            // Parts haben evtl. noch valide URLs (selbe Init-Response,
+            // selbe TTL — meist alle gleichzeitig expired, aber wir
+            // resignen pro Part on-demand und sind dadurch robust
+            // gegen partielle Probleme).
+            try {
+              const fresh = await api.resignUpload(init.fileId, {
+                uploadId,
+                partNumbers: [partNumber],
+              });
+              if (fresh.method === "multipart" && fresh.parts) {
+                for (const p of fresh.parts) {
+                  partUrls.set(p.partNumber, p.uploadUrl);
+                }
+              }
+            } catch {
+              break;
+            }
+          }
+
+          await sleep(BACKOFF_BASE_MS * Math.pow(2, attempt - 1));
         }
-      );
-      completed.push({ partNumber: part.partNumber, eTag });
+      }
+      if (lastErr) throw lastErr;
     }
   }
 
   await Promise.all(
-    Array.from({ length: Math.min(PARALLEL_PARTS, parts.length) }, uploadNextPart)
+    Array.from(
+      { length: Math.min(PARALLEL_PARTS, partNumbers.length) },
+      uploadNextPart
+    )
   );
 
   await api.completeUpload({
     fileId: init.fileId,
-    uploadId: init.uploadId,
+    uploadId,
     parts: completed.sort((a, b) => a.partNumber - b.partNumber),
   });
 }
@@ -236,6 +341,17 @@ async function uploadMultipart(
 // ---------------------------------------------------------------------------
 // PUT mit Progress (XHR — fetch hat keinen Upload-Progress)
 // ---------------------------------------------------------------------------
+/** Fehler aus putWithProgress / putPartWithProgress. Trägt den HTTP-Status
+ *  als Feld (falls vorhanden), damit der Caller "expired" von "transient
+ *  network glitch" unterscheiden kann. */
+class PutError extends Error {
+  httpStatus?: number;
+  constructor(message: string, httpStatus?: number) {
+    super(message);
+    this.httpStatus = httpStatus;
+  }
+}
+
 function putWithProgress(
   url: string,
   body: Blob | File,
@@ -244,22 +360,62 @@ function putWithProgress(
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
+    let stallTimer: ReturnType<typeof setTimeout> | null = null;
+    let lastProgressAt = Date.now();
+
+    function resetStallTimer() {
+      lastProgressAt = Date.now();
+      if (stallTimer) clearTimeout(stallTimer);
+      stallTimer = setTimeout(() => {
+        // Kein Progress-Event in STALL_TIMEOUT_MS — XHR abbrechen, der
+        // onerror/onabort-Handler löst dann das Promise mit Fehler.
+        try {
+          xhr.abort();
+        } catch {
+          /* noop */
+        }
+      }, STALL_TIMEOUT_MS);
+    }
+
+    function cleanup() {
+      if (stallTimer) {
+        clearTimeout(stallTimer);
+        stallTimer = null;
+      }
+    }
+
     xhr.open("PUT", url);
     for (const [k, v] of Object.entries(headers)) {
       xhr.setRequestHeader(k, v);
     }
     xhr.upload.onprogress = (e) => {
+      resetStallTimer();
       if (e.lengthComputable) onProgress(e.loaded / e.total);
     };
     xhr.onload = () => {
+      cleanup();
       if (xhr.status >= 200 && xhr.status < 300) {
         onProgress(1);
         resolve();
       } else {
-        reject(new Error(`upload failed: HTTP ${xhr.status}`));
+        reject(new PutError(`upload failed: HTTP ${xhr.status}`, xhr.status));
       }
     };
-    xhr.onerror = () => reject(new Error("network error during upload"));
+    xhr.onerror = () => {
+      cleanup();
+      reject(new PutError("network error during upload"));
+    };
+    xhr.onabort = () => {
+      cleanup();
+      const sinceProgress = Date.now() - lastProgressAt;
+      reject(
+        new PutError(
+          `upload stalled (no progress for ${Math.round(sinceProgress / 1000)}s)`
+        )
+      );
+    };
+
+    resetStallTimer();
     xhr.send(body);
   });
 }
@@ -272,24 +428,67 @@ function putPartWithProgress(
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
+    let stallTimer: ReturnType<typeof setTimeout> | null = null;
+    let lastProgressAt = Date.now();
+
+    function resetStallTimer() {
+      lastProgressAt = Date.now();
+      if (stallTimer) clearTimeout(stallTimer);
+      stallTimer = setTimeout(() => {
+        try {
+          xhr.abort();
+        } catch {
+          /* noop */
+        }
+      }, STALL_TIMEOUT_MS);
+    }
+    function cleanup() {
+      if (stallTimer) {
+        clearTimeout(stallTimer);
+        stallTimer = null;
+      }
+    }
+
     xhr.open("PUT", url);
     xhr.upload.onprogress = (e) => {
+      resetStallTimer();
       if (e.lengthComputable) onProgress(e.loaded / e.total);
     };
     xhr.onload = () => {
+      cleanup();
       if (xhr.status >= 200 && xhr.status < 300) {
         const eTag = xhr.getResponseHeader("ETag");
         if (!eTag) {
-          reject(new Error("S3 did not return ETag — check CORS ExposedHeaders"));
+          reject(
+            new PutError(
+              "S3 did not return ETag — check CORS ExposedHeaders"
+            )
+          );
           return;
         }
         onProgress(1);
         resolve(eTag.replace(/"/g, ""));
       } else {
-        reject(new Error(`part upload failed: HTTP ${xhr.status}`));
+        reject(
+          new PutError(`part upload failed: HTTP ${xhr.status}`, xhr.status)
+        );
       }
     };
-    xhr.onerror = () => reject(new Error("network error during part upload"));
+    xhr.onerror = () => {
+      cleanup();
+      reject(new PutError("network error during part upload"));
+    };
+    xhr.onabort = () => {
+      cleanup();
+      const sinceProgress = Date.now() - lastProgressAt;
+      reject(
+        new PutError(
+          `part upload stalled (no progress for ${Math.round(sinceProgress / 1000)}s)`
+        )
+      );
+    };
+
+    resetStallTimer();
     xhr.send(body);
   });
 }

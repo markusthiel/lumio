@@ -573,6 +573,36 @@ export default function GalleryDetailPage() {
     }
   }
 
+  // Löscht hängende Uploads — File-Records die seit >5 Min in
+  // status='uploading' stehen, weil das Frontend-XHR irgendwo
+  // abgebrochen wurde aber den File-Record nicht aufräumen konnte.
+  // S3-Object ist entweder gar nicht oder unvollständig hochgeladen,
+  // der Bulk-Delete-Endpoint räumt beides auf.
+  async function cleanupStuckUploads(stuckIds: string[]) {
+    if (!gallery || stuckIds.length === 0) return;
+    const msg = `${stuckIds.length} hängende Uploads löschen?\n\nFile-Records werden entfernt und ggf. vorhandene S3-Objekte mit. Du kannst die Dateien danach erneut hochladen.`;
+    if (!confirm(msg)) return;
+    setBulkPending(true);
+    try {
+      // bulk-action-Endpoint hat ein Limit von 500 Files pro Call —
+      // bei >500 Stuck-Files in Chunks durchlaufen.
+      const CHUNK = 500;
+      for (let i = 0; i < stuckIds.length; i += CHUNK) {
+        await api.bulkFileAction({
+          galleryId: gallery.id,
+          fileIds: stuckIds.slice(i, i + CHUNK),
+          action: "delete",
+        });
+      }
+      await load();
+    } catch (err) {
+      console.error(err);
+      alert(err instanceof Error ? err.message : "Fehler");
+    } finally {
+      setBulkPending(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen text-ui text-ink-tertiary">
@@ -602,6 +632,20 @@ export default function GalleryDetailPage() {
     selected.has(f.id)
   ).length;
   const selectedHasPending = selectedPendingCount > 0;
+
+  // "Stuck"-Uploads erkennen: status='uploading' UND älter als 5 Min.
+  // Frische Uploads (innerhalb 5 Min) sind möglicherweise noch real
+  // dabei — die wollen wir nicht versehentlich rauskicken. Bei >5 Min
+  // ist es praktisch sicher dass das Frontend-XHR geknallt ist und der
+  // File-Record in einer DB-Leiche hängt; S3-Object ist entweder gar
+  // nicht oder nur partiell hochgeladen. Cleanup ist sicher.
+  const STUCK_THRESHOLD_MS = 5 * 60 * 1000;
+  const now = Date.now();
+  const stuckFiles = gallery.files.filter(
+    (f) =>
+      f.status === "uploading" &&
+      now - new Date(f.createdAt).getTime() > STUCK_THRESHOLD_MS
+  );
 
   return (
     <>
@@ -1064,6 +1108,39 @@ export default function GalleryDetailPage() {
                 )}
               </div>
             </div>
+
+            {/* Hängende-Uploads-Banner: zeigt sich nur wenn >5 Min alte
+                Files mit status='uploading' existieren — die sind
+                praktisch sicher tote File-Records, weil das Browser-XHR
+                irgendwann geknallt ist (Network, Connection-Pool,
+                Signature expired). User bekommt einen Cleanup-Button. */}
+            {stuckFiles.length > 0 && (
+              <div className="mb-3 rounded-md border border-semantic-warning/30 bg-semantic-warning/8 px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+                <div className="text-ui-sm text-ink-secondary">
+                  <span className="font-medium text-ink-primary">
+                    {stuckFiles.length}{" "}
+                    {stuckFiles.length === 1
+                      ? "hängender Upload"
+                      : "hängende Uploads"}
+                  </span>{" "}
+                  – seit über 5 Minuten in „wird hochgeladen“. Wahrscheinlich
+                  ist das Browser-Upload geknallt. Du kannst sie aufräumen
+                  und neu hochladen.
+                </div>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() =>
+                    void cleanupStuckUploads(stuckFiles.map((f) => f.id))
+                  }
+                  disabled={bulkPending}
+                >
+                  {bulkPending
+                    ? "Räume auf…"
+                    : `${stuckFiles.length} aufräumen`}
+                </Button>
+              </div>
+            )}
 
             <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
               <SortableContext
