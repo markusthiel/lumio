@@ -108,78 +108,132 @@ export default function UploadPage() {
       return next;
     });
 
-    try {
-      const initRes = await api.initUploadViaLink(
-        token,
-        files.map((f) => ({
-          filename: f.name,
-          sizeBytes: f.size,
-          mimeType: f.type || "application/octet-stream",
-        }))
-      );
+    // Init in Chunks à INIT_BATCH_SIZE — bei vielen Files (z.B. 1000)
+    // würde ein einzelner Init-Call mit allen Files in den HTTP-
+    // Timeout laufen, weil das Backend pro File 2 DB-Queries + 1+
+    // S3-Presign-Calls sequentiell macht. Mit Chunks à 50 sind die
+    // ersten Files in <2s upload-bereit, während die nächsten Chunks
+    // parallel initialisiert werden. Konservativer als im Studio (3
+    // parallele Uploads), Init-Chunks aber identisch.
+    const INIT_BATCH_SIZE = 50;
+    const PARALLEL = 3;
 
-      // Map: fileId → Browser-File durch parallel-Index. Backend
-      // antwortet in derselben Reihenfolge wie Request.
-      const work = initRes.uploads.map((init, i) => ({
-        file: files[i],
-        init,
-      }));
+    const workQueue: Array<{ file: File; init: UploadInit; key: string }> = [];
+    let initDone = false;
+    let initErr: unknown = null;
+    let notifyWaiter: (() => void) | null = null;
+    function notifyWorkers() {
+      if (notifyWaiter) {
+        const fn = notifyWaiter;
+        notifyWaiter = null;
+        fn();
+      }
+    }
+    function waitForWork(): Promise<void> {
+      return new Promise((resolve) => {
+        notifyWaiter = resolve;
+      });
+    }
 
-      // Parallelisiert — 3 gleichzeitig, weil Drittparteien oft auf
-      // mobilem Netz sind und 4-faches Parallel die Verbindung killt.
-      const PARALLEL = 3;
-      let cursor = 0;
-      async function nextJob(): Promise<void> {
-        while (true) {
-          const idx = cursor++;
-          if (idx >= work.length) return;
-          const w = work[idx];
-          const key = w.file.name + "::" + w.file.size;
+    async function runInits() {
+      try {
+        for (let off = 0; off < files.length; off += INIT_BATCH_SIZE) {
+          const chunk = files.slice(off, off + INIT_BATCH_SIZE);
           try {
-            setUploads((prev) => ({
-              ...prev,
-              [key]: { ...prev[key], status: "uploading", progress: 0 },
-            }));
-            await uploadOne(token, w.file, w.init, (p) => {
-              setUploads((prev) => ({
-                ...prev,
-                [key]: { ...prev[key], progress: p },
-              }));
-            });
-            setUploads((prev) => ({
-              ...prev,
-              [key]: { ...prev[key], status: "done", progress: 1 },
-            }));
+            const initRes = await api.initUploadViaLink(
+              token,
+              chunk.map((f) => ({
+                filename: f.name,
+                sizeBytes: f.size,
+                mimeType: f.type || "application/octet-stream",
+              }))
+            );
+            for (let i = 0; i < initRes.uploads.length; i++) {
+              const file = chunk[i];
+              const init = initRes.uploads[i];
+              workQueue.push({
+                file,
+                init,
+                key: file.name + "::" + file.size,
+              });
+            }
+            notifyWorkers();
           } catch (err) {
+            // Diesen Chunk auf 'failed' markieren — andere Chunks
+            // könnten noch erfolgreich sein. Wir setzen den Fehler
+            // aber als globalen initErr, sodass der finally-Block
+            // unten ein 402/Plan-Limit z.B. korrekt verarbeiten kann.
+            const msg = err instanceof Error ? err.message : String(err);
+            setUploads((prev) => {
+              const next = { ...prev };
+              for (const f of chunk) {
+                const k = f.name + "::" + f.size;
+                if (next[k]?.status === "queued") {
+                  next[k] = { ...next[k], status: "failed", error: msg };
+                }
+              }
+              return next;
+            });
+            throw err;
+          }
+        }
+      } catch (err) {
+        initErr = err;
+      } finally {
+        initDone = true;
+        notifyWorkers();
+      }
+    }
+
+    async function uploadWorker(): Promise<void> {
+      while (true) {
+        const w = workQueue.shift();
+        if (!w) {
+          if (initDone) return;
+          await waitForWork();
+          continue;
+        }
+        try {
+          setUploads((prev) => ({
+            ...prev,
+            [w.key]: { ...prev[w.key], status: "uploading", progress: 0 },
+          }));
+          await uploadOne(token, w.file, w.init, (p) => {
             setUploads((prev) => ({
               ...prev,
-              [key]: {
-                ...prev[key],
-                status: "failed",
-                error: err instanceof Error ? err.message : String(err),
-              },
+              [w.key]: { ...prev[w.key], progress: p },
             }));
-          }
+          });
+          setUploads((prev) => ({
+            ...prev,
+            [w.key]: { ...prev[w.key], status: "done", progress: 1 },
+          }));
+        } catch (err) {
+          setUploads((prev) => ({
+            ...prev,
+            [w.key]: {
+              ...prev[w.key],
+              status: "failed",
+              error: err instanceof Error ? err.message : String(err),
+            },
+          }));
         }
       }
-      await Promise.all(
-        Array.from({ length: Math.min(PARALLEL, work.length) }, nextJob)
-      );
+    }
 
-      // Meta neu laden — usedFiles + usedBytes sind jetzt höher
-      await loadMeta();
-    } catch (err) {
-      // Init fehlgeschlagen — alle queued auf failed
-      const msg = err instanceof Error ? err.message : String(err);
-      setUploads((prev) => {
-        const next = { ...prev };
-        for (const k of Object.keys(next)) {
-          if (next[k].status === "queued") {
-            next[k] = { ...next[k], status: "failed", error: msg };
-          }
-        }
-        return next;
-      });
+    const workerCount = Math.min(PARALLEL, files.length);
+    await Promise.all([
+      runInits(),
+      ...Array.from({ length: workerCount }, uploadWorker),
+    ]);
+
+    // Meta neu laden — usedFiles + usedBytes sind jetzt höher
+    await loadMeta();
+
+    if (initErr) {
+      // Inits sind bereits per-Chunk auf 'failed' gesetzt; hier nur
+      // noch defensiv loggen, damit auch der letzte Stand sichtbar ist.
+      console.error("upload-link init error", initErr);
     }
   }
 

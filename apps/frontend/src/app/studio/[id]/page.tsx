@@ -41,6 +41,13 @@ export default function GalleryDetailPage() {
   const [gallery, setGallery] = useState<GalleryDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploads, setUploads] = useState<Record<string, UploadProgress>>({});
+  // Counter für Files, die der User gerade rein gezogen hat, aber für die
+  // der Init-Call ans Backend noch läuft. Bei vielen Files (z.B. 1000)
+  // dauert das mehrere Sekunden — ohne diesen Counter würde der User
+  // sehen "Nichts passiert" obwohl der Browser fleißig Init-Chunks
+  // hochpumpt. Wird beim Init-Response pro File dekrementiert (im
+  // onProgress wenn status erstmalig 'queued' wird).
+  const [pendingInitCount, setPendingInitCount] = useState(0);
   const [dragOver, setDragOver] = useState(false);
   const [togglingStatus, setTogglingStatus] = useState(false);
 
@@ -467,10 +474,24 @@ export default function GalleryDetailPage() {
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
     const arr = Array.from(files);
+    // Sofort den Counter erhöhen — das zeigt "X Dateien werden
+    // vorbereitet…" SOFORT nach dem Drop, bevor der erste Init-Chunk
+    // zurück ist. Bei 1000 Files wäre sonst ~30 s lang gar nichts zu
+    // sehen.
+    setPendingInitCount((n) => n + arr.length);
+    // Set von fileIds, die wir schon "verbucht" haben — der erste
+    // 'queued'-Event pro fileId dekrementiert den Counter. Spätere
+    // Events derselben fileId (uploading/processing/...) zählen nicht
+    // doppelt.
+    const seen = new Set<string>();
     try {
-      await uploadFiles(id, arr, (p) =>
-        setUploads((prev) => ({ ...prev, [p.fileId]: p }))
-      );
+      await uploadFiles(id, arr, (p) => {
+        setUploads((prev) => ({ ...prev, [p.fileId]: p }));
+        if (!seen.has(p.fileId)) {
+          seen.add(p.fileId);
+          setPendingInitCount((n) => Math.max(0, n - 1));
+        }
+      });
     } catch (err) {
       // 402 Payment Required: Plan-Limit erreicht. Wir zeigen einen
       // Dialog mit der Nachricht aus der API + Link zur Plan-Seite.
@@ -484,6 +505,12 @@ export default function GalleryDetailPage() {
       } else {
         console.error("upload failed", err);
       }
+    } finally {
+      // Defensiv: falls Init-Chunks teilweise gefailed sind und uns
+      // weniger 'queued'-Events erreicht haben als arr.length —
+      // Counter auf 0 zwingen, damit der "wird vorbereitet"-Hint
+      // nicht hängen bleibt.
+      setPendingInitCount((n) => Math.max(0, n - (arr.length - seen.size)));
     }
     void load();
   }
@@ -744,39 +771,73 @@ export default function GalleryDetailPage() {
         </section>
 
         {/* Aktive Uploads */}
-        {Object.keys(uploads).length > 0 && (
+        {(Object.keys(uploads).length > 0 || pendingInitCount > 0) && (
           <section className="rounded-md border border-line-subtle bg-surface-raised">
-            <div className="px-4 py-2 border-b border-line-subtle text-ui-sm font-medium text-ink-secondary">
-              Aktive Uploads
+            <div className="px-4 py-2 border-b border-line-subtle text-ui-sm font-medium text-ink-secondary flex items-center justify-between">
+              <span>Aktive Uploads</span>
+              {pendingInitCount > 0 && (
+                <span className="text-ui-xs text-ink-tertiary font-normal">
+                  {pendingInitCount} {pendingInitCount === 1 ? "Datei wird" : "Dateien werden"} vorbereitet…
+                </span>
+              )}
             </div>
-            <ul className="divide-y divide-line-subtle">
-              {Object.values(uploads).map((u) => (
-                <li key={u.fileId} className="px-4 py-3 flex items-center gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="text-ui text-ink-primary truncate">
-                      {u.filename}
+            {(() => {
+              // Bei vielen aktiven Uploads (typisch nach einem Drop von
+              // hunderten Files) würde das Rendern aller Zeilen sehr
+              // langsam werden — jeder Progress-Tick triggert ein
+              // Re-Render der ganzen Liste. Limit auf 50 angezeigte
+              // Zeilen plus eine zusammengefasste Footer-Zeile.
+              const all = Object.values(uploads);
+              const MAX_VISIBLE = 50;
+              const visible = all.slice(0, MAX_VISIBLE);
+              const hidden = all.length - visible.length;
+              const summary = {
+                uploading: all.filter((u) => u.status === "uploading").length,
+                queued: all.filter((u) => u.status === "queued").length,
+                processing: all.filter((u) => u.status === "processing").length,
+                ready: all.filter((u) => u.status === "ready").length,
+                failed: all.filter((u) => u.status === "failed").length,
+              };
+              return (
+                <>
+                  <ul className="divide-y divide-line-subtle">
+                    {visible.map((u) => (
+                      <li key={u.fileId} className="px-4 py-3 flex items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-ui text-ink-primary truncate">
+                            {u.filename}
+                          </div>
+                          <div className="mt-1 h-1 bg-surface-sunken rounded-xs overflow-hidden">
+                            <div
+                              className={`h-full transition-all duration-motion ${
+                                u.status === "failed"
+                                  ? "bg-semantic-danger"
+                                  : u.status === "ready"
+                                  ? "bg-semantic-success"
+                                  : "bg-accent"
+                              }`}
+                              style={{ width: `${Math.round(u.progress * 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                        <div className="text-ui-xs w-20 text-right text-ink-tertiary">
+                          {u.status === "uploading"
+                            ? `${Math.round(u.progress * 100)} %`
+                            : u.status}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                  {hidden > 0 && (
+                    <div className="px-4 py-2 border-t border-line-subtle text-ui-xs text-ink-tertiary">
+                      … und {hidden} weitere ({summary.uploading} laden,{" "}
+                      {summary.queued} warten, {summary.processing} werden verarbeitet,{" "}
+                      {summary.ready} fertig, {summary.failed} fehlgeschlagen)
                     </div>
-                    <div className="mt-1 h-1 bg-surface-sunken rounded-xs overflow-hidden">
-                      <div
-                        className={`h-full transition-all duration-motion ${
-                          u.status === "failed"
-                            ? "bg-semantic-danger"
-                            : u.status === "ready"
-                            ? "bg-semantic-success"
-                            : "bg-accent"
-                        }`}
-                        style={{ width: `${Math.round(u.progress * 100)}%` }}
-                      />
-                    </div>
-                  </div>
-                  <div className="text-ui-xs w-20 text-right text-ink-tertiary">
-                    {u.status === "uploading"
-                      ? `${Math.round(u.progress * 100)} %`
-                      : u.status}
-                  </div>
-                </li>
-              ))}
-            </ul>
+                  )}
+                </>
+              );
+            })()}
           </section>
         )}
 

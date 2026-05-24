@@ -27,47 +27,100 @@ export type ProgressCallback = (p: UploadProgress) => void;
 const PARALLEL_UPLOADS = 4;
 const PARALLEL_PARTS = 4;
 
+// Wieviele Files pro /uploads/init-Request. Das Backend macht pro File
+// 2 DB-Queries + mind. 1 S3-Presign-Call sequentiell — bei 1000 Files in
+// einem Init-Call läuft das in ~30+ Sekunden und der HTTP-Request kommt
+// in den Proxy-Timeout. Mit Chunks à 50 dauert ein Init <2s, der User
+// sieht sofort Progress, und parallel zum Upload der ersten 50 starten
+// die nächsten Inits. Das Backend-Schema akzeptiert bis zu 1000 pro
+// Call, aber Chunk-Größe 50 ist der Sweet-Spot zwischen Latenz pro
+// Init (Round-Trip-Overhead) und Init-Dauer (DB+S3-Last).
+const INIT_BATCH_SIZE = 50;
+
 /**
  * Lädt alle übergebenen Files in die Galerie hoch. Ruft `onProgress`
  * pro File für State-Updates auf.
+ *
+ * Strategie bei vielen Files (z.B. 1000):
+ *  1) Init in Chunks à INIT_BATCH_SIZE. Sobald ein Chunk zurück ist,
+ *     starten die Uploads dieses Chunks parallel mit den Init-Calls
+ *     der weiteren Chunks. Init- und Upload-Phase laufen gleichzeitig
+ *     in einer Worker-Pool-Pipeline.
+ *  2) `onProgress` wird mit der echten fileId vom Backend gemeldet —
+ *     erst sobald der entsprechende Init-Chunk durch ist. UI-Feedback
+ *     "X Files ausgewählt" passiert idealerweise im Caller, BEVOR
+ *     uploadFiles aufgerufen wird (siehe Upload-Page und Studio-Page).
+ *  3) Falls ein Init-Chunk fehlschlägt (z.B. 402 Plan-Limit), werfen
+ *     wir den Fehler hoch — Caller entscheidet was angezeigt wird.
+ *     Bereits initialisierte/hochgeladene Files in vorherigen Chunks
+ *     bleiben erhalten.
  */
 export async function uploadFiles(
   galleryId: string,
   files: File[],
   onProgress: ProgressCallback
 ): Promise<void> {
-  // 1) Init holen — alle Files in einem Request
-  const initResp = await api.initUpload(
-    galleryId,
-    files.map((f) => ({
-      filename: f.name,
-      sizeBytes: f.size,
-      mimeType: f.type || "application/octet-stream",
-    }))
-  );
+  if (files.length === 0) return;
 
-  // Map fileId → File (Browser-Objekt) und UploadInit zusammenführen
-  const work: Array<{ file: File; init: UploadInit }> = initResp.uploads.map(
-    (init, i) => ({ file: files[i], init })
-  );
+  const workQueue: Array<{ file: File; init: UploadInit }> = [];
+  let initDone = false;
+  let initError: unknown = null;
 
-  // Initialer State pro File
-  for (const w of work) {
-    onProgress({
-      fileId: w.init.fileId,
-      filename: w.file.name,
-      status: "queued",
-      progress: 0,
+  let notifyWaiter: (() => void) | null = null;
+  function notifyWorkers() {
+    if (notifyWaiter) {
+      const fn = notifyWaiter;
+      notifyWaiter = null;
+      fn();
+    }
+  }
+  function waitForWork(): Promise<void> {
+    return new Promise((resolve) => {
+      notifyWaiter = resolve;
     });
   }
 
-  // 2) Parallelisierter Upload mit Worker-Pool-Pattern
-  let cursor = 0;
-  async function nextJob(): Promise<void> {
+  async function runInits() {
+    try {
+      for (let off = 0; off < files.length; off += INIT_BATCH_SIZE) {
+        const chunk = files.slice(off, off + INIT_BATCH_SIZE);
+        const initResp = await api.initUpload(
+          galleryId,
+          chunk.map((f) => ({
+            filename: f.name,
+            sizeBytes: f.size,
+            mimeType: f.type || "application/octet-stream",
+          }))
+        );
+        for (let i = 0; i < initResp.uploads.length; i++) {
+          const init = initResp.uploads[i];
+          const file = chunk[i];
+          onProgress({
+            fileId: init.fileId,
+            filename: file.name,
+            status: "queued",
+            progress: 0,
+          });
+          workQueue.push({ file, init });
+        }
+        notifyWorkers();
+      }
+    } catch (err) {
+      initError = err;
+    } finally {
+      initDone = true;
+      notifyWorkers();
+    }
+  }
+
+  async function uploadWorker(): Promise<void> {
     while (true) {
-      const idx = cursor++;
-      if (idx >= work.length) return;
-      const w = work[idx];
+      const w = workQueue.shift();
+      if (!w) {
+        if (initDone) return;
+        await waitForWork();
+        continue;
+      }
       try {
         await uploadOne(w.file, w.init, (p) => {
           onProgress({
@@ -95,9 +148,11 @@ export async function uploadFiles(
     }
   }
 
-  await Promise.all(
-    Array.from({ length: Math.min(PARALLEL_UPLOADS, work.length) }, nextJob)
-  );
+  const workerCount = Math.min(PARALLEL_UPLOADS, files.length);
+  const workers = Array.from({ length: workerCount }, uploadWorker);
+  await Promise.all([runInits(), ...workers]);
+
+  if (initError) throw initError;
 }
 
 // ---------------------------------------------------------------------------
