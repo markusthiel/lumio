@@ -48,6 +48,14 @@ export default function GalleryDetailPage() {
   // hochpumpt. Wird beim Init-Response pro File dekrementiert (im
   // onProgress wenn status erstmalig 'queued' wird).
   const [pendingInitCount, setPendingInitCount] = useState(0);
+  // Dup-Dialog: gezeigt wenn der User Files gedropped hat, deren
+  // Dateinamen schon in der Galerie existieren. User entscheidet
+  // ob nur neue, alle (auch Duplikate), oder gar nicht hochgeladen
+  // werden soll.
+  const [dupDialog, setDupDialog] = useState<{
+    duplicates: File[];
+    newFiles: File[];
+  } | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [togglingStatus, setTogglingStatus] = useState(false);
 
@@ -474,6 +482,43 @@ export default function GalleryDetailPage() {
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
     const arr = Array.from(files);
+
+    // Dup-Erkennung: Filenames vergleichen mit denen die schon in der
+    // Galerie existieren ODER aktuell in der Upload-Pipeline sind
+    // (noch nicht in gallery.files weil load() erst nach Init kommt).
+    // status-unabhängig — auch ein File das gerade erst hochgeladen
+    // wird (status=uploading/processing) wollen wir als Duplikat
+    // zählen, sonst lädt der User parallel zweimal das gleiche.
+    // 'rejected'-Files würden wir theoretisch wieder zulassen, aber
+    // pragmatisch: User soll erst die Reject-Files explizit löschen
+    // statt automatisch zu re-uploaden — sonst überschreibt er
+    // versehentlich den Reject-Status und die Datei kommt wieder.
+    const existingNames = new Set<string>([
+      ...(gallery?.files.map((f) => f.originalFilename) ?? []),
+      // uploads-State enthält Files, die gerade aktiv hochgeladen
+      // oder schon initialisiert wurden — gallery.files holt sie
+      // erst nach dem nächsten load(), also vor dem Sync hier
+      // abdecken um Race-Condition zu vermeiden.
+      ...Object.values(uploads)
+        .filter((u) => u.status !== "failed")
+        .map((u) => u.filename),
+    ]);
+    const duplicates = arr.filter((f) => existingNames.has(f.name));
+    const newFiles = arr.filter((f) => !existingNames.has(f.name));
+
+    if (duplicates.length > 0) {
+      setDupDialog({ duplicates, newFiles });
+      return;
+    }
+
+    await startUpload(arr);
+  }
+
+  // Eigentlicher Upload-Code, ausgelagert damit der Dup-Dialog ihn
+  // mit unterschiedlichen File-Listen aufrufen kann (nur neue, oder
+  // alle inkl. Duplikate).
+  async function startUpload(arr: File[]) {
+    if (arr.length === 0) return;
     // Sofort den Counter erhöhen — das zeigt "X Dateien werden
     // vorbereitet…" SOFORT nach dem Drop, bevor der erste Init-Chunk
     // zurück ist. Bei 1000 Files wäre sonst ~30 s lang gar nichts zu
@@ -1174,6 +1219,107 @@ export default function GalleryDetailPage() {
           <div className="text-ui text-ink-tertiary">{t("studio.noFiles")}</div>
         )}
       </div>
+
+      {/* Dup-Dialog: zeigt sich wenn der User Files gedropped hat,
+          deren Dateinamen schon in der Galerie existieren. Drei
+          Optionen: nur neue, alle (auch Duplikate), abbrechen.
+          Wichtig: Lumio macht aktuell KEIN Server-seitiges Dedup —
+          ohne diesen Dialog hätte der User die Bilder sonst doppelt
+          in der Galerie und müsste sie nachträglich aufräumen. */}
+      {dupDialog && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setDupDialog(null)}
+        >
+          <div
+            className="bg-surface-base rounded-lg border border-line-subtle shadow-2xl max-w-lg w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-medium text-ink-primary">
+              Duplikate erkannt
+            </h2>
+            <p className="text-ui-sm text-ink-secondary mt-2">
+              {dupDialog.duplicates.length}{" "}
+              {dupDialog.duplicates.length === 1
+                ? "Datei hat denselben Namen wie eine"
+                : "Dateien haben denselben Namen wie"}{" "}
+              bereits in der Galerie vorhandene{" "}
+              {dupDialog.duplicates.length === 1 ? "Datei" : "Dateien"}.{" "}
+              {dupDialog.newFiles.length > 0 && (
+                <>
+                  Die übrigen {dupDialog.newFiles.length}{" "}
+                  {dupDialog.newFiles.length === 1
+                    ? "Datei ist"
+                    : "Dateien sind"}{" "}
+                  neu.
+                </>
+              )}
+            </p>
+            {/* Bei wenigen Duplikaten Namen direkt zeigen; bei vielen
+                in <details> kollabieren, sonst wird der Dialog
+                unleserlich. */}
+            {dupDialog.duplicates.length <= 8 ? (
+              <ul className="mt-3 text-ui-xs text-ink-tertiary font-mono max-h-32 overflow-y-auto bg-surface-sunken rounded-xs px-3 py-2 space-y-0.5">
+                {dupDialog.duplicates.map((f) => (
+                  <li key={f.name} className="truncate">
+                    {f.name}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <details className="mt-3">
+                <summary className="text-ui-xs text-ink-tertiary cursor-pointer hover:text-ink-secondary">
+                  Liste anzeigen ({dupDialog.duplicates.length})
+                </summary>
+                <ul className="mt-2 text-ui-xs text-ink-tertiary font-mono max-h-48 overflow-y-auto bg-surface-sunken rounded-xs px-3 py-2 space-y-0.5">
+                  {dupDialog.duplicates.map((f) => (
+                    <li key={f.name} className="truncate">
+                      {f.name}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+            <div className="flex gap-2 justify-end mt-5 flex-wrap">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setDupDialog(null)}
+              >
+                Abbrechen
+              </Button>
+              {dupDialog.newFiles.length > 0 && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    const newOnly = dupDialog.newFiles;
+                    setDupDialog(null);
+                    void startUpload(newOnly);
+                  }}
+                >
+                  Nur neue hochladen ({dupDialog.newFiles.length})
+                </Button>
+              )}
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  const all = [
+                    ...dupDialog.newFiles,
+                    ...dupDialog.duplicates,
+                  ];
+                  setDupDialog(null);
+                  void startUpload(all);
+                }}
+              >
+                Trotzdem alle hochladen (
+                {dupDialog.newFiles.length + dupDialog.duplicates.length})
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Plan-Limit-Dialog — wird angezeigt wenn das API bei einem
           Upload oder einer anderen Aktion 402 zurückgibt. Schließen
