@@ -52,6 +52,7 @@ app = Celery(
         "tasks.build_zip",
         "tasks.backfill_web_jpeg",
         "tasks.backfill_video_mp4",
+        "tasks.backfill_sha256",
         "tasks.billing",
         "tasks.webhook_delivery",
     ],

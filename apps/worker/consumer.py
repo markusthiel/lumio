@@ -46,6 +46,9 @@ STREAMS = {
     # Type beobachten und Stripe-Verarbeitung pausieren ohne die
     # File-Pipeline anzuhalten.
     "lumio:jobs:stripe_webhook": "stripe",
+    # Background-Backfills (z.B. SHA-256). Eigener Stream, damit ein
+    # langer Backfill nicht die Upload-Pipeline blockiert.
+    "lumio:jobs:backfill": "backfill",
 }
 
 log = structlog.get_logger("lumio.consumer")
@@ -118,6 +121,15 @@ def _dispatch(stream: str, payload: dict) -> None:
         app.send_task(
             "tasks.billing.process_stripe_event",
             args=[payload.get("eventId")],
+        )
+    elif job_type == "backfill_sha256":
+        # SHA-256 für alle noch-nicht-gehashten Files einer Galerie
+        # berechnen. Läuft seriell durch — pro File ein S3-Download +
+        # Streaming-Hash. Progress wird unter lumio:dup-scan:<galleryId>
+        # in Redis veröffentlicht, das Studio-UI polled das.
+        app.send_task(
+            "tasks.backfill_sha256.run_for_gallery",
+            args=[payload.get("galleryId")],
         )
     else:
         log.warning("consumer.unknown_job_type",

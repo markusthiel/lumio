@@ -24,6 +24,7 @@ import structlog
 
 from app import app
 from db import fetch_file, mark_file_ready, mark_file_failed, upsert_rendition
+from hashing import sha256_file
 from rt import file_status as _publish_status
 from storage import download_to_file, upload_file, rendition_key
 
@@ -86,6 +87,10 @@ def _process(file_row: dict) -> None:
         log.info("process_raw.downloaded",
                  file_id=file_id, size=os.path.getsize(src_path))
 
+        # SHA-256 vom RAW-Original — bevor die Decode-Pipeline beginnt,
+        # damit ein Decode-Fehler den Hash nicht verhindert.
+        src_sha = sha256_file(src_path)
+
         preview_jpeg_path = os.path.join(tmp, "preview.jpg")
         method = _extract_or_demosaic(src_path, preview_jpeg_path)
         log.info("process_raw.decoded", file_id=file_id, method=method)
@@ -118,11 +123,12 @@ def _process(file_row: dict) -> None:
         orig_w, orig_h = _read_sensor_size(src_path)
         final_w = orig_w or src_w
         final_h = orig_h or src_h
-        mark_file_ready(file_id, final_w, final_h)
+        mark_file_ready(file_id, final_w, final_h, sha256=src_sha)
         _publish_status(gallery_id, file_id, "ready",
                         width=final_w, height=final_h)
         log.info("process_raw.complete",
-                 file_id=file_id, width=final_w, height=final_h)
+                 file_id=file_id, width=final_w, height=final_h,
+                 sha256=src_sha)
 
 
 def _extract_or_demosaic(src_path: str, out_jpeg: str) -> str:

@@ -660,6 +660,10 @@ model File {
   @@index([galleryId, status])
   @@index([galleryId, publicVisibility])
   @@index([sha256])
+  // Composite-Index fuer die Duplikat-Erkennung pro Galerie: die
+  // Query `SELECT ... WHERE galleryId=? GROUP BY sha256 HAVING count>1`
+  // landet damit auf einem reinen Index-Scan, ohne Heap-Lookup.
+  @@index([galleryId, sha256])
   @@index([sectionId])
   @@index([uploadLinkId])
   @@map("files")

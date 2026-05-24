@@ -23,6 +23,7 @@ import structlog
 
 from app import app
 from db import fetch_file, mark_file_ready, mark_file_failed, upsert_rendition
+from hashing import sha256_file
 from imaging import render_image_sizes
 from rt import file_status as _publish_status
 from storage import (
@@ -99,6 +100,14 @@ def _process(file_row: dict) -> None:
         log.info("process_file.downloaded", file_id=file_id,
                  size=os.path.getsize(src_path))
 
+        # SHA-256 vom Original-File berechnen. ~1 s für 50 MB Foto;
+        # vernachlaessigbar gegenueber dem Decode + Resize-Aufwand.
+        # Wir machen das hier oben statt am Ende, damit ein
+        # Encoding-Fehler den Hash nicht versehentlich verhindert —
+        # das Original ist die einzige Quelle der Wahrheit fuer den
+        # Hash, alle Renditions kommen erst danach.
+        src_sha = sha256_file(src_path)
+
         def _persist(
             kind: str, out_path: str, w: int, h: int, fmt: str
         ) -> None:
@@ -119,8 +128,8 @@ def _process(file_row: dict) -> None:
             on_rendition=_persist,
         )
 
-        mark_file_ready(file_id, final_w, final_h)
+        mark_file_ready(file_id, final_w, final_h, sha256=src_sha)
         _publish_status(gallery_id, file_id, "ready",
                         width=final_w, height=final_h)
         log.info("process_file.complete", file_id=file_id,
-                 width=final_w, height=final_h)
+                 width=final_w, height=final_h, sha256=src_sha)

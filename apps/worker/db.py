@@ -50,16 +50,45 @@ def fetch_file(file_id: str) -> dict[str, Any] | None:
         ).fetchone()
 
 
-def mark_file_ready(file_id: str, width: int | None, height: int | None) -> None:
+def mark_file_ready(
+    file_id: str,
+    width: int | None,
+    height: int | None,
+    sha256: str | None = None,
+) -> None:
+    """Setzt status='ready' + finale Maße. Wenn sha256 mitgegeben wird,
+    wird der Hash in derselben Transaktion geschrieben — vermeidet eine
+    Zwischen-Zeile mit ready=true aber sha256=NULL, die für die Dup-
+    Detection als 'ungehashed' zählen würde."""
+    with get_conn() as conn:
+        if sha256 is not None:
+            conn.execute(
+                """
+                UPDATE files
+                SET status = 'ready', width = %s, height = %s,
+                    sha256 = %s, "updatedAt" = NOW()
+                WHERE id = %s
+                """,
+                (width, height, sha256, file_id),
+            )
+        else:
+            conn.execute(
+                """
+                UPDATE files
+                SET status = 'ready', width = %s, height = %s,
+                    "updatedAt" = NOW()
+                WHERE id = %s
+                """,
+                (width, height, file_id),
+            )
+
+
+def update_file_sha256(file_id: str, sha256: str) -> None:
+    """Setzt nur den sha256 (für Backfill bestehender Files)."""
     with get_conn() as conn:
         conn.execute(
-            """
-            UPDATE files
-            SET status = 'ready', width = %s, height = %s,
-                "updatedAt" = NOW()
-            WHERE id = %s
-            """,
-            (width, height, file_id),
+            'UPDATE files SET sha256 = %s, "updatedAt" = NOW() WHERE id = %s',
+            (sha256, file_id),
         )
 
 

@@ -1057,6 +1057,49 @@ export const api = {
       body: JSON.stringify(input ?? {}),
     }),
 
+  // Duplicate Detection
+  /** Startet einen SHA-256-Scan für die Galerie. Liefert
+   *  scanRequired=false wenn alle Files schon einen Hash haben
+   *  (dann kann man direkt findDuplicates aufrufen). */
+  scanDuplicates: (galleryId: string) =>
+    request<{ scanRequired: boolean; missingCount: number }>(
+      `/galleries/${galleryId}/duplicates/scan`,
+      { method: "POST" }
+    ),
+
+  /** Polled den Scan-Progress. status='idle' wenn kein Scan läuft,
+   *  'queued'/'running' während er läuft, 'done' am Ende. */
+  getDuplicateScanStatus: (galleryId: string) =>
+    request<{
+      status: "idle" | "queued" | "running" | "done" | "failed";
+      total: number;
+      done: number;
+      ok: number;
+      failed: number;
+    }>(`/galleries/${galleryId}/duplicates/scan-status`),
+
+  /** Liefert alle Duplikat-Gruppen (gleicher SHA-256-Hash innerhalb
+   *  der Galerie). Files ohne sha256 werden ignoriert. */
+  findDuplicates: (galleryId: string) =>
+    request<{
+      galleryId: string;
+      groupCount: number;
+      totalDuplicates: number;
+      groups: Array<{
+        sha256: string;
+        count: number;
+        files: Array<{
+          id: string;
+          originalFilename: string;
+          sizeBytes: number;
+          createdAt: string;
+          width: number | null;
+          height: number | null;
+          thumbUrl: string | null;
+        }>;
+      }>;
+    }>(`/galleries/${galleryId}/duplicates`),
+
   // Public Gallery (Kunden-Sicht)
   getPublicGallery: (slug: string) =>
     request<{ gallery: PublicGalleryMeta }>(`/g/${slug}`),

@@ -10,6 +10,7 @@ import { GalleryHeaderEditor } from "@/components/studio/GalleryHeaderEditor";
 import { SectionsEditor } from "@/components/studio/SectionsEditor";
 import { UploadLinksSection } from "@/components/studio/UploadLinksSection";
 import { RejectDialog } from "@/components/studio/RejectDialog";
+import { DuplicatesDialog } from "@/components/studio/DuplicatesDialog";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { TagPicker } from "@/components/studio/TagPicker";
 import { Button } from "@/components/ui";
@@ -56,6 +57,11 @@ export default function GalleryDetailPage() {
     duplicates: File[];
     newFiles: File[];
   } | null>(null);
+  // Duplikate-finden-Modal: SHA-256-basierter Scan der Galerie nach
+  // bit-genau identischen Files. Eigenes State weil unabhaengig vom
+  // dupDialog (das ist Filename-Konflikt beim Drop, dieser hier ist
+  // Inhalt-Vergleich im Bestand).
+  const [showDuplicatesDialog, setShowDuplicatesDialog] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [togglingStatus, setTogglingStatus] = useState(false);
 
@@ -1144,6 +1150,14 @@ export default function GalleryDetailPage() {
                     )}
                     <Button
                       size="sm"
+                      variant="ghost"
+                      onClick={() => setShowDuplicatesDialog(true)}
+                      title="Bilder mit identischem Inhalt finden und aufräumen"
+                    >
+                      Duplikate finden
+                    </Button>
+                    <Button
+                      size="sm"
                       variant="secondary"
                       onClick={() => setSelectionMode(true)}
                     >
@@ -1319,6 +1333,18 @@ export default function GalleryDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Duplikate-Finden-Modal: SHA-256-basierte Inhalt-Erkennung.
+          Triggert beim Oeffnen einen Worker-Scan (falls noetig),
+          zeigt anschliessend die Gruppen mit Side-By-Side-Thumbs
+          und Loesch-Auswahl. */}
+      {showDuplicatesDialog && (
+        <DuplicatesDialog
+          galleryId={id}
+          onClose={() => setShowDuplicatesDialog(false)}
+          onDeleted={() => void load()}
+        />
       )}
 
       {/* Plan-Limit-Dialog — wird angezeigt wenn das API bei einem

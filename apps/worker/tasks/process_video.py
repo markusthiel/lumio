@@ -40,6 +40,7 @@ import structlog
 
 from app import app
 from db import fetch_file, mark_file_ready, mark_file_failed, upsert_rendition
+from hashing import sha256_file
 from encoder_profile import profile_for
 from rt import file_status as _publish_status
 from storage import (
@@ -119,6 +120,13 @@ def _process(file_row: dict) -> None:
         download_to_file(storage_key, str(src_path))
         log.info("process_video.downloaded",
                  file_id=file_id, size=src_path.stat().st_size)
+
+        # SHA-256 vom Video-Original — vor allem aufwendigem Probing
+        # und Transcoding, damit ein Fehler dort den Hash nicht
+        # verhindert. Bei groesseren Videos (mehrere GB) dauert das
+        # ein paar Sekunden, ist aber gegenueber HLS-Transcoding
+        # vernachlaessigbar.
+        src_sha = sha256_file(str(src_path))
 
         # 1) Probing
         info = _probe(src_path)
@@ -258,10 +266,10 @@ def _process(file_row: dict) -> None:
                          file_id=file_id, err=str(err))
 
         # 6) Status auf ready, Dimensions des Source-Videos
-        mark_file_ready(file_id, width, height)
+        mark_file_ready(file_id, width, height, sha256=src_sha)
         _publish_status(gallery_id, file_id, "ready",
                         width=width, height=height)
-        log.info("process_video.complete", file_id=file_id)
+        log.info("process_video.complete", file_id=file_id, sha256=src_sha)
 
 
 # ---------------------------------------------------------------------------

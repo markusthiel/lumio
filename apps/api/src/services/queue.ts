@@ -42,6 +42,10 @@ export const Queues = {
    * (statt ihn nochmal im Stream zu duplizieren — Payload kann groß
    * sein und Stream-Storage wäre teuer). */
   STRIPE_WEBHOOK: "lumio:jobs:stripe_webhook",
+  /** Background-Backfills (z.B. SHA-256 für alte Files). Eigene Queue
+   * statt FILE_PROCESSING, weil ein langer Backfill sonst die Upload-
+   * Verarbeitung blockieren würde — der Worker hat begrenzte Slots. */
+  BACKFILL: "lumio:jobs:backfill",
 } as const;
 export type QueueName = (typeof Queues)[keyof typeof Queues];
 
@@ -81,12 +85,19 @@ export interface StripeWebhookJob {
   eventId: string;
 }
 
+export interface BackfillJob {
+  type: "backfill_sha256";
+  galleryId: string;
+  tenantId: string;
+}
+
 export type AnyJob =
   | FileProcessingJob
   | VideoProcessingJob
   | ZipBuildJob
   | WebhookDeliveryJob
-  | StripeWebhookJob;
+  | StripeWebhookJob
+  | BackfillJob;
 
 /**
  * Job in den passenden Stream legen. Gibt die Stream-ID zurück (für Logging).
