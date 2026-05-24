@@ -18,6 +18,7 @@ import { ShareButton } from "./ShareButton";
 import { usePickedFiles } from "./usePickedFiles";
 import { useT } from "@/lib/i18n";
 import { useReveal } from "@/lib/useReveal";
+import { useImageZoom } from "@/lib/useImageZoom";
 import {
   AnnotationOverlay,
   AnnotationToolbar,
@@ -1079,6 +1080,37 @@ function Lightbox({
     myStrokesRef.current = myStrokes;
   }, [myStrokes]);
 
+  // Zoom + Pan. Beim Wechsel in den 'mark'-Mode deaktivieren wir den
+  // Zoom-Hook komplett — sonst würde Maus-Drag versuchen zu pannen
+  // statt zu zeichnen. Bei jedem Bildwechsel (file.id) wird der Zoom
+  // zurückgesetzt, sonst landet der Visitor nach "Weiter" auf einem
+  // willkürlich heran-/herausgezoomten neuen Bild.
+  const zoom = useImageZoom({ disabled: bottomMode === "mark" });
+  useEffect(() => {
+    zoom.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [file?.id, bottomMode]);
+
+  // Zusatz-Keyboard für Zoom: + / − / 0
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.target && (e.target as HTMLElement).tagName === "TEXTAREA") return;
+      if (e.target && (e.target as HTMLElement).tagName === "INPUT") return;
+      if (e.key === "+" || e.key === "=") {
+        e.preventDefault();
+        zoom.zoomIn();
+      } else if (e.key === "-" || e.key === "_") {
+        e.preventDefault();
+        zoom.zoomOut();
+      } else if (e.key === "0") {
+        e.preventDefault();
+        zoom.reset();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [zoom]);
+
   // Tastatur-Navigation
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -1363,57 +1395,161 @@ function Lightbox({
               className="max-h-full max-w-full"
             />
           ) : file.previewUrl || file.webUrl ? (
-            /* Bild + Annotation-Overlay übereinander. Wir nutzen ein
-               inline-block-Wrapper mit position:relative. Das `<img>`
-               bestimmt die Größe des Wrappers (object-contain mit
-               max-h/max-w begrenzt sie), das SVG-Overlay liegt mit
-               position:absolute + inset:0 exakt drüber. inline-block
-               wichtig: ein normales block-Element würde 100 % Breite
-               des Parent-Flex-Containers nehmen, und das SVG würde
-               über schwarzen Bereich rechts/links des Bildes liegen —
-               Klicks dort würden im SVG landen statt vermisst zu
-               werden. */
+            /* Bild + Annotation-Overlay übereinander, eingebettet in einen
+               Zoom-Container (absolute, inset-0) der die volle Hit-Area
+               für Wheel/Pinch/Pan stellt — auch im schwarzen Bereich
+               rechts/links neben dem Bild. Wenn der Visitor in 'mark'-Mode
+               ist, ist der Zoom deaktiviert (siehe useImageZoom-Aufruf
+               oben) und die Pointer-Handler sind no-ops — Klicks fallen
+               dann durch zum AnnotationOverlay.
+
+               Wichtig: bei zoom > 1 darf der `inline-block`-Wrapper nicht
+               mehr max-h/max-w begrenzen, sonst skaliert die CSS-
+               transform zwar visuell, aber das Bild würde inhaltlich
+               clipped — also bleibt max-h und scale auf dem transformierten
+               Wrapper. overflow:hidden am äußeren Container schneidet
+               das gezoomte Bild sauber am Lightbox-Rand ab. */
             <div
-              className="relative inline-block max-h-[calc(100vh-160px)]"
-              style={{ lineHeight: 0 }}
+              ref={zoom.containerRef}
+              {...zoom.containerProps}
+              className="absolute inset-0 overflow-hidden flex items-center justify-center z-0"
+              // Wheel + double-click + pointer: alle vom Hook
+              // Cursor & touchAction kommen aus zoom.containerProps.style
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={file.webUrl ?? file.previewUrl ?? ""}
-                alt={file.filename}
-                className="max-h-[calc(100vh-160px)] max-w-full object-contain animate-fade-in block"
-                draggable={false}
-                key={file.id}
-              />
-              {/* Annotation-Overlay deckt das Bild exakt ab (gleiche
-                  width/height über inset-0). Editor-Modus aktiv nur
-                  wenn der User unten 'Markieren' gewählt hat — sonst
-                  bleibt der Cursor normal und Klicks aufs Bild tun
-                  nichts. */}
-              {meta.commentsEnabled && (
-                <AnnotationOverlay
-                  existing={existingAnnotations}
-                  value={myStrokes}
-                  onChange={
-                    interactive && bottomMode === "mark"
-                      ? setMyStrokes
-                      : undefined
-                  }
-                  author={
-                    interactive && bottomMode === "mark" ? "customer" : null
-                  }
-                  tool={
-                    interactive && bottomMode === "mark"
-                      ? annotationTool
-                      : null
-                  }
-                  color={annotationColor}
+              <div
+                className="relative inline-block max-h-[calc(100vh-160px)]"
+                style={{ lineHeight: 0, ...zoom.style }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={file.webUrl ?? file.previewUrl ?? ""}
+                  alt={file.filename}
+                  className="max-h-[calc(100vh-160px)] max-w-full object-contain animate-fade-in block"
+                  draggable={false}
+                  key={file.id}
                 />
-              )}
+                {/* Annotation-Overlay deckt das Bild exakt ab (gleiche
+                    width/height über inset-0). Da das Overlay mit
+                    viewBox=0 0 1 1 + preserveAspectRatio=none arbeitet,
+                    skaliert es automatisch korrekt mit dem äußeren
+                    CSS-transform — wir müssen die Strokes nicht
+                    explizit transformieren.
+
+                    pointer-events auf Annotations-Layer deaktivieren wir
+                    während Pan/Zoom (zoom.zoomed), sodass Drag im
+                    leeren Bildbereich nicht auf dem SVG hängen bleibt.
+                    Im 'mark'-Mode bleibt das Overlay interaktiv —
+                    dort ist der Zoom selbst deaktiviert. */}
+                {meta.commentsEnabled && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      pointerEvents:
+                        zoom.zoomed && bottomMode !== "mark"
+                          ? "none"
+                          : undefined,
+                    }}
+                  >
+                    <AnnotationOverlay
+                      existing={existingAnnotations}
+                      value={myStrokes}
+                      onChange={
+                        interactive && bottomMode === "mark"
+                          ? setMyStrokes
+                          : undefined
+                      }
+                      author={
+                        interactive && bottomMode === "mark"
+                          ? "customer"
+                          : null
+                      }
+                      tool={
+                        interactive && bottomMode === "mark"
+                          ? annotationTool
+                          : null
+                      }
+                      color={annotationColor}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           ) : (
             <div className="opacity-50 text-ui">
               {t("gallery.previewMissing")}
+            </div>
+          )}
+
+          {/* Zoom-Controls oben rechts. Buttons sind absolut positioniert
+              und werden nur eingeblendet wenn es ein Bild gibt (nicht
+              für Videos). Bei zoom=1 ist nur "+" sichtbar; sobald
+              gezoomt wurde, kommen "−" und "Reset" dazu. */}
+          {file.kind !== "video" && (file.previewUrl || file.webUrl) && (
+            <div className="absolute top-3 right-3 z-30 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full p-1">
+              {zoom.zoomed && (
+                <span className="text-ui-xs text-white/80 px-2 tabular-nums select-none">
+                  {Math.round(zoom.scale * 100)}%
+                </span>
+              )}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  zoom.zoomOut();
+                }}
+                disabled={!zoom.zoomed}
+                className="w-8 h-8 rounded-full hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white/90 flex items-center justify-center transition-colors duration-motion"
+                aria-label={t("gallery.zoomOut")}
+                title={t("gallery.zoomOut")}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                >
+                  <circle cx="7" cy="7" r="5" />
+                  <path d="M4.5 7h5M11 11l3 3" />
+                </svg>
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  zoom.zoomIn();
+                }}
+                className="w-8 h-8 rounded-full hover:bg-white/10 text-white/90 flex items-center justify-center transition-colors duration-motion"
+                aria-label={t("gallery.zoomIn")}
+                title={t("gallery.zoomIn")}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                >
+                  <circle cx="7" cy="7" r="5" />
+                  <path d="M4.5 7h5M7 4.5v5M11 11l3 3" />
+                </svg>
+              </button>
+              {zoom.zoomed && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    zoom.reset();
+                  }}
+                  className="h-8 px-2.5 rounded-full hover:bg-white/10 text-ui-xs text-white/90 transition-colors duration-motion"
+                  aria-label={t("gallery.zoomReset")}
+                  title={t("gallery.zoomReset")}
+                >
+                  1:1
+                </button>
+              )}
             </div>
           )}
 
