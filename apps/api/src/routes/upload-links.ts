@@ -1097,6 +1097,99 @@ export async function registerUploadLinkRoutes(app: FastifyInstance) {
       return { fileId: file.id, status: "processing" };
     }
   );
+
+  // -------------------------------------------------------------------------
+  // POST /u/:token/uploads/:fileId/resign — Presigned URLs neu ausstellen
+  // -------------------------------------------------------------------------
+  // Analog zum Studio-Resign (POST /uploads/:fileId/resign), aber via
+  // Upload-Link-Token authentifiziert. Use-Case identisch: bei sehr
+  // langen Uploads ueber langsame Netze laufen die Original-Signatures
+  // (TTL 1h) ab, oder transiente Network-Probleme machen die alten
+  // URLs unbrauchbar.
+  //
+  // Wichtige Constraint: das File muss tatsaechlich zu diesem Upload-
+  // Link gehoeren — sonst koennte jemand mit einem Link Files aus
+  // anderen Sessions resignen. uploadLinkId-Check im findFirst.
+  app.post<{ Params: { token: string; fileId: string } }>(
+    "/u/:token/uploads/:fileId/resign",
+    async (req, reply) => {
+      const link = await loadLink(req.params.token);
+      if (!link) {
+        return reply.status(404).send({ error: "not_found_or_expired" });
+      }
+      if (!isUnlocked(req, link)) {
+        return reply.status(401).send({ error: "password_required" });
+      }
+      const body = (req.body ?? {}) as {
+        uploadId?: string;
+        partNumbers?: number[];
+      };
+
+      const file = await prisma.file.findFirst({
+        where: {
+          id: req.params.fileId,
+          uploadLinkId: link.id,
+        },
+      });
+      if (!file) {
+        return reply.status(404).send({ error: "not_found" });
+      }
+      if (file.status !== "uploading") {
+        return reply.status(409).send({
+          error: "not_uploadable",
+          status: file.status,
+        });
+      }
+
+      if (Number(file.sizeBytes) <= MULTIPART_THRESHOLD) {
+        const uploadUrl = await presignPut({
+          key: file.storageKey,
+          contentType: file.mimeType,
+          contentLength: Number(file.sizeBytes),
+        });
+        return {
+          fileId: file.id,
+          method: "single" as const,
+          uploadUrl,
+          headers: { "Content-Type": file.mimeType },
+        };
+      }
+
+      if (!body.uploadId) {
+        return reply.status(400).send({
+          error: "missing_upload_id",
+          message: "uploadId required for multipart resign",
+        });
+      }
+
+      const totalParts = numberOfParts(Number(file.sizeBytes));
+      const partSize = chunkSizeBytes();
+      const wanted =
+        body.partNumbers && body.partNumbers.length > 0
+          ? body.partNumbers
+          : Array.from({ length: totalParts }, (_, i) => i + 1);
+
+      const parts: { partNumber: number; uploadUrl: string }[] = [];
+      for (const partNumber of wanted) {
+        if (partNumber < 1 || partNumber > totalParts) continue;
+        const url = await presignUploadPart({
+          key: file.storageKey,
+          uploadId: body.uploadId,
+          partNumber,
+        });
+        parts.push({ partNumber, uploadUrl: url });
+      }
+
+      return {
+        fileId: file.id,
+        method: "multipart" as const,
+        uploadId: body.uploadId,
+        partSize,
+        totalParts,
+        parts,
+      };
+    }
+  );
 }
 
 // ---------------------------------------------------------------------------

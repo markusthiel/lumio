@@ -15,6 +15,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { api, type UploadInit, ApiError } from "@/lib/api";
 import { useT } from "@/lib/i18n";
+import { useSlowConnection } from "@/lib/useSlowConnection";
+import { SlowConnectionToggle } from "@/components/upload/SlowConnectionToggle";
 
 interface Meta {
   label: string;
@@ -52,6 +54,7 @@ export default function UploadPage() {
   const [uploads, setUploads] = useState<Record<string, FileProgress>>({});
   const [dragging, setDragging] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const { slow: slowConnection } = useSlowConnection();
 
   const loadMeta = useCallback(async () => {
     try {
@@ -116,7 +119,11 @@ export default function UploadPage() {
     // parallel initialisiert werden. Konservativer als im Studio (3
     // parallele Uploads), Init-Chunks aber identisch.
     const INIT_BATCH_SIZE = 50;
-    const PARALLEL = 3;
+    // Anzahl paralleler Files. 3 als Default (konservativer als Studio
+    // wegen Mobil-Netze), aber 1 wenn der Slow-Connection-Modus aktiv
+    // ist. Slow-Mode beeinflusst auch parallel-parts in uploadOne unten.
+    const PARALLEL = slowConnection ? 1 : 3;
+    const PARALLEL_PARTS_THIS_RUN = slowConnection ? 1 : 3;
 
     const workQueue: Array<{ file: File; init: UploadInit; key: string }> = [];
     let initDone = false;
@@ -198,12 +205,18 @@ export default function UploadPage() {
             ...prev,
             [w.key]: { ...prev[w.key], status: "uploading", progress: 0 },
           }));
-          await uploadOne(token, w.file, w.init, (p) => {
-            setUploads((prev) => ({
-              ...prev,
-              [w.key]: { ...prev[w.key], progress: p },
-            }));
-          });
+          await uploadOne(
+            token,
+            w.file,
+            w.init,
+            (p) => {
+              setUploads((prev) => ({
+                ...prev,
+                [w.key]: { ...prev[w.key], progress: p },
+              }));
+            },
+            PARALLEL_PARTS_THIS_RUN
+          );
           setUploads((prev) => ({
             ...prev,
             [w.key]: { ...prev[w.key], status: "done", progress: 1 },
@@ -389,6 +402,15 @@ export default function UploadPage() {
           </div>
         )}
 
+        {/* Slow-Connection Toggle — eigenes Element AUSSERHALB der
+            Drop-Zone, damit Klick darauf nicht den File-Picker
+            triggert. Auto-Detect via navigator.connection. */}
+        {!limitExhausted && (
+          <div className="flex justify-end mt-2">
+            <SlowConnectionToggle />
+          </div>
+        )}
+
         {limitExhausted && (
           <div className="border border-semantic-warning/40 bg-semantic-warning/10 text-ink-primary rounded-lg p-4 text-center">
             {t("upload.limitReachedHeading")}
@@ -471,51 +493,148 @@ export default function UploadPage() {
 // ---------------------------------------------------------------------------
 // Upload-Logik — analog zu lib/upload.ts, aber gegen /u/:token-Endpoints
 // ---------------------------------------------------------------------------
+// Robustheit identisch zum Studio-Upload:
+//  - 30 s Stall-Watchdog (kein Progress-Event → abort)
+//  - 3 Versuche pro Single-PUT / Multipart-Part mit Exponential Backoff
+//  - Bei HTTP 400/403/410: frische URL via resignUploadViaLink holen
+const STALL_TIMEOUT_MS = 30_000;
+const MAX_ATTEMPTS = 3;
+const BACKOFF_BASE_MS = 1_000;
+const RESIGN_HTTP_CODES = new Set([400, 403, 410]);
+
+function sleep(ms: number) {
+  return new Promise<void>((r) => setTimeout(r, ms));
+}
+
+class PutError extends Error {
+  httpStatus?: number;
+  constructor(message: string, httpStatus?: number) {
+    super(message);
+    this.httpStatus = httpStatus;
+  }
+}
+
 async function uploadOne(
   token: string,
   file: File,
   init: UploadInit,
-  onProgress: (p: number) => void
+  onProgress: (p: number) => void,
+  parallelParts: number
 ): Promise<void> {
   if (init.method === "single") {
     if (!init.uploadUrl) throw new Error("missing uploadUrl");
-    await putWithProgress(init.uploadUrl, file, init.headers ?? {}, onProgress);
-    await api.completeUploadViaLink(token, init.fileId);
-  } else {
-    if (!init.parts || !init.uploadId) throw new Error("missing multipart info");
-    const partSize = init.partSize ?? 8 * 1024 * 1024;
-    const etags: { partNumber: number; eTag: string }[] = [];
-    let bytesDone = 0;
 
-    // Parallele Parts — bei mobilem Netz konservativer als Studio (3
-    // statt 4). Network-Effects können sonst die ganze Pipeline blockieren.
-    const PARALLEL_PARTS = 3;
-    let cursor = 0;
-    async function nextPart(): Promise<void> {
-      while (true) {
-        const idx = cursor++;
-        if (idx >= init.parts!.length) return;
-        const p = init.parts![idx];
-        const start = (p.partNumber - 1) * partSize;
-        const end = Math.min(start + partSize, file.size);
-        const blob = file.slice(start, end);
-        const etag = await putBlob(p.uploadUrl, blob);
-        etags.push({ partNumber: p.partNumber, eTag: etag });
-        bytesDone += blob.size;
-        onProgress(Math.min(bytesDone / file.size, 0.99));
+    let url = init.uploadUrl;
+    let headers = init.headers ?? {};
+    let lastErr: PutError | null = null;
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      try {
+        await putWithProgress(url, file, headers, onProgress);
+        lastErr = null;
+        break;
+      } catch (err) {
+        const pe = err as PutError;
+        lastErr = pe;
+        if (attempt >= MAX_ATTEMPTS) break;
+        if (pe.httpStatus && RESIGN_HTTP_CODES.has(pe.httpStatus)) {
+          try {
+            const fresh = await api.resignUploadViaLink(token, init.fileId);
+            if (fresh.method === "single" && fresh.uploadUrl) {
+              url = fresh.uploadUrl;
+              headers = fresh.headers ?? headers;
+            }
+          } catch {
+            break;
+          }
+        }
+        await sleep(BACKOFF_BASE_MS * Math.pow(2, attempt - 1));
       }
     }
-    await Promise.all(
-      Array.from(
-        { length: Math.min(PARALLEL_PARTS, init.parts.length) },
-        nextPart
-      )
-    );
-    // Parts müssen sortiert sein für die S3-CompleteMultipartUpload
-    etags.sort((a, b) => a.partNumber - b.partNumber);
-    await api.completeUploadViaLink(token, init.fileId, etags, init.uploadId);
-    onProgress(1);
+    if (lastErr) throw lastErr;
+    await api.completeUploadViaLink(token, init.fileId);
+    return;
   }
+
+  // Multipart
+  if (!init.parts || !init.uploadId) throw new Error("missing multipart info");
+  const partSize = init.partSize ?? 8 * 1024 * 1024;
+  const uploadId = init.uploadId;
+  const partUrls = new Map<number, string>(
+    init.parts.map((p) => [p.partNumber, p.uploadUrl])
+  );
+  const partNumbers = init.parts.map((p) => p.partNumber);
+
+  // Pro Part: Fortschritt 0..1. Gesamt-Progress = Mittel ueber alle Parts.
+  // Vorher: bytesDone nur am Part-Ende — bei einem haengenden grossen
+  // Part sah man stundenlang keinen Fortschritt.
+  const partProgress = new Array(partNumbers.length).fill(0);
+  const reportTotal = () => {
+    const total =
+      partProgress.reduce((s, x) => s + x, 0) / partNumbers.length;
+    onProgress(Math.min(total, 0.99));
+  };
+
+  const etags: { partNumber: number; eTag: string }[] = [];
+
+  // parallelParts kommt aus dem Caller (handleFiles in der Komponente)
+  // und reflektiert den Slow-Connection-Modus.
+  let nextPartIdx = 0;
+  async function uploadNextPart(): Promise<void> {
+    while (true) {
+      const idx = nextPartIdx++;
+      if (idx >= partNumbers.length) return;
+      const partNumber = partNumbers[idx];
+      const start = (partNumber - 1) * partSize;
+      const end = Math.min(start + partSize, file.size);
+      const blob = file.slice(start, end);
+
+      let lastErr: PutError | null = null;
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        const url = partUrls.get(partNumber)!;
+        try {
+          const eTag = await putPartWithProgress(url, blob, (p) => {
+            partProgress[idx] = p;
+            reportTotal();
+          });
+          etags.push({ partNumber, eTag });
+          lastErr = null;
+          break;
+        } catch (err) {
+          const pe = err as PutError;
+          lastErr = pe;
+          if (attempt >= MAX_ATTEMPTS) break;
+          if (pe.httpStatus && RESIGN_HTTP_CODES.has(pe.httpStatus)) {
+            try {
+              const fresh = await api.resignUploadViaLink(token, init.fileId, {
+                uploadId,
+                partNumbers: [partNumber],
+              });
+              if (fresh.method === "multipart" && fresh.parts) {
+                for (const p of fresh.parts) {
+                  partUrls.set(p.partNumber, p.uploadUrl);
+                }
+              }
+            } catch {
+              break;
+            }
+          }
+          await sleep(BACKOFF_BASE_MS * Math.pow(2, attempt - 1));
+        }
+      }
+      if (lastErr) throw lastErr;
+    }
+  }
+
+  await Promise.all(
+    Array.from(
+      { length: Math.min(parallelParts, partNumbers.length) },
+      uploadNextPart
+    )
+  );
+  etags.sort((a, b) => a.partNumber - b.partNumber);
+  await api.completeUploadViaLink(token, init.fileId, etags, uploadId);
+  onProgress(1);
 }
 
 function putWithProgress(
@@ -526,26 +645,122 @@ function putWithProgress(
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
+    let stallTimer: ReturnType<typeof setTimeout> | null = null;
+    let lastProgressAt = Date.now();
+
+    function resetStallTimer() {
+      lastProgressAt = Date.now();
+      if (stallTimer) clearTimeout(stallTimer);
+      stallTimer = setTimeout(() => {
+        try {
+          xhr.abort();
+        } catch {
+          /* noop */
+        }
+      }, STALL_TIMEOUT_MS);
+    }
+    function cleanup() {
+      if (stallTimer) {
+        clearTimeout(stallTimer);
+        stallTimer = null;
+      }
+    }
+
     xhr.open("PUT", url, true);
     for (const [k, v] of Object.entries(headers)) xhr.setRequestHeader(k, v);
     xhr.upload.onprogress = (e) => {
+      resetStallTimer();
       if (e.lengthComputable) onProgress(e.loaded / e.total);
     };
     xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) resolve();
-      else reject(new Error(`PUT failed: ${xhr.status}`));
+      cleanup();
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress(1);
+        resolve();
+      } else {
+        reject(new PutError(`PUT failed: HTTP ${xhr.status}`, xhr.status));
+      }
     };
-    xhr.onerror = () => reject(new Error("Network error"));
+    xhr.onerror = () => {
+      cleanup();
+      reject(new PutError("network error during upload"));
+    };
+    xhr.onabort = () => {
+      cleanup();
+      const sec = Math.round((Date.now() - lastProgressAt) / 1000);
+      reject(new PutError(`upload stalled (${sec}s without progress)`));
+    };
+
+    resetStallTimer();
     xhr.send(body);
   });
 }
 
-async function putBlob(url: string, blob: Blob): Promise<string> {
-  const res = await fetch(url, { method: "PUT", body: blob });
-  if (!res.ok) throw new Error(`PUT failed: ${res.status}`);
-  const etag = res.headers.get("ETag") ?? res.headers.get("etag");
-  if (!etag) throw new Error("missing ETag");
-  return etag.replace(/"/g, "");
+function putPartWithProgress(
+  url: string,
+  body: Blob,
+  onProgress: (p: number) => void
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    let stallTimer: ReturnType<typeof setTimeout> | null = null;
+    let lastProgressAt = Date.now();
+
+    function resetStallTimer() {
+      lastProgressAt = Date.now();
+      if (stallTimer) clearTimeout(stallTimer);
+      stallTimer = setTimeout(() => {
+        try {
+          xhr.abort();
+        } catch {
+          /* noop */
+        }
+      }, STALL_TIMEOUT_MS);
+    }
+    function cleanup() {
+      if (stallTimer) {
+        clearTimeout(stallTimer);
+        stallTimer = null;
+      }
+    }
+
+    xhr.open("PUT", url, true);
+    xhr.upload.onprogress = (e) => {
+      resetStallTimer();
+      if (e.lengthComputable) onProgress(e.loaded / e.total);
+    };
+    xhr.onload = () => {
+      cleanup();
+      if (xhr.status >= 200 && xhr.status < 300) {
+        const eTag =
+          xhr.getResponseHeader("ETag") ?? xhr.getResponseHeader("etag");
+        if (!eTag) {
+          reject(
+            new PutError("S3 did not return ETag — check CORS ExposedHeaders")
+          );
+          return;
+        }
+        onProgress(1);
+        resolve(eTag.replace(/"/g, ""));
+      } else {
+        reject(
+          new PutError(`part upload failed: HTTP ${xhr.status}`, xhr.status)
+        );
+      }
+    };
+    xhr.onerror = () => {
+      cleanup();
+      reject(new PutError("network error during part upload"));
+    };
+    xhr.onabort = () => {
+      cleanup();
+      const sec = Math.round((Date.now() - lastProgressAt) / 1000);
+      reject(new PutError(`part upload stalled (${sec}s without progress)`));
+    };
+
+    resetStallTimer();
+    xhr.send(body);
+  });
 }
 
 // Bytes → "X GB" / "Y MB" für User-facing Display in der Drop-Zone.

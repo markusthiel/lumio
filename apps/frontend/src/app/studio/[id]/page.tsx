@@ -11,6 +11,8 @@ import { SectionsEditor } from "@/components/studio/SectionsEditor";
 import { UploadLinksSection } from "@/components/studio/UploadLinksSection";
 import { RejectDialog } from "@/components/studio/RejectDialog";
 import { DuplicatesDialog } from "@/components/studio/DuplicatesDialog";
+import { SlowConnectionToggle } from "@/components/upload/SlowConnectionToggle";
+import { useSlowConnection } from "@/lib/useSlowConnection";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { TagPicker } from "@/components/studio/TagPicker";
 import { Button } from "@/components/ui";
@@ -62,6 +64,11 @@ export default function GalleryDetailPage() {
   // dupDialog (das ist Filename-Konflikt beim Drop, dieser hier ist
   // Inhalt-Vergleich im Bestand).
   const [showDuplicatesDialog, setShowDuplicatesDialog] = useState(false);
+  // Slow-Connection-Modus fuer Uploads. Beeinflusst die Anzahl
+  // paralleler Streams (1 statt 4 / 1 statt 4). Auto-Detect via
+  // navigator.connection oder manuell via Toggle. Wird beim
+  // uploadFiles-Aufruf in den options.slowConnection durchgereicht.
+  const { slow: slowConnection } = useSlowConnection();
   const [dragOver, setDragOver] = useState(false);
   const [togglingStatus, setTogglingStatus] = useState(false);
 
@@ -536,13 +543,18 @@ export default function GalleryDetailPage() {
     // doppelt.
     const seen = new Set<string>();
     try {
-      await uploadFiles(id, arr, (p) => {
-        setUploads((prev) => ({ ...prev, [p.fileId]: p }));
-        if (!seen.has(p.fileId)) {
-          seen.add(p.fileId);
-          setPendingInitCount((n) => Math.max(0, n - 1));
-        }
-      });
+      await uploadFiles(
+        id,
+        arr,
+        (p) => {
+          setUploads((prev) => ({ ...prev, [p.fileId]: p }));
+          if (!seen.has(p.fileId)) {
+            seen.add(p.fileId);
+            setPendingInitCount((n) => Math.max(0, n - 1));
+          }
+        },
+        { slowConnection }
+      );
     } catch (err) {
       // 402 Payment Required: Plan-Limit erreicht. Wir zeigen einen
       // Dialog mit der Nachricht aus der API + Link zur Plan-Seite.
@@ -874,6 +886,13 @@ export default function GalleryDetailPage() {
             )}
           </div>
         </section>
+
+        {/* Slow-Connection Toggle — eigenständig unter der Drop-Zone,
+            damit der Klick darauf nicht den Drop-Zone-Click triggert
+            (der File-Picker öffnen würde). */}
+        <div className="flex justify-end -mt-3">
+          <SlowConnectionToggle />
+        </div>
 
         {/* Aktive Uploads */}
         {(Object.keys(uploads).length > 0 || pendingInitCount > 0) && (

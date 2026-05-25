@@ -899,6 +899,19 @@ export const api = {
     );
   },
 
+  /** Holt frische presigned URLs für ein Upload-Link-File, das in
+   *  status='uploading' hängt. Analog zu resignUpload (Studio), aber
+   *  via Upload-Link-Token authentifiziert. */
+  resignUploadViaLink: (
+    token: string,
+    fileId: string,
+    input?: { uploadId?: string; partNumbers?: number[] }
+  ) =>
+    request<UploadInit>(`/u/${token}/uploads/${fileId}/resign`, {
+      method: "POST",
+      body: JSON.stringify(input ?? {}),
+    }),
+
   // ---------------------------------------------------------------------------
   // Sections (Studio) — Kapitel-Verwaltung einer Galerie
   // ---------------------------------------------------------------------------

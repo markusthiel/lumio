@@ -23,9 +23,23 @@ export interface UploadProgress {
 
 export type ProgressCallback = (p: UploadProgress) => void;
 
-// Anzahl paralleler Single-PUTs bzw. Multipart-Parts
-const PARALLEL_UPLOADS = 4;
-const PARALLEL_PARTS = 4;
+/** Optionale Upload-Konfiguration. Wird vom Caller (Studio-Page,
+ *  Upload-Link-Page) gesetzt — typischerweise basierend auf
+ *  `navigator.connection.effectiveType` oder einem manuellen Toggle. */
+export interface UploadOptions {
+  /** Wenn true: nur 1 paralleles File, 1 paralleler Part. Sonst
+   *  4 / 4. Spart bei langsamem Mobilnetz Bandbreite (parallele
+   *  Streams konkurrieren um die schmale Uplink-Connection und
+   *  reduzieren den Gesamt-Durchsatz). Default false. */
+  slowConnection?: boolean;
+}
+
+// Anzahl paralleler Single-PUTs bzw. Multipart-Parts. Bei langsamer
+// Verbindung (slowConnection=true) auf 1 reduziert.
+const PARALLEL_UPLOADS_FAST = 4;
+const PARALLEL_UPLOADS_SLOW = 1;
+const PARALLEL_PARTS_FAST = 4;
+const PARALLEL_PARTS_SLOW = 1;
 
 // Wieviele Files pro /uploads/init-Request. Das Backend macht pro File
 // 2 DB-Queries + mind. 1 S3-Presign-Call sequentiell — bei 1000 Files in
@@ -58,9 +72,13 @@ const INIT_BATCH_SIZE = 50;
 export async function uploadFiles(
   galleryId: string,
   files: File[],
-  onProgress: ProgressCallback
+  onProgress: ProgressCallback,
+  options?: UploadOptions
 ): Promise<void> {
   if (files.length === 0) return;
+  const slow = options?.slowConnection ?? false;
+  const parallelUploads = slow ? PARALLEL_UPLOADS_SLOW : PARALLEL_UPLOADS_FAST;
+  const parallelParts = slow ? PARALLEL_PARTS_SLOW : PARALLEL_PARTS_FAST;
 
   const workQueue: Array<{ file: File; init: UploadInit }> = [];
   let initDone = false;
@@ -122,14 +140,19 @@ export async function uploadFiles(
         continue;
       }
       try {
-        await uploadOne(w.file, w.init, (p) => {
-          onProgress({
-            fileId: w.init.fileId,
-            filename: w.file.name,
-            status: "uploading",
-            progress: p,
-          });
-        });
+        await uploadOne(
+          w.file,
+          w.init,
+          (p) => {
+            onProgress({
+              fileId: w.init.fileId,
+              filename: w.file.name,
+              status: "uploading",
+              progress: p,
+            });
+          },
+          parallelParts
+        );
         onProgress({
           fileId: w.init.fileId,
           filename: w.file.name,
@@ -148,7 +171,7 @@ export async function uploadFiles(
     }
   }
 
-  const workerCount = Math.min(PARALLEL_UPLOADS, files.length);
+  const workerCount = Math.min(parallelUploads, files.length);
   const workers = Array.from({ length: workerCount }, uploadWorker);
   await Promise.all([runInits(), ...workers]);
 
@@ -188,12 +211,13 @@ function sleep(ms: number) {
 async function uploadOne(
   file: File,
   init: UploadInit,
-  onProgress: (p: number) => void
+  onProgress: (p: number) => void,
+  parallelParts: number
 ): Promise<void> {
   if (init.method === "single") {
     await uploadSingle(file, init, onProgress);
   } else {
-    await uploadMultipart(file, init, onProgress);
+    await uploadMultipart(file, init, onProgress, parallelParts);
   }
 }
 
@@ -245,7 +269,8 @@ async function uploadSingle(
 async function uploadMultipart(
   file: File,
   init: UploadInit,
-  onProgress: (p: number) => void
+  onProgress: (p: number) => void,
+  parallelParts: number
 ): Promise<void> {
   if (!init.parts || !init.partSize || !init.uploadId) {
     throw new Error("invalid multipart init");
@@ -326,7 +351,7 @@ async function uploadMultipart(
 
   await Promise.all(
     Array.from(
-      { length: Math.min(PARALLEL_PARTS, partNumbers.length) },
+      { length: Math.min(parallelParts, partNumbers.length) },
       uploadNextPart
     )
   );
