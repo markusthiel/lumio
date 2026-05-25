@@ -609,11 +609,21 @@ export default function GalleryDetailPage() {
     }
     setBulkPending(true);
     try {
-      await api.bulkFileAction({
-        galleryId: gallery.id,
-        fileIds: Array.from(selected),
-        action,
-      });
+      // Backend-Endpoint hat ein hartes Limit von 500 Files pro Call.
+      // Bei groesseren Galerien (z.B. 1000+ Files alle markieren und
+      // loeschen) muessen wir chunken. Wir machen das seriell und
+      // nicht parallel, weil das Backend pro File einen DB-Update
+      // und einen S3-Delete macht — parallel wuerde S3 nur unnoetig
+      // schwitzen und ein einzelner Fehler waere schwerer zu lesen.
+      const CHUNK = 500;
+      const ids = Array.from(selected);
+      for (let i = 0; i < ids.length; i += CHUNK) {
+        await api.bulkFileAction({
+          galleryId: gallery.id,
+          fileIds: ids.slice(i, i + CHUNK),
+          action,
+        });
+      }
       exitSelectionMode();
       await load();
     } catch (err) {
