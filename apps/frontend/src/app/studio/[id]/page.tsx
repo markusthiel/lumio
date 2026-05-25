@@ -99,6 +99,18 @@ export default function GalleryDetailPage() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkPending, setBulkPending] = useState(false);
+  // Eigener Confirm-Dialog statt window.confirm. iPhone Safari kann
+  // window.confirm verschlucken nach langem Render (z.B. nach Select-
+  // All von 1000+ Files). Eigener Dialog ist robuster und sieht
+  // konsistent zur uebrigen UI aus.
+  const [bulkConfirm, setBulkConfirm] = useState<{
+    action: "delete" | "hide" | "show";
+    count: number;
+    message: string;
+  } | null>(null);
+  // Inline-Fehlermeldung statt alert() — alert() wird auf iOS Safari
+  // ebenfalls manchmal verschluckt nach laengeren async-Operationen.
+  const [bulkError, setBulkError] = useState<string | null>(null);
 
   // File-Filter: 'all' (default) oder 'pending' (nur wartende
   // Upload-Link-Files). Wird auch via Header-Counter gesteuert,
@@ -609,17 +621,29 @@ export default function GalleryDetailPage() {
     await load();
   }
 
-  async function runBulk(action: "delete" | "hide" | "show") {
+  /** Tap auf 'Löschen' / 'Verbergen' / 'Anzeigen' im Auswahl-Modus.
+   *  Bei 'delete' oeffnet das den Confirm-Dialog. Bei 'hide'/'show'
+   *  direkt ausfuehren — irreversible Aktion ist nur 'delete'. */
+  function runBulk(action: "delete" | "hide" | "show") {
     if (!gallery || selected.size === 0) return;
     const count = selected.size;
     if (action === "delete") {
-      const msg =
+      const message =
         count === 1
           ? t("studio.confirmDeleteOne")
           : t("studio.confirmDeleteMany", { count });
-      if (!confirm(msg)) return;
+      setBulkConfirm({ action, count, message });
+      return;
     }
+    void performBulk(action);
+  }
+
+  /** Eigentliche Ausfuehrung. Aufgerufen aus dem Confirm-Dialog
+   *  oder direkt fuer non-destructive Aktionen. */
+  async function performBulk(action: "delete" | "hide" | "show") {
+    if (!gallery || selected.size === 0) return;
     setBulkPending(true);
+    setBulkError(null);
     try {
       // Backend-Endpoint hat ein hartes Limit von 500 Files pro Call.
       // Bei groesseren Galerien (z.B. 1000+ Files alle markieren und
@@ -636,11 +660,16 @@ export default function GalleryDetailPage() {
           action,
         });
       }
+      // Erfolg → Confirm-Dialog zu, Selection raus, neu laden.
+      setBulkConfirm(null);
       exitSelectionMode();
       await load();
     } catch (err) {
       console.error(err);
-      alert(err instanceof Error ? err.message : "Fehler");
+      // Inline-Error statt alert() — alert() ist auf iOS Safari nach
+      // async ops auch nicht zuverlaessig. Bleibt im Confirm-Dialog
+      // stehen, User kann retryen oder abbrechen.
+      setBulkError(err instanceof Error ? err.message : "Fehler");
     } finally {
       setBulkPending(false);
     }
@@ -1403,10 +1432,60 @@ export default function GalleryDetailPage() {
         />
       )}
 
-      {/* Plan-Limit-Dialog — wird angezeigt wenn das API bei einem
-          Upload oder einer anderen Aktion 402 zurückgibt. Schließen
-          erlaubt; der eigentliche Upgrade-Flow läuft über die Plan-
-          Seite (heute statisch, in Sprint 2 mit Stripe Checkout). */}
+      {/* Bulk-Aktions-Confirm. Eigener Dialog statt window.confirm
+          weil iOS Safari window.confirm nach langem Render (z.B.
+          nach Select-All von 1000+ Files) verschluckt — User tippt
+          'Loeschen', Tap wird erkannt (roter Active-State), aber der
+          native confirm-Dialog kommt nie. Mit eigenem Dialog ist das
+          ein normaler React-Render ohne Browser-Magic. */}
+      {bulkConfirm && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => !bulkPending && setBulkConfirm(null)}
+        >
+          <div
+            className="bg-surface-base rounded-lg border border-line-subtle shadow-2xl max-w-md w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-medium text-ink-primary">
+              {bulkConfirm.count === 1
+                ? "Datei löschen?"
+                : `${bulkConfirm.count} Dateien löschen?`}
+            </h2>
+            <p className="text-ui-sm text-ink-secondary mt-2">
+              {bulkConfirm.message}
+            </p>
+            {bulkError && (
+              <p className="text-ui-sm text-semantic-danger mt-3">
+                {bulkError}
+              </p>
+            )}
+            <div className="flex gap-2 justify-end mt-5">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setBulkConfirm(null)}
+                disabled={bulkPending}
+              >
+                Abbrechen
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => void performBulk(bulkConfirm.action)}
+                disabled={bulkPending}
+              >
+                {bulkPending
+                  ? bulkConfirm.count > 500
+                    ? `Lösche… (${bulkConfirm.count} Dateien, das dauert kurz)`
+                    : "Lösche…"
+                  : "Löschen"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {limitDialog && (
         <div
           className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
