@@ -981,6 +981,21 @@ export default function GalleryDetailPage() {
           <h2 className="text-ui-md font-medium text-ink-primary">
             {t("studio.settingsHeading")}
           </h2>
+          {/* Hinweis fuer Presentation-Modus: einige Toggles unten
+              (Kommentare/Markierungen, Auswahl-Limit) sind in diesem
+              Modus nicht aktiv, weil der Kunde nur anzeigen kann.
+              Statt sie zu verstecken — User koennte spaeter den Modus
+              umschalten und erwartet dann die alten Einstellungen
+              wieder — grauen wir sie aus und erklaeren warum. */}
+          {gallery.mode === "presentation" && (
+            <div className="rounded-xs bg-surface-sunken px-3 py-2 text-ui-xs text-ink-secondary">
+              Diese Galerie ist im{" "}
+              <span className="font-medium">Präsentations-Modus</span>. Der
+              Kunde kann Bilder ansehen, aber keine Auswahl treffen, Bilder
+              markieren oder kommentieren. Einstellungen unten, die nur im
+              Auswahl/Proofing-Modus wirken, sind ausgegraut.
+            </div>
+          )}
           <BrandingPicker
             currentBrandingId={gallery.brandingId ?? null}
             onChange={async (v) => {
@@ -1011,6 +1026,12 @@ export default function GalleryDetailPage() {
             label={t("studio.settingComments")}
             value={gallery.commentsEnabled}
             onChange={(v) => toggleSetting("commentsEnabled", v)}
+            disabled={gallery.mode === "presentation"}
+            disabledHint={
+              gallery.mode === "presentation"
+                ? "Nur im Auswahl/Proofing-Modus verfügbar."
+                : undefined
+            }
           />
           <SelectionLimitInput
             value={gallery.selectionLimit}
@@ -1018,6 +1039,12 @@ export default function GalleryDetailPage() {
               await api.updateGallery(gallery.id, { selectionLimit: v });
               await load();
             }}
+            disabled={gallery.mode === "presentation"}
+            disabledHint={
+              gallery.mode === "presentation"
+                ? "Nur im Auswahl/Proofing-Modus verfügbar."
+                : undefined
+            }
           />
         </section>
 
@@ -1482,24 +1509,43 @@ function SettingToggle({
   description,
   value,
   onChange,
+  disabled,
+  disabledHint,
 }: {
   label: string;
   description?: string;
   value: boolean;
   onChange: (next: boolean) => void;
+  /** Wenn true, ist der Toggle nicht klickbar und wird ausgegraut.
+   *  Sinnvoll fuer Settings die im aktuellen Galerie-Modus keinen
+   *  Effekt haben (z.B. Kommentare in einer Presentation-Galerie). */
+  disabled?: boolean;
+  /** Optionaler Hinweistext der bei disabled unter der Beschreibung
+   *  erscheint — erklaert warum der Toggle nicht aktiv ist. */
+  disabledHint?: string;
 }) {
   return (
-    <label className="flex items-start gap-3 cursor-pointer py-1">
+    <label
+      className={`flex items-start gap-3 py-1 ${
+        disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"
+      }`}
+    >
       <input
         type="checkbox"
         checked={value}
-        onChange={(e) => onChange(e.target.checked)}
+        onChange={(e) => !disabled && onChange(e.target.checked)}
+        disabled={disabled}
         className="mt-1 accent-accent"
       />
       <div className="flex-1">
         <div className="text-ui text-ink-primary">{label}</div>
         {description && (
           <div className="text-ui-xs text-ink-tertiary mt-0.5">{description}</div>
+        )}
+        {disabled && disabledHint && (
+          <div className="text-ui-xs text-ink-tertiary mt-0.5 italic">
+            {disabledHint}
+          </div>
         )}
       </div>
     </label>
@@ -1515,9 +1561,13 @@ function SettingToggle({
 function SelectionLimitInput({
   value,
   onChange,
+  disabled,
+  disabledHint,
 }: {
   value: number | null;
   onChange: (next: number | null) => void | Promise<void>;
+  disabled?: boolean;
+  disabledHint?: string;
 }) {
   const t = useT();
   const [raw, setRaw] = useState<string>(value !== null ? String(value) : "");
@@ -1533,6 +1583,7 @@ function SelectionLimitInput({
   }, [value]);
 
   async function commit() {
+    if (disabled) return;
     const trimmed = raw.trim();
     let parsed: number | null;
     if (trimmed === "") {
@@ -1556,7 +1607,7 @@ function SelectionLimitInput({
   }
 
   return (
-    <div className="flex items-start gap-3 py-1">
+    <div className={`flex items-start gap-3 py-1 ${disabled ? "opacity-50" : ""}`}>
       <div className="mt-1 w-4 flex-shrink-0" /> {/* gleicher Einzug wie die Checkboxes */}
       <div className="flex-1">
         <label className="text-ui text-ink-primary block">
@@ -1565,6 +1616,11 @@ function SelectionLimitInput({
         <div className="text-ui-xs text-ink-tertiary mt-0.5 mb-2">
           {t("studio.settingSelectionLimitDesc")}
         </div>
+        {disabled && disabledHint && (
+          <div className="text-ui-xs text-ink-tertiary italic mb-2">
+            {disabledHint}
+          </div>
+        )}
         <div className="flex items-center gap-2">
           <input
             type="number"
@@ -1577,8 +1633,8 @@ function SelectionLimitInput({
             onKeyDown={(e) => {
               if (e.key === "Enter") (e.target as HTMLInputElement).blur();
             }}
-            disabled={pending}
-            className="w-24 h-9 px-2.5 rounded bg-surface-sunken border border-line-subtle hover:border-line-strong focus:border-accent text-ui text-ink-primary placeholder:text-ink-tertiary focus:outline-none transition-colors duration-motion disabled:opacity-50"
+            disabled={pending || disabled}
+            className="w-24 h-9 px-2.5 rounded bg-surface-sunken border border-line-subtle hover:border-line-strong focus:border-accent text-ui text-ink-primary placeholder:text-ink-tertiary focus:outline-none transition-colors duration-motion disabled:opacity-50 disabled:cursor-not-allowed"
           />
           {pending && (
             <span className="text-ui-xs text-ink-tertiary">

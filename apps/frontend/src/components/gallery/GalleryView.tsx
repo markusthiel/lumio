@@ -72,6 +72,14 @@ export function GalleryView({
   // ist. Wir bündeln das als interactive-Boolean und blenden die Auswahl-UI
   // aus, wenn es nicht passt.
   const interactive = meta.mode === "collaboration" && canSelect;
+  // Kommentare und Annotations (= 'Markieren'-Werkzeuge) machen nur Sinn
+  // in einer Collaboration-Galerie. Bei einer Presentation-Galerie
+  // ('reine Anzeige') sollen weder die UI-Buttons noch die Annotation-
+  // Overlays angezeigt werden — selbst wenn das Studio commentsEnabled
+  // noch auf true hat. Studio kann den Toggle gesetzt lassen wenn es
+  // spaeter den Modus zurueckdreht; UI haerted hier defensiv.
+  const commentsActive =
+    meta.commentsEnabled && meta.mode === "collaboration";
 
   const filtered = useMemo(() => {
     if (filter === "all") return files;
@@ -1048,6 +1056,12 @@ function Lightbox({
     rating: null,
     liked: false,
   };
+  // Kommentare/Annotation-Werkzeuge sind nur in Collaboration-Galerien
+  // sinnvoll — Presentation-Galerien sollen "reine Anzeige" sein.
+  // Wir gaten alle Kommentar-bezogenen UI-Elemente und das
+  // Annotation-Overlay daher zusaetzlich mit dem Mode-Check.
+  const commentsActive =
+    meta.commentsEnabled && meta.mode === "collaboration";
   const [comments, setComments] = useState<Comment[] | null>(null);
   const [showComments, setShowComments] = useState(false);
   const [showHints, setShowHints] = useState(true);
@@ -1144,7 +1158,14 @@ function Lightbox({
   // Kommentare lazy laden — UND immer für die Annotation-Extraktion.
   // Wir laden einmal pro Bild, egal ob die Sidebar offen ist, damit
   // gespeicherte Annotationen anderer auf dem Bild sichtbar werden.
+  // Im Presentation-Mode skippen wir den Fetch komplett: es gibt
+  // keine UI-Elemente die Annotations zeigen, also waere der Call
+  // verschwendet.
   useEffect(() => {
+    if (!commentsActive) {
+      setComments([]);
+      return;
+    }
     let cancelled = false;
     (async () => {
       try {
@@ -1157,7 +1178,7 @@ function Lightbox({
     return () => {
       cancelled = true;
     };
-  }, [slug, file.id]);
+  }, [slug, file.id, commentsActive]);
 
   // Annotationen aus den geladenen Comments extrahieren. Wir flachen
   // alle strokes aus jedem Comment in eine einzige Liste. Wenn ein
@@ -1316,7 +1337,7 @@ function Lightbox({
           {index + 1} / {files.length}
         </div>
         <div className="flex items-center gap-1">
-          {meta.commentsEnabled && (
+          {commentsActive && (
             <button
               onClick={() => setShowComments((s) => !s)}
               className={`h-8 px-3 rounded text-ui-xs transition-colors duration-motion ${
@@ -1440,7 +1461,7 @@ function Lightbox({
                     leeren Bildbereich nicht auf dem SVG hängen bleibt.
                     Im 'mark'-Mode bleibt das Overlay interaktiv —
                     dort ist der Zoom selbst deaktiviert. */}
-                {meta.commentsEnabled && (
+                {commentsActive && (
                   <div
                     style={{
                       position: "absolute",
@@ -1560,7 +1581,7 @@ function Lightbox({
               wenn der Visitor Auswahl-Rechte hat. */}
           {interactive && (
             <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10">
-              {bottomMode === "mark" && meta.commentsEnabled ? (
+              {bottomMode === "mark" && commentsActive ? (
                 <AnnotationToolbar
                   tool={annotationTool}
                   setTool={setAnnotationTool}
@@ -1613,7 +1634,7 @@ function Lightbox({
         </div>
 
         {/* Sidebar (Kommentare) */}
-        {showComments && meta.commentsEnabled && (
+        {showComments && commentsActive && (
           <aside className="w-80 border-l border-white/5 flex flex-col bg-black/50 backdrop-blur-sm text-white">
             <div className="px-4 py-3 border-b border-white/5 text-ui-sm font-medium text-white/90">
               {t("gallery.comments")}
@@ -1677,7 +1698,7 @@ function Lightbox({
             label={t("gallery.modePick")}
             icon={<StarIcon filled={sel.liked} />}
           />
-          {meta.commentsEnabled && (
+          {commentsActive && (
             <ModeTab
               active={bottomMode === "mark"}
               onClick={() => setBottomMode("mark")}
