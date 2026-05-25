@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { api, ApiError, type GalleryDetail, type GalleryFile } from "@/lib/api";
@@ -1271,7 +1271,7 @@ export default function GalleryDetailPage() {
                       index={i}
                       selectionMode={selectionMode}
                       selected={selected.has(f.id)}
-                      onToggle={() => toggleSelected(f.id)}
+                      onToggle={toggleSelected}
                     />
                   ))}
                 </ul>
@@ -1666,7 +1666,25 @@ function SelectionLimitInput({
   );
 }
 
-function FileTile({
+/** FileTile — eine Kachel in der Studio-Gallery-Grid.
+ *
+ *  WICHTIG: memoized. Bei grossen Galerien (1000+ Files) wuerde
+ *  jeder setSelected-Update sonst alle Tiles re-rendern. Auf iPhone
+ *  Safari kann das mehrere Sekunden blocken — der Folge-Tap auf
+ *  einen Button (z.B. 'Loeschen') wird dann verworfen.
+ *  Memo greift, weil:
+ *   - file, selectionMode, onToggle stabile Identitaeten haben
+ *     (onToggle ist useCallback im Parent, file kommt aus stabiler
+ *     gallery.files-Array, selectionMode ist Boolean).
+ *   - selected ist Boolean, also nur das EINE getoggelte Tile
+ *     re-rendert beim Single-Click.
+ *  Bei Select-All bleibt der initiale Render mit allen Tiles
+ *  unvermeidlich (alle aendern selected=true gleichzeitig), aber
+ *  jeder spaetere Einzel-Toggle ist schnell.
+ */
+const FileTile = memo(_FileTile);
+
+function _FileTile({
   file,
   index,
   selectionMode,
@@ -1677,7 +1695,10 @@ function FileTile({
   index: number;
   selectionMode: boolean;
   selected: boolean;
-  onToggle: () => void;
+  /** Bekommt die file.id als Argument, damit der Caller keinen
+   *  Arrow-Wrapper () => onToggle(file.id) bauen muss — der wuerde
+   *  bei jedem Render eine neue Funktion erzeugen und memo brechen. */
+  onToggle: (fileId: string) => void;
 }) {
   const t = useT();
   const isHidden = file.status === "hidden";
@@ -1732,7 +1753,7 @@ function FileTile({
           ? "cursor-pointer"
           : "cursor-grab active:cursor-grabbing touch-none"
       } transition-colors duration-motion`}
-      onClick={selectionMode ? onToggle : undefined}
+      onClick={selectionMode ? () => onToggle(file.id) : undefined}
       title={
         isRejected
           ? file.rejectedReason
