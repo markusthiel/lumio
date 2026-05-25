@@ -46,6 +46,10 @@ export const Queues = {
    * statt FILE_PROCESSING, weil ein langer Backfill sonst die Upload-
    * Verarbeitung blockieren würde — der Worker hat begrenzte Slots. */
   BACKFILL: "lumio:jobs:backfill",
+  /** Storage-Cleanup nach Galerie- oder Tenant-Delete. Eigene Queue
+   * weil ein Cleanup einer 50k-File-Galerie länger laufen kann und
+   * sonst die normale Pipeline blockieren würde. */
+  CLEANUP: "lumio:jobs:cleanup",
 } as const;
 export type QueueName = (typeof Queues)[keyof typeof Queues];
 
@@ -91,13 +95,21 @@ export interface BackfillJob {
   tenantId: string;
 }
 
+export interface CleanupJob {
+  type: "cleanup_gallery" | "cleanup_tenant";
+  tenantId: string;
+  /** Nur bei cleanup_gallery. */
+  galleryId?: string;
+}
+
 export type AnyJob =
   | FileProcessingJob
   | VideoProcessingJob
   | ZipBuildJob
   | WebhookDeliveryJob
   | StripeWebhookJob
-  | BackfillJob;
+  | BackfillJob
+  | CleanupJob;
 
 /**
  * Job in den passenden Stream legen. Gibt die Stream-ID zurück (für Logging).

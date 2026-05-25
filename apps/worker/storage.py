@@ -73,3 +73,59 @@ def upload_bytes(data: bytes, storage_key: str, content_type: str) -> int:
         ContentType=content_type,
     )
     return len(data)
+
+
+def delete_prefix(prefix: str) -> dict:
+    """Löscht ALLE Objekte unter `prefix` im konfigurierten Bucket.
+
+    Wird für Galerie- und Tenant-Cleanup genutzt: bei Galerie-Delete
+    muss `t/<tenantId>/g/<galleryId>/` und `t/<tenantId>/downloads/
+    <galleryId>/` weg, bei Tenant-Delete `t/<tenantId>/`.
+
+    S3-Mechanik:
+      - ListObjectsV2 liefert max. 1000 Keys pro Page → paginieren
+      - DeleteObjects nimmt max. 1000 Keys pro Call → batchen
+
+    Defensiv:
+      - Errors pro Batch werden gesammelt und am Ende zurueckgegeben,
+        Loop bricht NICHT ab. Bei partiellem Fehler bleibt evtl. ein
+        Teil-Müll liegen — der Aufrufer entscheidet ob Retry sinnvoll
+        ist.
+      - Bei leerem Prefix (kein Objekt vorhanden) ist das Ergebnis
+        einfach { deleted: 0, errors: 0 } — kein Error.
+
+    Wichtig: prefix MUSS mit '/' enden, sonst löscht der Aufruf
+    versehentlich angrenzende Pfade. Z.B. prefix='t/abc/g/foo'
+    würde auch 't/abc/g/foobar/' matchen. Wir enforce'n das hart.
+    """
+    if not prefix.endswith("/"):
+        raise ValueError(f"prefix must end with '/': {prefix!r}")
+
+    s3 = get_s3_client()
+    bucket = get_bucket()
+    deleted = 0
+    errors = 0
+    continuation_token: Optional[str] = None
+
+    while True:
+        list_kwargs = {"Bucket": bucket, "Prefix": prefix, "MaxKeys": 1000}
+        if continuation_token:
+            list_kwargs["ContinuationToken"] = continuation_token
+        page = s3.list_objects_v2(**list_kwargs)
+        contents = page.get("Contents", []) or []
+        if not contents:
+            break
+
+        keys = [{"Key": obj["Key"]} for obj in contents]
+        resp = s3.delete_objects(
+            Bucket=bucket,
+            Delete={"Objects": keys, "Quiet": True},
+        )
+        deleted += len(keys) - len(resp.get("Errors", []) or [])
+        errors += len(resp.get("Errors", []) or [])
+
+        if not page.get("IsTruncated"):
+            break
+        continuation_token = page.get("NextContinuationToken")
+
+    return {"prefix": prefix, "deleted": deleted, "errors": errors}

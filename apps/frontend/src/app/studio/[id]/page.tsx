@@ -103,10 +103,21 @@ export default function GalleryDetailPage() {
   // window.confirm verschlucken nach langem Render (z.B. nach Select-
   // All von 1000+ Files). Eigener Dialog ist robuster und sieht
   // konsistent zur uebrigen UI aus.
-  const [bulkConfirm, setBulkConfirm] = useState<{
-    action: "delete" | "hide" | "show";
-    count: number;
+  //
+  // Generalisiert ueber action-Type: Bulk-Aktionen aus dem Auswahl-
+  // Modus ('delete' selected files), Cleanup-Aktionen aus den
+  // Bannern (stuck/failed). Der onConfirm-Callback macht den
+  // eigentlichen Backend-Call.
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string;
     message: string;
+    /** Button-Label fuer die Bestaetigung (z.B. 'Löschen'). */
+    confirmLabel: string;
+    /** Button-Variant — danger für irreversibles, sonst primary. */
+    confirmVariant: "danger" | "primary";
+    /** Hint waehrend pending=true (z.B. 'Lösche 1300 Dateien…'). */
+    pendingLabel?: string;
+    onConfirm: () => Promise<void>;
   } | null>(null);
   // Inline-Fehlermeldung statt alert() — alert() wird auf iOS Safari
   // ebenfalls manchmal verschluckt nach laengeren async-Operationen.
@@ -621,6 +632,46 @@ export default function GalleryDetailPage() {
     await load();
   }
 
+  /** Helper: bulk-Delete mit Chunking. Wird von runBulk und den
+   *  Cleanup-Funktionen (stuck/failed) verwendet. */
+  async function bulkDeleteIds(ids: string[]) {
+    if (!gallery || ids.length === 0) return;
+    // Backend-Endpoint hat ein hartes Limit von 500 Files pro Call.
+    // Seriell, nicht parallel — pro File macht das Backend einen
+    // DB-Update + S3-Delete, parallel würde S3 nur unnötig schwitzen
+    // und ein einzelner Fehler wäre schwerer zu lesen.
+    const CHUNK = 500;
+    for (let i = 0; i < ids.length; i += CHUNK) {
+      await api.bulkFileAction({
+        galleryId: gallery.id,
+        fileIds: ids.slice(i, i + CHUNK),
+        action: "delete",
+      });
+    }
+  }
+
+  /** Generisch: oeffnet den Confirm-Dialog. Der onConfirm-Callback
+   *  läuft im Dialog-Button-Handler — bei Erfolg schließt der Dialog
+   *  automatisch, bei Fehler bleibt er offen mit Inline-Fehlermeldung. */
+  function openConfirm(opts: {
+    title: string;
+    message: string;
+    confirmLabel: string;
+    confirmVariant?: "danger" | "primary";
+    pendingLabel?: string;
+    onConfirm: () => Promise<void>;
+  }) {
+    setBulkError(null);
+    setConfirmDialog({
+      title: opts.title,
+      message: opts.message,
+      confirmLabel: opts.confirmLabel,
+      confirmVariant: opts.confirmVariant ?? "danger",
+      pendingLabel: opts.pendingLabel,
+      onConfirm: opts.onConfirm,
+    });
+  }
+
   /** Tap auf 'Löschen' / 'Verbergen' / 'Anzeigen' im Auswahl-Modus.
    *  Bei 'delete' oeffnet das den Confirm-Dialog. Bei 'hide'/'show'
    *  direkt ausfuehren — irreversible Aktion ist nur 'delete'. */
@@ -632,77 +683,85 @@ export default function GalleryDetailPage() {
         count === 1
           ? t("studio.confirmDeleteOne")
           : t("studio.confirmDeleteMany", { count });
-      setBulkConfirm({ action, count, message });
+      openConfirm({
+        title: count === 1 ? "Datei löschen?" : `${count} Dateien löschen?`,
+        message,
+        confirmLabel: "Löschen",
+        confirmVariant: "danger",
+        pendingLabel:
+          count > 500
+            ? `Lösche… (${count} Dateien, das dauert kurz)`
+            : "Lösche…",
+        onConfirm: async () => {
+          await bulkDeleteIds(Array.from(selected));
+          exitSelectionMode();
+          await load();
+        },
+      });
       return;
     }
-    void performBulk(action);
-  }
-
-  /** Eigentliche Ausfuehrung. Aufgerufen aus dem Confirm-Dialog
-   *  oder direkt fuer non-destructive Aktionen. */
-  async function performBulk(action: "delete" | "hide" | "show") {
-    if (!gallery || selected.size === 0) return;
-    setBulkPending(true);
-    setBulkError(null);
-    try {
-      // Backend-Endpoint hat ein hartes Limit von 500 Files pro Call.
-      // Bei groesseren Galerien (z.B. 1000+ Files alle markieren und
-      // loeschen) muessen wir chunken. Wir machen das seriell und
-      // nicht parallel, weil das Backend pro File einen DB-Update
-      // und einen S3-Delete macht — parallel wuerde S3 nur unnoetig
-      // schwitzen und ein einzelner Fehler waere schwerer zu lesen.
-      const CHUNK = 500;
-      const ids = Array.from(selected);
-      for (let i = 0; i < ids.length; i += CHUNK) {
-        await api.bulkFileAction({
-          galleryId: gallery.id,
-          fileIds: ids.slice(i, i + CHUNK),
-          action,
-        });
+    // Non-destructive: direkt durchziehen (hide/show)
+    void (async () => {
+      if (!gallery) return;
+      setBulkPending(true);
+      setBulkError(null);
+      try {
+        const ids = Array.from(selected);
+        const CHUNK = 500;
+        for (let i = 0; i < ids.length; i += CHUNK) {
+          await api.bulkFileAction({
+            galleryId: gallery.id,
+            fileIds: ids.slice(i, i + CHUNK),
+            action,
+          });
+        }
+        exitSelectionMode();
+        await load();
+      } catch (err) {
+        console.error(err);
+        setBulkError(err instanceof Error ? err.message : "Fehler");
+      } finally {
+        setBulkPending(false);
       }
-      // Erfolg → Confirm-Dialog zu, Selection raus, neu laden.
-      setBulkConfirm(null);
-      exitSelectionMode();
-      await load();
-    } catch (err) {
-      console.error(err);
-      // Inline-Error statt alert() — alert() ist auf iOS Safari nach
-      // async ops auch nicht zuverlaessig. Bleibt im Confirm-Dialog
-      // stehen, User kann retryen oder abbrechen.
-      setBulkError(err instanceof Error ? err.message : "Fehler");
-    } finally {
-      setBulkPending(false);
-    }
+    })();
   }
 
-  // Löscht hängende Uploads — File-Records die seit >5 Min in
-  // status='uploading' stehen, weil das Frontend-XHR irgendwo
-  // abgebrochen wurde aber den File-Record nicht aufräumen konnte.
-  // S3-Object ist entweder gar nicht oder unvollständig hochgeladen,
-  // der Bulk-Delete-Endpoint räumt beides auf.
-  async function cleanupStuckUploads(stuckIds: string[]) {
+  /** Löscht hängende Uploads — File-Records die seit >5 Min in
+   *  status='uploading' stehen, weil das Frontend-XHR irgendwo
+   *  abgebrochen wurde aber den File-Record nicht aufräumen konnte. */
+  function cleanupStuckUploads(stuckIds: string[]) {
     if (!gallery || stuckIds.length === 0) return;
-    const msg = `${stuckIds.length} hängende Uploads löschen?\n\nFile-Records werden entfernt und ggf. vorhandene S3-Objekte mit. Du kannst die Dateien danach erneut hochladen.`;
-    if (!confirm(msg)) return;
-    setBulkPending(true);
-    try {
-      // bulk-action-Endpoint hat ein Limit von 500 Files pro Call —
-      // bei >500 Stuck-Files in Chunks durchlaufen.
-      const CHUNK = 500;
-      for (let i = 0; i < stuckIds.length; i += CHUNK) {
-        await api.bulkFileAction({
-          galleryId: gallery.id,
-          fileIds: stuckIds.slice(i, i + CHUNK),
-          action: "delete",
-        });
-      }
-      await load();
-    } catch (err) {
-      console.error(err);
-      alert(err instanceof Error ? err.message : "Fehler");
-    } finally {
-      setBulkPending(false);
-    }
+    openConfirm({
+      title: `${stuckIds.length} hängende Uploads aufräumen?`,
+      message: `File-Records werden entfernt und ggf. vorhandene S3-Objekte mit. Du kannst die Dateien danach erneut hochladen.`,
+      confirmLabel: "Aufräumen",
+      confirmVariant: "danger",
+      pendingLabel: "Räume auf…",
+      onConfirm: async () => {
+        await bulkDeleteIds(stuckIds);
+        await load();
+      },
+    });
+  }
+
+  /** Löscht fehlgeschlagene Files (status='failed'). Worker-Pipeline
+   *  hat aufgegeben (kaputter Datentyp, ffmpeg-Crash, …). DB-Eintrag
+   *  bleibt mit status=failed, kein Thumbnail/Preview. Kunde sieht
+   *  sie nicht (Visibility-Filter im API), aber das Studio behält
+   *  tote Tiles. */
+  function cleanupFailedFiles(failedIds: string[]) {
+    if (!gallery || failedIds.length === 0) return;
+    openConfirm({
+      title: `${failedIds.length} fehlgeschlagene Dateien löschen?`,
+      message: `Diese Dateien konnten nicht verarbeitet werden — z.B. wegen ungültigen Formaten oder Worker-Fehlern. File-Records werden entfernt und ggf. vorhandene S3-Objekte mit.`,
+      confirmLabel: "Löschen",
+      confirmVariant: "danger",
+      pendingLabel: "Lösche…",
+      onConfirm: async () => {
+        await bulkDeleteIds(failedIds);
+        await load();
+      },
+    });
   }
 
   if (loading) {
@@ -748,6 +807,15 @@ export default function GalleryDetailPage() {
       f.status === "uploading" &&
       now - new Date(f.createdAt).getTime() > STUCK_THRESHOLD_MS
   );
+
+  // "Failed"-Files: Worker-Pipeline hat aufgegeben (ungültiges
+  // Bildformat, korruptes RAW, ffmpeg-Crash, …). DB-Eintrag bleibt
+  // mit status=failed, S3-Object ggf. teilweise hochgeladen. Kein
+  // Thumbnail, kein Preview — der Kunde sieht es nicht (Visibility-
+  // Filter im API), aber das Studio behaelt einen toten Tile. Cleanup
+  // ist sicher: bulk-action/delete entfernt DB-Row + S3-Original +
+  // alle (in der Regel keine) Renditions.
+  const failedFiles = gallery.files.filter((f) => f.status === "failed");
 
   return (
     <>
@@ -1029,6 +1097,73 @@ export default function GalleryDetailPage() {
           <h2 className="text-ui-md font-medium text-ink-primary">
             {t("studio.settingsHeading")}
           </h2>
+
+          {/* Mode-Switcher. Zwei Buttons (Toggle-Style) statt Dropdown,
+              damit der aktive Modus auf einen Blick sichtbar ist.
+              Wechsel auf Presentation triggert eine Confirm-Warnung,
+              weil bestehende Customer-Auswahl / Markierungen / Kommen-
+              tare zwar in der DB bleiben, aber im Customer-View
+              versteckt werden. Wechsel auf Collaboration ist
+              unkritisch — alles wird wieder sichtbar. */}
+          <div className="space-y-1">
+            <div className="text-ui text-ink-primary">Modus</div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (gallery.mode === "collaboration") return;
+                  // Wechsel zu Collaboration ist unkritisch.
+                  void (async () => {
+                    await api.updateGallery(gallery.id, {
+                      mode: "collaboration",
+                    });
+                    await load();
+                  })();
+                }}
+                className={`flex-1 rounded-md border px-3 py-2 text-left transition-colors duration-motion ${
+                  gallery.mode === "collaboration"
+                    ? "border-accent bg-accent/10 text-ink-primary"
+                    : "border-line-subtle bg-surface-sunken text-ink-secondary hover:border-line-strong"
+                }`}
+              >
+                <div className="text-ui-sm font-medium">Auswahl / Proofing</div>
+                <div className="text-ui-xs text-ink-tertiary mt-0.5">
+                  Kunde kann Bilder auswählen, kommentieren und markieren.
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (gallery.mode === "presentation") return;
+                  openConfirm({
+                    title: "Auf Präsentation umstellen?",
+                    message:
+                      "Bestehende Kunden-Auswahl, Markierungen und Kommentare bleiben in der Datenbank erhalten, sind aber für Kunden nicht mehr sichtbar. Du kannst jederzeit zurück auf Auswahl/Proofing wechseln.",
+                    confirmLabel: "Umstellen",
+                    confirmVariant: "primary",
+                    pendingLabel: "Stelle um…",
+                    onConfirm: async () => {
+                      await api.updateGallery(gallery.id, {
+                        mode: "presentation",
+                      });
+                      await load();
+                    },
+                  });
+                }}
+                className={`flex-1 rounded-md border px-3 py-2 text-left transition-colors duration-motion ${
+                  gallery.mode === "presentation"
+                    ? "border-accent bg-accent/10 text-ink-primary"
+                    : "border-line-subtle bg-surface-sunken text-ink-secondary hover:border-line-strong"
+                }`}
+              >
+                <div className="text-ui-sm font-medium">Präsentation</div>
+                <div className="text-ui-xs text-ink-tertiary mt-0.5">
+                  Reine Anzeige. Keine Auswahl, keine Markierungen, keine Kommentare.
+                </div>
+              </button>
+            </div>
+          </div>
+
           {/* Hinweis fuer Presentation-Modus: einige Toggles unten
               (Kommentare/Markierungen, Auswahl-Limit) sind in diesem
               Modus nicht aktiv, weil der Kunde nur anzeigen kann.
@@ -1275,13 +1410,47 @@ export default function GalleryDetailPage() {
                   size="sm"
                   variant="secondary"
                   onClick={() =>
-                    void cleanupStuckUploads(stuckFiles.map((f) => f.id))
+                    cleanupStuckUploads(stuckFiles.map((f) => f.id))
                   }
                   disabled={bulkPending}
                 >
                   {bulkPending
                     ? "Räume auf…"
                     : `${stuckFiles.length} aufräumen`}
+                </Button>
+              </div>
+            )}
+
+            {/* Failed-Files-Banner: zeigt sich wenn Files mit
+                status='failed' existieren. Der Worker hat die
+                Verarbeitung aufgegeben — meist wegen ungültigem
+                Bildformat, kaputtem RAW oder ffmpeg-Crash. Studio
+                sieht tote Tiles, Kunde sieht nichts (Visibility-
+                Filter). Button raeumt sie auf. */}
+            {failedFiles.length > 0 && (
+              <div className="mb-3 rounded-md border border-semantic-danger/30 bg-semantic-danger/8 px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+                <div className="text-ui-sm text-ink-secondary">
+                  <span className="font-medium text-ink-primary">
+                    {failedFiles.length}{" "}
+                    {failedFiles.length === 1
+                      ? "fehlgeschlagene Datei"
+                      : "fehlgeschlagene Dateien"}
+                  </span>{" "}
+                  – Verarbeitung war nicht möglich (ungültiges Format,
+                  Worker-Fehler …). Du kannst sie aufräumen und ggf.
+                  neu hochladen.
+                </div>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() =>
+                    cleanupFailedFiles(failedFiles.map((f) => f.id))
+                  }
+                  disabled={bulkPending}
+                >
+                  {bulkPending
+                    ? "Lösche…"
+                    : `${failedFiles.length} löschen`}
                 </Button>
               </div>
             )}
@@ -1432,28 +1601,25 @@ export default function GalleryDetailPage() {
         />
       )}
 
-      {/* Bulk-Aktions-Confirm. Eigener Dialog statt window.confirm
-          weil iOS Safari window.confirm nach langem Render (z.B.
-          nach Select-All von 1000+ Files) verschluckt — User tippt
-          'Loeschen', Tap wird erkannt (roter Active-State), aber der
-          native confirm-Dialog kommt nie. Mit eigenem Dialog ist das
-          ein normaler React-Render ohne Browser-Magic. */}
-      {bulkConfirm && (
+      {/* Generisches Confirm-Modal. Wird von runBulk (Auswahl-
+          Modus-Loeschen), cleanupStuckUploads, cleanupFailedFiles
+          und ggf. Mode-Wechsel-Warnung verwendet. Eigener Dialog
+          statt window.confirm() weil iOS Safari den nativen Dialog
+          nach langen Renders verschluckt. */}
+      {confirmDialog && (
         <div
           className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => !bulkPending && setBulkConfirm(null)}
+          onClick={() => !bulkPending && setConfirmDialog(null)}
         >
           <div
             className="bg-surface-base rounded-lg border border-line-subtle shadow-2xl max-w-md w-full p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-lg font-medium text-ink-primary">
-              {bulkConfirm.count === 1
-                ? "Datei löschen?"
-                : `${bulkConfirm.count} Dateien löschen?`}
+              {confirmDialog.title}
             </h2>
             <p className="text-ui-sm text-ink-secondary mt-2">
-              {bulkConfirm.message}
+              {confirmDialog.message}
             </p>
             {bulkError && (
               <p className="text-ui-sm text-semantic-danger mt-3">
@@ -1464,22 +1630,36 @@ export default function GalleryDetailPage() {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setBulkConfirm(null)}
+                onClick={() => setConfirmDialog(null)}
                 disabled={bulkPending}
               >
                 Abbrechen
               </Button>
               <Button
-                variant="danger"
+                variant={confirmDialog.confirmVariant}
                 size="sm"
-                onClick={() => void performBulk(bulkConfirm.action)}
+                onClick={async () => {
+                  setBulkPending(true);
+                  setBulkError(null);
+                  try {
+                    await confirmDialog.onConfirm();
+                    setConfirmDialog(null);
+                  } catch (err) {
+                    console.error(err);
+                    // Bleibt im Dialog stehen mit Inline-Fehler,
+                    // User kann retryen oder abbrechen.
+                    setBulkError(
+                      err instanceof Error ? err.message : "Fehler"
+                    );
+                  } finally {
+                    setBulkPending(false);
+                  }
+                }}
                 disabled={bulkPending}
               >
                 {bulkPending
-                  ? bulkConfirm.count > 500
-                    ? `Lösche… (${bulkConfirm.count} Dateien, das dauert kurz)`
-                    : "Lösche…"
-                  : "Löschen"}
+                  ? confirmDialog.pendingLabel ?? "Bitte warten…"
+                  : confirmDialog.confirmLabel}
               </Button>
             </div>
           </div>

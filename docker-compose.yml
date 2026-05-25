@@ -242,6 +242,7 @@ services:
       mc alias set local http://minio:9000 $$S3_ACCESS_KEY $$S3_SECRET_KEY &&
       (mc mb local/$$S3_BUCKET --ignore-existing) &&
       mc anonymous set none local/$$S3_BUCKET &&
+      mc ilm rule add --id 'abort-incomplete-multipart' --prefix '' --abort-incomplete-mpu-days 7 local/$$S3_BUCKET 2>/dev/null || mc ilm rule list local/$$S3_BUCKET | grep -q abort-incomplete-multipart || echo 'WARN: could not add abort-multipart lifecycle rule (mc version too old? add manually via console)' &&
       echo 'MinIO bucket initialized: '$$S3_BUCKET
       "
     restart: "no"

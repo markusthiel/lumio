@@ -49,6 +49,10 @@ STREAMS = {
     # Background-Backfills (z.B. SHA-256). Eigener Stream, damit ein
     # langer Backfill nicht die Upload-Pipeline blockiert.
     "lumio:jobs:backfill": "backfill",
+    # Storage-Cleanup nach Galerie-/Tenant-Delete. Eigener Stream,
+    # weil ein langer Cleanup (z.B. 50k Files für einen Tenant) sonst
+    # die normale Pipeline blockieren würde.
+    "lumio:jobs:cleanup": "cleanup",
 }
 
 log = structlog.get_logger("lumio.consumer")
@@ -130,6 +134,22 @@ def _dispatch(stream: str, payload: dict) -> None:
         app.send_task(
             "tasks.backfill_sha256.run_for_gallery",
             args=[payload.get("galleryId")],
+        )
+    elif job_type == "cleanup_gallery":
+        # Galerie wurde gelöscht (DB-Cascade ist durch). Räumt
+        # t/<tenantId>/g/<galleryId>/ + t/<tenantId>/downloads/<galleryId>/
+        # aus dem S3-Bucket. Idempotent.
+        app.send_task(
+            "tasks.cleanup_storage.cleanup_gallery",
+            args=[payload.get("tenantId"), payload.get("galleryId")],
+        )
+    elif job_type == "cleanup_tenant":
+        # Tenant wurde gelöscht. Räumt den kompletten t/<tenantId>/-
+        # Prefix. Kann bei grossen Tenants laufen (50k+ Files), aber
+        # eigener Stream → blockiert die regulaere Pipeline nicht.
+        app.send_task(
+            "tasks.cleanup_storage.cleanup_tenant",
+            args=[payload.get("tenantId")],
         )
     else:
         log.warning("consumer.unknown_job_type",

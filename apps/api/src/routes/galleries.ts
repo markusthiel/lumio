@@ -667,10 +667,11 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
       });
       if (!existing) return reply.status(404).send({ error: "not_found" });
 
+      const tenantId = req.tenantId;
       await prisma.gallery.delete({ where: { id: existing.id } });
 
       await logEvent({
-        tenantId: req.tenantId,
+        tenantId,
         actorType: "user",
         actorId: s.user.id,
         action: "gallery.delete",
@@ -681,12 +682,28 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
       });
 
       await publishEvent({
-        tenantId: req.tenantId,
+        tenantId,
         eventType: "gallery.deleted",
         payload: { galleryId: existing.id, slug: existing.slug },
       });
 
-      // TODO: Worker-Job zum Aufräumen der S3-Objekte queuen
+      // Worker-Job für S3-Cleanup queuen. DB-Cascade hat schon die
+      // File-/Rendition-Rows entfernt, aber die zugehörigen S3-Objekte
+      // bleiben sonst als Müll liegen. cleanup_gallery raeumt
+      // t/<tenantId>/g/<galleryId>/ und t/<tenantId>/downloads/<galleryId>/.
+      // Defensiv: enqueue-Fehler dürfen den DELETE nicht failen lassen
+      // — die Galerie ist DB-seitig schon weg, das ist OK. Falls der
+      // Cleanup-Job nicht enqueued wird, bleibt halt Müll liegen, was
+      // wir spaeter manuell oder via Sweeper aufraeumen koennen.
+      await enqueue(Queues.CLEANUP, {
+        type: "cleanup_gallery",
+        tenantId,
+        galleryId: existing.id,
+      }).catch((err) => {
+        app.log.warn({ err, galleryId: existing.id },
+                     "cleanup_gallery enqueue failed");
+      });
+
       return reply.status(204).send();
     }
   );
