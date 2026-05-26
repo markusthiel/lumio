@@ -22,6 +22,9 @@ export interface ResolvedBranding {
   id: string;
   name: string;
   logoUrl: string | null;
+  /** Helle Logo-Variante fuer dunkle Hintergruende. Wenn null, sollte
+   *  der Caller auf logoUrl zurueckfallen. */
+  logoLightUrl: string | null;
   faviconUrl: string | null;
   primaryColor: string;
   accentColor: string;
@@ -77,6 +80,7 @@ export async function resolveGalleryBranding(opts: {
     id: branding.id,
     name: branding.name,
     logoUrl: await maybePresign(branding.logoUrl),
+    logoLightUrl: await maybePresign(branding.logoLightUrl),
     faviconUrl: await maybePresign(branding.faviconUrl),
     primaryColor: branding.primaryColor,
     accentColor: branding.accentColor,
@@ -113,6 +117,7 @@ export async function resolveTenantBranding(
     id: branding.id,
     name: branding.name,
     logoUrl: await maybePresign(branding.logoUrl),
+    logoLightUrl: await maybePresign(branding.logoLightUrl),
     faviconUrl: await maybePresign(branding.faviconUrl),
     primaryColor: branding.primaryColor,
     accentColor: branding.accentColor,

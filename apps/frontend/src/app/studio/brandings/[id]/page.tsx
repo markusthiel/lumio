@@ -30,10 +30,11 @@ export default function BrandingEditorPage() {
   const [loginGreeting, setLoginGreeting] = useState("");
 
   const logoInputRef = useRef<HTMLInputElement | null>(null);
+  const logoLightInputRef = useRef<HTMLInputElement | null>(null);
   const faviconInputRef = useRef<HTMLInputElement | null>(null);
   const loginBgInputRef = useRef<HTMLInputElement | null>(null);
   const [uploadingKind, setUploadingKind] = useState<
-    "logo" | "favicon" | "loginBackground" | null
+    "logo" | "logoLight" | "favicon" | "loginBackground" | null
   >(null);
 
   const load = useCallback(async () => {
@@ -105,7 +106,7 @@ export default function BrandingEditorPage() {
   }
 
   async function uploadAsset(
-    kind: "logo" | "favicon" | "loginBackground",
+    kind: "logo" | "logoLight" | "favicon" | "loginBackground",
     file: File
   ) {
     setUploadingKind(kind);
@@ -136,9 +137,12 @@ export default function BrandingEditorPage() {
     }
   }
 
-  async function removeAsset(kind: "logo" | "favicon" | "loginBackground") {
+  async function removeAsset(
+    kind: "logo" | "logoLight" | "favicon" | "loginBackground"
+  ) {
     const labels = {
       logo: "Logo",
+      logoLight: "Helles Logo",
       favicon: "Favicon",
       loginBackground: "Login-Hintergrund",
     } as const;
@@ -267,19 +271,36 @@ export default function BrandingEditorPage() {
               />
             </Field>
 
-            {/* Logo & Favicon */}
-            <div className="grid grid-cols-2 gap-3">
-              <AssetField
-                label="Logo"
-                imageUrl={branding.logoUrl}
-                accept="image/png,image/jpeg,image/svg+xml"
-                hint="PNG/JPEG/SVG, transparent empfohlen"
-                uploading={uploadingKind === "logo"}
-                inputRef={logoInputRef}
-                onPick={() => logoInputRef.current?.click()}
-                onFile={(f) => uploadAsset("logo", f)}
-                onRemove={() => removeAsset("logo")}
-              />
+            {/* Logo (Standard + helle Variante fuer dunkle Hintergruende)
+                + Favicon. Helle Variante ist optional — wenn das Logo
+                ohnehin hell/farbig ist, kann sie leer bleiben; die
+                Login-Seite faellt dann auf das Standard-Logo zurueck. */}
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <AssetField
+                  label="Logo"
+                  imageUrl={branding.logoUrl}
+                  accept="image/png,image/jpeg,image/svg+xml"
+                  hint="PNG/JPEG/SVG, transparent empfohlen. Wird auf hellen Flächen genutzt."
+                  uploading={uploadingKind === "logo"}
+                  inputRef={logoInputRef}
+                  onPick={() => logoInputRef.current?.click()}
+                  onFile={(f) => uploadAsset("logo", f)}
+                  onRemove={() => removeAsset("logo")}
+                />
+                <AssetField
+                  label="Logo (hell)"
+                  imageUrl={branding.logoLightUrl}
+                  accept="image/png,image/jpeg,image/svg+xml"
+                  hint="Helle/weiße Variante für dunkle Hintergründe (Studio-UI, Login-Hero). Optional — wenn leer, wird das Standard-Logo verwendet."
+                  uploading={uploadingKind === "logoLight"}
+                  inputRef={logoLightInputRef}
+                  onPick={() => logoLightInputRef.current?.click()}
+                  onFile={(f) => uploadAsset("logoLight", f)}
+                  onRemove={() => removeAsset("logoLight")}
+                  darkPreview
+                />
+              </div>
               <AssetField
                 label="Favicon"
                 imageUrl={branding.faviconUrl}
@@ -424,6 +445,7 @@ function AssetField({
   onFile,
   onRemove,
   previewHeight = "small",
+  darkPreview = false,
 }: {
   label: string;
   imageUrl: string | null;
@@ -436,6 +458,9 @@ function AssetField({
   onRemove: () => void;
   /** "small" für Logo/Favicon, "large" für Hero-Background. */
   previewHeight?: "small" | "large";
+  /** Wenn true, wird der Preview-Container dunkler — damit weiße Logos
+   *  und helle Varianten sichtbar bleiben. */
+  darkPreview?: boolean;
 }) {
   const previewCls =
     previewHeight === "large"
@@ -445,6 +470,12 @@ function AssetField({
     previewHeight === "large"
       ? "max-h-[240px] max-w-full object-cover w-full rounded"
       : "max-h-12 max-w-full object-contain";
+  // Dark-Preview nutzt einen kraeftig dunklen Hintergrund (fast schwarz)
+  // damit weiße / sehr helle Logos sichtbar sind. Standard ist der
+  // gehobene Surface-Layer.
+  const previewBg = darkPreview
+    ? "bg-[#0a0a0c] border-[#1a1a1f]"
+    : "bg-surface-raised border-line-subtle";
   return (
     <div className="space-y-1">
       <label className="text-xs font-medium text-ink-secondary">{label}</label>
@@ -462,7 +493,7 @@ function AssetField({
         />
         {imageUrl ? (
           <div
-            className={`bg-surface-raised border border-line-subtle rounded p-2 flex items-center justify-center ${previewCls}`}
+            className={`border rounded p-2 flex items-center justify-center ${previewBg} ${previewCls}`}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={imageUrl} alt="" className={imageCls} />

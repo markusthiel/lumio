@@ -197,6 +197,12 @@ model Branding {
   
   name          String   // interne Bezeichnung, z.B. "Standard", "Hochzeit-Style"
   logoUrl       String?
+  // Helle/inverse Logo-Variante fuer dunkle Hintergruende (Studio-Dark-
+  // UI, Login-Hero mit Overlay). Wenn null, fallen die dunklen Render-
+  // Flaechen auf logoUrl zurueck — bei schwarzen Logos kann das zu
+  // schwer lesbarem Ergebnis fuehren, deshalb empfehlen wir im Editor
+  // auch eine helle Version hochzuladen.
+  logoLightUrl  String?
   faviconUrl    String?
   primaryColor  String   @default("#0f172a")
   accentColor   String   @default("#f59e0b")

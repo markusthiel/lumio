@@ -1,0 +1,11 @@
+-- Helle/inverse Logo-Variante fuer dunkle Hintergruende.
+--
+-- Background: Auf dunklen UI-Flaechen (Studio im Dark-Mode, Login-Hero
+-- mit Overlay) bleiben schwarze Logos unsichtbar oder schwer lesbar.
+-- Das Tenant kann jetzt eine helle Variante hochladen, die in diesen
+-- Kontexten bevorzugt wird. Fallback ist immer logoUrl, falls keine
+-- helle Variante existiert.
+--
+-- Nullable: bestehende Brandings funktionieren unveraendert mit dem
+-- bisherigen logoUrl.
+ALTER TABLE "brandings" ADD COLUMN "logoLightUrl" TEXT;

@@ -39,7 +39,7 @@ const createBrandingSchema = z.object({
 const updateBrandingSchema = createBrandingSchema.partial();
 
 const initAssetSchema = z.object({
-  kind: z.enum(["logo", "favicon", "loginBackground"]),
+  kind: z.enum(["logo", "logoLight", "favicon", "loginBackground"]),
   contentType: z
     .string()
     .refine(
@@ -58,7 +58,7 @@ const initAssetSchema = z.object({
 });
 
 const completeAssetSchema = z.object({
-  kind: z.enum(["logo", "favicon", "loginBackground"]),
+  kind: z.enum(["logo", "logoLight", "favicon", "loginBackground"]),
   key: z.string().min(1),
 });
 
@@ -89,22 +89,33 @@ function extensionFor(contentType: string): string {
 async function serializeBranding<
   T extends {
     logoUrl: string | null;
+    logoLightUrl: string | null;
     faviconUrl: string | null;
     loginBackgroundUrl: string | null;
   }
 >(branding: T): Promise<T> {
-  const [logoUrl, faviconUrl, loginBackgroundUrl] = await Promise.all([
-    branding.logoUrl
-      ? presignGet({ key: branding.logoUrl, ttlSeconds: 24 * 3600 })
-      : Promise.resolve(null),
-    branding.faviconUrl
-      ? presignGet({ key: branding.faviconUrl, ttlSeconds: 24 * 3600 })
-      : Promise.resolve(null),
-    branding.loginBackgroundUrl
-      ? presignGet({ key: branding.loginBackgroundUrl, ttlSeconds: 24 * 3600 })
-      : Promise.resolve(null),
-  ]);
-  return { ...branding, logoUrl, faviconUrl, loginBackgroundUrl };
+  const [logoUrl, logoLightUrl, faviconUrl, loginBackgroundUrl] =
+    await Promise.all([
+      branding.logoUrl
+        ? presignGet({ key: branding.logoUrl, ttlSeconds: 24 * 3600 })
+        : Promise.resolve(null),
+      branding.logoLightUrl
+        ? presignGet({ key: branding.logoLightUrl, ttlSeconds: 24 * 3600 })
+        : Promise.resolve(null),
+      branding.faviconUrl
+        ? presignGet({ key: branding.faviconUrl, ttlSeconds: 24 * 3600 })
+        : Promise.resolve(null),
+      branding.loginBackgroundUrl
+        ? presignGet({ key: branding.loginBackgroundUrl, ttlSeconds: 24 * 3600 })
+        : Promise.resolve(null),
+    ]);
+  return {
+    ...branding,
+    logoUrl,
+    logoLightUrl,
+    faviconUrl,
+    loginBackgroundUrl,
+  };
 }
 
 export async function registerBrandingRoutes(app: FastifyInstance) {
@@ -254,6 +265,9 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
       if (existing.logoUrl) {
         await deleteObject(existing.logoUrl).catch(() => {});
       }
+      if (existing.logoLightUrl) {
+        await deleteObject(existing.logoLightUrl).catch(() => {});
+      }
       if (existing.faviconUrl) {
         await deleteObject(existing.faviconUrl).catch(() => {});
       }
@@ -355,6 +369,7 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
       // hier oben damit unten der Update + Cleanup einheitlich ist.
       const fieldMap = {
         logo: "logoUrl",
+        logoLight: "logoLightUrl",
         favicon: "faviconUrl",
         loginBackground: "loginBackgroundUrl",
       } as const;
@@ -362,6 +377,8 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
       const oldKey =
         body.kind === "logo"
           ? existing.logoUrl
+          : body.kind === "logoLight"
+          ? existing.logoLightUrl
           : body.kind === "favicon"
           ? existing.faviconUrl
           : existing.loginBackgroundUrl;
@@ -409,12 +426,18 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
       if (!existing) return reply.status(404).send({ error: "not_found" });
 
       const kind = req.params.kind;
-      if (kind !== "logo" && kind !== "favicon" && kind !== "loginBackground") {
+      if (
+        kind !== "logo" &&
+        kind !== "logoLight" &&
+        kind !== "favicon" &&
+        kind !== "loginBackground"
+      ) {
         return reply.status(400).send({ error: "bad_kind" });
       }
 
       const fieldMap = {
         logo: "logoUrl",
+        logoLight: "logoLightUrl",
         favicon: "faviconUrl",
         loginBackground: "loginBackgroundUrl",
       } as const;
@@ -422,6 +445,8 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
       const oldKey =
         kind === "logo"
           ? existing.logoUrl
+          : kind === "logoLight"
+          ? existing.logoLightUrl
           : kind === "favicon"
           ? existing.faviconUrl
           : existing.loginBackgroundUrl;

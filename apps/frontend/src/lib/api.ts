@@ -295,6 +295,7 @@ export interface Branding {
   id: string;
   name: string;
   logoUrl: string | null;
+  logoLightUrl: string | null;
   faviconUrl: string | null;
   primaryColor: string;
   accentColor: string;
@@ -448,6 +449,7 @@ export const api = {
         id: string;
         name: string;
         logoUrl: string | null;
+        logoLightUrl: string | null;
         faviconUrl: string | null;
         primaryColor: string;
         accentColor: string;
@@ -1625,7 +1627,7 @@ export const api = {
   initBrandingAssetUpload: (
     id: string,
     input: {
-      kind: "logo" | "favicon" | "loginBackground";
+      kind: "logo" | "logoLight" | "favicon" | "loginBackground";
       contentType: string;
       sizeBytes: number;
     }
@@ -1641,7 +1643,10 @@ export const api = {
 
   completeBrandingAssetUpload: (
     id: string,
-    input: { kind: "logo" | "favicon" | "loginBackground"; key: string }
+    input: {
+      kind: "logo" | "logoLight" | "favicon" | "loginBackground";
+      key: string;
+    }
   ) =>
     request<{ branding: BrandingDetail }>(
       `/brandings/${id}/assets/complete`,
@@ -1650,7 +1655,7 @@ export const api = {
 
   deleteBrandingAsset: (
     id: string,
-    kind: "logo" | "favicon" | "loginBackground"
+    kind: "logo" | "logoLight" | "favicon" | "loginBackground"
   ) =>
     request<{ branding: BrandingDetail }>(
       `/brandings/${id}/assets/${kind}`,
@@ -1986,6 +1991,7 @@ export interface BrandingDetail {
   id: string;
   name: string;
   logoUrl: string | null;
+  logoLightUrl: string | null;
   faviconUrl: string | null;
   primaryColor: string;
   accentColor: string;

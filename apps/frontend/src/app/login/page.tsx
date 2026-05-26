@@ -64,6 +64,7 @@ type TenantContext = {
 
 type LoginBranding = {
   logoUrl: string | null;
+  logoLightUrl: string | null;
   accentColor: string;
   loginBackgroundUrl: string | null;
   loginGreeting: string | null;
@@ -115,6 +116,7 @@ export default function LoginPage() {
         if (r.branding) {
           setBranding({
             logoUrl: r.branding.logoUrl,
+            logoLightUrl: r.branding.logoLightUrl,
             accentColor: r.branding.accentColor,
             loginBackgroundUrl: r.branding.loginBackgroundUrl,
             loginGreeting: r.branding.loginGreeting,
@@ -202,21 +204,39 @@ export default function LoginPage() {
     : {};
 
   // FORM (gemeinsam für alle Layout-Varianten)
+  //
+  // Optionaler Branding-Header oben: Logo + Tenant-Name. Wir nutzen
+  // logoLightUrl mit Fallback auf logoUrl — die Form-Card sitzt auf
+  // dem dunklen surface-raised, also brauchen schwarze Logos die helle
+  // Variante. Wenn beides null ist, faellt der Header auf den reinen
+  // Tenant-Namen zurueck. Im Apex-Single-Login (kein Tenant-Kontext)
+  // entfaellt der Header komplett — die Studio-Anmeldung-Headline
+  // unten reicht.
+  const brandLogo = branding?.logoLightUrl ?? branding?.logoUrl ?? null;
+  const brandHeader = tenantContext && (
+    <div className="flex flex-col items-center mb-6 space-y-2">
+      {brandLogo ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={brandLogo}
+          alt={tenantContext.name}
+          className="max-h-10 max-w-[200px] object-contain"
+        />
+      ) : null}
+      <div className="text-ui-sm text-ink-secondary text-center">
+        {tenantContext.name}
+      </div>
+    </div>
+  );
+
   const formCard = (
     <div className="w-full max-w-sm">
+      {brandHeader}
       {stage.kind === "credentials" ? (
         <form
           onSubmit={submitCredentials}
           className="space-y-5 bg-surface-raised border border-line-subtle rounded-md p-7 shadow-elev-2"
         >
-          {tenantContext && !hasHero && (
-            <div className="text-ui-xs text-ink-tertiary border-b border-line-subtle pb-3 -mt-1">
-              Anmeldung bei{" "}
-              <span className="font-medium text-ink-secondary">
-                {tenantContext.name}
-              </span>
-            </div>
-          )}
           <h1 className="text-display-sm text-ink-primary font-medium">
             {t("login.title")}
           </h1>
@@ -405,21 +425,12 @@ export default function LoginPage() {
         <BrandedHero
           imageUrl={branding.loginBackgroundUrl!}
           logoUrl={branding.logoUrl}
+          logoLightUrl={branding.logoLightUrl}
           tenantName={tenantContext?.name}
           greeting={branding.loginGreeting}
         />
         <section className="flex-1 flex items-center justify-center p-6 lg:p-10 min-h-[60vh] lg:min-h-screen">
-          <div className="w-full max-w-sm animate-fade-in">
-            {tenantContext && (
-              <div className="text-ui-xs text-ink-tertiary mb-4 lg:hidden">
-                Anmeldung bei{" "}
-                <span className="font-medium text-ink-secondary">
-                  {tenantContext.name}
-                </span>
-              </div>
-            )}
-            {formCard}
-          </div>
+          <div className="w-full max-w-sm animate-fade-in">{formCard}</div>
         </section>
       </main>
     );
@@ -474,14 +485,20 @@ export default function LoginPage() {
 function BrandedHero({
   imageUrl,
   logoUrl,
+  logoLightUrl,
   tenantName,
   greeting,
 }: {
   imageUrl: string;
   logoUrl: string | null;
+  logoLightUrl: string | null;
   tenantName: string | undefined;
   greeting: string | null;
 }) {
+  // Auf dem Hero-Overlay (immer dunkel) ist die helle Logo-Variante
+  // praktisch immer besser lesbar. Fallback auf das Standard-Logo,
+  // wenn keine helle Variante hochgeladen wurde.
+  const heroLogo = logoLightUrl ?? logoUrl;
   return (
     <aside
       className="relative lg:flex-1 lg:min-h-screen min-h-[40vh] flex flex-col justify-between p-8 lg:p-12 text-white overflow-hidden"
@@ -493,10 +510,10 @@ function BrandedHero({
     >
       {/* Logo oben */}
       <div>
-        {logoUrl ? (
+        {heroLogo ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={logoUrl}
+            src={heroLogo}
             alt={tenantName ?? ""}
             className="max-h-12 max-w-[200px] object-contain drop-shadow-lg"
           />
