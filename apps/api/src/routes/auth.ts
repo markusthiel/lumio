@@ -523,6 +523,43 @@ export async function registerAuthRoutes(app: FastifyInstance) {
   });
 
   // -------------------------------------------------------------------------
+  // GET /auth/tenant-context — Tenant-Info ohne Login
+  // -------------------------------------------------------------------------
+  // Liefert minimale Tenant-Daten (Name + Slug + Status) basierend auf
+  // dem aufgelösten Tenant (Custom-Domain, Subdomain oder Header).
+  // Wird vom Frontend genutzt um auf der Login-Seite einen
+  // "Anmeldung bei <Studio>"-Hinweis anzuzeigen, damit der User
+  // weiß welches Tenant er gerade anspricht (multi-Mode).
+  //
+  // Sicherheitsabwägung: gibt's Privacy-Probleme wenn jemand ungefragt
+  // den Tenant-Namen sieht? Nein — die Subdomain selbst macht die
+  // Existenz schon publik, und der Tenant-Name ist auch sonst auf
+  // Customer-Galerien sichtbar. Sensitive Felder (User-Liste, Galerien)
+  // bleiben strict auth-gated.
+  //
+  // Wenn kein Tenant aufgelöst werden konnte (Apex-Domain im
+  // multi-Mode ohne Header), antworten wir mit {tenant: null} —
+  // das Frontend entscheidet dann.
+  app.get("/auth/tenant-context", async (req, reply) => {
+    if (!req.tenantId) {
+      return { tenant: null };
+    }
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: req.tenantId },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        status: true,
+      },
+    });
+    if (!tenant) {
+      return { tenant: null };
+    }
+    return { tenant };
+  });
+
+  // -------------------------------------------------------------------------
   // GET /auth/me
   // -------------------------------------------------------------------------
   app.get("/auth/me", async (req, reply) => {

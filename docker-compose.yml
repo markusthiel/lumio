@@ -58,6 +58,11 @@ services:
       # werden (z.B. https://api.example.com).
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-}
       - NEXT_PUBLIC_DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-single}
+      # Im Multi-Mode: Basis-Domain des Cloud-Setups (z.B. lumio-cloud.de).
+      # Wird vom Frontend genutzt um Apex- von Tenant-Subdomain zu
+      # unterscheiden und beim Tenant-Picker die Subdomain-URL zu bauen.
+      # Im Single-Mode irrelevant, kann leer bleiben.
+      - NEXT_PUBLIC_DOMAIN_BASE=${LUMIO_DOMAIN_BASE:-}
     # Direkter Frontend-Port ist nur für Debug nützlich — externe Anfragen
     # gehen durch Caddy. Default-Bind ist 127.0.0.1, damit der Container nicht
     # versehentlich ohne Caddy aus dem Internet erreichbar ist. Für direkte

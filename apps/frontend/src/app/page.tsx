@@ -1,18 +1,57 @@
 /**
- * Lumio — Landing / Status Page
+ * Lumio — Root-Route
  *
- * Im Pre-Alpha-Stadium nur Statusseite. Wird später durch echte Login-Seite
- * (single-Mode) oder Marketing-Seite (multi-Mode) ersetzt.
+ * Modusabhängiger Einstieg:
+ *
+ *   Single-Mode (Self-Hoster, EIN Tenant pro Deployment):
+ *     Permanenter Redirect auf /login. Es gibt keine Tenant-Auswahl,
+ *     also keinen Sinn für eine Zwischenseite. Wer schon eingeloggt
+ *     ist, wird vom /login auf /studio weitergeleitet (das übernimmt
+ *     die LoginPage selbst).
+ *
+ *   Multi-Mode (Cloud, viele Tenants über Subdomains):
+ *     - Auf der Apex-Domain (z.B. lumio-cloud.de) → Tenant-Picker
+ *       (Form für Slug-Eingabe → Subdomain-Redirect)
+ *     - Auf einer Tenant-Subdomain (z.B. stefan.lumio-cloud.de) →
+ *       Redirect auf /login (Tenant ist durch Host bereits identifiziert)
+ *
+ *   Die Apex-vs-Subdomain-Unterscheidung passiert Server-Side über den
+ *   Host-Header. Dadurch entsteht keine sichtbare Zwischenseite mit
+ *   "lädt..."-Zustand.
+ *
+ * Pre-Alpha-Status-Anzeige ist hier raus. Wer den API-Health-Endpoint
+ * sehen will, geht direkt zu /api/v1/health.
  */
+import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import Link from "next/link";
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
-const mode = process.env.NEXT_PUBLIC_DEPLOYMENT_MODE ?? "single";
+import { TenantPicker } from "@/components/landing/TenantPicker";
 
-export default function HomePage() {
+const MODE = process.env.NEXT_PUBLIC_DEPLOYMENT_MODE ?? "single";
+const DOMAIN_BASE = process.env.NEXT_PUBLIC_DOMAIN_BASE ?? "";
+
+export default async function HomePage() {
+  // Single-Mode: direkt durchleiten.
+  if (MODE === "single") {
+    redirect("/login");
+  }
+
+  // Multi-Mode: Host inspizieren um zu entscheiden, ob wir auf der
+  // Apex-Domain oder einer Tenant-Subdomain sind.
+  const headerList = await headers();
+  const host = (headerList.get("host") ?? "").split(":")[0].toLowerCase();
+  const isApex =
+    !DOMAIN_BASE || host === DOMAIN_BASE || host === `www.${DOMAIN_BASE}`;
+
+  // Tenant-Subdomain: Tenant ist via Host bekannt, direkt zu Login.
+  if (!isApex) {
+    redirect("/login");
+  }
+
+  // Apex: Tenant-Picker rendern. Form-Submit redirected auf Subdomain.
   return (
     <main className="min-h-screen flex items-center justify-center p-8 bg-surface-canvas">
-      {/* Dezenter Gradient wie auf der Login-Page */}
       <div
         aria-hidden
         className="fixed inset-0 pointer-events-none"
@@ -22,66 +61,38 @@ export default function HomePage() {
         }}
       />
 
-      <div className="relative max-w-xl w-full space-y-8 animate-fade-in">
+      <div className="relative max-w-md w-full space-y-8 animate-fade-in">
         <header className="space-y-3">
           <div className="text-ui-xs font-medium text-accent uppercase tracking-[0.15em]">
-            Lumio · Pre-Alpha
+            Lumio
           </div>
           <h1 className="text-display-xl font-medium tracking-tight text-ink-primary">
-            Foto- & Video-Sharing.
+            Foto- &amp; Video-Sharing
             <br />
-            <span className="text-ink-secondary">Self-hosted.</span>
+            <span className="text-ink-secondary">für Profis.</span>
           </h1>
           <p className="text-ui-lg text-ink-tertiary leading-relaxed">
-            Eine schnelle, datenschutzfreundliche Plattform für Fotograf:innen
-            zum Teilen, Proofing und Ausliefern von Shootings.
+            Schnelles Proofing, Auswahl und Auslieferung von Shootings.
           </p>
         </header>
 
-        <div className="rounded-md border border-line-subtle bg-surface-raised p-5 space-y-3">
-          <div className="text-ui-sm font-medium text-ink-secondary">
-            System-Status
-          </div>
-          <dl className="text-ui space-y-1.5">
-            <div className="flex justify-between items-center">
-              <dt className="text-ink-tertiary">Deployment-Modus</dt>
-              <dd className="font-mono text-ui-sm">{mode}</dd>
-            </div>
-            <div className="flex justify-between items-center">
-              <dt className="text-ink-tertiary">API</dt>
-              <dd className="font-mono text-ui-xs">{apiUrl}</dd>
-            </div>
-            <div className="flex justify-between items-center">
-              <dt className="text-ink-tertiary">Version</dt>
-              <dd className="font-mono text-ui-sm">0.1.0</dd>
-            </div>
-          </dl>
-        </div>
+        <TenantPicker domainBase={DOMAIN_BASE} />
 
-        <nav className="flex gap-2 text-ui">
+        <div className="flex gap-4 text-ui-sm text-ink-tertiary justify-center">
           <Link
-            href="/login"
-            className="inline-flex items-center justify-center font-medium h-9 px-4 rounded bg-accent text-accent-contrast hover:bg-accent-hover transition-colors duration-motion"
+            href="https://lumio-app.de"
+            className="hover:text-ink-secondary"
           >
-            Studio Login
+            Self-hosted Version
           </Link>
-          <Link
-            href={`${apiUrl}/health`}
-            className="inline-flex items-center justify-center font-medium h-9 px-4 rounded bg-surface-raised text-ink-primary border border-line-subtle hover:border-line-strong hover:bg-surface-overlay transition-colors duration-motion"
-          >
-            API Health
-          </Link>
+          <span>·</span>
           <a
             href="https://forgejo.thiel.tools/thiel/lumio"
-            className="inline-flex items-center justify-center font-medium h-9 px-4 rounded bg-surface-raised text-ink-primary border border-line-subtle hover:border-line-strong hover:bg-surface-overlay transition-colors duration-motion"
+            className="hover:text-ink-secondary"
           >
-            Source
+            Quellcode
           </a>
-        </nav>
-
-        <footer className="text-ui-xs text-ink-tertiary pt-8 border-t border-line-subtle">
-          Self-hosted on your terms. Licensed under AGPL-3.0.
-        </footer>
+        </div>
       </div>
     </main>
   );

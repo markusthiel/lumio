@@ -1,11 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { startAuthentication } from "@simplewebauthn/browser";
 import { api } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 import { Button, Input } from "@/components/ui";
+
+const MODE = process.env.NEXT_PUBLIC_DEPLOYMENT_MODE ?? "single";
 
 type Stage =
   | { kind: "credentials" }
@@ -25,6 +27,50 @@ export default function LoginPage() {
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [tenantContext, setTenantContext] = useState<{
+    name: string;
+    slug: string;
+    status: "active" | "suspended" | "archived";
+  } | null>(null);
+
+  // Im Multi-Mode: Tenant-Identitaet auflösen damit der User sieht,
+  // bei welchem Studio er sich gerade anmeldet. Wenn die Auflösung
+  // null liefert (Apex-Domain ohne Header), liefern wir den User
+  // zur Tenant-Picker-Seite zurück.
+  useEffect(() => {
+    if (MODE === "single") return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await api.getTenantContext();
+        if (cancelled) return;
+        if (!r.tenant) {
+          // Wir sind im Multi-Mode aber konnten keinen Tenant
+          // auflösen → User soll auf die Apex-Picker-Seite zurück.
+          router.replace("/");
+          return;
+        }
+        if (r.tenant.status !== "active") {
+          setError(
+            r.tenant.status === "archived"
+              ? `Das Studio „${r.tenant.name}" wurde archiviert. Falls du Zugriff auf deine Daten brauchst, kontaktiere den Support.`
+              : `Das Studio „${r.tenant.name}" ist aktuell stillgelegt.`
+          );
+        }
+        setTenantContext({
+          name: r.tenant.name,
+          slug: r.tenant.slug,
+          status: r.tenant.status,
+        });
+      } catch {
+        // Bei Backend-Fehler einfach weiter — Login funktioniert
+        // auch ohne Banner.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   async function submitCredentials(e: React.FormEvent) {
     e.preventDefault();
@@ -125,6 +171,14 @@ export default function LoginPage() {
             onSubmit={submitCredentials}
             className="space-y-5 bg-surface-raised border border-line-subtle rounded-md p-7 shadow-elev-2"
           >
+            {tenantContext && (
+              <div className="text-ui-xs text-ink-tertiary border-b border-line-subtle pb-3 -mt-1">
+                Anmeldung bei{" "}
+                <span className="font-medium text-ink-secondary">
+                  {tenantContext.name}
+                </span>
+              </div>
+            )}
             <h1 className="text-display-sm text-ink-primary font-medium">
               {t("login.title")}
             </h1>

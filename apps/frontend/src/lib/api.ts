@@ -429,6 +429,21 @@ export const api = {
       } | null;
     }>("/auth/me"),
 
+  /** Liefert Tenant-Info basierend auf dem aufgelösten Tenant (Host,
+   *  Subdomain, Header). Funktioniert OHNE Login — wird auf der
+   *  Login-Seite genutzt um den User darüber zu informieren bei
+   *  welchem Studio er sich gerade anmeldet. tenant: null wenn Apex
+   *  ohne erkennbaren Tenant. */
+  getTenantContext: () =>
+    request<{
+      tenant: {
+        id: string;
+        name: string;
+        slug: string;
+        status: "active" | "suspended" | "archived";
+      } | null;
+    }>("/auth/tenant-context"),
+
   /** Auto-Login nach Stripe-Checkout. Welcome-Page ruft das mit der
    *  session_id aus der URL auf — Backend validiert via Stripe und
    *  stellt das Session-Cookie aus. Returnt {ok:true} bei Erfolg,
