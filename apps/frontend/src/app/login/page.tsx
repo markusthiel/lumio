@@ -36,6 +36,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { startAuthentication } from "@simplewebauthn/browser";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -272,6 +273,15 @@ export default function LoginPage() {
           >
             {pending ? t("common.signingIn") : t("common.signIn")}
           </Button>
+
+          <div className="text-center pt-1">
+            <Link
+              href="/auth/forgot-password"
+              className="text-ui-xs text-ink-tertiary hover:text-ink-primary transition-colors duration-motion"
+            >
+              Passwort vergessen?
+            </Link>
+          </div>
 
           {MODE === "single" && (
             <p className="text-ui-xs text-ink-tertiary text-center pt-2">

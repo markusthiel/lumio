@@ -460,6 +460,82 @@ export const api = {
       } | null;
     }>("/auth/tenant-context"),
 
+  /** Passwort-vergessen anstossen. Backend antwortet IMMER 200 (egal
+   *  ob die E-Mail existiert), um User-Enumeration zu vermeiden. Die
+   *  Mail kommt nur wenn der User aktiv + Tenant aktiv ist. Tenant
+   *  wird ueber Host/Subdomain aufgeloest. */
+  forgotPassword: (email: string) =>
+    request<{ ok: true }>("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    }),
+
+  /** Reset-Token validieren (vor dem Submit). Liefert minimale Daten
+   *  fuer die Reset-Page-UX. */
+  checkResetToken: (token: string) =>
+    request<{
+      email: string;
+      name: string | null;
+      tenantName: string;
+      expiresAt: string;
+    }>(`/auth/reset-password/check?token=${encodeURIComponent(token)}`),
+
+  /** Neues Passwort setzen. Im Erfolgsfall sind ALLE Sessions
+   *  invalidiert; User muss sich neu einloggen. */
+  resetPassword: (token: string, password: string) =>
+    request<{ ok: true }>("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify({ token, password }),
+    }),
+
+  // Account-Self-Service (eigener Profil-Bereich)
+  getAccount: () =>
+    request<{
+      user: {
+        id: string;
+        email: string;
+        name: string | null;
+        role: "owner" | "admin" | "member";
+        status: string;
+        totpEnabled: boolean;
+        createdAt: string;
+        lastLoginAt: string | null;
+      };
+      pendingEmailChange: {
+        newEmail: string | undefined;
+        expiresAt: string;
+      } | null;
+    }>("/account"),
+
+  updateAccountName: (name: string) =>
+    request<{ user: { id: string; email: string; name: string | null } }>(
+      "/account",
+      { method: "PATCH", body: JSON.stringify({ name }) }
+    ),
+
+  changeAccountPassword: (input: {
+    currentPassword: string;
+    newPassword: string;
+  }) =>
+    request<{ ok: true }>("/account/password", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  requestAccountEmailChange: (input: {
+    currentPassword: string;
+    newEmail: string;
+  }) =>
+    request<{ ok: true; newEmail: string }>("/account/email-change", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  cancelAccountEmailChange: () =>
+    request<{ ok: true; cancelled: number }>("/account/email-change", {
+      method: "DELETE",
+    }),
+
   /** Auto-Login nach Stripe-Checkout. Welcome-Page ruft das mit der
    *  session_id aus der URL auf — Backend validiert via Stripe und
    *  stellt das Session-Cookie aus. Returnt {ok:true} bei Erfolg,

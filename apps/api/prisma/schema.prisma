@@ -1184,9 +1184,15 @@ model PasswordResetToken {
   tokenHash   String   @unique
   
   // "setup" = initiales Passwort beim Onboarding
-  // "reset" = vergessenes Passwort (späteres Feature)
+  // "reset" = vergessenes Passwort
+  // "email_change" = User aendert seine E-Mail-Adresse; payload haelt
+  //                  die neue Adresse, die nach Click bestaetigt wird.
   kind        String   @default("setup")
-  
+
+  // Tokentyp-spezifischer Payload als JSON. Aktuell genutzt fuer
+  // email_change.newEmail. Bei setup/reset null.
+  payload     Json?
+
   expiresAt   DateTime
   usedAt      DateTime?
   

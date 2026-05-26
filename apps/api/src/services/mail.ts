@@ -144,3 +144,96 @@ export function tmplOwnerSetup(opts: {
       `— Lumio`,
   };
 }
+
+/**
+ * Mail bei Passwort-Reset. Wird per "Passwort vergessen"-Flow vom
+ * User selbst angestossen. tenantName lassen wir bewusst leer wenn
+ * mehrere Tenants pro E-Mail existieren — die Mail soll keinen
+ * Tenant-Hint geben, der jemand anderen verwirren wuerde.
+ */
+export function tmplPasswordReset(opts: {
+  displayName: string;
+  tenantName: string;
+  resetUrl: string;
+  validHours: number;
+  ipAddress?: string;
+}): { subject: string; text: string } {
+  const ipLine = opts.ipAddress
+    ? `Angefordert von IP-Adresse: ${opts.ipAddress}\n\n`
+    : "";
+  return {
+    subject: `Passwort zurücksetzen für „${opts.tenantName}"`,
+    text:
+      `Hallo ${opts.displayName},\n\n` +
+      `Du (oder jemand mit deiner E-Mail-Adresse) hat ein neues Passwort ` +
+      `für dein Lumio-Studio „${opts.tenantName}" angefordert.\n\n` +
+      `Klick auf den folgenden Link, um ein neues Passwort zu setzen:\n\n` +
+      `${opts.resetUrl}\n\n` +
+      `Der Link ist ${opts.validHours} Stunden gültig.\n\n` +
+      ipLine +
+      `Falls du das NICHT angefordert hast, kannst du diese Mail ignorieren — ` +
+      `dein aktuelles Passwort bleibt gültig. Bei verdächtiger Aktivität ` +
+      `melde dich bitte beim Studio-Owner.\n\n` +
+      `— Lumio`,
+  };
+}
+
+/**
+ * Bestaetigungsmail an die NEUE E-Mail-Adresse beim E-Mail-Wechsel.
+ * Erst nach Klick auf den Link ist der Wechsel vollzogen. So koennen
+ * Tippfehler in der neuen Adresse den User nicht aussperren.
+ */
+export function tmplEmailChangeConfirm(opts: {
+  displayName: string;
+  tenantName: string;
+  oldEmail: string;
+  newEmail: string;
+  confirmUrl: string;
+  validHours: number;
+}): { subject: string; text: string } {
+  return {
+    subject: `Bestätige deine neue E-Mail-Adresse für „${opts.tenantName}"`,
+    text:
+      `Hallo ${opts.displayName},\n\n` +
+      `Du hast deine E-Mail-Adresse für dein Lumio-Studio ` +
+      `„${opts.tenantName}" geändert:\n\n` +
+      `  von: ${opts.oldEmail}\n` +
+      `  zu:  ${opts.newEmail}\n\n` +
+      `Klick auf den folgenden Link, um die Änderung zu bestätigen:\n\n` +
+      `${opts.confirmUrl}\n\n` +
+      `Der Link ist ${opts.validHours} Stunden gültig.\n\n` +
+      `Bis du den Link klickst, bleibt deine alte E-Mail-Adresse aktiv. ` +
+      `Falls du diesen Wechsel NICHT angefordert hast, ignoriere die Mail ` +
+      `einfach.\n\n` +
+      `— Lumio`,
+  };
+}
+
+/**
+ * Info-Mail an die ALTE E-Mail-Adresse beim E-Mail-Wechsel. Hilft
+ * Account-Hijacks zu erkennen: wenn der User selbst den Wechsel
+ * angefordert hat, ist das nur eine Bestätigung; wenn jemand
+ * Fremdes Zugriff hatte und die Adresse ändert, sieht der echte
+ * Inhaber Bescheid.
+ */
+export function tmplEmailChangeNotice(opts: {
+  displayName: string;
+  tenantName: string;
+  newEmail: string;
+}): { subject: string; text: string } {
+  return {
+    subject: `E-Mail-Wechsel für „${opts.tenantName}" angefordert`,
+    text:
+      `Hallo ${opts.displayName},\n\n` +
+      `Es wurde ein Wechsel deiner E-Mail-Adresse für dein Lumio-Studio ` +
+      `„${opts.tenantName}" angefordert. Die neue Adresse lautet:\n\n` +
+      `  ${opts.newEmail}\n\n` +
+      `An die neue Adresse haben wir einen Bestätigungslink geschickt. ` +
+      `Erst nach Klick darauf ist der Wechsel vollzogen.\n\n` +
+      `Wenn du das selbst angefordert hast, brauchst du nichts weiter ` +
+      `zu tun. Wenn NICHT, melde dich umgehend beim Studio-Owner und ` +
+      `ändere dein Passwort — möglicherweise hat jemand Fremdes Zugriff ` +
+      `auf deinen Account.\n\n` +
+      `— Lumio`,
+  };
+}

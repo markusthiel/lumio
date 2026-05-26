@@ -29,7 +29,10 @@ import { SESSION_COOKIE } from "../plugins/auth.js";
 import {
   consumeSetupToken,
   lookupSetupToken,
+  createSetupToken,
+  buildResetUrl,
 } from "../services/setupToken.js";
+import { sendMail, tmplPasswordReset } from "../services/mail.js";
 import {
   createLoginChallenge,
   verifyLoginChallenge,
@@ -719,6 +722,328 @@ export async function registerAuthRoutes(app: FastifyInstance) {
   );
 
   // -------------------------------------------------------------------------
+  // POST /auth/forgot-password — Reset-Mail anfordern
+  // -------------------------------------------------------------------------
+  // Public, kein Auth. Rate-limited gegen Mail-Bombing. Liefert IMMER
+  // 200, egal ob die E-Mail existiert — sonst wäre das ein User-Enumera-
+  // tion-Vektor (man könnte testen, ob eine Mail bei einem Tenant
+  // existiert).
+  //
+  // Tenant-Resolution greift wie ueberall: bei Subdomain/Custom-Domain
+  // ist req.tenantId schon gesetzt und wir scopen auf den Tenant. Im
+  // Apex-Multi-Mode ohne Header ist tenantId leer und wir koennen
+  // nicht zuordnen — return 200 ohne Mailversand (silent no-op).
+  //
+  // Disabled User: keine Mail. Suspended/archived Tenant: keine Mail.
+  // Im "no-mail" Fall trotzdem 200, damit der Caller nicht zwischen
+  // "User existiert nicht" und "User ist disabled" unterscheiden kann.
+  app.post<{ Body: { email: string } }>(
+    "/auth/forgot-password",
+    {
+      config: { rateLimit: { max: 5, timeWindow: "10 minutes" } },
+    },
+    async (req, reply) => {
+      const body = z
+        .object({ email: z.string().email().toLowerCase().max(255) })
+        .parse(req.body);
+
+      // Ohne Tenant-Resolution geben wir den Generic-200 zurueck.
+      if (!req.tenantId) {
+        return reply.send({ ok: true });
+      }
+
+      const user = await prisma.user.findUnique({
+        where: {
+          tenantId_email: { tenantId: req.tenantId, email: body.email },
+        },
+        include: { tenant: { select: { name: true, status: true } } },
+      });
+
+      // Wir mailen nur wenn alles passt — kein Audit-Leak nach aussen.
+      // Aber wir loggen interne Versuche fuer Forensics.
+      if (
+        user &&
+        user.status === "active" &&
+        user.tenant.status === "active"
+      ) {
+        const { token } = await createSetupToken({
+          userId: user.id,
+          kind: "reset",
+        });
+        const resetUrl = buildResetUrl(token);
+        try {
+          const tpl = tmplPasswordReset({
+            displayName: user.name ?? user.email,
+            tenantName: user.tenant.name,
+            resetUrl,
+            validHours: 24,
+            ipAddress: req.ip,
+          });
+          await sendMail({ to: user.email, ...tpl });
+        } catch (err) {
+          app.log.warn(
+            { err, userId: user.id },
+            "forgot-password: mail send failed"
+          );
+        }
+        await logEvent({
+          tenantId: user.tenantId,
+          actorType: "user",
+          actorId: user.id,
+          action: "auth.password_reset_requested",
+          ipAddress: req.ip,
+          payload: { email: body.email },
+        });
+      } else {
+        // Audit auch fuer fehlgeschlagene Versuche (kein User, disabled,
+        // tenant nicht active) — hilft bei Brute-Force-Forensik. Wir
+        // nutzen actorType=system, da es keinen identifizierten User
+        // gibt (der gesendete email-String allein konstituiert keinen
+        // Actor — er koennte willkuerlich sein).
+        await logEvent({
+          tenantId: req.tenantId,
+          actorType: "system",
+          actorId: null,
+          action: "auth.password_reset_no_op",
+          ipAddress: req.ip,
+          payload: {
+            email: body.email,
+            reason: !user
+              ? "user_not_found"
+              : user.status !== "active"
+              ? "user_not_active"
+              : "tenant_not_active",
+          },
+        });
+      }
+
+      return reply.send({ ok: true });
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // GET /auth/reset-password/check?token=...
+  // -------------------------------------------------------------------------
+  // Token-Vorpruefung damit die Frontend-Page direkt "Link ungueltig"
+  // anzeigen kann statt erst nach dem Submit. Liefert minimale Daten
+  // (E-Mail + Tenant-Name), bewusst nicht die volle User-Info.
+  app.get<{ Querystring: { token?: string } }>(
+    "/auth/reset-password/check",
+    async (req, reply) => {
+      const token = req.query.token;
+      if (!token) {
+        return reply.status(400).send({ error: "missing_token" });
+      }
+      const found = await lookupSetupToken(token, "reset");
+      if (!found) {
+        return reply.status(404).send({ error: "invalid_or_expired" });
+      }
+      const user = await prisma.user.findUnique({
+        where: { id: found.userId },
+        include: { tenant: { select: { name: true, status: true } } },
+      });
+      if (!user) return reply.status(404).send({ error: "invalid_or_expired" });
+      if (user.status !== "active" || user.tenant.status !== "active") {
+        return reply.status(409).send({ error: "user_or_tenant_inactive" });
+      }
+      return {
+        email: user.email,
+        name: user.name,
+        tenantName: user.tenant.name,
+        expiresAt: found.expiresAt,
+      };
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // POST /auth/reset-password
+  // -------------------------------------------------------------------------
+  // Token einloesen, neues Passwort setzen. Im Gegensatz zum Setup-Flow
+  // wird NICHT automatisch eingeloggt — der User soll bewusst nochmal
+  // ein Login durchlaufen, mit dem neuen Passwort. Sicherer (kein
+  // Stolen-Reset-Token-Hijack einer ungewollten Session) und kompatibel
+  // mit eventuell aktivem 2FA.
+  //
+  // Wir invalidieren ALLE bestehenden Sessions des Users — wenn jemand
+  // einen Reset gemacht hat, wollen wir verhindern dass eine evtl.
+  // geklaute alte Session weiterlaeuft.
+  app.post<{ Body: { token: string; password: string } }>(
+    "/auth/reset-password",
+    {
+      config: { rateLimit: { max: 10, timeWindow: "5 minutes" } },
+    },
+    async (req, reply) => {
+      const body = z
+        .object({
+          token: z.string().min(1).max(500),
+          password: z.string().min(12).max(500),
+        })
+        .parse(req.body);
+
+      const found = await lookupSetupToken(body.token, "reset");
+      if (!found) {
+        return reply.status(404).send({ error: "invalid_or_expired" });
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: found.userId },
+        include: { tenant: { select: { status: true } } },
+      });
+      if (!user) return reply.status(404).send({ error: "invalid_or_expired" });
+      if (user.status !== "active" || user.tenant.status !== "active") {
+        return reply.status(409).send({ error: "user_or_tenant_inactive" });
+      }
+
+      const newHash = await hashPassword(body.password);
+      await prisma.$transaction(async (tx) => {
+        await tx.user.update({
+          where: { id: user.id },
+          data: { passwordHash: newHash },
+        });
+        await tx.passwordResetToken.update({
+          where: { id: found.tokenId },
+          data: { usedAt: new Date() },
+        });
+        // Alle Sessions des Users invalidieren — Reset ist auch ein
+        // 'evict everywhere'-Trigger.
+        await tx.session.deleteMany({ where: { userId: user.id } });
+      });
+
+      await logEvent({
+        tenantId: user.tenantId,
+        actorType: "user",
+        actorId: user.id,
+        action: "auth.password_reset_completed",
+        ipAddress: req.ip,
+      });
+
+      return { ok: true };
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // GET /auth/confirm-email?token=...
+  // -------------------------------------------------------------------------
+  // Bestaetigt einen E-Mail-Wechsel der vom User via /account/email-change
+  // angestossen wurde. Der Link wurde an die NEUE Adresse geschickt;
+  // wenn der User klickt, beweist er Zugriff auf die neue Inbox.
+  //
+  // Im Gegensatz zu Reset/Setup ist das ein GET (Klick auf Link in der
+  // Mail). Wir akzeptieren den GET als Confirm, weil Browser-Default-
+  // Verhalten so funktioniert — Mail-Clients oeffnen den Link, der
+  // User soll nichts weiter klicken muessen. Die Mail kann nicht durch
+  // Prefetch versehentlich eingeloest werden, weil Token nach Erstein-
+  // loesung verbraucht sind und der Token-Validate-Check 'usedAt' setzt.
+  //
+  // Antwort ist HTML, das eine kurze Bestaetigung anzeigt + Link zum
+  // Studio. Frontend-Page koennten wir spaeter rendern; aktuell ist
+  // ein Mini-HTML einfacher und vermeidet ein Routing-Setup fuer eine
+  // selten-genutzte Page.
+  app.get<{ Querystring: { token?: string } }>(
+    "/auth/confirm-email",
+    async (req, reply) => {
+      const token = req.query.token;
+      if (!token) {
+        return reply
+          .type("text/html; charset=utf-8")
+          .status(400)
+          .send(htmlPage("Ungültiger Link", "Es fehlt ein Token im Link."));
+      }
+      const found = await lookupSetupToken(token, "email_change");
+      if (!found) {
+        return reply
+          .type("text/html; charset=utf-8")
+          .status(404)
+          .send(
+            htmlPage(
+              "Link ungültig oder abgelaufen",
+              "Der Bestätigungslink ist nicht mehr gültig. Fordere den E-Mail-Wechsel im Studio erneut an."
+            )
+          );
+      }
+      const newEmail = (found.payload as { newEmail?: string } | null)
+        ?.newEmail;
+      if (!newEmail) {
+        return reply
+          .type("text/html; charset=utf-8")
+          .status(500)
+          .send(
+            htmlPage(
+              "Fehler",
+              "Der Token-Payload ist beschädigt. Bitte fordere den Wechsel im Studio neu an."
+            )
+          );
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: found.userId },
+        include: { tenant: { select: { name: true, status: true } } },
+      });
+      if (!user || user.tenant.status !== "active" || user.status !== "active") {
+        return reply
+          .type("text/html; charset=utf-8")
+          .status(409)
+          .send(
+            htmlPage(
+              "Account nicht aktiv",
+              "Der Account oder Tenant ist nicht aktiv. Wende dich an deinen Studio-Owner."
+            )
+          );
+      }
+
+      // Letzter Kollisions-Check (jemand anderes koennte die neue Adresse
+      // zwischenzeitlich genommen haben — z.B. Owner laedt jemanden ein).
+      const collision = await prisma.user.findUnique({
+        where: {
+          tenantId_email: { tenantId: user.tenantId, email: newEmail },
+        },
+        select: { id: true },
+      });
+      if (collision && collision.id !== user.id) {
+        return reply
+          .type("text/html; charset=utf-8")
+          .status(409)
+          .send(
+            htmlPage(
+              "E-Mail bereits vergeben",
+              "Die Adresse wurde zwischenzeitlich von jemand anderem im Studio belegt. Wähle eine andere."
+            )
+          );
+      }
+
+      await prisma.$transaction(async (tx) => {
+        await tx.user.update({
+          where: { id: user.id },
+          data: { email: newEmail },
+        });
+        await tx.passwordResetToken.update({
+          where: { id: found.tokenId },
+          data: { usedAt: new Date() },
+        });
+      });
+
+      await logEvent({
+        tenantId: user.tenantId,
+        actorType: "user",
+        actorId: user.id,
+        action: "account.email_changed",
+        ipAddress: req.ip,
+        payload: { oldEmail: user.email, newEmail },
+      });
+
+      return reply
+        .type("text/html; charset=utf-8")
+        .send(
+          htmlPage(
+            "E-Mail-Adresse bestätigt",
+            `Deine neue E-Mail-Adresse <strong>${escapeHtml(newEmail)}</strong> ist jetzt aktiv. Du kannst dich ab sofort mit der neuen Adresse einloggen.`,
+            { ctaText: "Zum Login", ctaUrl: "/login" }
+          )
+        );
+    }
+  );
+
+  // -------------------------------------------------------------------------
   // POST /auth/checkout-login
   // -------------------------------------------------------------------------
   // Auto-Login nach erfolgreichem Stripe-Checkout. Frontend Welcome-Page
@@ -846,4 +1171,57 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       }
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// Mini-HTML-Renderer fuer Confirm-Email-Response
+// ---------------------------------------------------------------------------
+// Wir rendern direkt aus der API ein einfaches HTML-Page, weil
+// Mail-Clients den Link "naked" oeffnen und es schlechtes UX waere,
+// den User durch ein Frontend-Round-Trip zu schicken. Stilistisch
+// halten wir es minimal — eine bordless Page mit Logo, Titel,
+// Erklaerung, CTA zum Studio.
+function htmlPage(
+  title: string,
+  body: string,
+  cta?: { ctaText: string; ctaUrl: string }
+): string {
+  const ctaHtml = cta
+    ? `<p style="margin-top:1.5rem;"><a href="${escapeAttr(cta.ctaUrl)}" style="display:inline-block;background:#f59e0b;color:#0e0e10;padding:0.6rem 1.2rem;border-radius:4px;text-decoration:none;font-weight:500;">${escapeHtml(cta.ctaText)}</a></p>`
+    : "";
+  return `<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${escapeHtml(title)} · Lumio</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #0e0e10; color: #e8e8eb; margin: 0; padding: 0; min-height: 100vh; display:flex; align-items:center; justify-content:center; }
+  .card { background: #18181b; border: 1px solid #2a2a30; border-radius: 8px; padding: 2rem; max-width: 480px; margin: 1rem; }
+  h1 { color: #f59e0b; font-size: 1.5rem; margin: 0 0 0.75rem 0; font-weight: 500; }
+  p { color: #b0b0b8; line-height: 1.55; margin: 0.5rem 0; }
+  strong { color: #e8e8eb; }
+</style>
+</head>
+<body>
+<div class="card">
+<h1>${escapeHtml(title)}</h1>
+<p>${body}</p>
+${ctaHtml}
+</div>
+</body>
+</html>`;
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function escapeAttr(s: string): string {
+  return escapeHtml(s);
 }
