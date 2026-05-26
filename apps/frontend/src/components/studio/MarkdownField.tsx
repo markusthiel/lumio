@@ -109,68 +109,6 @@ export function MarkdownField({
           {value.length} / {maxLength} Zeichen
         </p>
       )}
-
-      {/* Globale Markdown-Preview-Typografie. Local-scoped via class. */}
-      <style jsx global>{`
-        .markdown-preview h1 {
-          font-size: 1.5rem;
-          line-height: 1.2;
-          font-weight: 600;
-          margin: 0.25rem 0;
-        }
-        .markdown-preview h2 {
-          font-size: 1.25rem;
-          line-height: 1.25;
-          font-weight: 600;
-          margin: 0.25rem 0;
-        }
-        .markdown-preview h3 {
-          font-size: 1.1rem;
-          font-weight: 600;
-          margin: 0.25rem 0;
-        }
-        .markdown-preview p {
-          margin: 0.4rem 0;
-          line-height: 1.5;
-        }
-        .markdown-preview ul,
-        .markdown-preview ol {
-          margin: 0.4rem 0;
-          padding-left: 1.5rem;
-        }
-        .markdown-preview ul {
-          list-style: disc;
-        }
-        .markdown-preview ol {
-          list-style: decimal;
-        }
-        .markdown-preview li {
-          margin: 0.15rem 0;
-        }
-        .markdown-preview strong {
-          font-weight: 600;
-        }
-        .markdown-preview em {
-          font-style: italic;
-        }
-        .markdown-preview a {
-          color: rgb(var(--accent) / 1);
-          text-decoration: underline;
-          text-underline-offset: 2px;
-        }
-        .markdown-preview code {
-          background: rgb(var(--surface-sunken) / 0.8);
-          padding: 0.1rem 0.3rem;
-          border-radius: 2px;
-          font-size: 0.85em;
-        }
-        .markdown-preview blockquote {
-          border-left: 3px solid rgb(var(--line-subtle) / 1);
-          padding-left: 0.75rem;
-          color: rgb(var(--ink-secondary) / 1);
-          font-style: italic;
-        }
-      `}</style>
     </div>
   );
 }
