@@ -199,3 +199,55 @@ export async function syncSubscriptionFromStripe(
     },
   });
 }
+
+/** Kündigt die Stripe-Subscription eines Tenants sofort (nicht period-
+ * end). Wird beim Archive-Endpoint aufgerufen — Tenant soll nicht
+ * weiter abgerechnet werden sobald er stillgelegt ist.
+ *
+ * Defensiv:
+ *  - Wenn der Tenant keine Subscription hat (BillingSubscription-Row
+ *    fehlt oder stripeSubscriptionId ist null): no-op, kein Fehler.
+ *  - Wenn die Stripe-API antwortet 404 (Subscription gibt's nicht
+ *    mehr, z.B. schon manuell im Dashboard gekündigt): no-op, wir
+ *    loggen die Info aber werfen nicht.
+ *  - Bei anderen Stripe-Fehlern: weiter werfen, Aufrufer entscheidet
+ *    wie damit umgegangen wird (Archive selbst sollte nicht failen,
+ *    Subscription-Cancel ist Best-Effort).
+ *
+ * Cancel-Strategie: prorate=false. Tenant hat schon bezahlt, also
+ * keine Refunds — wir wollen einfach den Vertrag sofort beenden.
+ * Falls ein anteiliger Refund gewünscht ist, macht der Super-Admin
+ * das manuell im Stripe-Dashboard.
+ */
+export async function cancelSubscriptionImmediately(
+  tenantId: string
+): Promise<{ canceled: boolean; reason: string }> {
+  const sub = await prisma.billingSubscription.findUnique({
+    where: { tenantId },
+    select: { stripeSubscriptionId: true },
+  });
+  if (!sub?.stripeSubscriptionId) {
+    return { canceled: false, reason: "no_subscription" };
+  }
+  const stripe = getStripe();
+  try {
+    await stripe.subscriptions.cancel(sub.stripeSubscriptionId, {
+      prorate: false,
+    });
+    // DB-Update lassen wir bewusst aus — der Stripe-Webhook
+    // (customer.subscription.deleted) wird gleich danach unsere
+    // BillingSubscription.status auf 'canceled' setzen. Doppelte
+    // Updates wären überflüssig. Sollte der Webhook ausfallen, wird
+    // beim Hard-Delete eh die ganze BillingSubscription via Cascade
+    // entfernt.
+    return { canceled: true, reason: "ok" };
+  } catch (err) {
+    const stripeErr = err as { statusCode?: number; code?: string };
+    if (stripeErr.statusCode === 404) {
+      // Subscription existiert in Stripe nicht mehr — z.B. manuell
+      // im Dashboard storniert. Kein Fehler, einfach loggen.
+      return { canceled: false, reason: "not_found_in_stripe" };
+    }
+    throw err;
+  }
+}

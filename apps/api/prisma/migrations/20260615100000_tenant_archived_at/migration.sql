@@ -1,0 +1,15 @@
+-- Tenant.archivedAt für Hard-Delete-Karenzfrist (30 Tage).
+--
+-- Wird beim /super/tenants/:id/archive-Call gesetzt. Hard-Delete
+-- verlangt archivedAt + 30 Tage <= now() bevor er ausgeführt werden
+-- darf (DSGVO-typische Karenzfrist; gibt dem Tenant Zeit für
+-- Datenexport).
+--
+-- Bestehende archivierte Tenants kriegen kein archivedAt (NULL) —
+-- für sie startet die Karenz nicht automatisch. Wenn der Super-Admin
+-- einen bereits archivierten Tenant löschen will, muss er ihn erst
+-- erneut über den Archive-Endpoint anstossen (setzt archivedAt jetzt).
+-- Pragmatischer als eine Backfill-Zuweisung, weil wir das Archive-
+-- Datum aus den Audit-Logs ableiten müssten — aufwendig, und es geht
+-- nur um die Karenz-Berechnung, nicht um Daten-Integrität.
+ALTER TABLE "tenants" ADD COLUMN "archivedAt" TIMESTAMP(3);

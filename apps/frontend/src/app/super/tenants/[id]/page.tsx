@@ -24,6 +24,15 @@ function TenantDetail() {
   const [inviting, setInviting] = useState(false);
   const [editingMeta, setEditingMeta] = useState(false);
 
+  // Hard-Delete-Dialog: zeigt Slug-Confirm-Input. Wird nur ueber
+  // den "Endgültig löschen"-Button geoeffnet, der wiederum nur
+  // erscheint wenn Karenz vorbei ist.
+  const [deleteDialog, setDeleteDialog] = useState<{
+    typedSlug: string;
+    error: string | null;
+    pending: boolean;
+  } | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -65,7 +74,7 @@ function TenantDetail() {
     if (!tenant) return;
     if (
       !confirm(
-        `Tenant „${tenant.name}" archivieren?\n\nDas ist über die UI NICHT mehr reversibel. Bestehende Daten bleiben in der DB, aber Login + Customer-Sicht werden komplett blockiert.`
+        `Tenant „${tenant.name}" archivieren?\n\n• Login + Customer-Sicht werden blockiert\n• Stripe-Subscription wird sofort gekündigt\n• 30-Tage-Karenzfrist läuft an — danach Hard-Delete möglich\n• Bis dahin kann der Tenant seine Daten über separaten Export-Flow herunterladen`
       )
     )
       return;
@@ -75,6 +84,25 @@ function TenantDetail() {
       await load();
     } finally {
       setActionBusy(false);
+    }
+  }
+
+  async function performHardDelete() {
+    if (!tenant || !deleteDialog) return;
+    setDeleteDialog({ ...deleteDialog, pending: true, error: null });
+    try {
+      await api.superDeleteTenant(tenant.id, {
+        confirmSlug: deleteDialog.typedSlug,
+      });
+      // Erfolg → zurück zur Tenant-Liste
+      router.push("/super/tenants");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Fehler beim Löschen";
+      setDeleteDialog({
+        ...deleteDialog,
+        pending: false,
+        error: msg,
+      });
     }
   }
 
@@ -133,8 +161,70 @@ function TenantDetail() {
               Archivieren
             </ActionButton>
           )}
+          {/* Hard-Delete erst nach Karenz. Button nur sichtbar wenn:
+              - Tenant ist archiviert
+              - Karenz ist vorbei (karenz.active === false)
+              UI zeigt sonst einen Banner mit Restzeit (siehe unten). */}
+          {tenant.status === "archived" &&
+            tenant.karenz &&
+            !tenant.karenz.active && (
+              <ActionButton
+                onClick={() =>
+                  setDeleteDialog({
+                    typedSlug: "",
+                    error: null,
+                    pending: false,
+                  })
+                }
+                disabled={actionBusy}
+                variant="danger"
+              >
+                Endgültig löschen
+              </ActionButton>
+            )}
         </div>
       </div>
+
+      {/* Karenz-Banner: zeigt sich nur bei archivierten Tenants. Wenn
+          die 30 Tage noch laufen → "noch X Tage". Wenn vorbei →
+          "Hard-Delete jetzt möglich". Macht klar in welchem Zustand
+          der Tenant ist und was als naechstes passieren kann. */}
+      {tenant.status === "archived" && tenant.karenz && (
+        <div
+          className={`rounded-md border px-4 py-3 mb-6 ${
+            tenant.karenz.active
+              ? "border-semantic-warning/30 bg-semantic-warning/8"
+              : "border-semantic-danger/30 bg-semantic-danger/8"
+          }`}
+        >
+          <div className="text-ui-sm text-ink-secondary">
+            <span className="font-medium text-ink-primary">
+              {tenant.karenz.active
+                ? `Karenzfrist läuft — Hard-Delete in ${tenant.karenz.remainingDays} Tag${tenant.karenz.remainingDays === 1 ? "" : "en"} möglich`
+                : "Karenzfrist abgelaufen — Hard-Delete jetzt möglich"}
+            </span>
+            <div className="text-ui-xs text-ink-tertiary mt-1">
+              {tenant.karenz.active ? (
+                <>
+                  Archiviert am{" "}
+                  {tenant.archivedAt
+                    ? new Date(tenant.archivedAt).toLocaleDateString()
+                    : "—"}
+                  . Tenant kann während dieser Zeit seine Daten exportieren
+                  (über das separate Export-Feature, sobald verfügbar). Hard-
+                  Delete entfernt alle Daten + S3-Objekte irreversibel.
+                </>
+              ) : (
+                <>
+                  Du kannst den Tenant jetzt endgültig löschen. Alle Daten,
+                  Galerien, Files und S3-Objekte werden entfernt — das ist
+                  irreversibel.
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <Section title="Metadaten">
         {editingMeta ? (
@@ -158,6 +248,14 @@ function TenantDetail() {
             <span>{new Date(tenant.createdAt).toLocaleString("de-DE")}</span>
             <Label>Letztes Update</Label>
             <span>{new Date(tenant.updatedAt).toLocaleString("de-DE")}</span>
+            {tenant.archivedAt && (
+              <>
+                <Label>Archiviert am</Label>
+                <span>
+                  {new Date(tenant.archivedAt).toLocaleString("de-DE")}
+                </span>
+              </>
+            )}
           </dl>
         )}
         {!editingMeta && tenant.status !== "archived" && (
@@ -232,6 +330,96 @@ function TenantDetail() {
           }}
         />
       )}
+
+      {/* Hard-Delete-Dialog: Slug muss exakt eingetippt werden bevor
+          der Button aktiv wird. Schutz gegen "ich hab nicht aufgepasst,
+          versehentlich auf Löschen geklickt". */}
+      {deleteDialog && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => !deleteDialog.pending && setDeleteDialog(null)}
+        >
+          <div
+            className="bg-surface-base rounded-lg border border-line-subtle shadow-2xl max-w-md w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-medium text-ink-primary">
+              Tenant endgültig löschen?
+            </h2>
+            <div className="text-ui-sm text-ink-secondary mt-3 space-y-2">
+              <p>
+                Folgendes wird <span className="font-medium">irreversibel</span>{" "}
+                entfernt:
+              </p>
+              <ul className="list-disc pl-5 space-y-0.5 text-ui-xs">
+                <li>
+                  Alle Galerien, Files und Renditions ({tenant.galleryCount}{" "}
+                  Galerien)
+                </li>
+                <li>Alle User-Accounts dieses Tenants</li>
+                <li>Alle S3-Objekte unter t/{tenant.id.slice(0, 8)}…/</li>
+                <li>Branding, Templates, Webhooks, Tags</li>
+                <li>Billing-Subscription (lokal — Stripe-Customer bleibt)</li>
+              </ul>
+              <p className="pt-2">
+                Audit-Logs bleiben erhalten. Stripe-Customer bleibt im Stripe-
+                Dashboard für die Buchhaltung.
+              </p>
+            </div>
+            <div className="mt-4">
+              <label className="text-ui-xs text-ink-secondary block mb-1.5">
+                Tippe den Tenant-Slug{" "}
+                <span className="font-mono text-ink-primary">{tenant.slug}</span>{" "}
+                ein, um zu bestätigen:
+              </label>
+              <input
+                type="text"
+                value={deleteDialog.typedSlug}
+                onChange={(e) =>
+                  setDeleteDialog({
+                    ...deleteDialog,
+                    typedSlug: e.target.value,
+                    error: null,
+                  })
+                }
+                disabled={deleteDialog.pending}
+                placeholder={tenant.slug}
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                className="w-full h-9 px-2.5 rounded bg-surface-sunken border border-line-subtle focus:border-accent text-ui font-mono text-ink-primary placeholder:text-ink-tertiary focus:outline-none transition-colors duration-motion disabled:opacity-50"
+              />
+            </div>
+            {deleteDialog.error && (
+              <p className="text-ui-sm text-semantic-danger mt-3">
+                {deleteDialog.error}
+              </p>
+            )}
+            <div className="flex gap-2 justify-end mt-5">
+              <ActionButton
+                onClick={() => setDeleteDialog(null)}
+                disabled={deleteDialog.pending}
+                variant="ghost"
+              >
+                Abbrechen
+              </ActionButton>
+              <ActionButton
+                onClick={performHardDelete}
+                disabled={
+                  deleteDialog.pending ||
+                  deleteDialog.typedSlug !== tenant.slug
+                }
+                variant="danger"
+              >
+                {deleteDialog.pending
+                  ? "Lösche…"
+                  : "Endgültig löschen"}
+              </ActionButton>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -268,13 +456,15 @@ function ActionButton({
   children: React.ReactNode;
   onClick: () => void;
   disabled?: boolean;
-  variant: "success" | "warning" | "danger";
+  variant: "success" | "warning" | "danger" | "ghost";
 }) {
   const cls =
     variant === "success"
       ? "border-semantic-success/40 text-semantic-success hover:bg-semantic-success/10"
       : variant === "warning"
       ? "border-semantic-warning/40 text-semantic-warning hover:bg-semantic-warning/10"
+      : variant === "ghost"
+      ? "border-line-subtle text-ink-secondary hover:bg-surface-sunken"
       : "border-semantic-danger/40 text-semantic-danger hover:bg-semantic-danger/10";
   return (
     <button

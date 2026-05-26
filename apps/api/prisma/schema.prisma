@@ -30,6 +30,13 @@ model Tenant {
   name        String
   status      String   @default("active") // active | suspended | archived
   customDomain String? @unique
+
+  // Timestamp wann der Tenant archiviert wurde. Wird beim Archive-
+  // Endpoint gesetzt, beim Unsuspend NICHT zurückgesetzt (archive ist
+  // einseitig — Unsuspend funktioniert nur aus 'suspended', nicht aus
+  // 'archived'). Hard-Delete prüft archivedAt + 30 Tage als Karenz
+  // gegen versehentliches sofortiges Wegwerfen.
+  archivedAt DateTime?
   
   // Branding auf Tenant-Ebene (kann pro Galerie überschrieben werden)
   brandingId  String?  @db.Uuid

@@ -10,7 +10,10 @@
  *   PATCH  /super/tenants/:id            — Name / Custom-Domain ändern
  *   POST   /super/tenants/:id/suspend    — Status active → suspended
  *   POST   /super/tenants/:id/unsuspend  — Status suspended → active
- *   POST   /super/tenants/:id/archive    — Status → archived (hart, nicht reversibel via UI)
+ *   POST   /super/tenants/:id/archive    — Status → archived + Stripe-Cancel
+ *                                          (setzt archivedAt für Karenz)
+ *   DELETE /super/tenants/:id            — Hard-Delete (nach 30 Tage Karenz)
+ *                                          + Worker-Cleanup für S3
  *   POST   /super/tenants/:id/owners     — weiteren Owner hinzufügen (Setup-Mail)
  *
  *   GET    /super/stats                  — globale Übersicht (Anzahl Tenants/Gallerys/Files)
@@ -34,6 +37,8 @@ import { hashPassword } from "../services/auth.js";
 import { createSetupToken } from "../services/setupToken.js";
 import { logEvent } from "../services/audit.js";
 import { sendMail, tmplOwnerSetup } from "../services/mail.js";
+import { cancelSubscriptionImmediately } from "../services/stripe-service.js";
+import { enqueue, Queues } from "../services/queue.js";
 import { logger } from "../logger.js";
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
@@ -291,6 +296,7 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
           slug: true,
           name: true,
           status: true,
+          archivedAt: true,
           customDomain: true,
           createdAt: true,
           updatedAt: true,
@@ -310,12 +316,35 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
         },
       });
       if (!tenant) return reply.status(404).send({ error: "not_found" });
+
+      // Karenz berechnen wenn archiviert. Hilft dem UI ohne weitere
+      // API-Calls anzuzeigen "Hard-Delete ab Tag X" oder "noch Y Tage".
+      const KARENZ_DAYS = 30;
+      let karenz: {
+        active: boolean;
+        deletableAt: Date | null;
+        remainingDays: number;
+      } | null = null;
+      if (tenant.status === "archived" && tenant.archivedAt) {
+        const deletableAt = new Date(
+          tenant.archivedAt.getTime() + KARENZ_DAYS * 24 * 60 * 60 * 1000
+        );
+        const remainingMs = deletableAt.getTime() - Date.now();
+        karenz = {
+          active: remainingMs > 0,
+          deletableAt,
+          remainingDays: Math.max(0, Math.ceil(remainingMs / (24 * 60 * 60 * 1000))),
+        };
+      }
+
       return {
         tenant: {
           id: tenant.id,
           slug: tenant.slug,
           name: tenant.name,
           status: tenant.status,
+          archivedAt: tenant.archivedAt,
+          karenz,
           customDomain: tenant.customDomain,
           createdAt: tenant.createdAt,
           updatedAt: tenant.updatedAt,
@@ -488,9 +517,40 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
         where: { id: req.params.id },
       });
       if (!t) return reply.status(404).send({ error: "not_found" });
+
+      // Stripe-Subscription sofort kündigen. Best-Effort: wenn Stripe
+      // failed, archivieren wir trotzdem (DB-State ist wichtiger,
+      // Subscription-Cancel kann der Super-Admin notfalls im Stripe-
+      // Dashboard nachholen). Bei normalem 'no_subscription' (Tenant
+      // hatte nie eine) ist das ein no-op.
+      let stripeResult: { canceled: boolean; reason: string } = {
+        canceled: false,
+        reason: "skipped",
+      };
+      try {
+        stripeResult = await cancelSubscriptionImmediately(t.id);
+        app.log.info(
+          { tenantId: t.id, stripeResult },
+          "tenant archive: stripe cancel"
+        );
+      } catch (err) {
+        app.log.warn(
+          { err, tenantId: t.id },
+          "tenant archive: stripe cancel failed (continuing)"
+        );
+      }
+
       const updated = await prisma.tenant.update({
         where: { id: t.id },
-        data: { status: "archived" },
+        data: {
+          status: "archived",
+          // Karenz-Tracking. Wenn der Tenant bereits archiviert war
+          // (z.B. Re-Archive nach DB-Manipulation), Timestamp NICHT
+          // überschreiben — sonst würde die Karenz neu starten und
+          // ein Super-Admin könnte unbeabsichtigt die 30 Tage
+          // verlängern. Nur setzen wenn vorher null.
+          archivedAt: t.archivedAt ?? new Date(),
+        },
       });
       // Alle aktiven Sessions des Tenants ungültig machen — Login-Pfad
       // weist suspended/archived ab, aber bestehende Sessions würden
@@ -507,9 +567,140 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
         action: "super.tenant.archive",
         targetType: "tenant",
         targetId: t.id,
+        payload: { stripeCancel: stripeResult },
         ipAddress: req.ip,
       });
       return { tenant: updated };
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // DELETE /super/tenants/:id — Hard-Delete
+  // -------------------------------------------------------------------------
+  // Vollständige Entfernung des Tenants aus der DB plus Anstoss des
+  // S3-Cleanups. Voraussetzungen:
+  //
+  //   1. Tenant muss bereits status='archived' sein (über /archive).
+  //   2. archivedAt + 30 Tage <= now() (DSGVO-typische Karenz, gibt
+  //      dem Tenant Zeit für Datenexport).
+  //   3. Body enthaelt confirmSlug, der exakt dem Tenant.slug entspricht
+  //      — Schutz gegen versehentliches Klicken im UI.
+  //
+  // Was passiert:
+  //   - Prisma cascade entfernt alle abhaengigen Rows (User, Gallery,
+  //     File, Rendition, ..., BillingSubscription — siehe Schema).
+  //   - Worker-Cleanup-Job raeumt den S3-Prefix t/<tenantId>/.
+  //   - Audit-Log bleibt erhalten (gehört nicht zum Tenant, sondern
+  //     wird tenantId='<id>' gespeichert auch nach Tenant-Delete).
+  //   - Stripe-Customer bleibt in Stripe stehen (Audit-Trail). Wir
+  //     nullen die stripeCustomerId nicht — die ist eh weg mit dem
+  //     Tenant-Row.
+  //
+  // Was bewusst NICHT passiert:
+  //   - Kein automatischer Datenexport. Tenant kann das während der
+  //     30-Tage-Karenz selbst anfordern (separates Feature).
+  //   - Kein Stripe-Cancel hier nochmal — das ist beim Archive schon
+  //     passiert. Wenn Stripe-Cancel beim Archive nicht durchging und
+  //     der Super-Admin das nicht im Dashboard nachgeholt hat, läuft
+  //     die Subscription weiter — das ist DB-unabhängig.
+  //   - Keine Mail-Notification an den Tenant. Wenn der gemailed werden
+  //     soll ('Ihre Daten wurden endgültig gelöscht'), passiert das
+  //     manuell vom Super-Admin außerhalb des Systems.
+  const deleteTenantBody = z.object({
+    confirmSlug: z.string(),
+  });
+  app.delete<{ Params: { id: string } }>(
+    "/super/tenants/:id",
+    async (req, reply) => {
+      const sa = req.requireSuperAdmin();
+      const body = deleteTenantBody.parse(req.body ?? {});
+
+      const t = await prisma.tenant.findUnique({
+        where: { id: req.params.id },
+      });
+      if (!t) return reply.status(404).send({ error: "not_found" });
+
+      // 1. Muss archiviert sein
+      if (t.status !== "archived") {
+        return reply.status(409).send({
+          error: "not_archived",
+          message:
+            "Tenant muss zuerst archiviert werden. Verwende /super/tenants/:id/archive.",
+        });
+      }
+
+      // 2. Karenzfrist 30 Tage seit archivedAt
+      const KARENZ_DAYS = 30;
+      const KARENZ_MS = KARENZ_DAYS * 24 * 60 * 60 * 1000;
+      if (!t.archivedAt) {
+        // Tenant ist archiviert, hat aber kein archivedAt (alter Tenant
+        // vor Migration). Karenz kann nicht berechnet werden — Super-
+        // Admin muss erst nochmal archiven, damit archivedAt gesetzt wird.
+        return reply.status(409).send({
+          error: "no_archive_timestamp",
+          message:
+            "Tenant ist archiviert, aber ohne archivedAt-Timestamp (vor Migration). Bitte nochmal /archive aufrufen, damit die Karenz starten kann.",
+        });
+      }
+      const elapsed = Date.now() - t.archivedAt.getTime();
+      if (elapsed < KARENZ_MS) {
+        const remainingDays = Math.ceil((KARENZ_MS - elapsed) / (24 * 60 * 60 * 1000));
+        return reply.status(409).send({
+          error: "karenz_active",
+          message: `Karenzfrist noch aktiv. Hard-Delete frühestens in ${remainingDays} Tagen möglich.`,
+          archivedAt: t.archivedAt,
+          remainingDays,
+        });
+      }
+
+      // 3. Slug-Confirm
+      if (body.confirmSlug !== t.slug) {
+        return reply.status(400).send({
+          error: "slug_mismatch",
+          message:
+            "Slug-Bestätigung stimmt nicht. Bitte den exakten Tenant-Slug eingeben.",
+        });
+      }
+
+      // Audit BEVOR wir löschen — sonst ist tenantId in den Logs zwar
+      // noch da (Audit-Logs cascaden nicht), aber die Reihenfolge ist
+      // einfacher zu lesen wenn der Delete-Event vor dem Cascade kommt.
+      await logEvent({
+        tenantId: t.id,
+        actorType: "super_admin",
+        actorId: sa.admin.id,
+        action: "super.tenant.delete",
+        targetType: "tenant",
+        targetId: t.id,
+        payload: {
+          slug: t.slug,
+          name: t.name,
+          archivedAt: t.archivedAt,
+          karenzDays: KARENZ_DAYS,
+        },
+        ipAddress: req.ip,
+      });
+
+      // DB-Cascade-Delete. Räumt User, Gallery, File, Rendition,
+      // BillingSubscription etc. weg. Stripe-Customer in Stripe bleibt.
+      await prisma.tenant.delete({ where: { id: t.id } });
+
+      // Worker enqueued — räumt S3-Prefix t/<tenantId>/. Bei großen
+      // Tenants kann das mehrere Minuten laufen, läuft asynchron im
+      // Cleanup-Stream. Wenn enqueue selbst failt, loggen wir das —
+      // der Tenant ist DB-seitig schon weg, das soll die HTTP-Antwort
+      // nicht failen lassen.
+      await enqueue(Queues.CLEANUP, {
+        type: "cleanup_tenant",
+        tenantId: t.id,
+      }).catch((err) => {
+        app.log.warn(
+          { err, tenantId: t.id },
+          "cleanup_tenant enqueue failed"
+        );
+      });
+
+      return reply.status(204).send();
     }
   );
 

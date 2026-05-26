@@ -1490,6 +1490,15 @@ export const api = {
       method: "POST",
     }),
 
+  /** Hard-Delete eines bereits archivierten Tenants. Setzt 30-Tage-
+   *  Karenz seit archivedAt voraus, sonst HTTP 409. Verlangt im Body
+   *  `confirmSlug` exakt = tenant.slug. */
+  superDeleteTenant: (id: string, input: { confirmSlug: string }) =>
+    request<null>(`/super/tenants/${id}`, {
+      method: "DELETE",
+      body: JSON.stringify(input),
+    }),
+
   superInviteOwner: (
     tenantId: string,
     input: { email: string; name: string }
@@ -1549,6 +1558,18 @@ export interface SuperTenantDetail {
   slug: string;
   name: string;
   status: "active" | "suspended" | "archived";
+  /** Timestamp wann der Tenant archiviert wurde. Null bei aktiven/
+   *  suspendierten Tenants. */
+  archivedAt: string | null;
+  /** Karenz-Info bei archivierten Tenants. Null sonst.
+   *  - active: true wenn die Karenzfrist (30 Tage) noch läuft
+   *  - deletableAt: ISO-Zeitstring ab wann Hard-Delete erlaubt ist
+   *  - remainingDays: Tage bis Hard-Delete möglich ist (0 wenn vorbei) */
+  karenz: {
+    active: boolean;
+    deletableAt: string;
+    remainingDays: number;
+  } | null;
   customDomain: string | null;
   createdAt: string;
   updatedAt: string;
