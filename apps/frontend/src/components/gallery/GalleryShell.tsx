@@ -62,6 +62,10 @@ export function GalleryShell({
     footerMarkdown?: string | null;
     fontHeading?: string | null;
     fontBody?: string | null;
+    /** Wenn die Galerie ein eigenes Event-Logo im Hero rendert,
+     *  unterdruecken wir das Branding-Logo im Header. Sonst sieht
+     *  der Customer dasselbe Logo zweimal (oben + im Hero). */
+    hideHeaderLogo?: boolean;
   };
   children: React.ReactNode;
 }) {
@@ -200,7 +204,7 @@ export function GalleryShell({
         />
       ) : null}
 
-      {branding?.logoUrl ? (
+      {branding?.logoUrl && !overrides?.hideHeaderLogo ? (
         <header
           className="p-6 border-b"
           style={{ borderColor }}

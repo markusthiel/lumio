@@ -155,6 +155,9 @@ function PublicGalleryInner() {
           footerMarkdown: meta.footerMarkdown,
           fontHeading: meta.fonts.heading,
           fontBody: meta.fonts.body,
+          // Unlock-Screen rendert keinen Hero — Branding-Header
+          // ist hier gewuenscht.
+          hideHeaderLogo: false,
         }}
       >
         <UnlockForm
@@ -180,6 +183,10 @@ function PublicGalleryInner() {
         footerMarkdown: meta.footerMarkdown,
         fontHeading: meta.fonts.heading,
         fontBody: meta.fonts.body,
+        // Wenn die Galerie ein eigenes Event-Logo im Hero zeigt,
+        // den Branding-Header oben unterdruecken — sonst sieht der
+        // Customer dasselbe Logo zweimal.
+        hideHeaderLogo: !!meta.header.eventLogoUrl,
       }}
     >
       <GalleryView
