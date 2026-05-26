@@ -129,3 +129,22 @@ def delete_prefix(prefix: str) -> dict:
         continuation_token = page.get("NextContinuationToken")
 
     return {"prefix": prefix, "deleted": deleted, "errors": errors}
+
+
+def delete_object(storage_key: str) -> None:
+    """Loescht ein einzelnes Objekt aus dem Bucket. Im Gegensatz zu
+    delete_prefix nimmt diese Funktion einen exakten Key (kein Slash-
+    Suffix-Forcing), passt also fuer einzelne Asset-Files wie
+    branding-Logos oder optimierte Hero-Bilder.
+
+    Schluckt 'NoSuchKey'-Fehler still — Idempotenz; ein zweimaliger
+    Aufruf ist harmlos."""
+    s3 = get_s3_client()
+    bucket = get_bucket()
+    try:
+        s3.delete_object(Bucket=bucket, Key=storage_key)
+    except Exception:  # noqa: BLE001
+        # boto3 wirft bei NoSuchKey idR keinen Fehler (S3 ist idempotent),
+        # aber andere Backends (Minio in seltenen Edge-Cases) koennen.
+        # Wir wollen die Caller nicht mit Try/Except belasten.
+        pass

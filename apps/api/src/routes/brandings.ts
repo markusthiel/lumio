@@ -21,6 +21,7 @@ import { config } from "../config.js";
 import { checkFeatureAvailable } from "../services/usage.js";
 import { presignPut, presignGet, deleteObject } from "../services/storage.js";
 import { logEvent } from "../services/audit.js";
+import { enqueue, Queues } from "../services/queue.js";
 
 const colorRegex = /^#[0-9a-fA-F]{6}$/;
 
@@ -374,6 +375,25 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
         where: { id: existing.id },
         data: { [field]: body.key },
       });
+
+      // WebP-Optimierung im Worker fuer Login-Background (Hero-Bild).
+      // Logos/Favicons sind typisch klein (Logo ist oft schon SVG/PNG),
+      // da lohnt sich kein Worker-Roundtrip. Wenn das Original schon
+      // optimal ist (WebP + <=2400px) erkennt der Task das und macht
+      // nichts — idempotent.
+      if (body.kind === "loginBackground") {
+        await enqueue(Queues.FILE_PROCESSING, {
+          type: "process_branding_asset",
+          brandingId: existing.id,
+          kind: "loginBackground",
+        }).catch((err) => {
+          app.log.warn(
+            { err, brandingId: existing.id },
+            "branding.optimize_enqueue_failed"
+          );
+        });
+      }
+
       return { branding: await serializeBranding(branding) };
     }
   );

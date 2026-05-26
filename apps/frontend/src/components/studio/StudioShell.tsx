@@ -34,11 +34,16 @@ interface NavItem {
   fallback: string;
   // Matcher: aktiv wenn pathname mit prefix anfängt
   prefix: string;
+  /** Wenn gesetzt: nur User mit einer dieser Rollen sehen den Eintrag.
+   *  Member-User sehen z.B. Team gar nicht — sie sind keine Studio-
+   *  Verwaltung. Wenn das Feld fehlt: fuer alle eingeloggten User
+   *  sichtbar (Default). */
+  rolesAllowed?: Array<"owner" | "admin" | "member">;
 }
 
 const NAV: NavItem[] = [
   { href: "/studio",            labelKey: "nav.galleries",  fallback: "Galerien",      prefix: "/studio" },
-  { href: "/studio/team",       labelKey: "nav.team",       fallback: "Team",          prefix: "/studio/team" },
+  { href: "/studio/team",       labelKey: "nav.team",       fallback: "Team",          prefix: "/studio/team",       rolesAllowed: ["owner", "admin"] },
   { href: "/studio/brandings",  labelKey: "nav.brandings",  fallback: "Branding",      prefix: "/studio/brandings" },
   { href: "/studio/templates",  labelKey: "nav.templates",  fallback: "Templates",     prefix: "/studio/templates" },
   { href: "/studio/tags",       labelKey: "nav.tags",       fallback: "Tags",          prefix: "/studio/tags" },
@@ -52,7 +57,44 @@ const NAV: NavItem[] = [
 export function StudioShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [userRole, setUserRole] = useState<"owner" | "admin" | "member" | null>(
+    null
+  );
   const t = useT();
+
+  // Rolle einmal beim Mount laden — bestimmt welche Nav-Eintraege
+  // sichtbar sind. Solange der Wert null ist, zeigen wir nur die
+  // alltime-Eintraege (ohne rolesAllowed-Filter); sobald die Rolle
+  // bekannt ist, kommt der Filter dazu. So vermeiden wir einen
+  // Flicker fuer Owner/Admin.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await api.me();
+        if (cancelled) return;
+        setUserRole(r.user.role);
+      } catch {
+        // Bei Fehler: Default fail-safe = "member" (versteckt sensible
+        // Nav-Eintraege). Sollte selten passieren — me() wird auch
+        // schon vom Page-Auth-Check verwendet.
+        setUserRole("member");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Nav nach Rolle filtern. Bevor die Rolle geladen ist, zeigen wir
+  // alle Eintraege OHNE rolesAllowed-Schraenkung. Sobald die Rolle
+  // bekannt ist, kommen die rolesAllowed-Eintraege nur dazu wenn der
+  // User die Berechtigung hat.
+  const visibleNav = NAV.filter((item) => {
+    if (!item.rolesAllowed) return true;
+    if (!userRole) return false;
+    return item.rolesAllowed.includes(userRole);
+  });
 
   // Cmd/Ctrl + K öffnet die globale Suche, egal wo der Fokus ist.
   // / kann später als zusätzlicher Trigger dazukommen, aber riskiert
@@ -128,7 +170,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
         {/* Nav */}
         <nav className="flex-1 px-2 py-3 overflow-y-auto">
           <ul className="space-y-0.5">
-            {NAV.map((item) => (
+            {visibleNav.map((item) => (
               <SidebarLink
                 key={item.href}
                 item={item}

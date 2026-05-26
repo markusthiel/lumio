@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, type BrandingDetail } from "@/lib/api";
 import { PageHeader } from "@/components/studio/PageHeader";
+import { MarkdownField } from "@/components/studio/MarkdownField";
 import { Button } from "@/components/ui";
 
 export default function BrandingEditorPage() {
@@ -247,15 +248,15 @@ export default function BrandingEditorPage() {
               </select>
             </Field>
 
-            <Field label="Intro-Text (vor der Galerie)">
-              <textarea
-                value={introText}
-                onChange={(e) => setIntroText(e.target.value)}
-                rows={2}
-                placeholder="z.B. Begrüßung des Kunden"
-                className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm"
-              />
-            </Field>
+            <MarkdownField
+              label="Intro-Text (vor der Galerie)"
+              value={introText}
+              onChange={setIntroText}
+              rows={3}
+              maxLength={2000}
+              placeholder="z.B. Begrüßung des Kunden"
+              hint="Markdown möglich: # Überschrift, **fett**, leere Zeile für Absatz."
+            />
 
             <Field label="Footer-Text">
               <input
@@ -323,23 +324,17 @@ export default function BrandingEditorPage() {
                 previewHeight="large"
               />
 
-              <Field label="Begrüßungstext (Markdown möglich)">
-                <textarea
-                  value={loginGreeting}
-                  onChange={(e) => setLoginGreeting(e.target.value)}
-                  rows={4}
-                  maxLength={2000}
-                  placeholder={
-                    "z.B.\n# Willkommen, Team Müller\nLogge dich ein, um deine Galerien zu verwalten."
-                  }
-                  className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm bg-surface-raised"
-                />
-              </Field>
-              <p className="text-ui-xs text-ink-tertiary -mt-1 leading-relaxed">
-                Markdown-Basics werden gerendert: <code>#</code> für
-                Überschrift, <code>**fett**</code>, leere Zeile für Absatz.
-                Maximal 2000 Zeichen.
-              </p>
+              <MarkdownField
+                label="Begrüßungstext"
+                value={loginGreeting}
+                onChange={setLoginGreeting}
+                rows={4}
+                maxLength={2000}
+                placeholder={
+                  "z.B.\n# Willkommen, Team Müller\nLogge dich ein, um deine Galerien zu verwalten."
+                }
+                hint="Markdown möglich: # Überschrift, **fett**, leere Zeile für Absatz."
+              />
             </div>
 
             <Field label="Custom CSS (für Power-User)">

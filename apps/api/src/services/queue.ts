@@ -57,12 +57,23 @@ export const Queues = {
 } as const;
 export type QueueName = (typeof Queues)[keyof typeof Queues];
 
-export interface FileProcessingJob {
-  type: "process_file" | "process_raw" | "process_watermark";
-  fileId: string;
-  tenantId: string;
-  galleryId: string;
-}
+export type FileProcessingJob =
+  | {
+      type: "process_file" | "process_raw" | "process_watermark";
+      fileId: string;
+      tenantId: string;
+      galleryId: string;
+    }
+  | {
+      /** Branding-Asset-Optimierung (z.B. WebP-Konvertierung von
+       *  Login-Background-Bildern). Hat keine fileId/galleryId — das
+       *  Asset gehoert direkt zum Branding. */
+      type: "process_branding_asset";
+      brandingId: string;
+      /** Welches Asset wird optimiert: "loginBackground" (aktuell der
+       *  einzige Kind, der einen Worker-Roundtrip braucht). */
+      kind: "loginBackground";
+    };
 
 export interface VideoProcessingJob {
   type: "process_video";

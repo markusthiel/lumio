@@ -64,22 +64,54 @@ export async function registerTeamRoutes(app: FastifyInstance) {
     });
   }
 
-  /** Helper: erzwingen, dass nur Owner die schreibenden Aktionen
-   *  ausführen. Der globale requireOwner-Decorator akzeptiert
-   *  zusätzlich Admin — für Team-Mgmt wollen wir das aber NICHT. */
-  function requireOwnerStrict(req: FastifyRequest) {
+  /** Member duerfen das Team gar nicht sehen — nur Owner und Admin.
+   *  Mitarbeiter sollen sich auf ihre Galerien konzentrieren, das
+   *  Team-Management ist Studio-Leitung. */
+  function requireOwnerOrAdmin(req: FastifyRequest) {
     const s = req.requireAuth();
-    if (s.user.role !== "owner") {
-      throw app.httpErrors.forbidden("owner role required");
+    if (s.user.role !== "owner" && s.user.role !== "admin") {
+      throw app.httpErrors.forbidden("owner or admin role required");
     }
     return s;
+  }
+
+  /** Schreibende Aktionen sind fuer Owner und Admin offen — mit
+   *  Einschraenkungen pro Aktion:
+   *  - Admin darf keine Owner anlegen/bearbeiten/loeschen
+   *  - Admin darf keinen User zum Owner machen
+   *  Diese feineren Regeln werden pro Endpoint geprueft, dieser Helper
+   *  filtert nur generell Member raus. */
+  function requireOwnerOrAdminWrite(req: FastifyRequest) {
+    return requireOwnerOrAdmin(req);
+  }
+
+  /** Wirft 403 wenn ein Admin versucht Owner-Rolle zu vergeben oder
+   *  einen Owner zu modifizieren/loeschen. Owner duerfen alles
+   *  (vorbehaltlich der Last-Owner-Schutzregel). */
+  function checkAdminCannotTouchOwner(
+    actorRole: string,
+    targetRole: string | null,
+    newRole: string | null
+  ) {
+    if (actorRole === "owner") return;
+    // Admin: weder Owner-Targets anfassen noch Owner-Rolle vergeben.
+    if (targetRole === "owner") {
+      throw app.httpErrors.forbidden(
+        "Nur Owner können andere Owner verwalten."
+      );
+    }
+    if (newRole === "owner") {
+      throw app.httpErrors.forbidden(
+        "Nur Owner können die Owner-Rolle vergeben."
+      );
+    }
   }
 
   // -------------------------------------------------------------------------
   // GET /team
   // -------------------------------------------------------------------------
   app.get("/team", async (req) => {
-    req.requireAuth();
+    requireOwnerOrAdmin(req);
     const users = await prisma.user.findMany({
       where: { tenantId: req.tenantId },
       select: {
@@ -101,8 +133,12 @@ export async function registerTeamRoutes(app: FastifyInstance) {
   // POST /team — neuen User einladen
   // -------------------------------------------------------------------------
   app.post("/team", async (req, reply) => {
-    const s = requireOwnerStrict(req);
+    const s = requireOwnerOrAdminWrite(req);
     const body = inviteSchema.parse(req.body);
+
+    // Admin darf keine neuen Owner anlegen — sonst koennte er sich
+    // selbst zum Owner-Aequivalent eskalieren ueber Umweg.
+    checkAdminCannotTouchOwner(s.user.role, null, body.role);
 
     // Tenant laden — Name brauchen wir für die Mail-Vorlage.
     const tenant = await prisma.tenant.findUnique({
@@ -206,11 +242,18 @@ export async function registerTeamRoutes(app: FastifyInstance) {
   app.post<{ Params: { userId: string } }>(
     "/team/:userId/resend",
     async (req, reply) => {
-      const s = requireOwnerStrict(req);
+      const s = requireOwnerOrAdminWrite(req);
       const user = await prisma.user.findFirst({
         where: { id: req.params.userId, tenantId: req.tenantId },
       });
       if (!user) return reply.status(404).send({ error: "not_found" });
+
+      // Admin darf einem Owner keine neue Setup-Mail schicken — der
+      // Token wuerde dem Admin keinen Owner-Zugriff geben (er landet
+      // im Postfach des Owners), aber wir halten die Mauer komplett
+      // dicht.
+      checkAdminCannotTouchOwner(s.user.role, user.role, null);
+
       if (user.status !== "invited") {
         return reply.status(409).send({
           error: "not_invited",
@@ -264,12 +307,15 @@ export async function registerTeamRoutes(app: FastifyInstance) {
   app.patch<{ Params: { userId: string } }>(
     "/team/:userId",
     async (req, reply) => {
-      const s = requireOwnerStrict(req);
+      const s = requireOwnerOrAdminWrite(req);
       const body = updateSchema.parse(req.body);
       const target = await prisma.user.findFirst({
         where: { id: req.params.userId, tenantId: req.tenantId },
       });
       if (!target) return reply.status(404).send({ error: "not_found" });
+
+      // Admin darf weder Owner anfassen noch jemanden zum Owner machen.
+      checkAdminCannotTouchOwner(s.user.role, target.role, body.role ?? null);
 
       // Schutz vor "letztem Owner kappen": Wenn target ein aktiver
       // Owner ist UND der Wechsel ihn deaktiviert oder zu admin/member
@@ -360,11 +406,14 @@ export async function registerTeamRoutes(app: FastifyInstance) {
   app.delete<{ Params: { userId: string } }>(
     "/team/:userId",
     async (req, reply) => {
-      const s = requireOwnerStrict(req);
+      const s = requireOwnerOrAdminWrite(req);
       const target = await prisma.user.findFirst({
         where: { id: req.params.userId, tenantId: req.tenantId },
       });
       if (!target) return reply.status(404).send({ error: "not_found" });
+
+      // Admin darf Owner nicht loeschen.
+      checkAdminCannotTouchOwner(s.user.role, target.role, null);
 
       if (target.id === s.user.id) {
         return reply.status(409).send({

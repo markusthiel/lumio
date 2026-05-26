@@ -46,7 +46,10 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default function TeamPage() {
   const [users, setUsers] = useState<TeamUser[]>([]);
-  const [me, setMe] = useState<{ id: string; role: string } | null>(null);
+  const [me, setMe] = useState<{
+    id: string;
+    role: "owner" | "admin" | "member";
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -80,6 +83,10 @@ export default function TeamPage() {
   }, [load]);
 
   const isOwner = me?.role === "owner";
+  const isAdmin = me?.role === "admin";
+  // Owner und Admin koennen das Team verwalten — Member sehen die
+  // Seite gar nicht erst (Backend 403 + Sidebar versteckt sie).
+  const canManage = isOwner || isAdmin;
   const activeOwnerCount = users.filter(
     (u) => u.role === "owner" && u.status === "active"
   ).length;
@@ -89,9 +96,13 @@ export default function TeamPage() {
       <div className="flex items-start justify-between gap-4 mb-2">
         <PageHeader
           title="Team"
-          description="User dieses Studios. Owner können andere Mitglieder einladen und Rollen verwalten."
+          description={
+            isOwner
+              ? "User dieses Studios. Du kannst andere Mitglieder einladen und Rollen verwalten."
+              : "User dieses Studios. Als Admin kannst du Mitglieder einladen und verwalten — Owner-Rollen bleiben dem Owner vorbehalten."
+          }
         />
-        {isOwner && (
+        {canManage && (
           <Button
             variant="primary"
             size="sm"
@@ -108,13 +119,6 @@ export default function TeamPage() {
         </div>
       )}
 
-      {!isOwner && (
-        <div className="mb-4 rounded-md border border-line-subtle bg-surface-sunken px-4 py-3 text-ui-sm text-ink-secondary">
-          Du siehst das Team in der Übersicht. Einladen und Rollen verwalten
-          kann nur ein Owner.
-        </div>
-      )}
-
       {loading ? (
         <div className="text-ui-sm text-ink-tertiary py-8 text-center">
           Wird geladen…
@@ -126,7 +130,7 @@ export default function TeamPage() {
               key={u.id}
               user={u}
               isMe={me?.id === u.id}
-              isOwner={isOwner}
+              actorRole={me?.role ?? null}
               activeOwnerCount={activeOwnerCount}
               onEdit={() => setEditUser(u)}
               onDelete={() => setConfirmDelete(u)}
@@ -148,6 +152,7 @@ export default function TeamPage() {
 
       {inviteOpen && (
         <InviteDialog
+          actorRole={me?.role ?? null}
           onClose={() => setInviteOpen(false)}
           onInvited={async (result) => {
             setInviteOpen(false);
@@ -161,6 +166,7 @@ export default function TeamPage() {
         <EditDialog
           user={editUser}
           isMe={me?.id === editUser.id}
+          actorRole={me?.role ?? null}
           activeOwnerCount={activeOwnerCount}
           onClose={() => setEditUser(null)}
           onSaved={async () => {
@@ -197,7 +203,7 @@ export default function TeamPage() {
 function UserRow({
   user,
   isMe,
-  isOwner,
+  actorRole,
   activeOwnerCount,
   onEdit,
   onDelete,
@@ -205,7 +211,7 @@ function UserRow({
 }: {
   user: TeamUser;
   isMe: boolean;
-  isOwner: boolean;
+  actorRole: "owner" | "admin" | "member" | null;
   activeOwnerCount: number;
   onEdit: () => void;
   onDelete: () => void;
@@ -216,6 +222,13 @@ function UserRow({
     user.role === "owner" &&
     user.status === "active" &&
     activeOwnerCount <= 1;
+
+  // Permission-Logik gespiegelt aus dem Backend (Variante 3):
+  // - Member: keine Schreibaktionen
+  // - Admin: darf Admins/Members verwalten, aber nicht Owner anfassen
+  // - Owner: darf alles (modulo isLastOwner)
+  const canManageThisUser =
+    actorRole === "owner" || (actorRole === "admin" && user.role !== "owner");
 
   return (
     <div className="flex items-center gap-3 px-4 py-3">
@@ -245,7 +258,7 @@ function UserRow({
           )}
         </div>
       </div>
-      {isOwner && (
+      {canManageThisUser && (
         <div className="flex gap-1 flex-shrink-0">
           {user.status === "invited" && (
             <Button variant="ghost" size="sm" onClick={onResend}>
@@ -303,9 +316,11 @@ function StatusBadge({ status }: { status: TeamUser["status"] }) {
 }
 
 function InviteDialog({
+  actorRole,
   onClose,
   onInvited,
 }: {
+  actorRole: "owner" | "admin" | "member" | null;
   onClose: () => void;
   onInvited: (
     fallback: { setupUrl: string; email: string } | null
@@ -316,6 +331,10 @@ function InviteDialog({
   const [role, setRole] = useState<"owner" | "admin" | "member">("admin");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Admin darf keinen Owner einladen. Wir blenden die Option komplett
+  // aus statt nur zu disablen — saubereres UX (was nicht da ist, kann
+  // nicht versehentlich gewaehlt werden).
+  const canInviteOwner = actorRole === "owner";
 
   async function submit() {
     if (!email.trim() || !name.trim()) return;
@@ -378,11 +397,13 @@ function InviteDialog({
             className={inputCls}
           >
             <option value="admin">
-              Admin — kann alle Galerien verwalten
+              Admin — kann Galerien und Team verwalten
             </option>
-            <option value="owner">
-              Owner — kann zusätzlich Team verwalten
-            </option>
+            {canInviteOwner && (
+              <option value="owner">
+                Owner — kann zusätzlich Owner-Rollen vergeben
+              </option>
+            )}
             <option value="member">
               Member — eingeschränkter Zugriff
             </option>
@@ -412,12 +433,14 @@ function InviteDialog({
 function EditDialog({
   user,
   isMe,
+  actorRole,
   activeOwnerCount,
   onClose,
   onSaved,
 }: {
   user: TeamUser;
   isMe: boolean;
+  actorRole: "owner" | "admin" | "member" | null;
   activeOwnerCount: number;
   onClose: () => void;
   onSaved: () => Promise<void>;
@@ -427,6 +450,11 @@ function EditDialog({
   const [status, setStatus] = useState(user.status);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Admin darf keine Owner-Rolle vergeben — UI verriegelt das hier.
+  // Wenn der target schon Owner ist, ist der Dialog fuer Admin gar
+  // nicht erst aufrufbar (UserRow blendet die Aktionen aus).
+  const canSetOwnerRole = actorRole === "owner";
 
   // Letzter Owner darf nicht demoted/disabled werden.
   const isLastOwner =
@@ -497,7 +525,7 @@ function EditDialog({
             disabled={pending || roleLocked}
             className={inputCls}
           >
-            <option value="owner">Owner</option>
+            {canSetOwnerRole && <option value="owner">Owner</option>}
             <option value="admin">Admin</option>
             <option value="member">Member</option>
           </select>
