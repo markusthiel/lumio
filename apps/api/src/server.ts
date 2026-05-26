@@ -44,6 +44,7 @@ import { registerSuperAuthRoutes } from "./routes/super-auth.js";
 import { registerSuperTenantRoutes } from "./routes/super-tenants.js";
 import { registerWsRoutes } from "./routes/ws.js";
 import superAdminPlugin from "./plugins/super-admin.js";
+import { startPeriodicSweeper } from "./services/sweeper.js";
 
 async function buildServer() {
   const app = Fastify({
@@ -197,6 +198,10 @@ async function start() {
       { mode: config.DEPLOYMENT_MODE, billing: config.BILLING_ENABLED },
       "Lumio API ready"
     );
+    // Periodischer Cleanup-Sweeper. Triggert Worker-Job alle 6h fuer
+    // abgelaufene Tenant-Exports. Idempotent — mehrere API-Instances
+    // gleichzeitig sind harmlos.
+    startPeriodicSweeper();
   } catch (err) {
     app.log.error(err);
     process.exit(1);

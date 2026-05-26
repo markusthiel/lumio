@@ -100,8 +100,8 @@ export interface BackfillJob {
 }
 
 export interface CleanupJob {
-  type: "cleanup_gallery" | "cleanup_tenant";
-  tenantId: string;
+  type: "cleanup_gallery" | "cleanup_tenant" | "cleanup_expired_exports";
+  tenantId?: string;
   /** Nur bei cleanup_gallery. */
   galleryId?: string;
 }

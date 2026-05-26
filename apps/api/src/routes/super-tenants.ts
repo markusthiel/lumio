@@ -10,6 +10,9 @@
  *   PATCH  /super/tenants/:id            — Name / Custom-Domain ändern
  *   POST   /super/tenants/:id/suspend    — Status active → suspended
  *   POST   /super/tenants/:id/unsuspend  — Status suspended → active
+ *   POST   /super/tenants/:id/schedule-archive  — Archive im Voraus planen
+ *                                                 (Mail an Owner + Studio-Banner)
+ *   DELETE /super/tenants/:id/schedule-archive  — Plan zurückziehen
  *   POST   /super/tenants/:id/archive    — Status → archived + Stripe-Cancel
  *                                          (setzt archivedAt für Karenz)
  *   DELETE /super/tenants/:id            — Hard-Delete (nach 30 Tage Karenz)
@@ -298,6 +301,7 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
           name: true,
           status: true,
           archivedAt: true,
+          archiveScheduledAt: true,
           customDomain: true,
           createdAt: true,
           updatedAt: true,
@@ -345,6 +349,7 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
           name: tenant.name,
           status: tenant.status,
           archivedAt: tenant.archivedAt,
+          archiveScheduledAt: tenant.archiveScheduledAt,
           karenz,
           customDomain: tenant.customDomain,
           createdAt: tenant.createdAt,
@@ -503,13 +508,194 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
   );
 
   // -------------------------------------------------------------------------
-  // POST /super/tenants/:id/archive
+  // POST /super/tenants/:id/schedule-archive — Archivierung vorab planen
   // -------------------------------------------------------------------------
-  // Archivieren ist semantisch "stillgelegt — sollte über die UI nicht
-  // mehr reaktivierbar sein". Wir behalten die Daten (kein DELETE),
-  // damit Audit/Recovery via CLI möglich bleibt; aber die UI weigert
-  // sich, archivierte Tenants zu reaktivieren oder zu suspendieren.
-  // Wenn echt wieder lebendig: SQL bzw. CLI mit Begründung.
+  // Setzt archiveScheduledAt + verschickt Initial-Mail an alle Owner.
+  // Default: heute + 30 Tage. Body kann ein scheduledAt (ISO-Date)
+  // mitliefern. Studio-Frontend zeigt ab dem Setzen einen Countdown-
+  // Banner. Beim Erreichen des Stichtags benachrichtigt der Sweeper
+  // den Super-Admin (Mail + Audit), archiviert aber NICHT automatisch.
+  //
+  // Wird der Endpoint nochmal aufgerufen während bereits ein Datum
+  // gesetzt ist (z.B. neues Datum), werden die Mail-Tracking-Felder
+  // zurückgesetzt, damit die Reminder-Mail erneut greift.
+  const scheduleArchiveBody = z.object({
+    scheduledAt: z.string().datetime().optional(),
+  });
+  app.post<{ Params: { id: string } }>(
+    "/super/tenants/:id/schedule-archive",
+    async (req, reply) => {
+      const sa = req.requireSuperAdmin();
+      const body = scheduleArchiveBody.parse(req.body ?? {});
+
+      const t = await prisma.tenant.findUnique({
+        where: { id: req.params.id },
+        include: {
+          users: {
+            where: { role: "owner", status: "active" },
+            select: { id: true, email: true, name: true },
+          },
+        },
+      });
+      if (!t) return reply.status(404).send({ error: "not_found" });
+
+      if (t.status !== "active") {
+        return reply.status(409).send({
+          error: "not_active",
+          message:
+            "Nur aktive Tenants können vor-archiviert werden. Suspended/archived Tenants brauchen das nicht.",
+        });
+      }
+
+      const scheduledAt = body.scheduledAt
+        ? new Date(body.scheduledAt)
+        : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+      if (scheduledAt.getTime() <= Date.now()) {
+        return reply.status(400).send({
+          error: "scheduled_in_past",
+          message:
+            "Der Stichtag muss in der Zukunft liegen. Wenn du sofort archivieren willst, nutze /archive direkt.",
+        });
+      }
+
+      const updated = await prisma.tenant.update({
+        where: { id: t.id },
+        data: {
+          archiveScheduledAt: scheduledAt,
+          // Reset der Mail-Tracking-Felder bei jedem Schedule-Aufruf,
+          // damit der Sweeper bei einem Datums-Wechsel die Reminder
+          // erneut schickt.
+          archiveNoticeMailedAt: null,
+          archiveReminderMailedAt: null,
+        },
+      });
+
+      // Initial-Mail an alle aktiven Owner. Best-Effort: wenn SMTP
+      // klemmt, archiveScheduledAt bleibt trotzdem gesetzt, Studio-
+      // Banner funktioniert. Der Sweeper wuerde dann nochmal versuchen
+      // — aber nur fuer den 7-Tage-Reminder, nicht fuer die Initial-
+      // Mail. Wir loggen also Mail-Failures hier explizit.
+      const formattedDate = scheduledAt.toLocaleDateString("de-DE", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+      let mailsSent = 0;
+      for (const owner of t.users) {
+        try {
+          await sendMail({
+            to: owner.email,
+            subject: `Wichtig: Ihr Lumio-Konto „${t.name}" wird am ${formattedDate} archiviert`,
+            text:
+              `Hallo ${owner.name ?? owner.email},\n\n` +
+              `wir möchten Sie informieren, dass Ihr Lumio-Konto ` +
+              `„${t.name}" am ${formattedDate} archiviert wird.\n\n` +
+              `Was bedeutet das?\n` +
+              `  • Ab diesem Datum können Sie sich nicht mehr einloggen\n` +
+              `  • Ihre Daten bleiben 30 Tage in Karenz erhalten\n` +
+              `  • Danach werden alle Daten endgültig gelöscht\n\n` +
+              `Was sollten Sie jetzt tun?\n` +
+              `Loggen Sie sich ein und exportieren Sie Ihre Daten über die ` +
+              `Sidebar → "Datenexport". Pro Galerie wird ein ZIP-Archiv mit ` +
+              `Originaldateien und Metadaten erstellt.\n\n` +
+              `Falls Sie das Archivierungsdatum für ein Missverständnis halten ` +
+              `oder Fragen haben, antworten Sie bitte zeitnah auf diese Mail.\n\n` +
+              `Wir senden Ihnen 7 Tage vor dem Stichtag noch eine Erinnerung.\n\n` +
+              `— Lumio`,
+          });
+          mailsSent++;
+        } catch (err) {
+          app.log.warn(
+            { err, ownerId: owner.id },
+            "schedule-archive mail failed"
+          );
+        }
+      }
+      // archiveNoticeMailedAt setzen, falls min. eine Mail durchging.
+      // Bei kompletter Mail-Failure bleibt null — der Sweeper merkt
+      // das beim naechsten Lauf nicht, aber wir wuerden's im Audit-Log
+      // sehen.
+      if (mailsSent > 0) {
+        await prisma.tenant.update({
+          where: { id: t.id },
+          data: { archiveNoticeMailedAt: new Date() },
+        });
+      }
+
+      await logEvent({
+        tenantId: t.id,
+        actorType: "super_admin",
+        actorId: sa.admin.id,
+        action: "super.tenant.schedule_archive",
+        targetType: "tenant",
+        targetId: t.id,
+        payload: {
+          scheduledAt,
+          ownersMailed: mailsSent,
+          ownersTotal: t.users.length,
+        },
+        ipAddress: req.ip,
+      });
+
+      return {
+        tenant: {
+          id: updated.id,
+          slug: updated.slug,
+          name: updated.name,
+          status: updated.status,
+          archiveScheduledAt: updated.archiveScheduledAt,
+        },
+        mailsSent,
+        ownersTotal: t.users.length,
+      };
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // DELETE /super/tenants/:id/schedule-archive — Plan zurückziehen
+  // -------------------------------------------------------------------------
+  // Setzt archiveScheduledAt + Mail-Tracking auf null. Schickt KEINE
+  // "Archivierung abgesagt"-Mail automatisch — wenn der Super-Admin
+  // den Tenant informieren will, soll er das bewusst tun (separater
+  // Kommunikationskanal). Wir wollen vermeiden, dass jemand das aus
+  // Versehen klickt und der Tenant verwirrt wird.
+  app.delete<{ Params: { id: string } }>(
+    "/super/tenants/:id/schedule-archive",
+    async (req, reply) => {
+      const sa = req.requireSuperAdmin();
+      const t = await prisma.tenant.findUnique({
+        where: { id: req.params.id },
+      });
+      if (!t) return reply.status(404).send({ error: "not_found" });
+      if (!t.archiveScheduledAt) {
+        return reply.status(409).send({
+          error: "not_scheduled",
+          message: "Es ist keine Archivierung geplant.",
+        });
+      }
+      await prisma.tenant.update({
+        where: { id: t.id },
+        data: {
+          archiveScheduledAt: null,
+          archiveNoticeMailedAt: null,
+          archiveReminderMailedAt: null,
+        },
+      });
+      await logEvent({
+        tenantId: t.id,
+        actorType: "super_admin",
+        actorId: sa.admin.id,
+        action: "super.tenant.cancel_scheduled_archive",
+        targetType: "tenant",
+        targetId: t.id,
+        payload: { previousScheduledAt: t.archiveScheduledAt },
+        ipAddress: req.ip,
+      });
+      return { ok: true };
+    }
+  );
+
   app.post<{ Params: { id: string } }>(
     "/super/tenants/:id/archive",
     async (req, reply) => {
@@ -551,6 +737,12 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
           // ein Super-Admin könnte unbeabsichtigt die 30 Tage
           // verlängern. Nur setzen wenn vorher null.
           archivedAt: t.archivedAt ?? new Date(),
+          // Scheduled-Archive-Felder zurücksetzen (Archive wurde
+          // jetzt vollzogen, der Plan ist erledigt). Sonst würde der
+          // Sweeper später noch versuchen Reminder zu mailen.
+          archiveScheduledAt: null,
+          archiveNoticeMailedAt: null,
+          archiveReminderMailedAt: null,
         },
       });
       // Alle aktiven Sessions des Tenants ungültig machen — Login-Pfad
@@ -969,6 +1161,32 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
             : null,
         })),
       };
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // POST /super/maintenance/run-export-cleanup
+  // -------------------------------------------------------------------------
+  // Manueller Trigger fuer den Sweeper. Wird normalerweise alle 6h
+  // automatisch ausgelöst, aber bei Bedarf (Storage-Druck, Tests)
+  // kann der Super-Admin direkt anstossen.
+  app.post(
+    "/super/maintenance/run-export-cleanup",
+    async (req) => {
+      const sa = req.requireSuperAdmin();
+      await enqueue(Queues.CLEANUP, {
+        type: "cleanup_expired_exports",
+      });
+      await logEvent({
+        tenantId: null,
+        actorType: "super_admin",
+        actorId: sa.admin.id,
+        action: "super.maintenance.run_export_cleanup",
+        targetType: "system",
+        targetId: "exports",
+        ipAddress: req.ip,
+      });
+      return { enqueued: true };
     }
   );
 }

@@ -533,6 +533,20 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     const remainingBackup = user.totpEnabled
       ? await backupCodeCount(user.id)
       : 0;
+    // Tenant-Status mitliefern damit das Studio einen Pre-Archive-
+    // Banner mit Countdown anzeigen kann. Wir laden hier einmalig
+    // statt überall im Frontend separat — me() wird beim Page-Load
+    // sowieso aufgerufen.
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: user.tenantId },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        status: true,
+        archiveScheduledAt: true,
+      },
+    });
     return {
       user: {
         id: user.id,
@@ -543,6 +557,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         totpEnabled: user.totpEnabled,
         backupCodesRemaining: remainingBackup,
       },
+      tenant,
     };
   });
 

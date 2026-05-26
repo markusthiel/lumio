@@ -32,6 +32,7 @@ from __future__ import annotations
 import structlog
 
 from app import app
+from db import get_conn
 from storage import delete_prefix
 
 
@@ -114,4 +115,96 @@ def cleanup_tenant(self, tenant_id: str) -> dict:
         "tenant_id": tenant_id,
         "deleted": result["deleted"],
         "errors": result["errors"],
+    }
+
+
+@app.task(
+    name="tasks.cleanup_storage.cleanup_expired_exports",
+    bind=True,
+    max_retries=2,
+    default_retry_delay=300,
+)
+def cleanup_expired_exports(self) -> dict:
+    """Räumt abgelaufene Tenant-Exports auf.
+
+    Was passiert:
+      1. DB-Query: alle TenantExport mit expiresAt < now() und
+         status != 'expired' finden.
+      2. Pro Export: jedes Item mit storageKey aus S3 löschen
+         (delete_object pro Key — Exports haben wenige Items, kein
+         Multi-Delete-Optimierung nötig).
+      3. TenantExport.status = 'expired' setzen. DB-Rows (Items,
+         Token) bleiben für Audit/Traceability erhalten.
+
+    Idempotent: zweiter Run findet die schon-expired Exports nicht
+    mehr, weil der Status-Filter sie ausschließt.
+
+    Wird vom API alle 6h getriggert oder manuell vom Super-Admin
+    via /super/maintenance/run-export-cleanup.
+
+    Wir löschen die ZIPs einzeln per delete_object, NICHT per
+    delete_prefix — denn die liegen alle unter t/<tenantId>/exports/
+    und ein delete_prefix dort würde auch nicht-expired Exports
+    desselben Tenants löschen.
+    """
+    log.info("cleanup_expired_exports.start")
+    from storage import get_s3_client, get_bucket  # lazy fuer Import-Zyklen-Sicherheit
+
+    s3 = get_s3_client()
+    bucket = get_bucket()
+
+    with get_conn() as conn:
+        # Header + Items in einem Rutsch holen — pro Export evtl. mehrere
+        # Items mit storageKeys. Wir brauchen die Keys zum Loeschen und
+        # die Export-IDs zum Status-Update.
+        rows = conn.execute(
+            'SELECT te.id AS export_id, '
+            '       array_agg(tei."storageKey") FILTER (WHERE tei."storageKey" IS NOT NULL) AS keys '
+            'FROM tenant_exports te '
+            'LEFT JOIN tenant_export_items tei ON tei."exportId" = te.id '
+            'WHERE te."expiresAt" < NOW() AND te.status <> %s '
+            'GROUP BY te.id',
+            ("expired",),
+        ).fetchall()
+
+    if not rows:
+        log.info("cleanup_expired_exports.nothing_to_do")
+        return {"processed": 0, "deleted_keys": 0, "errors": 0}
+
+    deleted_keys = 0
+    errors = 0
+    processed_ids: list[str] = []
+    for r in rows:
+        keys = r["keys"] or []
+        for key in keys:
+            try:
+                s3.delete_object(Bucket=bucket, Key=key)
+                deleted_keys += 1
+            except Exception as err:
+                errors += 1
+                log.warning(
+                    "cleanup_expired_exports.delete_failed",
+                    key=key, err=str(err),
+                )
+        processed_ids.append(str(r["export_id"]))
+
+    # Status-Update in Batches (Postgres ANY-Array). Items werden NICHT
+    # geupdated — der storageKey bleibt drin als Trail, was mal da war.
+    # Falls wir spaeter die ZIP-Files wiederherstellen wollen (sehr
+    # theoretisch), waere der Key wichtig zu kennen.
+    with get_conn() as conn:
+        conn.execute(
+            'UPDATE tenant_exports SET status = %s, "updatedAt" = NOW() '
+            'WHERE id = ANY(%s::uuid[])',
+            ("expired", processed_ids),
+        )
+
+    log.info(
+        "cleanup_expired_exports.complete",
+        processed=len(processed_ids), deleted_keys=deleted_keys, errors=errors,
+    )
+    return {
+        "processed": len(processed_ids),
+        "deleted_keys": deleted_keys,
+        "errors": errors,
     }

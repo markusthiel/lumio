@@ -45,6 +45,23 @@ function TenantDetail() {
   const [exportPending, setExportPending] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
 
+  // Schedule-Archive-Dialog: Date-Picker mit Default heute+30Tage.
+  // Triggert /super/tenants/:id/schedule-archive.
+  const [scheduleDialog, setScheduleDialog] = useState(false);
+  const [schedulePending, setSchedulePending] = useState(false);
+  const [scheduleError, setScheduleError] = useState<string | null>(null);
+  // Vor-formatiertes Default-Datum (heute + 30 Tage, YYYY-MM-DD für
+  // das <input type=date>) — useState mit Lazy-Init damit es bei
+  // Re-Renders nicht jedes Mal neu berechnet wird.
+  const [scheduleDate, setScheduleDate] = useState<string>(() => {
+    const d = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    return d.toISOString().slice(0, 10);
+  });
+  const [scheduleResult, setScheduleResult] = useState<{
+    mailsSent: number;
+    ownersTotal: number;
+  } | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -133,6 +150,44 @@ function TenantDetail() {
     }
   }
 
+  async function performSchedule() {
+    if (!tenant) return;
+    setSchedulePending(true);
+    setScheduleError(null);
+    try {
+      // <input type=date> liefert "YYYY-MM-DD" — wir setzen die Uhrzeit
+      // auf 00:00:00 UTC für planbaren Vergleich. Wenn der Super-Admin
+      // eine spezifische Uhrzeit will, braucht's einen DateTime-Picker
+      // — aktuell zu viel UX-Aufwand für selten genutztes Feature.
+      const scheduledAt = new Date(`${scheduleDate}T00:00:00.000Z`).toISOString();
+      const res = await api.superScheduleArchive(tenant.id, { scheduledAt });
+      setScheduleResult({
+        mailsSent: res.mailsSent,
+        ownersTotal: res.ownersTotal,
+      });
+      setScheduleDialog(false);
+      await load();
+    } catch (err) {
+      setScheduleError(err instanceof Error ? err.message : "Fehler");
+    } finally {
+      setSchedulePending(false);
+    }
+  }
+
+  async function cancelSchedule() {
+    if (!tenant) return;
+    if (!confirm(`Geplante Archivierung für "${tenant.name}" zurückziehen?\n\nDer Tenant erhält keine automatische Benachrichtigung. Falls du ihn informieren willst, schreibe ihm direkt.`)) return;
+    setActionBusy(true);
+    try {
+      await api.superCancelScheduledArchive(tenant.id);
+      await load();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Fehler");
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
   if (loading || !tenant) {
     return <div className="px-8 py-6 text-ink-tertiary">Lädt…</div>;
   }
@@ -179,6 +234,15 @@ function TenantDetail() {
               Reaktivieren
             </ActionButton>
           )}
+          {tenant.status === "active" && !tenant.archiveScheduledAt && (
+            <ActionButton
+              onClick={() => setScheduleDialog(true)}
+              disabled={actionBusy}
+              variant="warning"
+            >
+              Archive vorplanen
+            </ActionButton>
+          )}
           {tenant.status !== "archived" && (
             <ActionButton
               onClick={archive}
@@ -211,6 +275,18 @@ function TenantDetail() {
             )}
         </div>
       </div>
+
+      {/* Schedule-Archive-Banner: zeigt sich bei aktiven Tenants mit
+          archiveScheduledAt. Wenn Stichtag noch in der Zukunft → blau.
+          Wenn Stichtag erreicht → rot mit "jetzt archivieren"-Hinweis. */}
+      {tenant.status === "active" && tenant.archiveScheduledAt && (
+        <ScheduledArchiveBanner
+          scheduledAt={tenant.archiveScheduledAt}
+          onCancel={cancelSchedule}
+          onArchiveNow={archive}
+          busy={actionBusy}
+        />
+      )}
 
       {/* Karenz-Banner: zeigt sich nur bei archivierten Tenants. Wenn
           die 30 Tage noch laufen → "noch X Tage". Wenn vorbei →
@@ -461,6 +537,93 @@ function TenantDetail() {
 
       {/* Export-Confirm: bestaetigt den Aufruf. Bei archived Tenants
           weist der Text auf den Mail-Versand hin. */}
+      {/* Schedule-Archive-Dialog. Datepicker + Erklärungstext. Default
+          ist heute+30 Tage (im State-Init schon vorgefüllt). */}
+      {scheduleDialog && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => !schedulePending && setScheduleDialog(false)}
+        >
+          <div
+            className="bg-surface-base rounded-lg border border-line-subtle shadow-2xl max-w-md w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-medium text-ink-primary">
+              Archivierung vorplanen
+            </h2>
+            <p className="text-ui-sm text-ink-secondary mt-3">
+              Setzt einen Stichtag, an dem du den Tenant manuell archivieren
+              wirst. Studio zeigt dem Tenant einen Countdown-Banner mit Link
+              zum Datenexport. Wir schicken jetzt eine Initial-Mail und 7 Tage
+              vor Stichtag eine Erinnerung an alle aktiven Owner.
+            </p>
+            <div className="mt-4">
+              <label className="text-ui-xs text-ink-secondary block mb-1.5">
+                Stichtag
+              </label>
+              <input
+                type="date"
+                value={scheduleDate}
+                onChange={(e) => setScheduleDate(e.target.value)}
+                disabled={schedulePending}
+                className="w-full h-9 px-2.5 rounded bg-surface-sunken border border-line-subtle focus:border-accent text-ui text-ink-primary focus:outline-none transition-colors duration-motion disabled:opacity-50"
+              />
+            </div>
+            {scheduleError && (
+              <p className="text-ui-sm text-semantic-danger mt-3">
+                {scheduleError}
+              </p>
+            )}
+            <div className="flex gap-2 justify-end mt-5">
+              <ActionButton
+                onClick={() => setScheduleDialog(false)}
+                disabled={schedulePending}
+                variant="ghost"
+              >
+                Abbrechen
+              </ActionButton>
+              <ActionButton
+                onClick={performSchedule}
+                disabled={schedulePending || !scheduleDate}
+                variant="warning"
+              >
+                {schedulePending ? "Plane…" : "Vorplanen + Mail senden"}
+              </ActionButton>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Schedule-Result: Bestätigung mit Mail-Status. */}
+      {scheduleResult && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setScheduleResult(null)}
+        >
+          <div
+            className="bg-surface-base rounded-lg border border-line-subtle shadow-2xl max-w-md w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-medium text-ink-primary">
+              Archivierung vorgeplant
+            </h2>
+            <p className="text-ui-sm text-ink-secondary mt-3">
+              Initial-Benachrichtigung wurde an {scheduleResult.mailsSent} von{" "}
+              {scheduleResult.ownersTotal} aktiven Owner verschickt. Eine
+              Erinnerung folgt 7 Tage vor Stichtag.
+            </p>
+            <div className="flex gap-2 justify-end mt-5">
+              <ActionButton
+                onClick={() => setScheduleResult(null)}
+                variant="ghost"
+              >
+                Schließen
+              </ActionButton>
+            </div>
+          </div>
+        </div>
+      )}
+
       {exportConfirm && (
         <div
           className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
@@ -579,6 +742,81 @@ function StatusBadge({ status }: { status: SuperTenantDetail["status"] }) {
     >
       {label}
     </span>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Schedule-Archive-Banner: zwei Modi je nachdem ob der Stichtag schon
+// erreicht ist oder noch in der Zukunft liegt.
+function ScheduledArchiveBanner({
+  scheduledAt,
+  onCancel,
+  onArchiveNow,
+  busy,
+}: {
+  scheduledAt: string;
+  onCancel: () => void;
+  onArchiveNow: () => void;
+  busy: boolean;
+}) {
+  const date = new Date(scheduledAt);
+  const remainingMs = date.getTime() - Date.now();
+  const reached = remainingMs <= 0;
+  const daysLeft = Math.ceil(remainingMs / (24 * 60 * 60 * 1000));
+  return (
+    <div
+      className={`rounded-md border px-4 py-3 mb-6 ${
+        reached
+          ? "border-semantic-danger/30 bg-semantic-danger/8"
+          : "border-semantic-warning/30 bg-semantic-warning/8"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="text-ui-sm text-ink-secondary min-w-0 flex-1">
+          <span className="font-medium text-ink-primary">
+            {reached
+              ? `Stichtag erreicht — Archivierung steht aus`
+              : `Archivierung geplant für ${date.toLocaleDateString("de-DE")} (in ${daysLeft} Tag${daysLeft === 1 ? "" : "en"})`}
+          </span>
+          <div className="text-ui-xs text-ink-tertiary mt-1">
+            {reached ? (
+              <>
+                Der geplante Termin ist verstrichen. Klicke „Jetzt archivieren",
+                um die Archivierung manuell auszulösen (Stripe-Cancel + 30 Tage
+                Karenz starten). Solange du nichts tust, kann der Tenant
+                weiter arbeiten.
+              </>
+            ) : (
+              <>
+                Tenant hat eine Initial-Mail erhalten. 7 Tage vor Stichtag folgt
+                automatisch eine Erinnerung. Im Studio sieht der Tenant einen
+                Countdown-Banner mit Link zum Datenexport.
+              </>
+            )}
+          </div>
+        </div>
+        <div className="flex gap-2 flex-shrink-0">
+          {reached && (
+            <button
+              type="button"
+              onClick={onArchiveNow}
+              disabled={busy}
+              className="h-8 px-3 rounded border text-ui-sm disabled:opacity-50 transition-colors duration-motion border-semantic-danger/40 text-semantic-danger hover:bg-semantic-danger/10"
+            >
+              Jetzt archivieren
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            className="h-8 px-3 rounded border text-ui-sm disabled:opacity-50 transition-colors duration-motion border-line-subtle text-ink-secondary hover:bg-surface-sunken"
+          >
+            Plan zurückziehen
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

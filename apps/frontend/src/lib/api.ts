@@ -417,7 +417,17 @@ export const api = {
       body: JSON.stringify({ challenge, token }),
     }),
   logout: () => request<{ ok: true }>("/auth/logout", { method: "POST" }),
-  me: () => request<{ user: ApiUser }>("/auth/me"),
+  me: () =>
+    request<{
+      user: ApiUser;
+      tenant: {
+        id: string;
+        name: string;
+        slug: string;
+        status: "active" | "suspended" | "archived";
+        archiveScheduledAt: string | null;
+      } | null;
+    }>("/auth/me"),
 
   /** Auto-Login nach Stripe-Checkout. Welcome-Page ruft das mit der
    *  session_id aus der URL auf — Backend validiert via Stripe und
@@ -1605,6 +1615,31 @@ export const api = {
       mailsSent: number;
     }>(`/super/tenants/${id}/export`, { method: "POST" }),
 
+  /** Archivierung vor-planen. Optional scheduledAt (ISO-String);
+   *  default 30 Tage in der Zukunft. Schickt Initial-Mail an alle
+   *  aktiven Owner. Studio zeigt ab Setzen einen Countdown-Banner. */
+  superScheduleArchive: (id: string, input?: { scheduledAt?: string }) =>
+    request<{
+      tenant: {
+        id: string;
+        slug: string;
+        name: string;
+        status: string;
+        archiveScheduledAt: string | null;
+      };
+      mailsSent: number;
+      ownersTotal: number;
+    }>(`/super/tenants/${id}/schedule-archive`, {
+      method: "POST",
+      body: JSON.stringify(input ?? {}),
+    }),
+
+  /** Schedule zurückziehen. Schickt KEINE Absage-Mail automatisch. */
+  superCancelScheduledArchive: (id: string) =>
+    request<{ ok: true }>(`/super/tenants/${id}/schedule-archive`, {
+      method: "DELETE",
+    }),
+
   /** Liste der Exports eines Tenants (Super-Admin-Sicht inkl. Token). */
   superListTenantExports: (id: string) =>
     request<{
@@ -1685,6 +1720,9 @@ export interface SuperTenantDetail {
   /** Timestamp wann der Tenant archiviert wurde. Null bei aktiven/
    *  suspendierten Tenants. */
   archivedAt: string | null;
+  /** Wenn gesetzt: Super-Admin hat eine Archivierung im Voraus geplant.
+   *  Studio zeigt ab dann einen Countdown-Banner. */
+  archiveScheduledAt: string | null;
   /** Karenz-Info bei archivierten Tenants. Null sonst.
    *  - active: true wenn die Karenzfrist (30 Tage) noch läuft
    *  - deletableAt: ISO-Zeitstring ab wann Hard-Delete erlaubt ist

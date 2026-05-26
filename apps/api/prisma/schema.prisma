@@ -37,6 +37,20 @@ model Tenant {
   // 'archived'). Hard-Delete prüft archivedAt + 30 Tage als Karenz
   // gegen versehentliches sofortiges Wegwerfen.
   archivedAt DateTime?
+
+  // Pre-Archive-Warnung. Wenn der Super-Admin eine Archivierung im
+  // Voraus plant, setzt er diesen Timestamp. Studio-Banner warnt den
+  // Tenant ab dann mit Countdown. Beim erreichten Stichtag erinnert
+  // der Sweeper den Super-Admin (via Audit-Log + Mail), archiviert
+  // aber NICHT automatisch — Super-Admin muss manuell klicken.
+  archiveScheduledAt DateTime?
+
+  // Beim Setzen eines archiveScheduledAt verschicken wir eine Initial-
+  // Mail an alle Owner sowie eine Reminder-Mail 7 Tage vor Stichtag.
+  // Wir tracken, welche schon raus sind, damit der Sweeper die Reminder-
+  // Mail nicht mehrfach schickt.
+  archiveNoticeMailedAt   DateTime?  // Initial-Notice (beim Setzen)
+  archiveReminderMailedAt DateTime?  // 7-Tage-Reminder vom Sweeper
   
   // Branding auf Tenant-Ebene (kann pro Galerie überschrieben werden)
   brandingId  String?  @db.Uuid

@@ -155,6 +155,13 @@ def _dispatch(stream: str, payload: dict) -> None:
             "tasks.cleanup_storage.cleanup_tenant",
             args=[payload.get("tenantId")],
         )
+    elif job_type == "cleanup_expired_exports":
+        # Periodisch (alle 6h von der API). Räumt abgelaufene
+        # TenantExport-Items + S3-ZIPs. Keine Args nötig — Task
+        # findet alle expired Exports selbst.
+        app.send_task(
+            "tasks.cleanup_storage.cleanup_expired_exports",
+        )
     elif job_type == "export_zip":
         # Tenant-Export pro Galerie (Datenexport). Pro Export-Item ein
         # Job, baut ZIP mit Originalen + metadata.json.
