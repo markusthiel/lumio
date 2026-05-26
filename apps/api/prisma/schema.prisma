@@ -27,7 +27,18 @@ datasource db {
 model Tenant {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   slug        String   @unique
+  // Interner Verwaltungsname — sichtbar fuer Super-Admin, Audit-Logs
+  // und Studio-Owner als 'echter Name'. Wird auch als Fallback fuer
+  // displayName genutzt wenn der Owner keinen oeffentlichen Namen
+  // gesetzt hat.
   name        String
+  // Oeffentlicher Anzeigename, vom Owner selbst editierbar in
+  // /studio/settings. Sichtbar auf der Login-Seite, in allen Mails,
+  // im Welcome-Flow und im Email-Change-Banner. Wenn null, faellt
+  // alles auf 'name' zurueck. Trennung ermoeglicht Tenants mit
+  // separater Aussenwirkung (z.B. interner Name 'Samuel Rojahn',
+  // oeffentlich 'Samuel & Chiara Photography').
+  displayName String?
   status      String   @default("active") // active | suspended | archived
   customDomain String? @unique
 

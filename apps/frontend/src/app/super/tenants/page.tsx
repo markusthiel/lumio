@@ -71,6 +71,11 @@ function TenantsList() {
                 <div className="flex-1 min-w-0">
                   <div className="text-ui text-ink-primary truncate">
                     {t.name}
+                    {t.displayName && t.displayName !== t.name && (
+                      <span className="text-ui-xs text-ink-tertiary ml-2 font-normal">
+                        → öffentlich „{t.displayName}"
+                      </span>
+                    )}
                   </div>
                   <div className="text-ui-xs text-ink-tertiary truncate font-mono">
                     {t.slug}

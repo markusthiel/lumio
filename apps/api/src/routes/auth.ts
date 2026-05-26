@@ -33,6 +33,7 @@ import {
   buildResetUrl,
 } from "../services/setupToken.js";
 import { sendMail, tmplPasswordReset } from "../services/mail.js";
+import { tenantDisplayName } from "../services/tenant.js";
 import {
   createLoginChallenge,
   verifyLoginChallenge,
@@ -548,18 +549,30 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     if (!req.tenantId) {
       return { tenant: null, branding: null };
     }
-    const tenant = await prisma.tenant.findUnique({
+    const row = await prisma.tenant.findUnique({
       where: { id: req.tenantId },
       select: {
         id: true,
         name: true,
+        displayName: true,
         slug: true,
         status: true,
       },
     });
-    if (!tenant) {
+    if (!row) {
       return { tenant: null, branding: null };
     }
+    // 'name' in der API-Response ist der OEFFENTLICHE Name. Der
+    // interne Verwaltungsname (row.name) ist hier nicht relevant —
+    // tenant-context wird nur fuer den Login + andere Public-
+    // Kontexte gebraucht. So muss das Frontend nicht selbst die
+    // Fallback-Logik abbilden.
+    const tenant = {
+      id: row.id,
+      name: tenantDisplayName(row),
+      slug: row.slug,
+      status: row.status as "active" | "suspended" | "archived",
+    };
     const branding = await resolveTenantBranding(tenant.id);
     return { tenant, branding };
   });
@@ -623,7 +636,9 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       }
       const user = await prisma.user.findUnique({
         where: { id: found.userId },
-        include: { tenant: { select: { name: true, status: true } } },
+        include: {
+          tenant: { select: { name: true, displayName: true, status: true } },
+        },
       });
       if (!user) return reply.status(404).send({ error: "invalid_or_expired" });
       if (user.tenant.status !== "active") {
@@ -632,7 +647,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       return {
         email: user.email,
         name: user.name,
-        tenantName: user.tenant.name,
+        tenantName: tenantDisplayName(user.tenant),
         expiresAt: found.expiresAt,
       };
     }
@@ -756,7 +771,9 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         where: {
           tenantId_email: { tenantId: req.tenantId, email: body.email },
         },
-        include: { tenant: { select: { name: true, status: true } } },
+        include: {
+          tenant: { select: { name: true, displayName: true, status: true } },
+        },
       });
 
       // Wir mailen nur wenn alles passt — kein Audit-Leak nach aussen.
@@ -774,7 +791,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         try {
           const tpl = tmplPasswordReset({
             displayName: user.name ?? user.email,
-            tenantName: user.tenant.name,
+            tenantName: tenantDisplayName(user.tenant),
             resetUrl,
             validHours: 24,
             ipAddress: req.ip,
@@ -840,7 +857,9 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       }
       const user = await prisma.user.findUnique({
         where: { id: found.userId },
-        include: { tenant: { select: { name: true, status: true } } },
+        include: {
+          tenant: { select: { name: true, displayName: true, status: true } },
+        },
       });
       if (!user) return reply.status(404).send({ error: "invalid_or_expired" });
       if (user.status !== "active" || user.tenant.status !== "active") {
@@ -849,7 +868,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       return {
         email: user.email,
         name: user.name,
-        tenantName: user.tenant.name,
+        tenantName: tenantDisplayName(user.tenant),
         expiresAt: found.expiresAt,
       };
     }

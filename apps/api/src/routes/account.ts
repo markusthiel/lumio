@@ -43,6 +43,7 @@ import {
   tmplEmailChangeConfirm,
   tmplEmailChangeNotice,
 } from "../services/mail.js";
+import { tenantDisplayName } from "../services/tenant.js";
 import { logEvent } from "../services/audit.js";
 
 
@@ -216,7 +217,9 @@ export async function registerAccountRoutes(app: FastifyInstance) {
 
       const u = await prisma.user.findUnique({
         where: { id: s.user.id },
-        include: { tenant: { select: { name: true } } },
+        include: {
+          tenant: { select: { name: true, displayName: true } },
+        },
       });
       if (!u) return reply.status(404).send({ error: "user_not_found" });
 
@@ -257,6 +260,7 @@ export async function registerAccountRoutes(app: FastifyInstance) {
         payload: { newEmail: body.newEmail, oldEmail: u.email },
       });
       const confirmUrl = buildEmailChangeUrl(token);
+      const publicTenantName = tenantDisplayName(u.tenant);
 
       // Bestaetigungsmail an die NEUE Adresse. Mail-Fehler hier ist
       // kritisch (User koennte sich aussperren wenn er die Adresse
@@ -266,7 +270,7 @@ export async function registerAccountRoutes(app: FastifyInstance) {
       try {
         const tplConfirm = tmplEmailChangeConfirm({
           displayName: u.name ?? u.email,
-          tenantName: u.tenant.name,
+          tenantName: publicTenantName,
           oldEmail: u.email,
           newEmail: body.newEmail,
           confirmUrl,
@@ -293,7 +297,7 @@ export async function registerAccountRoutes(app: FastifyInstance) {
       try {
         const tplNotice = tmplEmailChangeNotice({
           displayName: u.name ?? u.email,
-          tenantName: u.tenant.name,
+          tenantName: publicTenantName,
           newEmail: body.newEmail,
         });
         await sendMail({ to: u.email, ...tplNotice });

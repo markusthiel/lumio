@@ -890,6 +890,7 @@ function EditMetaForm({
 }) {
   const [slug, setSlug] = useState(tenant.slug);
   const [name, setName] = useState(tenant.name);
+  const [displayName, setDisplayName] = useState(tenant.displayName ?? "");
   const [customDomain, setCustomDomain] = useState(tenant.customDomain ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -917,6 +918,7 @@ function EditMetaForm({
       await api.superUpdateTenant(tenant.id, {
         slug: slug.trim().toLowerCase(),
         name: name.trim(),
+        displayName: displayName.trim() || null,
         customDomain: customDomain.trim() || null,
       });
       await onSaved();
@@ -958,13 +960,30 @@ function EditMetaForm({
         </span>
       </label>
       <label className="block">
-        <span className="text-ui-sm text-ink-secondary">Name</span>
+        <span className="text-ui-sm text-ink-secondary">Name (intern)</span>
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           className="mt-1 w-full h-9 px-2.5 rounded bg-surface-sunken border border-line-subtle text-ui text-ink-primary focus:border-accent focus:outline-none"
         />
+      </label>
+      <label className="block">
+        <span className="text-ui-sm text-ink-secondary">
+          Öffentlicher Anzeigename
+        </span>
+        <input
+          type="text"
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          maxLength={120}
+          placeholder={`Leer = ${name || tenant.name}`}
+          className="mt-1 w-full h-9 px-2.5 rounded bg-surface-sunken border border-line-subtle text-ui text-ink-primary focus:border-accent focus:outline-none"
+        />
+        <span className="block mt-1 text-ui-xs text-ink-tertiary">
+          Sichtbar im Login, in E-Mails an Kunden. Owner kann das auch
+          selbst im Studio ändern.
+        </span>
       </label>
       <label className="block">
         <span className="text-ui-sm text-ink-secondary">Custom-Domain</span>

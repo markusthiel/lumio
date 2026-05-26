@@ -19,10 +19,13 @@ export default function StudioSettingsPage() {
   const [uploadLimits, setUploadLimits] = useState<UploadLimits | null>(null);
   const [usage, setUsage] = useState<BillingUsage | null>(null);
   const [loading, setLoading] = useState(true);
+  const [displayName, setDisplayName] = useState("");
   const [text, setText] = useState("");
   const [domain, setDomain] = useState("");
   // Per-File Upload-Limit in MiB. Leer = ENV-Default verwenden.
   const [maxUpload, setMaxUpload] = useState("");
+  const [displayNameSaving, setDisplayNameSaving] = useState(false);
+  const [displayNameSaved, setDisplayNameSaved] = useState(false);
   const [textSaving, setTextSaving] = useState(false);
   const [domainSaving, setDomainSaving] = useState(false);
   const [imageSaving, setImageSaving] = useState(false);
@@ -35,6 +38,7 @@ export default function StudioSettingsPage() {
       const res = await api.getTenantSettings();
       setSettings(res.tenant);
       setUploadLimits(res.uploadLimits);
+      setDisplayName(res.tenant.displayName ?? "");
       setText(res.tenant.watermarkText ?? "");
       setDomain(res.tenant.customDomain ?? "");
       setMaxUpload(
@@ -67,6 +71,27 @@ export default function StudioSettingsPage() {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function saveDisplayName() {
+    setDisplayNameSaving(true);
+    setError(null);
+    try {
+      const res = await api.updateTenantSettings({
+        // Leerer String wird vom Backend zu null transformiert (Fallback
+        // auf den internen Namen). Wir senden den trimmed Wert oder null
+        // damit unsere lokale 'changed?'-Logik mit dem Backend uebereinstimmt.
+        displayName: displayName.trim() || null,
+      });
+      setSettings(res.tenant);
+      setDisplayName(res.tenant.displayName ?? "");
+      setDisplayNameSaved(true);
+      setTimeout(() => setDisplayNameSaved(false), 2500);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Fehler");
+    } finally {
+      setDisplayNameSaving(false);
+    }
+  }
 
   async function saveText() {
     setTextSaving(true);
@@ -207,6 +232,51 @@ export default function StudioSettingsPage() {
             {error}
           </div>
         )}
+
+        {/* Studio-Identitaet: oeffentlicher Anzeigename. */}
+        <section className="rounded-lg border border-line-subtle bg-surface-raised p-5 space-y-3">
+          <div>
+            <h2 className="text-sm font-medium">Studio-Name</h2>
+            <p className="text-xs text-ink-tertiary mt-0.5 leading-relaxed">
+              So sehen deine Kunden dein Studio: im Login-Bildschirm, in
+              E-Mails (Passwort-Reset, Einladungen, etc.) und im Header
+              deiner Galerien. Wenn du das Feld leer lässt, wird der
+              interne Name{" "}
+              <span className="font-mono text-ink-secondary">
+                {settings.name}
+              </span>{" "}
+              verwendet.
+            </p>
+          </div>
+          <input
+            type="text"
+            value={displayName}
+            onChange={(e) => {
+              setDisplayName(e.target.value);
+              setDisplayNameSaved(false);
+            }}
+            maxLength={120}
+            placeholder={`z.B. ${settings.name} Photography`}
+            className="w-full h-9 px-2.5 rounded bg-surface-sunken border border-line-subtle hover:border-line-strong focus:border-accent text-ui text-ink-primary focus:outline-none transition-colors duration-motion disabled:opacity-50"
+          />
+          <div className="flex justify-end items-center gap-2">
+            {displayNameSaved && (
+              <span className="text-ui-sm text-semantic-success">
+                ✓ Gespeichert
+              </span>
+            )}
+            <button
+              onClick={saveDisplayName}
+              disabled={
+                displayNameSaving ||
+                (displayName.trim() === (settings.displayName ?? ""))
+              }
+              className="text-sm px-3 py-1.5 rounded-md border border-line-subtle hover:bg-surface-sunken disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {displayNameSaving ? "Speichert…" : "Speichern"}
+            </button>
+          </div>
+        </section>
 
         {/* Locale */}
         <section className="rounded-md border border-line-subtle bg-surface-raised p-5 flex items-center justify-between">

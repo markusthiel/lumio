@@ -17,6 +17,7 @@ interface Props {
 export function CreateTenantDialog({ onClose, onCreated }: Props) {
   const [slug, setSlug] = useState("");
   const [name, setName] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [customDomain, setCustomDomain] = useState("");
   const [ownerEmail, setOwnerEmail] = useState("");
   const [ownerName, setOwnerName] = useState("");
@@ -32,6 +33,7 @@ export function CreateTenantDialog({ onClose, onCreated }: Props) {
       const r = await api.superCreateTenant({
         slug: slug.trim().toLowerCase(),
         name: name.trim(),
+        displayName: displayName.trim() || null,
         customDomain: customDomain.trim() || null,
         ownerEmail: ownerEmail.trim(),
         ownerName: ownerName.trim(),
@@ -119,6 +121,20 @@ export function CreateTenantDialog({ onClose, onCreated }: Props) {
             required
             maxLength={120}
             placeholder="Studio Müller"
+            className="block w-full h-9 px-2.5 rounded bg-surface-sunken border border-line-subtle text-ui text-ink-primary focus:border-accent focus:outline-none"
+          />
+        </Field>
+
+        <Field
+          label="Öffentlicher Anzeigename"
+          hint="Optional. Wenn leer, wird der Studio-Name oben verwendet. Sichtbar im Login & in E-Mails an die Kunden. Owner kann das später selbst ändern."
+        >
+          <input
+            type="text"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            maxLength={120}
+            placeholder="z.B. Müller Photography"
             className="block w-full h-9 px-2.5 rounded bg-surface-sunken border border-line-subtle text-ui text-ink-primary focus:border-accent focus:outline-none"
           />
         </Field>

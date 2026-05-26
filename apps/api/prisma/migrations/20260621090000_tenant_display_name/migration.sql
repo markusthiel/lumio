@@ -1,0 +1,11 @@
+-- Oeffentlicher Anzeigename pro Tenant.
+--
+-- Trennung von 'name' (intern, Super-Admin-Sicht) und 'displayName'
+-- (oeffentlich, vom Owner editierbar). Wenn NULL, faellt jeder
+-- Caller auf name zurueck — kein Branding-Bruch fuer bestehende
+-- Tenants.
+--
+-- Beispiel:
+--   name        = "Samuel Rojahn"          (intern)
+--   displayName = "Samuel & Chiara Photography"  (oeffentlich)
+ALTER TABLE "tenants" ADD COLUMN "displayName" TEXT;

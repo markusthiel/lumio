@@ -19,6 +19,21 @@ import {
 } from "../services/storage.js";
 
 const updateSettingsSchema = z.object({
+  /** Oeffentlicher Anzeigename des Studios. Vom Owner/Admin
+   *  editierbar — sichtbar auf der Login-Seite, in allen Mails,
+   *  im Welcome-Flow. Wenn leerer String oder null, faellt alles
+   *  auf den internen Verwaltungsnamen (tenant.name) zurueck. */
+  displayName: z
+    .string()
+    .max(120)
+    .nullable()
+    .optional()
+    .transform((v) => {
+      if (v === undefined) return undefined;
+      if (v === null) return null;
+      const trimmed = v.trim();
+      return trimmed ? trimmed : null;
+    }),
   watermarkText: z.string().max(200).nullable().optional(),
   customDomain: z
     .string()
@@ -53,6 +68,7 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
         id: true,
         slug: true,
         name: true,
+        displayName: true,
         watermarkText: true,
         watermarkImageKey: true,
         customDomain: true,
@@ -131,6 +147,9 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
     const tenant = await prisma.tenant.update({
       where: { id: req.tenantId },
       data: {
+        ...(body.displayName !== undefined
+          ? { displayName: body.displayName }
+          : {}),
         ...(body.watermarkText !== undefined
           ? { watermarkText: body.watermarkText }
           : {}),
@@ -145,6 +164,7 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
         id: true,
         slug: true,
         name: true,
+        displayName: true,
         watermarkText: true,
         watermarkImageKey: true,
         customDomain: true,

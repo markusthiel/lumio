@@ -67,6 +67,15 @@ const slugSchema = z
 const createTenantSchema = z.object({
   slug: slugSchema,
   name: z.string().min(1).max(120),
+  // Oeffentlicher Anzeigename (optional). Wenn weggelassen oder leer,
+  // wird auf 'name' zurueckgegriffen. Super-Admin kann den Wert beim
+  // Anlegen setzen; spaeter pflegt der Owner ihn selbst im Studio.
+  displayName: z
+    .string()
+    .max(120)
+    .nullable()
+    .optional()
+    .transform((v) => (v && v.trim() ? v.trim() : null)),
   customDomain: z
     .string()
     .max(200)
@@ -80,6 +89,17 @@ const createTenantSchema = z.object({
 const updateTenantSchema = z.object({
   slug: slugSchema.optional(),
   name: z.string().min(1).max(120).optional(),
+  displayName: z
+    .string()
+    .max(120)
+    .nullable()
+    .optional()
+    .transform((v) => {
+      if (v === undefined) return undefined; // nicht geaendert
+      if (v === null) return null; // explizit geloescht
+      const trimmed = v.trim();
+      return trimmed ? trimmed : null;
+    }),
   customDomain: z
     .string()
     .max(200)
@@ -109,6 +129,7 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
         id: true,
         slug: true,
         name: true,
+        displayName: true,
         status: true,
         customDomain: true,
         createdAt: true,
@@ -122,6 +143,7 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
         id: t.id,
         slug: t.slug,
         name: t.name,
+        displayName: t.displayName,
         status: t.status,
         customDomain: t.customDomain,
         createdAt: t.createdAt,
@@ -170,6 +192,7 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
         data: {
           slug: body.slug,
           name: body.name,
+          displayName: body.displayName ?? null,
           status: "active",
           customDomain: body.customDomain ?? null,
         },
@@ -299,6 +322,7 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
           id: true,
           slug: true,
           name: true,
+          displayName: true,
           status: true,
           archivedAt: true,
           archiveScheduledAt: true,
@@ -415,6 +439,9 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
         data: {
           ...(body.slug !== undefined ? { slug: body.slug } : {}),
           ...(body.name !== undefined ? { name: body.name } : {}),
+          ...(body.displayName !== undefined
+            ? { displayName: body.displayName }
+            : {}),
           ...(body.customDomain !== undefined
             ? { customDomain: body.customDomain }
             : {}),
@@ -432,6 +459,7 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
           slug: body.slug,
           previousSlug: body.slug !== undefined ? existing.slug : undefined,
           name: body.name,
+          displayName: body.displayName,
           customDomain: body.customDomain,
         },
         ipAddress: req.ip,

@@ -1546,6 +1546,7 @@ export const api = {
     ),
 
   updateTenantSettings: (patch: {
+    displayName?: string | null;
     watermarkText?: string | null;
     customDomain?: string | null;
     maxUploadMib?: number | null;
@@ -1744,6 +1745,7 @@ export const api = {
   superCreateTenant: (input: {
     slug: string;
     name: string;
+    displayName?: string | null;
     customDomain?: string | null;
     ownerEmail: string;
     ownerName: string;
@@ -1755,7 +1757,12 @@ export const api = {
 
   superUpdateTenant: (
     id: string,
-    patch: { slug?: string; name?: string; customDomain?: string | null }
+    patch: {
+      slug?: string;
+      name?: string;
+      displayName?: string | null;
+      customDomain?: string | null;
+    }
   ) =>
     request<{ tenant: SuperTenantSummary }>(`/super/tenants/${id}`, {
       method: "PATCH",
@@ -1874,7 +1881,10 @@ export const api = {
 export interface SuperTenantSummary {
   id: string;
   slug: string;
+  /** Interner Verwaltungsname. */
   name: string;
+  /** Oeffentlicher Anzeigename (Login, Mails). Null = Fallback auf name. */
+  displayName: string | null;
   status: "active" | "suspended" | "archived";
   customDomain: string | null;
   createdAt: string;
@@ -1895,7 +1905,10 @@ export interface SuperTenantUser {
 export interface SuperTenantDetail {
   id: string;
   slug: string;
+  /** Interner Verwaltungsname. */
   name: string;
+  /** Oeffentlicher Anzeigename. Null = Fallback auf name. */
+  displayName: string | null;
   status: "active" | "suspended" | "archived";
   /** Timestamp wann der Tenant archiviert wurde. Null bei aktiven/
    *  suspendierten Tenants. */
@@ -2008,7 +2021,11 @@ export interface BrandingDetail {
 export interface TenantSettings {
   id: string;
   slug: string;
+  /** Interner Verwaltungsname (Super-Admin-Sicht). */
   name: string;
+  /** Oeffentlicher Anzeigename (Login, Mails, Welcome). Wenn null,
+   *  fallen alle Caller auf 'name' zurueck. */
+  displayName: string | null;
   watermarkText: string | null;
   watermarkImageKey: string | null;
   customDomain?: string | null;
