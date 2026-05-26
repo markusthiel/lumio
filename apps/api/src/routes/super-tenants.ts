@@ -37,7 +37,7 @@ import { z } from "zod";
 import { prisma } from "../db.js";
 import { config } from "../config.js";
 import { hashPassword } from "../services/auth.js";
-import { createSetupToken } from "../services/setupToken.js";
+import { createSetupToken, buildSetupUrl } from "../services/setupToken.js";
 import { logEvent } from "../services/audit.js";
 import { sendMail, tmplOwnerSetup } from "../services/mail.js";
 import { cancelSubscriptionImmediately } from "../services/stripe-service.js";
@@ -84,14 +84,6 @@ const addOwnerSchema = z.object({
   email: z.string().email().max(200),
   name: z.string().min(1).max(120),
 });
-
-function buildSetupUrl(token: string): string {
-  // PUBLIC_URL aus config: voll-qualifizierte Studio-URL (z.B.
-  // https://lumio-cloud.de). Der Setup-Link öffnet im Frontend
-  // /auth/setup-password?token=...
-  const base = config.PUBLIC_URL.replace(/\/+$/, "");
-  return `${base}/auth/setup-password?token=${encodeURIComponent(token)}`;
-}
 
 export async function registerSuperTenantRoutes(app: FastifyInstance) {
   // Gate: alle Routes hier brauchen einen Super-Admin.

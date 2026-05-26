@@ -1123,6 +1123,70 @@ export const api = {
       }>;
     }>(`/galleries/${galleryId}/duplicates`),
 
+  // Team-Management (Tenant-intern, Owner-only)
+  listTeam: () =>
+    request<{
+      users: Array<{
+        id: string;
+        email: string;
+        name: string | null;
+        role: "owner" | "admin" | "member";
+        status: "active" | "invited" | "disabled";
+        lastLoginAt: string | null;
+        createdAt: string;
+        totpEnabled: boolean;
+      }>;
+    }>(`/team`),
+
+  inviteTeamMember: (input: {
+    email: string;
+    name: string;
+    role?: "owner" | "admin" | "member";
+  }) =>
+    request<{
+      user: {
+        id: string;
+        email: string;
+        name: string | null;
+        role: string;
+        status: string;
+      };
+      mailSent: boolean;
+      /** Setup-URL nur gesetzt wenn die Mail NICHT durchging — dann
+       *  kann der einladende Owner manuell weiterleiten. */
+      setupUrl: string | null;
+    }>(`/team`, { method: "POST", body: JSON.stringify(input) }),
+
+  resendTeamInvite: (userId: string) =>
+    request<{ mailSent: boolean; setupUrl: string | null }>(
+      `/team/${userId}/resend`,
+      { method: "POST" }
+    ),
+
+  updateTeamMember: (
+    userId: string,
+    input: {
+      role?: "owner" | "admin" | "member";
+      status?: "active" | "disabled";
+      name?: string;
+    }
+  ) =>
+    request<{
+      user: {
+        id: string;
+        email: string;
+        name: string | null;
+        role: string;
+        status: string;
+      };
+    }>(`/team/${userId}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }),
+
+  deleteTeamMember: (userId: string) =>
+    request<null>(`/team/${userId}`, { method: "DELETE" }),
+
   // Tenant-Exporte (Datenexport)
   /** Eine einzelne Galerie als ZIP exportieren. */
   createGalleryExport: (galleryId: string) =>

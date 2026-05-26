@@ -15,6 +15,7 @@
 import { randomBytes, createHash } from "node:crypto";
 
 import { prisma } from "../db.js";
+import { config } from "../config.js";
 
 const SETUP_TTL_MS = 72 * 60 * 60 * 1000;
 
@@ -25,6 +26,13 @@ function newToken(): string {
 
 function hashToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
+}
+
+/** Voll-qualifizierte URL zur Setup-Page. PUBLIC_URL ist die Studio-
+ *  URL (z.B. https://studio.lumio-cloud.de). */
+export function buildSetupUrl(token: string): string {
+  const base = config.PUBLIC_URL.replace(/\/+$/, "");
+  return `${base}/auth/setup-password?token=${encodeURIComponent(token)}`;
 }
 
 export interface CreateSetupTokenResult {

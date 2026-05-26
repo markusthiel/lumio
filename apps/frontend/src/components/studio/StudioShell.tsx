@@ -38,6 +38,7 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { href: "/studio",            labelKey: "nav.galleries",  fallback: "Galerien",      prefix: "/studio" },
+  { href: "/studio/team",       labelKey: "nav.team",       fallback: "Team",          prefix: "/studio/team" },
   { href: "/studio/brandings",  labelKey: "nav.brandings",  fallback: "Branding",      prefix: "/studio/brandings" },
   { href: "/studio/templates",  labelKey: "nav.templates",  fallback: "Templates",     prefix: "/studio/templates" },
   { href: "/studio/tags",       labelKey: "nav.tags",       fallback: "Tags",          prefix: "/studio/tags" },
