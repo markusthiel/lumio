@@ -205,27 +205,32 @@ export default function LoginPage() {
 
   // FORM (gemeinsam für alle Layout-Varianten)
   //
-  // Optionaler Branding-Header oben: Logo + Tenant-Name. Wir nutzen
-  // logoLightUrl mit Fallback auf logoUrl — die Form-Card sitzt auf
-  // dem dunklen surface-raised, also brauchen schwarze Logos die helle
-  // Variante. Wenn beides null ist, faellt der Header auf den reinen
-  // Tenant-Namen zurueck. Im Apex-Single-Login (kein Tenant-Kontext)
-  // entfaellt der Header komplett — die Studio-Anmeldung-Headline
-  // unten reicht.
+  // Optionaler Branding-Header oben: ENTWEDER Logo ODER Tenant-Name.
+  // Wenn ein Logo da ist, ist es per Definition die Wordmark/Marke des
+  // Studios — den Tenant-Namen darunter doppeln wirkt redundant
+  // ("Samuel & Chiara" als Logo + "Samuel Rojahn" als interner Name
+  // sieht zerfasert aus). Ohne Logo faellt der Header auf den Namen
+  // als Text-Fallback zurueck. Im Apex-Single-Login (kein Tenant-
+  // Kontext) entfaellt der Header komplett.
+  //
+  // Logo-Auswahl: logoLightUrl bevorzugt — die Form-Card sitzt auf
+  // dem dunklen surface-raised, also brauchen schwarze Logos die
+  // helle Variante.
   const brandLogo = branding?.logoLightUrl ?? branding?.logoUrl ?? null;
   const brandHeader = tenantContext && (
-    <div className="flex flex-col items-center mb-6 space-y-2">
+    <div className="flex flex-col items-center mb-6">
       {brandLogo ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={brandLogo}
           alt={tenantContext.name}
-          className="max-h-10 max-w-[200px] object-contain"
+          className="max-h-12 max-w-[220px] object-contain"
         />
-      ) : null}
-      <div className="text-ui-sm text-ink-secondary text-center">
-        {tenantContext.name}
-      </div>
+      ) : (
+        <div className="text-ui font-medium text-ink-primary">
+          {tenantContext.name}
+        </div>
+      )}
     </div>
   );
 
