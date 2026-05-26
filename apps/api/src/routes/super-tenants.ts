@@ -47,12 +47,25 @@ import { logger } from "../logger.js";
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 
+// Reservierte Subdomains die kein Tenant als Slug nutzen darf. MUSS
+// synchron bleiben mit RESERVED_SUBDOMAINS in plugins/auth.ts und im
+// Frontend app/page.tsx (Apex-Erkennung).
+const RESERVED_SLUGS = new Set(["www", "studio", "api", "admin", "app"]);
+
+const slugSchema = z
+  .string()
+  .min(2)
+  .max(40)
+  .regex(SLUG_RE, "slug must be lowercase letters, digits, hyphens")
+  .refine(
+    (s) => !RESERVED_SLUGS.has(s),
+    (s) => ({
+      message: `slug "${s}" is reserved (used for system hosts like studio.<domain>)`,
+    })
+  );
+
 const createTenantSchema = z.object({
-  slug: z
-    .string()
-    .min(2)
-    .max(40)
-    .regex(SLUG_RE, "slug must be lowercase letters, digits, hyphens"),
+  slug: slugSchema,
   name: z.string().min(1).max(120),
   customDomain: z
     .string()
@@ -65,12 +78,7 @@ const createTenantSchema = z.object({
 });
 
 const updateTenantSchema = z.object({
-  slug: z
-    .string()
-    .min(2)
-    .max(40)
-    .regex(SLUG_RE, "slug must be lowercase letters, digits, hyphens")
-    .optional(),
+  slug: slugSchema.optional(),
   name: z.string().min(1).max(120).optional(),
   customDomain: z
     .string()

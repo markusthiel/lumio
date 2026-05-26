@@ -149,10 +149,19 @@ async function resolveTenant(req: FastifyRequest): Promise<string> {
   }
 
   // (4) Subdomain
+  // Reservierte Subdomains werden NICHT als Tenant-Slug interpretiert:
+  // - www = klassischer Apex-Alias
+  // - studio = zentraler Studio-Login-Host (faellt auf single/default
+  //            zurueck und zeigt im Multi-Mode den Apex-Picker-Flow)
+  // - api, admin, app = generische Service-Hostnames die Tenants nicht
+  //            kapern duerfen
+  // Diese Liste muss synchron mit RESERVED_SLUGS in super-tenants
+  // bleiben (Tenant-Anlage verbietet diese Slugs).
+  const RESERVED_SUBDOMAINS = new Set(["www", "studio", "api", "admin", "app"]);
   const base = process.env.LUMIO_DOMAIN_BASE?.toLowerCase();
   if (base && host.endsWith("." + base)) {
     const slug = host.slice(0, -(base.length + 1));
-    if (slug && slug !== "www") {
+    if (slug && !RESERVED_SUBDOMAINS.has(slug)) {
       const bySlug = await prisma.tenant.findUnique({
         where: { slug },
         select: { id: true, status: true },

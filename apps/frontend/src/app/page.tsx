@@ -39,10 +39,18 @@ export default async function HomePage() {
 
   // Multi-Mode: Host inspizieren um zu entscheiden, ob wir auf der
   // Apex-Domain oder einer Tenant-Subdomain sind.
+  //
+  // Reservierte Subdomains (studio, api, admin, app, www) zaehlen
+  // AUCH als Apex-aequivalent — sie sind keine Tenant-Subdomains.
+  // 'studio.lumio-cloud.de' ist der zentrale Login-Host fuer alle
+  // Tenants im Multi-Mode.
+  const RESERVED_SUBDOMAINS = ["www", "studio", "api", "admin", "app"];
   const headerList = await headers();
   const host = (headerList.get("host") ?? "").split(":")[0].toLowerCase();
   const isApex =
-    !DOMAIN_BASE || host === DOMAIN_BASE || host === `www.${DOMAIN_BASE}`;
+    !DOMAIN_BASE ||
+    host === DOMAIN_BASE ||
+    RESERVED_SUBDOMAINS.some((sd) => host === `${sd}.${DOMAIN_BASE}`);
 
   // Tenant-Subdomain: Tenant ist via Host bekannt, direkt zu Login.
   if (!isApex) {
