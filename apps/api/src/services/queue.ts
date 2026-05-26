@@ -50,6 +50,10 @@ export const Queues = {
    * weil ein Cleanup einer 50k-File-Galerie länger laufen kann und
    * sonst die normale Pipeline blockieren würde. */
   CLEANUP: "lumio:jobs:cleanup",
+  /** Tenant-Export-Builds (DSGVO / Backup / Self-Service). Eigene
+   * Queue, damit ein langer Export nicht die regulaere ZIP-Pipeline
+   * fuer Customer-Downloads blockiert. */
+  EXPORT: "lumio:jobs:export",
 } as const;
 export type QueueName = (typeof Queues)[keyof typeof Queues];
 
@@ -102,6 +106,13 @@ export interface CleanupJob {
   galleryId?: string;
 }
 
+export interface ExportJob {
+  type: "export_zip";
+  exportItemId: string;
+  tenantId: string;
+  galleryId: string;
+}
+
 export type AnyJob =
   | FileProcessingJob
   | VideoProcessingJob
@@ -109,7 +120,8 @@ export type AnyJob =
   | WebhookDeliveryJob
   | StripeWebhookJob
   | BackfillJob
-  | CleanupJob;
+  | CleanupJob
+  | ExportJob;
 
 /**
  * Job in den passenden Stream legen. Gibt die Stream-ID zurück (für Logging).

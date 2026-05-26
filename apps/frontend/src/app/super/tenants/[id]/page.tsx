@@ -33,6 +33,18 @@ function TenantDetail() {
     pending: boolean;
   } | null>(null);
 
+  // Export-Confirm + Status-Anzeige. Trigger des Tenant-Exports mit
+  // Mail an alle Owner (bei archived Tenants).
+  const [exportConfirm, setExportConfirm] = useState(false);
+  const [exportResult, setExportResult] = useState<{
+    exportId: string;
+    itemCount: number;
+    mailsSent: number;
+    tokenIssued: boolean;
+  } | null>(null);
+  const [exportPending, setExportPending] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -103,6 +115,21 @@ function TenantDetail() {
         pending: false,
         error: msg,
       });
+    }
+  }
+
+  async function triggerExport() {
+    if (!tenant) return;
+    setExportPending(true);
+    setExportError(null);
+    try {
+      const res = await api.superExportTenant(tenant.id);
+      setExportResult(res);
+      setExportConfirm(false);
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : "Fehler");
+    } finally {
+      setExportPending(false);
     }
   }
 
@@ -197,30 +224,41 @@ function TenantDetail() {
               : "border-semantic-danger/30 bg-semantic-danger/8"
           }`}
         >
-          <div className="text-ui-sm text-ink-secondary">
-            <span className="font-medium text-ink-primary">
-              {tenant.karenz.active
-                ? `Karenzfrist läuft — Hard-Delete in ${tenant.karenz.remainingDays} Tag${tenant.karenz.remainingDays === 1 ? "" : "en"} möglich`
-                : "Karenzfrist abgelaufen — Hard-Delete jetzt möglich"}
-            </span>
-            <div className="text-ui-xs text-ink-tertiary mt-1">
-              {tenant.karenz.active ? (
-                <>
-                  Archiviert am{" "}
-                  {tenant.archivedAt
-                    ? new Date(tenant.archivedAt).toLocaleDateString()
-                    : "—"}
-                  . Tenant kann während dieser Zeit seine Daten exportieren
-                  (über das separate Export-Feature, sobald verfügbar). Hard-
-                  Delete entfernt alle Daten + S3-Objekte irreversibel.
-                </>
-              ) : (
-                <>
-                  Du kannst den Tenant jetzt endgültig löschen. Alle Daten,
-                  Galerien, Files und S3-Objekte werden entfernt — das ist
-                  irreversibel.
-                </>
-              )}
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div className="text-ui-sm text-ink-secondary min-w-0 flex-1">
+              <span className="font-medium text-ink-primary">
+                {tenant.karenz.active
+                  ? `Karenzfrist läuft — Hard-Delete in ${tenant.karenz.remainingDays} Tag${tenant.karenz.remainingDays === 1 ? "" : "en"} möglich`
+                  : "Karenzfrist abgelaufen — Hard-Delete jetzt möglich"}
+              </span>
+              <div className="text-ui-xs text-ink-tertiary mt-1">
+                {tenant.karenz.active ? (
+                  <>
+                    Archiviert am{" "}
+                    {tenant.archivedAt
+                      ? new Date(tenant.archivedAt).toLocaleDateString()
+                      : "—"}
+                    . Du kannst dem Tenant einen Datenexport-Link per Mail
+                    zukommen lassen (Button rechts). Hard-Delete entfernt
+                    danach alle Daten + S3-Objekte irreversibel.
+                  </>
+                ) : (
+                  <>
+                    Du kannst den Tenant jetzt endgültig löschen. Alle Daten,
+                    Galerien, Files und S3-Objekte werden entfernt — das ist
+                    irreversibel.
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="flex-shrink-0">
+              <ActionButton
+                onClick={() => setExportConfirm(true)}
+                disabled={actionBusy}
+                variant="ghost"
+              >
+                Datenexport anstoßen
+              </ActionButton>
             </div>
           </div>
         </div>
@@ -415,6 +453,103 @@ function TenantDetail() {
                 {deleteDialog.pending
                   ? "Lösche…"
                   : "Endgültig löschen"}
+              </ActionButton>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Export-Confirm: bestaetigt den Aufruf. Bei archived Tenants
+          weist der Text auf den Mail-Versand hin. */}
+      {exportConfirm && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => !exportPending && setExportConfirm(false)}
+        >
+          <div
+            className="bg-surface-base rounded-lg border border-line-subtle shadow-2xl max-w-md w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-medium text-ink-primary">
+              Datenexport anstoßen?
+            </h2>
+            <p className="text-ui-sm text-ink-secondary mt-3">
+              Für alle {tenant.galleryCount} Galerien dieses Tenants wird je
+              ein ZIP mit Originaldateien + Metadaten erstellt.
+            </p>
+            {tenant.status === "archived" && (
+              <p className="text-ui-sm text-ink-secondary mt-2">
+                Da der Tenant archiviert ist, wird ein Token-Link generiert
+                und per Mail an alle aktiven Owner geschickt. Der Tenant kann
+                ohne Login darauf zugreifen (30 Tage gültig).
+              </p>
+            )}
+            {exportError && (
+              <p className="text-ui-sm text-semantic-danger mt-3">
+                {exportError}
+              </p>
+            )}
+            <div className="flex gap-2 justify-end mt-5">
+              <ActionButton
+                onClick={() => setExportConfirm(false)}
+                disabled={exportPending}
+                variant="ghost"
+              >
+                Abbrechen
+              </ActionButton>
+              <ActionButton
+                onClick={triggerExport}
+                disabled={exportPending}
+                variant="success"
+              >
+                {exportPending ? "Stoße an…" : "Export starten"}
+              </ActionButton>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Export-Result: nach erfolgreichem Trigger sieht der Admin
+          eine Bestaetigung mit Detail-Link und ggf. Mail-Status. */}
+      {exportResult && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setExportResult(null)}
+        >
+          <div
+            className="bg-surface-base rounded-lg border border-line-subtle shadow-2xl max-w-md w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-medium text-ink-primary">
+              Export wurde gestartet
+            </h2>
+            <p className="text-ui-sm text-ink-secondary mt-3">
+              {exportResult.itemCount}{" "}
+              {exportResult.itemCount === 1 ? "ZIP wird" : "ZIPs werden"} im
+              Hintergrund erstellt.
+            </p>
+            {exportResult.tokenIssued && (
+              <p className="text-ui-sm text-ink-secondary mt-2">
+                {exportResult.mailsSent > 0 ? (
+                  <>
+                    Mail mit Download-Link wurde an {exportResult.mailsSent}{" "}
+                    Owner verschickt.
+                  </>
+                ) : (
+                  <>
+                    Token wurde erzeugt, aber keine aktiven Owner zum
+                    Mailen vorhanden. Du findest den Link in den Audit-
+                    Logs.
+                  </>
+                )}
+              </p>
+            )}
+            <div className="flex gap-2 justify-end mt-5">
+              <ActionButton
+                onClick={() => setExportResult(null)}
+                variant="ghost"
+              >
+                Schließen
               </ActionButton>
             </div>
           </div>

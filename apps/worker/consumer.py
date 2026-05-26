@@ -53,6 +53,10 @@ STREAMS = {
     # weil ein langer Cleanup (z.B. 50k Files für einen Tenant) sonst
     # die normale Pipeline blockieren würde.
     "lumio:jobs:cleanup": "cleanup",
+    # Tenant-Export-Builds (DSGVO / Pre-Delete-Backup / Self-Service).
+    # Eigener Stream weil Export von 200 Galerien parallel sonst die
+    # normale ZIP-Build-Pipeline blockieren würde.
+    "lumio:jobs:export": "export",
 }
 
 log = structlog.get_logger("lumio.consumer")
@@ -150,6 +154,17 @@ def _dispatch(stream: str, payload: dict) -> None:
         app.send_task(
             "tasks.cleanup_storage.cleanup_tenant",
             args=[payload.get("tenantId")],
+        )
+    elif job_type == "export_zip":
+        # Tenant-Export pro Galerie (Datenexport). Pro Export-Item ein
+        # Job, baut ZIP mit Originalen + metadata.json.
+        app.send_task(
+            "tasks.export_zip.build",
+            args=[
+                payload.get("exportItemId"),
+                payload.get("tenantId"),
+                payload.get("galleryId"),
+            ],
         )
     else:
         log.warning("consumer.unknown_job_type",

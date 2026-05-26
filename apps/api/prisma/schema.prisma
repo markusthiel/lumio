@@ -67,6 +67,7 @@ model Tenant {
   webhooks    Webhook[]
   tags        Tag[]
   smartCollections SmartCollection[]
+  exports     TenantExport[]
 
   // Stripe-Customer-ID: lifetime-stabil pro Tenant. Wir setzen sie
   // beim ersten Checkout-Session-Create und nutzen sie wieder bei
@@ -1224,4 +1225,108 @@ model SmartCollection {
   
   @@index([tenantId, ownerId])
   @@map("smart_collections")
+}
+
+// -----------------------------------------------------------------------------
+// Tenant-Export (Datenexport für DSGVO / Pre-Delete-Backup / Self-Service)
+// -----------------------------------------------------------------------------
+// Ein TenantExport gruppiert mehrere Galerie-ZIPs. Der Trigger kann sein:
+//   - Studio-User exportiert einzelne Galerie ("source = studio")
+//   - Studio-User exportiert alle Galerien ("source = studio_all")
+//   - Super-Admin exportiert für Tenant ("source = super_admin")
+//
+// Pro Galerie wird ein eigener ZIP-Build-Job ausgelöst (TenantExportItem).
+// So skaliert das auch bei großen Tenants mit 200+ Galerien — die
+// Browser-Downloads sind separat, parallel möglich, und ein einzelner
+// fehlgeschlagener Build sprengt nicht das ganze Bundle.
+//
+// Bei source='super_admin' im Archive-Karenz-Zeitraum: Optional wird ein
+// ExportToken generiert. Tenant kann ohne Login per Mail-Link runterladen.
+model TenantExport {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String   @db.Uuid
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  // Wer hat den Export angefordert (Audit + UI).
+  //   studio       = einzelne Galerie aus dem Studio
+  //   studio_all   = alle Galerien aus dem Studio (Studio-Bulk-Export)
+  //   super_admin  = Super-Admin (z.B. vor Hard-Delete)
+  source      String
+
+  // Status:
+  //   pending  = Items werden erstellt, Worker enqueued
+  //   building = mindestens ein Item baut noch
+  //   ready    = alle Items haben einen Endzustand (ready oder failed)
+  //   expired  = Ablauffrist erreicht, Files in S3 sind weg
+  status      String   @default("pending")
+
+  // Optional: User-ID des auslösenden Studio-Users. Bei super_admin null.
+  triggeredByUserId String?  @db.Uuid
+
+  // Optional: Super-Admin-ID. Bei studio-Trigger null.
+  triggeredBySuperAdminId String? @db.Uuid
+
+  // Wenn gesetzt: Token-basierter Download für Tenant ohne Login möglich.
+  // Wird nur bei super_admin-Triggers für archived Tenants gesetzt.
+  token       ExportToken?
+
+  items       TenantExportItem[]
+
+  // 30 Tage nach Erstellung. Cleanup-Job entfernt expired Exports.
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([tenantId, createdAt])
+  @@index([expiresAt])
+  @@map("tenant_exports")
+}
+
+// Pro Galerie ein ZIP-Item.
+model TenantExportItem {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  exportId    String   @db.Uuid
+  export      TenantExport @relation(fields: [exportId], references: [id], onDelete: Cascade)
+
+  galleryId   String?  @db.Uuid  // null wenn Galerie inzwischen gelöscht
+  // Wir snapshotten Galerie-Name + Slug, damit nach Gallery-Delete
+  // im Export-Ordner trotzdem ein sinnvoller Name steht.
+  gallerySlug String
+  galleryName String
+
+  status      String   @default("pending") // pending | building | ready | failed
+  storageKey  String?
+  sizeBytes   BigInt?
+  fileCount   Int?
+  errorMessage String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([exportId])
+  @@map("tenant_export_items")
+}
+
+// Token-basierter Download-Zugang für archived Tenants (Use Case A).
+// Eine Reihe pro Export, optional. Token wird in der Mail an den
+// Tenant-Owner verschickt; öffnet ohne Login eine Download-Seite.
+model ExportToken {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  exportId    String   @unique @db.Uuid
+  export      TenantExport @relation(fields: [exportId], references: [id], onDelete: Cascade)
+
+  // Random String, lang genug für Sicherheit gegen Brute-Force.
+  // 32 Bytes base64url ≈ 43 Chars.
+  token       String   @unique
+
+  // Wenn gesetzt: Token wurde bereits einmal verwendet (z.B. wenn wir
+  // mal einmalige Tokens machen wollen). Aktuell unbegrenzte Nutzung
+  // bis expiresAt, das Feld ist nur für Audit/Forensik.
+  firstAccessAt DateTime?
+  accessCount   Int      @default(0)
+
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+
+  @@map("export_tokens")
 }

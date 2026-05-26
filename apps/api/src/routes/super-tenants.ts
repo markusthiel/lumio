@@ -39,6 +39,7 @@ import { logEvent } from "../services/audit.js";
 import { sendMail, tmplOwnerSetup } from "../services/mail.js";
 import { cancelSubscriptionImmediately } from "../services/stripe-service.js";
 import { enqueue, Queues } from "../services/queue.js";
+import { createExport } from "../services/export-service.js";
 import { logger } from "../logger.js";
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
@@ -822,4 +823,152 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
       totalFiles,
     };
   });
+
+  // -------------------------------------------------------------------------
+  // POST /super/tenants/:id/export — Datenexport für einen Tenant
+  // -------------------------------------------------------------------------
+  // Erstellt ein TenantExport für alle Galerien dieses Tenants. Wenn
+  // der Tenant archiviert ist (Karenz), wird zusätzlich ein
+  // ExportToken generiert und eine Mail an alle Owner geschickt mit
+  // dem Download-Link — sodass der Tenant ohne Login an seine Daten
+  // kommt (DSGVO: Recht auf Datenübertragbarkeit).
+  //
+  // Bei nicht-archivierten Tenants wird kein Token erzeugt — wenn
+  // der Super-Admin den Export für seinen eigenen Backup-Zweck baut,
+  // kann er sich die Files über /super/exports/:id mit Super-Admin-
+  // Session abholen. (Diesen Endpoint bauen wir gleich auch.)
+  app.post<{ Params: { id: string } }>(
+    "/super/tenants/:id/export",
+    async (req, reply) => {
+      const sa = req.requireSuperAdmin();
+      const t = await prisma.tenant.findUnique({
+        where: { id: req.params.id },
+        include: {
+          users: {
+            where: { role: "owner", status: "active" },
+            select: { id: true, email: true, name: true },
+          },
+        },
+      });
+      if (!t) return reply.status(404).send({ error: "not_found" });
+
+      const isArchived = t.status === "archived";
+
+      try {
+        const result = await createExport({
+          tenantId: t.id,
+          source: "super_admin",
+          galleryIds: null,
+          triggeredBySuperAdminId: sa.admin.id,
+          // Token nur bei archivierten Tenants — die haben keinen
+          // funktionierenden Login mehr.
+          createToken: isArchived,
+        });
+
+        // Mail an Tenant-Owner mit dem Token-Link verschicken — nur
+        // bei archived Tenants (sonst kann der Owner sich einloggen
+        // und im Studio auf die Export-Seite gehen).
+        if (isArchived && result.token && t.users.length > 0) {
+          const link = `${config.PUBLIC_URL}/e/${result.token}`;
+          for (const owner of t.users) {
+            try {
+              await sendMail({
+                to: owner.email,
+                subject: `Ihr Datenexport von Lumio ist bereit – ${t.name}`,
+                text:
+                  `Hallo ${owner.name ?? owner.email},\n\n` +
+                  `Ihr Lumio-Konto „${t.name}" wurde archiviert und Ihre Daten ` +
+                  `werden in Kürze endgültig gelöscht. Sie können Ihre Galerien ` +
+                  `(Originaldateien + Metadaten) als ZIP-Archiv unter folgendem ` +
+                  `Link herunterladen — der Link ist 30 Tage gültig:\n\n` +
+                  `${link}\n\n` +
+                  `Der Export wird gerade erstellt. Pro Galerie dauert das ` +
+                  `je nach Größe einige Sekunden bis Minuten. Auf der ` +
+                  `Download-Seite sehen Sie den jeweiligen Status und können ` +
+                  `fertige Galerien direkt herunterladen.\n\n` +
+                  `Falls Sie weitere Fragen haben, antworten Sie auf diese ` +
+                  `Mail.\n\n— Lumio`,
+              });
+            } catch (err) {
+              app.log.warn(
+                { err, ownerId: owner.id },
+                "export mail failed"
+              );
+            }
+          }
+        }
+
+        await logEvent({
+          tenantId: t.id,
+          actorType: "super_admin",
+          actorId: sa.admin.id,
+          action: "super.tenant.export",
+          targetType: "tenant_export",
+          targetId: result.exportId,
+          payload: {
+            archived: isArchived,
+            tokenIssued: !!result.token,
+            itemCount: result.itemCount,
+            mailsTo: isArchived ? t.users.map((u) => u.email) : [],
+          },
+          ipAddress: req.ip,
+        });
+
+        return reply.status(201).send({
+          exportId: result.exportId,
+          itemCount: result.itemCount,
+          tokenIssued: !!result.token,
+          mailsSent: isArchived ? t.users.length : 0,
+        });
+      } catch (err) {
+        if (err instanceof Error && err.message === "no_galleries_to_export") {
+          return reply.status(400).send({
+            error: "no_galleries",
+            message: "Tenant hat keine Galerien zum Exportieren.",
+          });
+        }
+        throw err;
+      }
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // GET /super/tenants/:id/exports — Liste der Exports
+  // -------------------------------------------------------------------------
+  app.get<{ Params: { id: string } }>(
+    "/super/tenants/:id/exports",
+    async (req, reply) => {
+      req.requireSuperAdmin();
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: req.params.id },
+        select: { id: true },
+      });
+      if (!tenant) return reply.status(404).send({ error: "not_found" });
+      const exports = await prisma.tenantExport.findMany({
+        where: { tenantId: tenant.id },
+        orderBy: { createdAt: "desc" },
+        include: {
+          _count: { select: { items: true } },
+          token: { select: { token: true, expiresAt: true, accessCount: true } },
+        },
+      });
+      return {
+        exports: exports.map((e) => ({
+          id: e.id,
+          source: e.source,
+          status: e.status,
+          itemCount: e._count.items,
+          expiresAt: e.expiresAt,
+          createdAt: e.createdAt,
+          token: e.token
+            ? {
+                value: e.token.token,
+                expiresAt: e.token.expiresAt,
+                accessCount: e.token.accessCount,
+              }
+            : null,
+        })),
+      };
+    }
+  );
 }

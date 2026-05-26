@@ -39,6 +39,7 @@ import { registerTagRoutes } from "./routes/tags.js";
 import { registerCollectionRoutes } from "./routes/collections.js";
 import { registerUploadLinkRoutes } from "./routes/upload-links.js";
 import { registerDuplicateRoutes } from "./routes/duplicates.js";
+import { registerTenantExportRoutes } from "./routes/exports.js";
 import { registerSuperAuthRoutes } from "./routes/super-auth.js";
 import { registerSuperTenantRoutes } from "./routes/super-tenants.js";
 import { registerWsRoutes } from "./routes/ws.js";
@@ -134,6 +135,7 @@ async function buildServer() {
       await registerCollectionRoutes(api);
       await registerUploadLinkRoutes(api);
       await registerDuplicateRoutes(api);
+      await registerTenantExportRoutes(api);
       await registerSuperAuthRoutes(api);
       // Super-Admin-Tenant-Routes haben einen internen preHandler-Guard,
       // sind aber bewusst eingekapselt damit ihr Guard nicht auf andere

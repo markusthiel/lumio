@@ -1113,6 +1113,101 @@ export const api = {
       }>;
     }>(`/galleries/${galleryId}/duplicates`),
 
+  // Tenant-Exporte (Datenexport)
+  /** Eine einzelne Galerie als ZIP exportieren. */
+  createGalleryExport: (galleryId: string) =>
+    request<{ exportId: string; itemCount: number }>(
+      `/exports/galleries/${galleryId}`,
+      { method: "POST" }
+    ),
+
+  /** Alle Galerien des Tenants als separate ZIPs exportieren. */
+  createTenantExport: () =>
+    request<{ exportId: string; itemCount: number }>(`/exports/tenant`, {
+      method: "POST",
+    }),
+
+  /** Liste aller Exports (max. 50, neueste zuerst). */
+  listExports: () =>
+    request<{
+      exports: Array<{
+        id: string;
+        source: "studio" | "studio_all" | "super_admin";
+        status: "pending" | "building" | "ready" | "expired";
+        itemCount: number;
+        expiresAt: string;
+        createdAt: string;
+      }>;
+    }>(`/exports`),
+
+  /** Detail eines Exports inkl. Items + signed Download-URLs. */
+  getExport: (id: string) =>
+    request<{
+      export: {
+        id: string;
+        source: "studio" | "studio_all" | "super_admin";
+        status: "pending" | "building" | "ready" | "expired";
+        expiresAt: string;
+        createdAt: string;
+        items: Array<{
+          id: string;
+          galleryId: string | null;
+          gallerySlug: string;
+          galleryName: string;
+          status: "pending" | "building" | "ready" | "failed";
+          sizeBytes: number | null;
+          fileCount: number | null;
+          errorMessage: string | null;
+          downloadUrl: string | null;
+          createdAt: string;
+          updatedAt: string;
+        }>;
+      };
+    }>(`/exports/${id}`),
+
+  /** Manuell löschen — S3-Cleanup passiert über TTL. */
+  deleteExport: (id: string) =>
+    request<null>(`/exports/${id}`, { method: "DELETE" }),
+
+  // Public: Token-basierter Download (kein Login). Nur fuer Tenants
+  // waehrend der Karenz nach Archive.
+  getPublicExport: (token: string) =>
+    request<{
+      tenant: { id: string; name: string; slug: string };
+      export: {
+        id: string;
+        status: string;
+        expiresAt: string;
+        createdAt: string;
+        items: Array<{
+          id: string;
+          gallerySlug: string;
+          galleryName: string;
+          status: "pending" | "building" | "ready" | "failed";
+          sizeBytes: number | null;
+          fileCount: number | null;
+          errorMessage: string | null;
+        }>;
+      };
+    }>(`/e/${token}`),
+
+  /** Liefert die direkte Download-URL für ein Item via Public-Token.
+   *  Backend antwortet 302-Redirect auf eine S3-presigned URL — die
+   *  Browser folgen automatisch. Wir geben einfach den URL-String
+   *  zurück, den der Browser im <a href> öffnen kann. */
+  getPublicExportItemDownloadUrl: (token: string, itemId: string): string => {
+    // request() folgt 302 nicht — wir bauen die URL direkt; der
+    // Browser kriegt das vom Backend mit Redirect aufgeloest sobald
+    // er klickt. Pfad spiegelt /api/v1/e/<token>/items/<id>/download
+    // wider, was server.ts mit /api/v1-Prefix anbietet.
+    const base =
+      typeof window !== "undefined"
+        ? window.location.origin
+        : "";
+    return `${base}/api/v1/e/${token}/items/${itemId}/download`;
+  },
+
+
   // Public Gallery (Kunden-Sicht)
   getPublicGallery: (slug: string) =>
     request<{ gallery: PublicGalleryMeta }>(`/g/${slug}`),
@@ -1498,6 +1593,35 @@ export const api = {
       method: "DELETE",
       body: JSON.stringify(input),
     }),
+
+  /** Tenant-Datenexport anstoßen. Bei archived Tenants wird zusätzlich
+   *  ein Token erzeugt und eine Mail mit Download-Link an alle Owner
+   *  verschickt — der Tenant kann ohne Login darauf zugreifen. */
+  superExportTenant: (id: string) =>
+    request<{
+      exportId: string;
+      itemCount: number;
+      tokenIssued: boolean;
+      mailsSent: number;
+    }>(`/super/tenants/${id}/export`, { method: "POST" }),
+
+  /** Liste der Exports eines Tenants (Super-Admin-Sicht inkl. Token). */
+  superListTenantExports: (id: string) =>
+    request<{
+      exports: Array<{
+        id: string;
+        source: string;
+        status: string;
+        itemCount: number;
+        expiresAt: string;
+        createdAt: string;
+        token: {
+          value: string;
+          expiresAt: string;
+          accessCount: number;
+        } | null;
+      }>;
+    }>(`/super/tenants/${id}/exports`),
 
   superInviteOwner: (
     tenantId: string,
