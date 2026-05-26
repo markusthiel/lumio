@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
 import {
   api,
@@ -13,7 +13,23 @@ import { UnlockForm } from "@/components/gallery/UnlockForm";
 import { GalleryShell } from "@/components/gallery/GalleryShell";
 import { useT } from "@/lib/i18n";
 
+// Next.js 16 verlangt einen <Suspense>-Boundary um useSearchParams() —
+// sonst kann die Page nicht prerendert werden.
 export default function PublicGalleryPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-surface-canvas">
+          <div className="text-ui text-ink-tertiary">Lädt…</div>
+        </div>
+      }
+    >
+      <PublicGalleryInner />
+    </Suspense>
+  );
+}
+
+function PublicGalleryInner() {
   const params = useParams<{ slug: string }>();
   const search = useSearchParams();
   const slug = params.slug;

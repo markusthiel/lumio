@@ -12,8 +12,13 @@
  *
  * Nach erfolgreichem Reset werden ALLE Sessions des Users im Backend
  * invalidiert. User loggt sich neu ein.
+ *
+ * Next.js 16 verlangt einen <Suspense>-Boundary um useSearchParams() —
+ * sonst kann die Page nicht prerendert werden und der Build wirft
+ * 'should be wrapped in a suspense boundary'. Outer-Page rendert den
+ * Loader, die echte Logik laeuft in ResetPasswordInner.
  */
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -32,6 +37,20 @@ type State =
   | { kind: "done" };
 
 export default function ResetPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-surface-canvas">
+          <div className="text-ui text-ink-tertiary">Lädt…</div>
+        </div>
+      }
+    >
+      <ResetPasswordInner />
+    </Suspense>
+  );
+}
+
+function ResetPasswordInner() {
   const params = useSearchParams();
   const token = params.get("token") ?? "";
 
