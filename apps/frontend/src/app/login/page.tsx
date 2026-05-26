@@ -1,8 +1,45 @@
 "use client";
 
+/**
+ * Lumio — Studio Login
+ *
+ * Drei Layoutmodi je nach verfügbarem Tenant-Branding:
+ *
+ *   1. UNBRANDED (single-Mode oder Apex ohne Tenant)
+ *      Klassisches zentriertes Layout mit Lumio-Brand. Eine schlanke
+ *      Form-Box auf dezentem Akzent-Gradient.
+ *
+ *   2. BRANDED-FORM (Tenant identifiziert, aber kein Hero-Bild)
+ *      Zentrierte Form mit Tenant-Logo + Greeting darüber. Akzentfarbe
+ *      ersetzt den Default-Orange für Buttons + Fokus-Ringe.
+ *
+ *   3. BRANDED-HERO (Tenant + loginBackgroundUrl)
+ *      Split-Screen: Hero-Bild links (50% Desktop) mit Logo + Greeting
+ *      als Overlay, Login-Form rechts. Mobile: gestapelt mit kompakter
+ *      Hero-Sektion oben.
+ *
+ * Branding wird via /auth/tenant-context geladen. Während des Ladens
+ * zeigen wir das unbranded Layout (kein Skelett, vermeidet Flash).
+ * Sobald Branding eingetrudelt ist, wechselt das Layout sanft via
+ * CSS-Transition.
+ *
+ * Sicherheit: Greeting-Markdown läuft durch react-markdown mit
+ * skipHtml=true (kein Raw-HTML, kein XSS-Risiko). loginGreeting ist
+ * ein vom Tenant kontrolliertes Feld; Tenant-Owner ist eh Operator
+ * der Galerie, deswegen vertrauenswürdig — aber skipHtml ist defense
+ * in depth.
+ *
+ * Akzentfarbe: via CSS Custom Property --accent auf das Login-Root
+ * gesetzt. Button-Komponente und Input-Focus nutzen die existierende
+ * Accent-Variable automatisch.
+ */
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { startAuthentication } from "@simplewebauthn/browser";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
 import { api } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 import { Button, Input } from "@/components/ui";
@@ -18,53 +55,73 @@ type Stage =
       hasWebauthn: boolean;
     };
 
+type TenantContext = {
+  name: string;
+  slug: string;
+  status: "active" | "suspended" | "archived";
+};
+
+type LoginBranding = {
+  logoUrl: string | null;
+  accentColor: string;
+  loginBackgroundUrl: string | null;
+  loginGreeting: string | null;
+};
+
 export default function LoginPage() {
   const router = useRouter();
   const t = useT();
+
   const [stage, setStage] = useState<Stage>({ kind: "credentials" });
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [tenantContext, setTenantContext] = useState<{
-    name: string;
-    slug: string;
-    status: "active" | "suspended" | "archived";
-  } | null>(null);
 
-  // Im Multi-Mode: Tenant-Identitaet auflösen damit der User sieht,
-  // bei welchem Studio er sich gerade anmeldet. Wenn die Auflösung
-  // null liefert (Apex-Domain ohne Header), liefern wir den User
-  // zur Tenant-Picker-Seite zurück.
+  const [tenantContext, setTenantContext] = useState<TenantContext | null>(
+    null
+  );
+  const [branding, setBranding] = useState<LoginBranding | null>(null);
+
+  // Tenant + Branding einmalig beim Mount laden. Falls Multi-Mode +
+  // Apex-Domain ohne Tenant: zurück zum Picker. Andere Fälle: einfach
+  // Defaults zeigen.
   useEffect(() => {
-    if (MODE === "single") return;
     let cancelled = false;
     (async () => {
       try {
         const r = await api.getTenantContext();
         if (cancelled) return;
-        if (!r.tenant) {
-          // Wir sind im Multi-Mode aber konnten keinen Tenant
-          // auflösen → User soll auf die Apex-Picker-Seite zurück.
+        if (MODE !== "single" && !r.tenant) {
           router.replace("/");
           return;
         }
-        if (r.tenant.status !== "active") {
-          setError(
-            r.tenant.status === "archived"
-              ? `Das Studio „${r.tenant.name}" wurde archiviert. Falls du Zugriff auf deine Daten brauchst, kontaktiere den Support.`
-              : `Das Studio „${r.tenant.name}" ist aktuell stillgelegt.`
-          );
+        if (r.tenant) {
+          setTenantContext({
+            name: r.tenant.name,
+            slug: r.tenant.slug,
+            status: r.tenant.status,
+          });
+          if (r.tenant.status !== "active") {
+            setError(
+              r.tenant.status === "archived"
+                ? `Das Studio „${r.tenant.name}" wurde archiviert. Falls du Zugriff auf deine Daten brauchst, kontaktiere den Support.`
+                : `Das Studio „${r.tenant.name}" ist aktuell stillgelegt.`
+            );
+          }
         }
-        setTenantContext({
-          name: r.tenant.name,
-          slug: r.tenant.slug,
-          status: r.tenant.status,
-        });
+        if (r.branding) {
+          setBranding({
+            logoUrl: r.branding.logoUrl,
+            accentColor: r.branding.accentColor,
+            loginBackgroundUrl: r.branding.loginBackgroundUrl,
+            loginGreeting: r.branding.loginGreeting,
+          });
+        }
       } catch {
-        // Bei Backend-Fehler einfach weiter — Login funktioniert
-        // auch ohne Banner.
+        // Tenant-Context-Fehler ist nicht fatal — Login funktioniert
+        // mit Default-Branding weiter.
       }
     })();
     return () => {
@@ -89,7 +146,7 @@ export default function LoginPage() {
         router.push("/studio");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("login.error.generic"));
+      setError(err instanceof Error ? err.message : "Anmeldung fehlgeschlagen");
     } finally {
       setPending(false);
     }
@@ -101,17 +158,10 @@ export default function LoginPage() {
     setError(null);
     setPending(true);
     try {
-      await api.loginTotp(stage.challenge, code.trim());
+      await api.loginTotp(stage.challenge, code);
       router.push("/studio");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "";
-      setError(
-        msg.includes("invalid_challenge")
-          ? t("login.error.challengeExpired")
-          : msg.includes("invalid_token")
-          ? t("login.error.invalidTotp")
-          : t("login.error.generic")
-      );
+      setError(err instanceof Error ? err.message : "Verifikation fehlgeschlagen");
     } finally {
       setPending(false);
     }
@@ -133,22 +183,244 @@ export default function LoginPage() {
       if (err instanceof Error && err.name === "NotAllowedError") {
         // User-Cancel ist kein Fehler
       } else {
-        const msg = err instanceof Error ? err.message : "";
-        setError(
-          msg.includes("invalid_challenge")
-            ? t("login.error.challengeExpired")
-            : "Passkey-Anmeldung fehlgeschlagen."
-        );
+        setError(err instanceof Error ? err.message : "Passkey-Anmeldung fehlgeschlagen");
       }
     } finally {
       setPending(false);
     }
   }
 
+  const hasHero = !!branding?.loginBackgroundUrl;
+
+  // Akzentfarbe als CSS-Var. Wenn das Default-Lumio-Orange aktiv ist,
+  // ueberschreiben wir gar nichts (Standard-Akzent bleibt). Sonst:
+  // CSS Custom Property setzen, die das Button/Focus-Styling via
+  // bestehende CSS-Cascade aufgreift.
+  const accentStyle: React.CSSProperties = branding?.accentColor
+    ? ({ "--accent-hex": branding.accentColor } as React.CSSProperties)
+    : {};
+
+  // FORM (gemeinsam für alle Layout-Varianten)
+  const formCard = (
+    <div className="w-full max-w-sm">
+      {stage.kind === "credentials" ? (
+        <form
+          onSubmit={submitCredentials}
+          className="space-y-5 bg-surface-raised border border-line-subtle rounded-md p-7 shadow-elev-2"
+        >
+          {tenantContext && !hasHero && (
+            <div className="text-ui-xs text-ink-tertiary border-b border-line-subtle pb-3 -mt-1">
+              Anmeldung bei{" "}
+              <span className="font-medium text-ink-secondary">
+                {tenantContext.name}
+              </span>
+            </div>
+          )}
+          <h1 className="text-display-sm text-ink-primary font-medium">
+            {t("login.title")}
+          </h1>
+
+          <div className="space-y-1.5">
+            <label
+              htmlFor="email"
+              className="text-ui-sm font-medium text-ink-primary block"
+            >
+              {t("login.email")}
+            </label>
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label
+              htmlFor="password"
+              className="text-ui-sm font-medium text-ink-primary block"
+            >
+              {t("login.password")}
+            </label>
+            <Input
+              id="password"
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+
+          {error && (
+            <div
+              role="alert"
+              className="text-ui-sm text-semantic-danger bg-semantic-danger/10 border border-semantic-danger/30 rounded-sm px-3 py-2"
+            >
+              {error}
+            </div>
+          )}
+
+          <Button
+            type="submit"
+            variant="primary"
+            size="lg"
+            disabled={pending || tenantContext?.status === "archived"}
+            className="w-full"
+          >
+            {pending ? t("common.signingIn") : t("common.signIn")}
+          </Button>
+
+          {MODE === "single" && (
+            <p className="text-ui-xs text-ink-tertiary text-center pt-2">
+              {t("login.cliHint")}{" "}
+              <code className="font-mono bg-surface-sunken px-1 py-0.5 rounded-xs">
+                npm run create-admin
+              </code>
+            </p>
+          )}
+        </form>
+      ) : (
+        <div className="space-y-5 bg-surface-raised border border-line-subtle rounded-md p-7 shadow-elev-2">
+          <header className="space-y-1.5">
+            <h1 className="text-display-sm text-ink-primary font-medium">
+              {stage.hasWebauthn && !stage.hasTotp
+                ? "Mit Passkey anmelden"
+                : t("login.totp.title")}
+            </h1>
+            <p className="text-ui-sm text-ink-tertiary">
+              {stage.hasWebauthn && !stage.hasTotp
+                ? "Bestätige die Anmeldung mit deinem Gerät."
+                : t("login.totp.description")}
+            </p>
+          </header>
+
+          {stage.hasWebauthn && (
+            <Button
+              type="button"
+              variant="primary"
+              size="lg"
+              onClick={loginWithPasskey}
+              disabled={pending}
+              className="w-full"
+            >
+              {pending ? "Wartet auf Gerät…" : "Mit Passkey anmelden"}
+            </Button>
+          )}
+
+          {stage.hasWebauthn && stage.hasTotp && (
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-line-subtle" />
+              </div>
+              <div className="relative flex justify-center text-ui-xs">
+                <span className="bg-surface-raised px-2 text-ink-tertiary">
+                  oder
+                </span>
+              </div>
+            </div>
+          )}
+
+          {stage.hasTotp && (
+            <form onSubmit={submitTotp} className="space-y-4">
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="code"
+                  className="text-ui-sm font-medium text-ink-primary block"
+                >
+                  {t("login.totp.code")}
+                </label>
+                <Input
+                  id="code"
+                  autoFocus={!stage.hasWebauthn}
+                  autoComplete="one-time-code"
+                  inputMode="numeric"
+                  required
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder="123456"
+                  className="font-mono tracking-[0.4em] text-center"
+                />
+                <p className="text-ui-xs text-ink-tertiary mt-1">
+                  {t("login.totp.backupHint")}
+                </p>
+              </div>
+
+              <Button
+                type="submit"
+                variant={stage.hasWebauthn ? "secondary" : "primary"}
+                size="lg"
+                disabled={pending}
+                className="w-full"
+              >
+                {pending ? t("common.verifying") : t("common.verify")}
+              </Button>
+            </form>
+          )}
+
+          {error && (
+            <div
+              role="alert"
+              className="text-ui-sm text-semantic-danger bg-semantic-danger/10 border border-semantic-danger/30 rounded-sm px-3 py-2"
+            >
+              {error}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              setStage({ kind: "credentials" });
+              setCode("");
+              setError(null);
+            }}
+            className="text-ui-xs text-ink-tertiary hover:text-ink-primary w-full text-center transition-colors duration-motion"
+          >
+            ← Andere Zugangsdaten verwenden
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
+  // BRANDED HERO Layout (Split-Screen)
+  if (hasHero && branding) {
+    return (
+      <main
+        className="min-h-screen flex flex-col lg:flex-row bg-surface-canvas"
+        style={accentStyle}
+      >
+        <BrandedHero
+          imageUrl={branding.loginBackgroundUrl!}
+          logoUrl={branding.logoUrl}
+          tenantName={tenantContext?.name}
+          greeting={branding.loginGreeting}
+        />
+        <section className="flex-1 flex items-center justify-center p-6 lg:p-10 min-h-[60vh] lg:min-h-screen">
+          <div className="w-full max-w-sm animate-fade-in">
+            {tenantContext && (
+              <div className="text-ui-xs text-ink-tertiary mb-4 lg:hidden">
+                Anmeldung bei{" "}
+                <span className="font-medium text-ink-secondary">
+                  {tenantContext.name}
+                </span>
+              </div>
+            )}
+            {formCard}
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  // BRANDED FORM oder UNBRANDED — zentriertes Layout
   return (
-    <main className="min-h-screen flex items-center justify-center p-6 bg-surface-canvas">
-      {/* Dezenter Hintergrund-Gradient — gibt der zentrierten Box etwas
-          Atmosphäre, ohne abzulenken. Subtle by design. */}
+    <main
+      className="min-h-screen flex items-center justify-center p-6 bg-surface-canvas"
+      style={accentStyle}
+    >
       <div
         aria-hidden
         className="fixed inset-0 pointer-events-none"
@@ -159,185 +431,119 @@ export default function LoginPage() {
       />
 
       <div className="relative w-full max-w-sm animate-fade-in">
-        {/* Brand */}
         <div className="text-center mb-8">
-          <div className="text-display text-accent font-semibold tracking-tight">
-            Lumio
-          </div>
+          {branding?.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={branding.logoUrl}
+              alt={tenantContext?.name ?? ""}
+              className="max-h-12 mx-auto"
+            />
+          ) : (
+            <div className="text-display text-accent font-semibold tracking-tight">
+              Lumio
+            </div>
+          )}
+          {branding?.loginGreeting && (
+            <div className="mt-4 text-ui-sm text-ink-secondary prose-tight">
+              <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml>
+                {branding.loginGreeting}
+              </ReactMarkdown>
+            </div>
+          )}
         </div>
-
-        {stage.kind === "credentials" ? (
-          <form
-            onSubmit={submitCredentials}
-            className="space-y-5 bg-surface-raised border border-line-subtle rounded-md p-7 shadow-elev-2"
-          >
-            {tenantContext && (
-              <div className="text-ui-xs text-ink-tertiary border-b border-line-subtle pb-3 -mt-1">
-                Anmeldung bei{" "}
-                <span className="font-medium text-ink-secondary">
-                  {tenantContext.name}
-                </span>
-              </div>
-            )}
-            <h1 className="text-display-sm text-ink-primary font-medium">
-              {t("login.title")}
-            </h1>
-
-            <div className="space-y-1.5">
-              <label htmlFor="email" className="text-ui-sm font-medium text-ink-primary block">
-                {t("login.email")}
-              </label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label htmlFor="password" className="text-ui-sm font-medium text-ink-primary block">
-                {t("login.password")}
-              </label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-
-            {error && (
-              <div
-                role="alert"
-                className="text-ui-sm text-semantic-danger bg-semantic-danger/10 border border-semantic-danger/30 rounded-sm px-3 py-2"
-              >
-                {error}
-              </div>
-            )}
-
-            <Button
-              type="submit"
-              variant="primary"
-              size="lg"
-              disabled={pending}
-              className="w-full"
-            >
-              {pending ? t("common.signingIn") : t("common.signIn")}
-            </Button>
-
-            <p className="text-ui-xs text-ink-tertiary text-center pt-2">
-              {t("login.cliHint")}{" "}
-              <code className="font-mono bg-surface-sunken px-1 py-0.5 rounded-xs">
-                npm run create-admin
-              </code>
-            </p>
-          </form>
-        ) : (
-          <div className="space-y-5 bg-surface-raised border border-line-subtle rounded-md p-7 shadow-elev-2">
-            <header className="space-y-1.5">
-              <h1 className="text-display-sm text-ink-primary font-medium">
-                {stage.hasWebauthn && !stage.hasTotp
-                  ? "Mit Passkey anmelden"
-                  : t("login.totp.title")}
-              </h1>
-              <p className="text-ui-sm text-ink-tertiary">
-                {stage.hasWebauthn && !stage.hasTotp
-                  ? "Bestätige die Anmeldung mit deinem Gerät."
-                  : t("login.totp.description")}
-              </p>
-            </header>
-
-            {/* Passkey-Anmeldung — primärer CTA, wenn verfügbar */}
-            {stage.hasWebauthn && (
-              <Button
-                type="button"
-                variant="primary"
-                size="lg"
-                onClick={loginWithPasskey}
-                disabled={pending}
-                className="w-full"
-              >
-                {pending ? "Wartet auf Gerät…" : "Mit Passkey anmelden"}
-              </Button>
-            )}
-
-            {/* Trenner wenn beide Methoden aktiv sind */}
-            {stage.hasWebauthn && stage.hasTotp && (
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-line-subtle" />
-                </div>
-                <div className="relative flex justify-center text-ui-xs">
-                  <span className="bg-surface-raised px-2 text-ink-tertiary">
-                    oder
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* TOTP-Formular */}
-            {stage.hasTotp && (
-              <form onSubmit={submitTotp} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label htmlFor="code" className="text-ui-sm font-medium text-ink-primary block">
-                    {t("login.totp.code")}
-                  </label>
-                  <Input
-                    id="code"
-                    autoFocus={!stage.hasWebauthn}
-                    autoComplete="one-time-code"
-                    inputMode="numeric"
-                    required
-                    value={code}
-                    onChange={(e) => setCode(e.target.value)}
-                    placeholder="123456"
-                    className="font-mono tracking-[0.4em] text-center"
-                  />
-                  <p className="text-ui-xs text-ink-tertiary mt-1">
-                    {t("login.totp.backupHint")}
-                  </p>
-                </div>
-
-                <Button
-                  type="submit"
-                  variant={stage.hasWebauthn ? "secondary" : "primary"}
-                  size="lg"
-                  disabled={pending}
-                  className="w-full"
-                >
-                  {pending ? t("common.verifying") : t("common.verify")}
-                </Button>
-              </form>
-            )}
-
-            {error && (
-              <div
-                role="alert"
-                className="text-ui-sm text-semantic-danger bg-semantic-danger/10 border border-semantic-danger/30 rounded-sm px-3 py-2"
-              >
-                {error}
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={() => {
-                setStage({ kind: "credentials" });
-                setCode("");
-                setError(null);
-              }}
-              className="text-ui-xs text-ink-tertiary hover:text-ink-primary w-full text-center transition-colors duration-motion"
-            >
-              ← Andere Zugangsdaten verwenden
-            </button>
-          </div>
-        )}
+        {formCard}
       </div>
     </main>
   );
+}
+
+// -----------------------------------------------------------------------------
+// Branded Hero (linke Spalte im Split-Layout)
+// -----------------------------------------------------------------------------
+function BrandedHero({
+  imageUrl,
+  logoUrl,
+  tenantName,
+  greeting,
+}: {
+  imageUrl: string;
+  logoUrl: string | null;
+  tenantName: string | undefined;
+  greeting: string | null;
+}) {
+  return (
+    <aside
+      className="relative lg:flex-1 lg:min-h-screen min-h-[40vh] flex flex-col justify-between p-8 lg:p-12 text-white overflow-hidden"
+      style={{
+        backgroundImage: `linear-gradient(135deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.25) 60%, rgba(0,0,0,0.55) 100%), url(${cssEscapeUrl(imageUrl)})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    >
+      {/* Logo oben */}
+      <div>
+        {logoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={logoUrl}
+            alt={tenantName ?? ""}
+            className="max-h-12 max-w-[200px] object-contain drop-shadow-lg"
+          />
+        ) : tenantName ? (
+          <div className="text-display-sm font-semibold tracking-tight drop-shadow-lg">
+            {tenantName}
+          </div>
+        ) : null}
+      </div>
+
+      {/* Greeting unten */}
+      {greeting && (
+        <div className="max-w-md hero-prose text-white drop-shadow-md">
+          <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml>
+            {greeting}
+          </ReactMarkdown>
+        </div>
+      )}
+
+      <style jsx>{`
+        .hero-prose :global(h1) {
+          font-size: 2rem;
+          line-height: 1.15;
+          font-weight: 600;
+          margin: 0 0 0.5rem 0;
+          letter-spacing: -0.01em;
+        }
+        .hero-prose :global(h2) {
+          font-size: 1.5rem;
+          line-height: 1.2;
+          font-weight: 600;
+          margin: 0 0 0.5rem 0;
+        }
+        .hero-prose :global(p) {
+          font-size: 1rem;
+          line-height: 1.55;
+          margin: 0.5rem 0;
+          opacity: 0.92;
+        }
+        .hero-prose :global(strong) {
+          font-weight: 600;
+        }
+        .hero-prose :global(a) {
+          color: inherit;
+          text-decoration: underline;
+          text-underline-offset: 2px;
+        }
+      `}</style>
+    </aside>
+  );
+}
+
+/** Escaped Quotes/Parentheses in einer URL für den Einsatz in einem
+ *  CSS-`url(...)`-Ausdruck. Die signierten S3-URLs enthalten oft
+ *  Parameter mit '&', '=' und gelegentlich auch '(' — alle drei sind
+ *  in CSS url(...) ohne Quoting problematisch. Wir setzen einfache
+ *  Anführungszeichen drumherum und escapen interne ' falls vorhanden. */
+function cssEscapeUrl(url: string): string {
+  return `"${url.replace(/"/g, '\\"')}"`;
 }

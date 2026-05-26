@@ -32,28 +32,32 @@ const createBrandingSchema = z.object({
   introText: z.string().max(2000).nullable().optional(),
   footerText: z.string().max(500).nullable().optional(),
   customCss: z.string().max(20_000).nullable().optional(),
+  loginGreeting: z.string().max(2000).nullable().optional(),
 });
 
 const updateBrandingSchema = createBrandingSchema.partial();
 
 const initAssetSchema = z.object({
-  kind: z.enum(["logo", "favicon"]),
+  kind: z.enum(["logo", "favicon", "loginBackground"]),
   contentType: z
     .string()
     .refine(
       (v) =>
         v === "image/png" ||
         v === "image/jpeg" ||
+        v === "image/webp" ||
         v === "image/svg+xml" ||
         v === "image/x-icon" ||
         v === "image/vnd.microsoft.icon",
-      "Only PNG, JPEG, SVG or ICO allowed"
+      "Only PNG, JPEG, WEBP, SVG or ICO allowed"
     ),
-  sizeBytes: z.number().int().positive().max(5 * 1024 * 1024), // 5 MiB
+  // Login-Background darf groesser sein als Logo/Favicon (Hero-Bild).
+  // Wir cappen aber bei 10 MiB damit niemand 50-MB-RAWs hochladen kann.
+  sizeBytes: z.number().int().positive().max(10 * 1024 * 1024),
 });
 
 const completeAssetSchema = z.object({
-  kind: z.enum(["logo", "favicon"]),
+  kind: z.enum(["logo", "favicon", "loginBackground"]),
   key: z.string().min(1),
 });
 
@@ -75,23 +79,31 @@ function extensionFor(contentType: string): string {
   return "png";
 }
 
-// Branding-Datensatz mit aufgelösten Asset-URLs anreichern. logoUrl/faviconUrl
-// in der DB sind Storage-Keys (z.B. t/<tenant>/brand/<id>/logo.png) — der
-// Browser braucht aber echte, signierte URLs, um die Bilder zu laden.
+// Branding-Datensatz mit aufgelösten Asset-URLs anreichern. logoUrl/faviconUrl/
+// loginBackgroundUrl in der DB sind Storage-Keys (z.B. t/<tenant>/brand/<id>/
+// logo.png) — der Browser braucht aber echte, signierte URLs, um die Bilder
+// zu laden.
 //
 // 24h TTL ist großzügig, weil Studio-Sessions länger laufen können.
 async function serializeBranding<
-  T extends { logoUrl: string | null; faviconUrl: string | null }
+  T extends {
+    logoUrl: string | null;
+    faviconUrl: string | null;
+    loginBackgroundUrl: string | null;
+  }
 >(branding: T): Promise<T> {
-  const [logoUrl, faviconUrl] = await Promise.all([
+  const [logoUrl, faviconUrl, loginBackgroundUrl] = await Promise.all([
     branding.logoUrl
       ? presignGet({ key: branding.logoUrl, ttlSeconds: 24 * 3600 })
       : Promise.resolve(null),
     branding.faviconUrl
       ? presignGet({ key: branding.faviconUrl, ttlSeconds: 24 * 3600 })
       : Promise.resolve(null),
+    branding.loginBackgroundUrl
+      ? presignGet({ key: branding.loginBackgroundUrl, ttlSeconds: 24 * 3600 })
+      : Promise.resolve(null),
   ]);
-  return { ...branding, logoUrl, faviconUrl };
+  return { ...branding, logoUrl, faviconUrl, loginBackgroundUrl };
 }
 
 export async function registerBrandingRoutes(app: FastifyInstance) {
@@ -244,6 +256,9 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
       if (existing.faviconUrl) {
         await deleteObject(existing.faviconUrl).catch(() => {});
       }
+      if (existing.loginBackgroundUrl) {
+        await deleteObject(existing.loginBackgroundUrl).catch(() => {});
+      }
 
       await prisma.branding.delete({ where: { id: existing.id } });
       await logEvent({
@@ -335,8 +350,20 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
         return reply.status(403).send({ error: "forbidden" });
       }
 
-      const field = body.kind === "logo" ? "logoUrl" : "faviconUrl";
-      const oldKey = body.kind === "logo" ? existing.logoUrl : existing.faviconUrl;
+      // Field-Mapping: kind → DB-Spalte / S3-Key. Wir mappen einmal
+      // hier oben damit unten der Update + Cleanup einheitlich ist.
+      const fieldMap = {
+        logo: "logoUrl",
+        favicon: "faviconUrl",
+        loginBackground: "loginBackgroundUrl",
+      } as const;
+      const field = fieldMap[body.kind];
+      const oldKey =
+        body.kind === "logo"
+          ? existing.logoUrl
+          : body.kind === "favicon"
+          ? existing.faviconUrl
+          : existing.loginBackgroundUrl;
 
       // Altes File aufräumen, falls anderer Key
       if (oldKey && oldKey !== body.key) {
@@ -362,12 +389,22 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
       if (!existing) return reply.status(404).send({ error: "not_found" });
 
       const kind = req.params.kind;
-      if (kind !== "logo" && kind !== "favicon") {
+      if (kind !== "logo" && kind !== "favicon" && kind !== "loginBackground") {
         return reply.status(400).send({ error: "bad_kind" });
       }
 
-      const field = kind === "logo" ? "logoUrl" : "faviconUrl";
-      const oldKey = kind === "logo" ? existing.logoUrl : existing.faviconUrl;
+      const fieldMap = {
+        logo: "logoUrl",
+        favicon: "faviconUrl",
+        loginBackground: "loginBackgroundUrl",
+      } as const;
+      const field = fieldMap[kind];
+      const oldKey =
+        kind === "logo"
+          ? existing.logoUrl
+          : kind === "favicon"
+          ? existing.faviconUrl
+          : existing.loginBackgroundUrl;
       if (oldKey) {
         await deleteObject(oldKey).catch(() => {});
       }

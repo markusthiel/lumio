@@ -29,6 +29,8 @@ export interface ResolvedBranding {
   introText: string | null;
   footerText: string | null;
   customCss: string | null;
+  loginBackgroundUrl: string | null;
+  loginGreeting: string | null;
 }
 
 const ASSET_TTL_SECONDS = 24 * 3600;
@@ -82,5 +84,43 @@ export async function resolveGalleryBranding(opts: {
     introText: branding.introText,
     footerText: branding.footerText,
     customCss: branding.customCss,
+    loginBackgroundUrl: await maybePresign(branding.loginBackgroundUrl),
+    loginGreeting: branding.loginGreeting,
+  };
+}
+
+/**
+ * Lädt das Tenant-Default-Branding (für die Login-Seite). Anders als
+ * resolveGalleryBranding kein Galerie-Override: nur tenant.brandingId.
+ * Wenn der Tenant kein Default-Branding gesetzt hat, liefert die
+ * Funktion null und das Frontend nutzt sein eingebautes Lumio-Branding.
+ */
+export async function resolveTenantBranding(
+  tenantId: string
+): Promise<ResolvedBranding | null> {
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { brandingId: true },
+  });
+  if (!tenant?.brandingId) return null;
+
+  const branding = await prisma.branding.findUnique({
+    where: { id: tenant.brandingId },
+  });
+  if (!branding) return null;
+
+  return {
+    id: branding.id,
+    name: branding.name,
+    logoUrl: await maybePresign(branding.logoUrl),
+    faviconUrl: await maybePresign(branding.faviconUrl),
+    primaryColor: branding.primaryColor,
+    accentColor: branding.accentColor,
+    fontFamily: branding.fontFamily,
+    introText: branding.introText,
+    footerText: branding.footerText,
+    customCss: branding.customCss,
+    loginBackgroundUrl: await maybePresign(branding.loginBackgroundUrl),
+    loginGreeting: branding.loginGreeting,
   };
 }

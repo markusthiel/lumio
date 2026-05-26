@@ -51,6 +51,7 @@ import {
 } from "../services/webauthn.js";
 import { logEvent } from "../services/audit.js";
 import { getStripe } from "../services/stripe-client.js";
+import { resolveTenantBranding } from "../services/branding.js";
 
 const loginSchema = z.object({
   email: z.string().email().toLowerCase(),
@@ -527,9 +528,9 @@ export async function registerAuthRoutes(app: FastifyInstance) {
   // -------------------------------------------------------------------------
   // Liefert minimale Tenant-Daten (Name + Slug + Status) basierend auf
   // dem aufgelösten Tenant (Custom-Domain, Subdomain oder Header).
-  // Wird vom Frontend genutzt um auf der Login-Seite einen
-  // "Anmeldung bei <Studio>"-Hinweis anzuzeigen, damit der User
-  // weiß welches Tenant er gerade anspricht (multi-Mode).
+  // Zusätzlich das Default-Branding des Tenants (logo, Farben,
+  // Begrüssungstext, Background-Bild), sodass die Login-Page das
+  // Studio-Look-and-Feel rendern kann bevor der User eingeloggt ist.
   //
   // Sicherheitsabwägung: gibt's Privacy-Probleme wenn jemand ungefragt
   // den Tenant-Namen sieht? Nein — die Subdomain selbst macht die
@@ -540,9 +541,9 @@ export async function registerAuthRoutes(app: FastifyInstance) {
   // Wenn kein Tenant aufgelöst werden konnte (Apex-Domain im
   // multi-Mode ohne Header), antworten wir mit {tenant: null} —
   // das Frontend entscheidet dann.
-  app.get("/auth/tenant-context", async (req, reply) => {
+  app.get("/auth/tenant-context", async (req) => {
     if (!req.tenantId) {
-      return { tenant: null };
+      return { tenant: null, branding: null };
     }
     const tenant = await prisma.tenant.findUnique({
       where: { id: req.tenantId },
@@ -554,9 +555,10 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       },
     });
     if (!tenant) {
-      return { tenant: null };
+      return { tenant: null, branding: null };
     }
-    return { tenant };
+    const branding = await resolveTenantBranding(tenant.id);
+    return { tenant, branding };
   });
 
   // -------------------------------------------------------------------------

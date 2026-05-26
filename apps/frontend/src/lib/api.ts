@@ -432,8 +432,10 @@ export const api = {
   /** Liefert Tenant-Info basierend auf dem aufgelösten Tenant (Host,
    *  Subdomain, Header). Funktioniert OHNE Login — wird auf der
    *  Login-Seite genutzt um den User darüber zu informieren bei
-   *  welchem Studio er sich gerade anmeldet. tenant: null wenn Apex
-   *  ohne erkennbaren Tenant. */
+   *  welchem Studio er sich gerade anmeldet, plus optionales
+   *  Default-Branding (Logo, Farben, Background, Greeting) für
+   *  eine markenkonforme Login-Page. tenant: null wenn Apex ohne
+   *  erkennbaren Tenant. */
   getTenantContext: () =>
     request<{
       tenant: {
@@ -441,6 +443,20 @@ export const api = {
         name: string;
         slug: string;
         status: "active" | "suspended" | "archived";
+      } | null;
+      branding: {
+        id: string;
+        name: string;
+        logoUrl: string | null;
+        faviconUrl: string | null;
+        primaryColor: string;
+        accentColor: string;
+        fontFamily: string;
+        introText: string | null;
+        footerText: string | null;
+        customCss: string | null;
+        loginBackgroundUrl: string | null;
+        loginGreeting: string | null;
       } | null;
     }>("/auth/tenant-context"),
 
@@ -1516,6 +1532,7 @@ export const api = {
       introText: string | null;
       footerText: string | null;
       customCss: string | null;
+      loginGreeting: string | null;
     }>
   ) =>
     request<{ branding: BrandingDetail }>(`/brandings/${id}`, {
@@ -1532,7 +1549,7 @@ export const api = {
   initBrandingAssetUpload: (
     id: string,
     input: {
-      kind: "logo" | "favicon";
+      kind: "logo" | "favicon" | "loginBackground";
       contentType: string;
       sizeBytes: number;
     }
@@ -1548,14 +1565,17 @@ export const api = {
 
   completeBrandingAssetUpload: (
     id: string,
-    input: { kind: "logo" | "favicon"; key: string }
+    input: { kind: "logo" | "favicon" | "loginBackground"; key: string }
   ) =>
     request<{ branding: BrandingDetail }>(
       `/brandings/${id}/assets/complete`,
       { method: "POST", body: JSON.stringify(input) }
     ),
 
-  deleteBrandingAsset: (id: string, kind: "logo" | "favicon") =>
+  deleteBrandingAsset: (
+    id: string,
+    kind: "logo" | "favicon" | "loginBackground"
+  ) =>
     request<{ branding: BrandingDetail }>(
       `/brandings/${id}/assets/${kind}`,
       { method: "DELETE" }
@@ -1897,6 +1917,8 @@ export interface BrandingDetail {
   introText: string | null;
   footerText: string | null;
   customCss: string | null;
+  loginBackgroundUrl: string | null;
+  loginGreeting: string | null;
   createdAt: string;
   updatedAt: string;
 }

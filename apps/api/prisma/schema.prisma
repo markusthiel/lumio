@@ -204,6 +204,20 @@ model Branding {
   introText     String?
   footerText    String?
   customCss     String?
+
+  // Login-spezifisches Branding. Wird gerendert wenn die Tenant-
+  // Subdomain im Multi-Mode angesteuert wird (z.B. stefan.lumio-
+  // cloud.de). Aktuell zieht die Login-Page das Default-Branding
+  // des Tenants (tenant.brandingId), kann aber spaeter auch
+  // explizit ein anderes Branding fuer den Login-Flow zuweisen.
+  //
+  // loginBackgroundUrl: S3-Key oder externe URL, wird als Hero-
+  //   Hintergrundbild auf der linken Login-Spalte gerendert.
+  // loginGreeting: Markdown-Text fuer eine mehrzeilige Begrüssung
+  //   (Headline + Subtext). introText oben ist fuer Customer-
+  //   Galerien gedacht und kann sich vom Login-Text unterscheiden.
+  loginBackgroundUrl String?
+  loginGreeting      String?
   
   galleries     Gallery[]
   tenantsAsDefault Tenant[] @relation("TenantBranding")
