@@ -89,6 +89,11 @@ export function SuperShell({ children }: { children: React.ReactNode }) {
             active={pathname?.startsWith("/super/audit") ?? false}
             label="Audit-Log"
           />
+          <SidebarLink
+            href="/super/system"
+            active={pathname?.startsWith("/super/system") ?? false}
+            label="System"
+          />
         </nav>
 
         <div className="border-t border-line-subtle p-4">

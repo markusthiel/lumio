@@ -2188,6 +2188,42 @@ export const api = {
       body: JSON.stringify({ enabled }),
     }),
 
+  superSystemStatus: () =>
+    request<{
+      health: {
+        db: { ok: boolean; latencyMs: number | null; message?: string };
+        redis: { ok: boolean; latencyMs: number | null; message?: string };
+        s3: { ok: boolean; latencyMs: number | null; message?: string };
+        worker: {
+          ok: boolean;
+          latencyMs: number | null;
+          message?: string;
+          details?: { lastProcessedAt?: string | null; lastStatus?: string };
+        };
+        queues: Record<string, number>;
+        diskFreeMib: number | null;
+      };
+      update: {
+        currentVersion: string;
+        latestVersion: string | null;
+        updateAvailable: boolean;
+        releaseUrl: string | null;
+        releaseNotes: string | null;
+        publishedAt: string | null;
+        checkedAt: string | null;
+        disabled: string | null;
+      };
+      backup: {
+        configured: boolean;
+        statusPath: string | null;
+        lastBackupAt: string | null;
+        ageHours: number | null;
+        sizeBytes: number | null;
+        health: "ok" | "warning" | "critical" | "unknown";
+        message: string;
+      };
+    }>("/super/system"),
+
   superListTenants: () =>
     request<{ tenants: SuperTenantSummary[] }>("/super/tenants"),
   superGetTenant: (id: string) =>

@@ -46,6 +46,11 @@ import { createExport } from "../services/export-service.js";
 import { cancelDeletion } from "../services/tenant-deletion.js";
 import { computeCurrentMrr, listRecentSnapshots } from "../services/mrr.js";
 import { FEATURE_FLAG_DEFS, setFeatureFlag } from "../services/feature-flags.js";
+import {
+  checkSystemHealth,
+  checkForUpdate,
+  checkBackupStatus,
+} from "../services/system-health.js";
 import { logger } from "../logger.js";
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
@@ -1677,6 +1682,26 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
         count: g._count._all,
       })),
     };
+  });
+
+  // -------------------------------------------------------------------------
+  // GET /super/system
+  // -------------------------------------------------------------------------
+  // Operations-Dashboard fuer Self-Hosting: System-Health (DB, Redis, S3,
+  // Worker, Queue-Lengths, Disk), Update-Check gegen Forgejo-Releases und
+  // Backup-Status (lese-only ueber BACKUP_STATUS_PATH).
+  //
+  // Alle drei Bereiche werden parallel ausgewertet. Wenn einer haengt
+  // (z.B. Forgejo unreachable), gibt der jeweilige Block ein klares
+  // 'disabled'/'unknown' zurueck — der Rest der Page funktioniert.
+  app.get("/super/system", async (req) => {
+    req.requireSuperAdmin();
+    const [health, update, backup] = await Promise.all([
+      checkSystemHealth(),
+      checkForUpdate(),
+      checkBackupStatus(),
+    ]);
+    return { health, update, backup };
   });
 
   // -------------------------------------------------------------------------
