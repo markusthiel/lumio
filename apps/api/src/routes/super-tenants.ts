@@ -1288,4 +1288,148 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
       return { enqueued: true };
     }
   );
+
+  // -------------------------------------------------------------------------
+  // GET /super/audit-log
+  // -------------------------------------------------------------------------
+  // Browse-Endpunkt fuer Audit-Eintraege (Events). Cursor-basierte Pagination
+  // ueber createdAt + id (id als Tie-Breaker bei identischem Zeitstempel,
+  // sonst koennten Eintraege bei identischem ms-Timestamp doppelt erscheinen
+  // oder uebersprungen werden).
+  //
+  // Filter:
+  //   tenantId — auf einen Tenant einschraenken
+  //   action — Prefix-Suche (z.B. "share." oder "super.")
+  //   actorType — user | access | system | super_admin
+  //   from, to — ISO-Datum als Zeitfenster
+  //   limit — 1..100, default 25
+  //   cursor — opaques Token aus voriger Antwort fuer "naechste Seite"
+  //
+  // Plus: count() fuer den Filter, damit das Frontend "X Eintraege gefunden"
+  // anzeigen kann. Bei riesigen Mengen wird das langsam — aber bei der
+  // Groessenordnung Lumio (Solo-SaaS, kleine Tenant-Anzahl) ist es noch
+  // OK. Falls das mal eng wird: separater count-Endpoint mit Cache.
+  const auditLogQuerySchema = z.object({
+    tenantId: z.string().uuid().optional(),
+    actionPrefix: z.string().max(60).optional(),
+    actorType: z.enum(["user", "access", "system", "super_admin"]).optional(),
+    from: z.string().datetime().optional(),
+    to: z.string().datetime().optional(),
+    limit: z.coerce.number().int().min(1).max(100).default(25),
+    cursor: z.string().optional(),
+  });
+
+  app.get("/super/audit-log", async (req, reply) => {
+    req.requireSuperAdmin();
+    const q = auditLogQuerySchema.parse(req.query);
+
+    // Cursor-Decoding: "<iso>:<uuid>". Wenn parse misslingt, ignorieren
+    // (defensive — Frontend duerfte nie was Kaputtes schicken).
+    let cursorDate: Date | null = null;
+    let cursorId: string | null = null;
+    if (q.cursor) {
+      const idx = q.cursor.lastIndexOf(":");
+      if (idx > 0) {
+        const d = new Date(q.cursor.slice(0, idx));
+        if (!isNaN(d.getTime())) {
+          cursorDate = d;
+          cursorId = q.cursor.slice(idx + 1);
+        }
+      }
+    }
+
+    const where: Record<string, unknown> = {};
+    if (q.tenantId) where.tenantId = q.tenantId;
+    if (q.actorType) where.actorType = q.actorType;
+    if (q.actionPrefix) where.action = { startsWith: q.actionPrefix };
+    if (q.from || q.to) {
+      const cf: Record<string, Date> = {};
+      if (q.from) cf.gte = new Date(q.from);
+      if (q.to) cf.lte = new Date(q.to);
+      where.createdAt = cf;
+    }
+
+    // Cursor: wir suchen Eintraege STRENG vor (createdAt, id) des Cursors.
+    // Weil wir desc sortieren, ist "vor" das, was kleiner ist.
+    if (cursorDate && cursorId) {
+      where.OR = [
+        { createdAt: { lt: cursorDate } },
+        {
+          AND: [
+            { createdAt: cursorDate },
+            { id: { lt: cursorId } },
+          ],
+        },
+      ];
+    }
+
+    // limit+1 holen um zu wissen ob's eine naechste Seite gibt
+    const events = await prisma.event.findMany({
+      where,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: q.limit + 1,
+      select: {
+        id: true,
+        tenantId: true,
+        actorType: true,
+        actorId: true,
+        action: true,
+        targetType: true,
+        targetId: true,
+        payload: true,
+        ipAddress: true,
+        createdAt: true,
+        tenant: { select: { name: true, displayName: true, slug: true } },
+      },
+    });
+
+    const hasMore = events.length > q.limit;
+    const rows = hasMore ? events.slice(0, q.limit) : events;
+    const last = rows[rows.length - 1];
+    const nextCursor =
+      hasMore && last ? `${last.createdAt.toISOString()}:${last.id}` : null;
+
+    return {
+      events: rows.map((e) => ({
+        id: e.id,
+        tenantId: e.tenantId,
+        tenantName: e.tenant
+          ? e.tenant.displayName ?? e.tenant.name
+          : null,
+        tenantSlug: e.tenant?.slug ?? null,
+        actorType: e.actorType,
+        actorId: e.actorId,
+        action: e.action,
+        targetType: e.targetType,
+        targetId: e.targetId,
+        payload: e.payload,
+        ipAddress: e.ipAddress,
+        createdAt: e.createdAt,
+      })),
+      nextCursor,
+    };
+    void reply;
+  });
+
+  // -------------------------------------------------------------------------
+  // GET /super/audit-log/distinct-actions
+  // -------------------------------------------------------------------------
+  // Liefert alle vorhandenen distinct-action-Strings — fuer das Filter-
+  // Dropdown im Frontend. Cached koennten wir das spaeter, aber bei der
+  // aktuellen Groesse reicht ein groupBy.
+  app.get("/super/audit-log/distinct-actions", async (req) => {
+    req.requireSuperAdmin();
+    const grouped = await prisma.event.groupBy({
+      by: ["action"],
+      _count: { _all: true },
+      orderBy: { _count: { action: "desc" } },
+      take: 100,
+    });
+    return {
+      actions: grouped.map((g) => ({
+        action: g.action,
+        count: g._count._all,
+      })),
+    };
+  });
 }

@@ -1827,6 +1827,45 @@ export const api = {
       { method: "POST" }
     ),
 
+  superAuditLog: (params: {
+    tenantId?: string;
+    actionPrefix?: string;
+    actorType?: "user" | "access" | "system" | "super_admin";
+    from?: string;
+    to?: string;
+    limit?: number;
+    cursor?: string;
+  }) => {
+    const search = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined && v !== null && v !== "") {
+        search.set(k, String(v));
+      }
+    }
+    return request<{
+      events: Array<{
+        id: string;
+        tenantId: string | null;
+        tenantName: string | null;
+        tenantSlug: string | null;
+        actorType: string;
+        actorId: string | null;
+        action: string;
+        targetType: string | null;
+        targetId: string | null;
+        payload: unknown;
+        ipAddress: string | null;
+        createdAt: string;
+      }>;
+      nextCursor: string | null;
+    }>(`/super/audit-log?${search.toString()}`);
+  },
+
+  superAuditDistinctActions: () =>
+    request<{
+      actions: Array<{ action: string; count: number }>;
+    }>("/super/audit-log/distinct-actions"),
+
   superListTenants: () =>
     request<{ tenants: SuperTenantSummary[] }>("/super/tenants"),
   superGetTenant: (id: string) =>
