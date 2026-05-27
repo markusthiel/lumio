@@ -29,6 +29,7 @@ import { config } from "../config.js";
 import { hashPassword, createSession } from "../services/auth.js";
 import { SESSION_COOKIE } from "../plugins/auth.js";
 import { getStripe, isStripeEnabled } from "../services/stripe-client.js";
+import { sendWelcomeMail } from "../services/notifier.js";
 import {
   PLANS,
   planLookupKey,
@@ -339,6 +340,10 @@ export async function registerSignupRoutes(app: FastifyInstance) {
       userAgent: req.headers["user-agent"] ?? null,
     });
     reply.setCookie(SESSION_COOKIE, token, cookieOpts(30));
+
+    // Welcome-Mail fire-and-forget — Response soll nicht auf SMTP warten
+    // (3-5s Latenz waeren UX-Killer beim Checkout-Redirect).
+    void sendWelcomeMail({ userId, tenantId });
 
     return {
       checkoutUrl: session.url,

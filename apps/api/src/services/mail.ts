@@ -294,3 +294,47 @@ export function tmplGalleryInvite(opts: {
       `(verschickt via Lumio)`,
   };
 }
+
+/**
+ * Welcome-Mail nach erfolgreicher Self-Service-Account-Anlage.
+ * Wird im Signup-Flow nach erfolgreichem Stripe-Checkout-Session-
+ * Create verschickt — der Tenant ist zu dem Zeitpunkt persistiert
+ * und die Subscription auf 'trialing' gesetzt.
+ *
+ * Inhalt bewusst auf das Wichtigste reduziert: was hat der User
+ * gerade angelegt, wann endet sein Trial, wo loggt er sich ein,
+ * wo bekommt er Hilfe.
+ */
+export function tmplWelcome(opts: {
+  displayName: string | null;
+  studioName: string;
+  studioUrl: string;
+  trialEndsAt: Date;
+  planName: string;
+}): { subject: string; text: string } {
+  const greeting = opts.displayName ? `Hallo ${opts.displayName},` : "Hallo,";
+  const trialEnd = opts.trialEndsAt.toLocaleDateString("de-DE", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+  return {
+    subject: `Willkommen bei Lumio — dein Studio „${opts.studioName}" ist startklar`,
+    text:
+      `${greeting}\n\n` +
+      `dein Lumio-Studio „${opts.studioName}" ist angelegt und einsatzbereit. ` +
+      `Du bist im ${opts.planName}-Plan mit einem 14-tägigen Trial — kostenlos ` +
+      `bis zum ${trialEnd}, kein Risiko.\n\n` +
+      `Einloggen kannst du dich jederzeit unter:\n` +
+      `  ${opts.studioUrl}\n\n` +
+      `Erste Schritte für dein Studio:\n` +
+      `  • Branding anpassen (Logo, Farben, eigene Domain)\n` +
+      `  • Eine erste Galerie anlegen und ein paar Bilder hochladen\n` +
+      `  • Test-Share-Link an dich selbst schicken, um den Endkunden-` +
+      `Workflow zu durchlaufen\n\n` +
+      `Fragen? Antworte einfach auf diese Mail oder schreib an ` +
+      `support@lumio-cloud.de.\n\n` +
+      `Bis bald\n` +
+      `— Lumio`,
+  };
+}

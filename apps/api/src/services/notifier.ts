@@ -14,6 +14,7 @@ import {
   tmplSelectionFinished,
   tmplZipReady,
   tmplGalleryInvite,
+  tmplWelcome,
 } from "./mail.js";
 
 function studioUrl(galleryId: string): string {
@@ -240,5 +241,53 @@ export async function sendGalleryInvitation(opts: {
       "sendGalleryInvitation failed before SMTP"
     );
     return false;
+  }
+}
+
+/**
+ * Welcome-Mail nach erfolgreichem Self-Service-Signup.
+ * Wird in routes/signup.ts aufgerufen nachdem Tenant+User+Subscription
+ * angelegt UND der Stripe-Checkout-Session erfolgreich erstellt wurde.
+ *
+ * Stille Failures wie ueberall im Notifier — wir wollen den Signup-
+ * Response nicht killen, falls Mail temporaer scheitert.
+ */
+export async function sendWelcomeMail(opts: {
+  userId: string;
+  tenantId: string;
+}): Promise<void> {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: opts.userId },
+      select: {
+        email: true,
+        name: true,
+        tenant: {
+          select: {
+            name: true,
+            subscription: {
+              select: {
+                trialEndsAt: true,
+                plan: { select: { name: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!user) return;
+    if (!user.tenant.subscription) return;
+    if (!user.tenant.subscription.trialEndsAt) return;
+
+    const tpl = tmplWelcome({
+      displayName: user.name,
+      studioName: user.tenant.name,
+      studioUrl: config.PUBLIC_URL,
+      trialEndsAt: user.tenant.subscription.trialEndsAt,
+      planName: user.tenant.subscription.plan.name,
+    });
+    await sendMail({ to: user.email, ...tpl });
+  } catch (err) {
+    logger.warn({ err, userId: opts.userId }, "sendWelcomeMail failed before SMTP");
   }
 }
