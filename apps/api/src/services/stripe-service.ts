@@ -251,3 +251,73 @@ export async function cancelSubscriptionImmediately(
     throw err;
   }
 }
+
+/**
+ * Trial-Ende einer Subscription nach vorne verschieben.
+ *
+ * Use-Case: Owner braucht ein paar Tage mehr Zeit zum Evaluieren.
+ * Aktualisiert sowohl Stripe (damit dort weiterhin kein Geld eingezogen
+ * wird) als auch unsere DB (damit das Studio die richtigen Limits zeigt).
+ *
+ * Stripe-API: subscriptions.update mit trial_end. Wenn Subscription
+ * aktuell nicht in trialing-Status ist, schlaegt Stripe das ab — wir
+ * checken das im Service und geben einen klaren Fehler zurueck.
+ */
+export async function extendTrial(
+  tenantId: string,
+  extraDays: number
+): Promise<
+  | { ok: true; newTrialEnd: Date }
+  | { ok: false; reason: "no_subscription" | "not_trialing" | "stripe_error"; message?: string }
+> {
+  const sub = await prisma.billingSubscription.findUnique({
+    where: { tenantId },
+    select: {
+      stripeSubscriptionId: true,
+      status: true,
+      trialEndsAt: true,
+    },
+  });
+  if (!sub) return { ok: false, reason: "no_subscription" };
+  if (sub.status !== "trialing") {
+    return { ok: false, reason: "not_trialing" };
+  }
+
+  const base = sub.trialEndsAt ? sub.trialEndsAt.getTime() : Date.now();
+  const newTrialEnd = new Date(base + extraDays * 24 * 60 * 60 * 1000);
+
+  // Wenn keine Stripe-Sub: nur lokal updaten (Tenants ohne Stripe-Anbindung
+  // — z.B. Self-Hosting oder manuell ohne Stripe angelegte Test-Tenants).
+  if (!sub.stripeSubscriptionId) {
+    await prisma.billingSubscription.update({
+      where: { tenantId },
+      data: { trialEndsAt: newTrialEnd },
+    });
+    return { ok: true, newTrialEnd };
+  }
+
+  const stripe = getStripe();
+  try {
+    await stripe.subscriptions.update(sub.stripeSubscriptionId, {
+      trial_end: Math.floor(newTrialEnd.getTime() / 1000),
+      // proration_behavior=none: wir wollen keine Prorationsrechnung
+      // weil der Tenant noch im Trial ist
+      proration_behavior: "none",
+    });
+    // DB-Update — wir koennten auch auf den Webhook warten, aber das
+    // Frontend soll die neue Zeit sofort sehen. Webhook wird das gleiche
+    // setzen, idempotent.
+    await prisma.billingSubscription.update({
+      where: { tenantId },
+      data: { trialEndsAt: newTrialEnd },
+    });
+    return { ok: true, newTrialEnd };
+  } catch (err) {
+    const stripeErr = err as { statusCode?: number; message?: string };
+    return {
+      ok: false,
+      reason: "stripe_error",
+      message: stripeErr.message ?? "Stripe-API-Fehler",
+    };
+  }
+}

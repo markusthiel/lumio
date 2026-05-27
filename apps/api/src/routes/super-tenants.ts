@@ -40,7 +40,7 @@ import { hashPassword } from "../services/auth.js";
 import { createSetupToken, buildSetupUrl, buildResetUrl } from "../services/setupToken.js";
 import { logEvent } from "../services/audit.js";
 import { sendMail, tmplOwnerSetup, tmplPasswordReset } from "../services/mail.js";
-import { cancelSubscriptionImmediately } from "../services/stripe-service.js";
+import { cancelSubscriptionImmediately, extendTrial } from "../services/stripe-service.js";
 import { enqueue, Queues } from "../services/queue.js";
 import { createExport } from "../services/export-service.js";
 import { cancelDeletion } from "../services/tenant-deletion.js";
@@ -1676,6 +1676,67 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
       })),
     };
   });
+
+  // -------------------------------------------------------------------------
+  // POST /super/tenants/:id/extend-trial
+  // -------------------------------------------------------------------------
+  // Trial-Ende einer Subscription nach vorne verschieben. Validation:
+  // extraDays muss positiv und realistisch sein (1..90).
+  const extendTrialSchema = z.object({
+    extraDays: z.number().int().min(1).max(90),
+    reason: z.string().max(500).optional(),
+  });
+  app.post<{ Params: { id: string } }>(
+    "/super/tenants/:id/extend-trial",
+    async (req, reply) => {
+      const sa = req.requireSuperAdmin();
+      const body = extendTrialSchema.parse(req.body);
+
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: req.params.id },
+        select: { id: true, name: true, displayName: true },
+      });
+      if (!tenant) return reply.status(404).send({ error: "not_found" });
+
+      const result = await extendTrial(tenant.id, body.extraDays);
+      if (!result.ok) {
+        const statusCode =
+          result.reason === "no_subscription" || result.reason === "not_trialing"
+            ? 409
+            : 502;
+        return reply.status(statusCode).send({
+          error: result.reason,
+          message:
+            "message" in result
+              ? result.message
+              : result.reason === "not_trialing"
+                ? "Subscription ist nicht im Trial-Status."
+                : "Keine Subscription am Tenant.",
+        });
+      }
+
+      await logEvent({
+        tenantId: tenant.id,
+        actorType: "super_admin",
+        actorId: sa.admin.id,
+        action: "super.tenant.trial_extended",
+        targetType: "tenant",
+        targetId: tenant.id,
+        payload: {
+          extraDays: body.extraDays,
+          newTrialEnd: result.newTrialEnd.toISOString(),
+          reason: body.reason ?? null,
+        },
+        ipAddress: req.ip,
+      });
+
+      return {
+        ok: true,
+        newTrialEnd: result.newTrialEnd,
+        extraDays: body.extraDays,
+      };
+    }
+  );
 
   // -------------------------------------------------------------------------
   // POST /super/tenants/:id/owner-password-reset

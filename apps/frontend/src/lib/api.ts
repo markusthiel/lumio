@@ -1936,6 +1936,19 @@ export const api = {
       { method: "POST", body: JSON.stringify({ userId }) }
     ),
 
+  superExtendTrial: (
+    tenantId: string,
+    extraDays: number,
+    reason?: string
+  ) =>
+    request<{ ok: true; newTrialEnd: string; extraDays: number }>(
+      `/super/tenants/${tenantId}/extend-trial`,
+      {
+        method: "POST",
+        body: JSON.stringify({ extraDays, reason }),
+      }
+    ),
+
   superListTenants: () =>
     request<{ tenants: SuperTenantSummary[] }>("/super/tenants"),
   superGetTenant: (id: string) =>

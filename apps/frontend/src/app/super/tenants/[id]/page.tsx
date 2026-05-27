@@ -367,7 +367,11 @@ function TenantDetail() {
 
       {tenant.subscription && (
         <Section title="Billing">
-          <BillingBlock subscription={tenant.subscription} />
+          <BillingBlock
+            subscription={tenant.subscription}
+            tenantId={tenant.id}
+            onChanged={() => void load()}
+          />
         </Section>
       )}
 
@@ -1070,10 +1074,15 @@ function EditMetaForm({
 //  - Deep-Links zum Stripe-Dashboard (Customer + Subscription)
 function BillingBlock({
   subscription,
+  tenantId,
+  onChanged,
 }: {
   subscription: SuperTenantSubscription;
+  tenantId: string;
+  onChanged: () => void;
 }) {
   const plan = subscription.plan;
+  const [extendOpen, setExtendOpen] = useState(false);
 
   const price = (() => {
     if (subscription.billingInterval === "yearly" && plan.priceYearlyCents !== null) {
@@ -1159,15 +1168,27 @@ function BillingBlock({
         {subscription.status === "trialing" && subscription.trialEndsAt && (
           <>
             <Label>Trial-Ende</Label>
-            <span>
-              {new Date(subscription.trialEndsAt).toLocaleDateString("de-DE", {
-                day: "2-digit",
-                month: "long",
-                year: "numeric",
-              })}{" "}
-              <span className="text-ink-tertiary">
-                ({daysUntil(subscription.trialEndsAt)})
+            <span className="flex items-center gap-3 flex-wrap">
+              <span>
+                {new Date(subscription.trialEndsAt).toLocaleDateString(
+                  "de-DE",
+                  {
+                    day: "2-digit",
+                    month: "long",
+                    year: "numeric",
+                  }
+                )}{" "}
+                <span className="text-ink-tertiary">
+                  ({daysUntil(subscription.trialEndsAt)})
+                </span>
               </span>
+              <button
+                type="button"
+                onClick={() => setExtendOpen(true)}
+                className="text-ui-xs text-accent hover:underline"
+              >
+                Verlängern
+              </button>
             </span>
           </>
         )}
@@ -1241,6 +1262,153 @@ function BillingBlock({
           )}
         </div>
       )}
+
+      {extendOpen && (
+        <ExtendTrialDialog
+          tenantId={tenantId}
+          currentTrialEnd={subscription.trialEndsAt}
+          onClose={() => setExtendOpen(false)}
+          onExtended={() => {
+            setExtendOpen(false);
+            onChanged();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function ExtendTrialDialog({
+  tenantId,
+  currentTrialEnd,
+  onClose,
+  onExtended,
+}: {
+  tenantId: string;
+  currentTrialEnd: string | null;
+  onClose: () => void;
+  onExtended: () => void;
+}) {
+  const [days, setDays] = useState(7);
+  const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const projectedEnd =
+    currentTrialEnd && days > 0
+      ? new Date(
+          new Date(currentTrialEnd).getTime() + days * 24 * 60 * 60 * 1000
+        )
+      : null;
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+    try {
+      await api.superExtendTrial(
+        tenantId,
+        days,
+        reason.trim() || undefined
+      );
+      onExtended();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Fehler");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[100]"
+      onClick={onClose}
+    >
+      <form
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={submit}
+        className="w-full max-w-md bg-surface-raised border border-line-subtle shadow-2xl rounded-lg p-6 space-y-4"
+      >
+        <h2 className="text-lg font-semibold">Trial verlängern</h2>
+
+        <div>
+          <label className="text-sm font-medium block mb-2">Um wie viele Tage?</label>
+          <div className="flex flex-wrap gap-1.5">
+            {[1, 7, 14, 30].map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => setDays(opt)}
+                className={
+                  days === opt
+                    ? "px-3 py-1.5 text-sm rounded border border-accent bg-accent/10 text-accent font-medium"
+                    : "px-3 py-1.5 text-sm rounded border border-line-subtle hover:bg-surface-sunken"
+                }
+              >
+                {opt}
+              </button>
+            ))}
+            <input
+              type="number"
+              min={1}
+              max={90}
+              value={days}
+              onChange={(e) =>
+                setDays(Math.max(1, Math.min(90, Number(e.target.value) || 1)))
+              }
+              className="w-20 px-2 py-1.5 text-sm rounded border border-line-subtle"
+            />
+          </div>
+        </div>
+
+        {projectedEnd && (
+          <div className="text-sm text-ink-secondary">
+            Neues Trial-Ende:{" "}
+            <strong>
+              {projectedEnd.toLocaleDateString("de-DE", {
+                day: "2-digit",
+                month: "long",
+                year: "numeric",
+              })}
+            </strong>
+          </div>
+        )}
+
+        <div>
+          <label htmlFor="extend-reason" className="text-sm font-medium block mb-1">
+            Grund <span className="text-ink-tertiary">(optional, intern)</span>
+          </label>
+          <input
+            id="extend-reason"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            maxLength={500}
+            placeholder="z.B. Hat angerufen, braucht mehr Zeit zum Evaluieren"
+            className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm"
+          />
+        </div>
+
+        {error && (
+          <div className="text-sm text-semantic-danger">{error}</div>
+        )}
+
+        <div className="flex justify-end gap-2 pt-2 border-t border-line-subtle">
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-sm px-3 py-2 rounded-md border border-line-subtle hover:bg-surface-sunken"
+          >
+            Abbrechen
+          </button>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="text-sm px-3 py-2 rounded-md bg-accent text-accent-contrast hover:bg-accent-hover disabled:opacity-50"
+          >
+            {submitting ? "Verlängert…" : `Um ${days} Tage verlängern`}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
