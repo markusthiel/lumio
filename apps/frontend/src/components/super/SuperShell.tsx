@@ -70,6 +70,11 @@ export function SuperShell({ children }: { children: React.ReactNode }) {
             label="Storage"
           />
           <SidebarLink
+            href="/super/mrr"
+            active={pathname?.startsWith("/super/mrr") ?? false}
+            label="MRR"
+          />
+          <SidebarLink
             href="/super/audit"
             active={pathname?.startsWith("/super/audit") ?? false}
             label="Audit-Log"

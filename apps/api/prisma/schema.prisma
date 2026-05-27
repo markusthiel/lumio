@@ -1451,3 +1451,37 @@ model TenantNote {
   @@index([tenantId, createdAt])
   @@map("tenant_notes")
 }
+
+// -----------------------------------------------------------------------------
+// MRR-Snapshots (taeglich gepflegt durch Background-Job)
+// -----------------------------------------------------------------------------
+// Bewahrt einen historischen Verlauf der MRR fuer Trend-Analyse. Wir
+// rechnen die aktuelle MRR jederzeit live aus, aber fuer den 12-
+// Wochen-Trend brauchen wir Snapshots. Ein Snapshot pro Tag reicht —
+// MRR aendert sich nicht zwischen Mittag und Abend dramatisch.
+model MrrSnapshot {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  /// Tag des Snapshots (UTC). UNIQUE damit der Cron-Job idempotent
+  /// laeuft — bei mehrfacher Ausfuehrung am selben Tag wird nichts
+  /// dupliziert.
+  date            DateTime @unique @db.Date
+
+  /// Aktuelle MRR in cents, normalisiert auf monatlich. Yearly-Subs
+  /// gehen mit /12 ein.
+  mrrCents        Int
+  /// Potenzielle MRR aus trialing-Subs (was reinkaeme wenn alle
+  /// konvertieren). Forecast-Zahl, kein realer Umsatz.
+  trialingMrrCents Int
+  /// Anzahl active+past_due Subscriptions (zaehlt zur MRR mit)
+  activeSubs      Int
+  trialingSubs    Int
+
+  /// Aufschluesselung pro Plan als JSON. Schema:
+  /// { "starter": { mrrCents, count }, "pro": { ... }, ... }
+  perPlan         Json
+
+  createdAt       DateTime @default(now())
+
+  @@index([date])
+  @@map("mrr_snapshots")
+}

@@ -44,6 +44,7 @@ import { cancelSubscriptionImmediately, extendTrial } from "../services/stripe-s
 import { enqueue, Queues } from "../services/queue.js";
 import { createExport } from "../services/export-service.js";
 import { cancelDeletion } from "../services/tenant-deletion.js";
+import { computeCurrentMrr, listRecentSnapshots } from "../services/mrr.js";
 import { logger } from "../logger.js";
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
@@ -1675,6 +1676,22 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
         count: g._count._all,
       })),
     };
+  });
+
+  // -------------------------------------------------------------------------
+  // GET /super/mrr
+  // -------------------------------------------------------------------------
+  // MRR-Uebersicht: aktuelle Live-Berechnung + historische Snapshots.
+  // Snapshots werden nightly vom Sweeper gepflegt. Bis die ersten paar
+  // Snapshots da sind, gibt das Frontend nur den 'aktuell'-Wert sinnvoll
+  // wieder; die Sparkline bleibt leer.
+  app.get("/super/mrr", async (req) => {
+    req.requireSuperAdmin();
+    const [current, history] = await Promise.all([
+      computeCurrentMrr(),
+      listRecentSnapshots(90),
+    ]);
+    return { current, history };
   });
 
   // -------------------------------------------------------------------------

@@ -1991,6 +1991,28 @@ export const api = {
       }>;
     }>("/super/tenants/storage"),
 
+  superMrr: () =>
+    request<{
+      current: {
+        date: string;
+        mrrCents: number;
+        trialingMrrCents: number;
+        activeSubs: number;
+        trialingSubs: number;
+        perPlan: Record<
+          string,
+          { mrrCents: number; count: number; name: string }
+        >;
+      };
+      history: Array<{
+        date: string;
+        mrrCents: number;
+        trialingMrrCents: number;
+        activeSubs: number;
+        trialingSubs: number;
+      }>;
+    }>("/super/mrr"),
+
   superListTenants: () =>
     request<{ tenants: SuperTenantSummary[] }>("/super/tenants"),
   superGetTenant: (id: string) =>

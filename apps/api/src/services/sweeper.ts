@@ -24,6 +24,7 @@ import { enqueue, Queues } from "./queue.js";
 import { prisma } from "../db.js";
 import { sendMail } from "./mail.js";
 import { logEvent } from "./audit.js";
+import { writeMrrSnapshot } from "./mrr.js";
 import { logger } from "../logger.js";
 
 const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
@@ -41,6 +42,10 @@ async function runOnce() {
     // Self-Service-Tenant-Loeschung
     sendSelfDeletionReminders(),
     executeScheduledSelfDeletions(),
+    // Tagesschnappschuss der MRR (idempotent via UNIQUE-Index auf
+    // mrr_snapshots.date — mehrfache Calls am gleichen Tag schreiben
+    // das gleiche Tagesdatum mit aktualisierten Werten via upsert).
+    writeMrrSnapshot(),
   ]);
 }
 
