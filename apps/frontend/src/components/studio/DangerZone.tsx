@@ -180,13 +180,13 @@ function DeletionModal({
 
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+      className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[100]"
       onClick={onClose}
     >
       <form
         onClick={(e) => e.stopPropagation()}
         onSubmit={onSubmit}
-        className="w-full max-w-lg bg-surface-base rounded-lg p-6 space-y-4"
+        className="w-full max-w-lg bg-surface-raised border border-line-subtle shadow-2xl rounded-lg p-6 space-y-4"
       >
         <div>
           <h2 className="text-lg font-semibold text-red-700">

@@ -409,7 +409,7 @@ export async function registerAccountRoutes(app: FastifyInstance) {
       where: { id: s.user.id },
       select: { passwordHash: true },
     });
-    if (!fresh || !(await verifyPassword(body.password, fresh.passwordHash))) {
+    if (!fresh || !(await verifyPassword(fresh.passwordHash, body.password))) {
       return reply.status(401).send({
         error: "password_wrong",
         message: "Passwort ist nicht korrekt.",
