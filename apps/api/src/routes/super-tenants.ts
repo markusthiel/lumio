@@ -1913,13 +1913,20 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
   // -------------------------------------------------------------------------
   // POST /super/tenants/:id/impersonate
   // -------------------------------------------------------------------------
-  // Erzeugt eine kurzlebige Session fuer einen User des Tenants und setzt
-  // den Lumio-Session-Cookie. Der Super-Admin landet danach im Studio
-  // und sieht alles wie der User. Eine Banner-Komponente im StudioShell
-  // weist deutlich darauf hin dass Impersonate-Modus laeuft.
+  // Cross-Subdomain-Login: Wir koennen den Session-Cookie hier NICHT auf
+  // der Tenant-Subdomain (z.B. saro.lumio-cloud.de) setzen, weil dieser
+  // POST-Request gegen die Super-Admin-Domain (studio.lumio-cloud.de
+  // oder Apex) geht. Browser erlauben Cookies nur fuer die aktuelle oder
+  // Parent-Domain, nicht fuer Geschwister-Subdomains.
   //
-  // Datenschutz/AVV: Owner wird per Mail informiert dass Support-Zugriff
-  // stattgefunden hat. So bleibt es transparent.
+  // Loesung: Wir erzeugen einen kurzlebigen (60s), einmal-verwendbaren
+  // Intent-Token. Der Super-Admin wird auf die Tenant-Subdomain
+  // umgeleitet (z.B. https://saro.lumio-cloud.de/auth/impersonate-complete?t=TOKEN).
+  // Dort tauscht eine kleine Page den Token gegen eine echte Session
+  // ein — und dort wird der Cookie auf der richtigen Domain gesetzt.
+  //
+  // Datenschutz: User wird per Mail benachrichtigt, sobald die Session
+  // tatsaechlich gestartet ist (= beim Redeem, nicht hier).
   const impersonateSchema = z.object({
     userId: z.string().uuid(),
     reason: z.string().min(3).max(500).optional(),
@@ -1949,22 +1956,17 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
           .send({ error: "user_not_found", message: "User nicht gefunden" });
       }
 
-      const { token } = await createSession({
+      // Intent-Token erstellen. Payload enthaelt nur, was der Redeem-
+      // Endpoint braucht (Super-Admin-ID + Reason). Der Token selbst
+      // referenziert via userId schon den zu imperson. User.
+      const { token } = await createSetupToken({
         userId: user.id,
-        ipAddress: req.ip,
-        userAgent: req.headers["user-agent"] ?? null,
-        impersonatedBySuperAdminId: sa.admin.id,
-      });
-
-      reply.setCookie("lumio_session", token, {
-        path: "/",
-        httpOnly: true,
-        sameSite: "lax",
-        secure: config.NODE_ENV === "production",
-        // Cookie laeuft frueh aus — gleichzeitig erzwingt die kuerzere
-        // Session-TTL aus auth.ts dass auch ohne Cookie-Ablauf der
-        // Server die Session ungueltig macht.
-        maxAge: 60 * 60, // 1h
+        kind: "impersonate",
+        payload: {
+          superAdminId: sa.admin.id,
+          superAdminEmail: sa.admin.email,
+          reason: body.reason ?? null,
+        },
       });
 
       await logEvent({
@@ -1981,26 +1983,22 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
         ipAddress: req.ip,
       });
 
-      // Mail an den User: "Support-Zugriff durch ..." — datenschutz-
-      // transparent. Best-effort, blockiert nicht.
-      void sendMail({
-        to: user.email,
-        subject: `Support-Zugriff auf dein Studio "${user.tenant.displayName ?? user.tenant.name}"`,
-        text:
-          `Hallo${user.name ? " " + user.name : ""},\n\n` +
-          `ein Mitglied des Lumio-Supports (${sa.admin.email}) hat sich gerade ` +
-          `in dein Studio "${user.tenant.displayName ?? user.tenant.name}" eingeloggt, ` +
-          `um ein Problem zu untersuchen. Der Zugriff ist auf maximal 60 Minuten begrenzt ` +
-          `und wird vollständig im Audit-Log dokumentiert.\n\n` +
-          (body.reason ? `Grund: ${body.reason}\n\n` : "") +
-          `Falls du KEINEN Support-Zugriff angefragt hast und das ungewöhnlich ` +
-          `findest, antworte auf diese Mail.\n\n` +
-          `— Lumio`,
-      });
+      // Redirect-URL bauen: wir nehmen die Apex-Domain aus PUBLIC_URL
+      // und haengen den Tenant-Slug als Subdomain davor. Wenn ein
+      // Tenant eine Custom-Domain hat, muesste man die hier
+      // beruecksichtigen — fuers MVP gehen wir vom Standard-
+      // Subdomain-Setup aus.
+      const publicUrl = new URL(config.PUBLIC_URL);
+      // PUBLIC_URL ist typischerweise https://studio.lumio-cloud.de —
+      // wir wollen die Apex/Parent-Domain extrahieren.
+      // host = "studio.lumio-cloud.de" → apex = "lumio-cloud.de"
+      const hostParts = publicUrl.host.split(".");
+      const apex = hostParts.length > 2 ? hostParts.slice(1).join(".") : publicUrl.host;
+      const redirectUrl = `${publicUrl.protocol}//${user.tenant.slug}.${apex}/auth/impersonate-complete?t=${encodeURIComponent(token)}`;
 
       return {
         ok: true,
-        redirectTo: `/`,
+        redirectUrl,
         studioSlug: user.tenant.slug,
       };
     }

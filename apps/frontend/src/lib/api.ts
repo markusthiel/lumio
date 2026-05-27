@@ -1956,22 +1956,29 @@ export const api = {
       }
     ),
 
-  /** Impersonate-Login: Super-Admin erhaelt eine 1h-User-Session.
-   *  Nach Erfolg muessen wir den Browser auf das Studio des Tenants
-   *  navigieren — der Cookie ist domain-scoped, also funktioniert er
-   *  auf studio.lumio-cloud.de bzw. <slug>.lumio-cloud.de. */
+  /** Impersonate-Login: Super-Admin bekommt eine redirect-URL auf die
+   *  Tenant-Subdomain. Der Cookie wird erst dort gesetzt (Cross-Domain-
+   *  Sicherheits-Workaround via Intent-Token). */
   superImpersonate: (
     tenantId: string,
     userId: string,
     reason?: string
   ) =>
-    request<{ ok: true; redirectTo: string; studioSlug: string }>(
+    request<{ ok: true; redirectUrl: string; studioSlug: string }>(
       `/super/tenants/${tenantId}/impersonate`,
       {
         method: "POST",
         body: JSON.stringify({ userId, reason }),
       }
     ),
+
+  /** Tauscht einen Impersonate-Intent-Token gegen eine Session.
+   *  Wird auf der Tenant-Subdomain aufgerufen. */
+  redeemImpersonateToken: (token: string) =>
+    request<{ ok: true }>("/auth/impersonate-redeem", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    }),
 
   superTenantsStorage: () =>
     request<{

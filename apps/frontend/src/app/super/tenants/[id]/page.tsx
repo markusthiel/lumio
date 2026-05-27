@@ -193,11 +193,11 @@ function TenantDetail() {
   }
 
   if (loading || !tenant) {
-    return <div className="px-8 py-6 text-ink-tertiary">Lädt…</div>;
+    return <div className="px-4 sm:px-8 py-6 text-ink-tertiary">Lädt…</div>;
   }
 
   return (
-    <div className="px-8 py-6 max-w-4xl">
+    <div className="px-4 sm:px-8 py-6 max-w-4xl">
       <div className="text-ui-xs text-ink-tertiary mb-1">
         <button
           type="button"
@@ -1785,13 +1785,11 @@ function ImpersonateDialog({
     setError(null);
     try {
       const res = await api.superImpersonate(tenantId, userId, reason.trim());
-      // Nach Erfolg: Studio in einem neuen Tab oeffnen. Der Cookie ist
-      // domain-scoped auf .lumio-cloud.de, also gilt er fuer alle
-      // Subdomains inklusive studio.lumio-cloud.de und <slug>.lumio-cloud.de.
-      // Wir nehmen die studio.-Subdomain weil das der primaere Login-
-      // Pfad ist; bei Custom-Domains nimmt der User selbst die richtige.
-      const url = `${window.location.protocol}//studio.${window.location.host.replace(/^[^.]+\./, "")}${res.redirectTo}`;
-      window.open(url, "_blank", "noopener");
+      // Backend liefert die fertige Tenant-Subdomain-URL inkl.
+      // Intent-Token. Wir oeffnen sie in einem neuen Tab. Auf der
+      // Tenant-Subdomain setzt /auth/impersonate-complete den Session-
+      // Cookie und redirected zu /.
+      window.open(res.redirectUrl, "_blank", "noopener");
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Fehler");

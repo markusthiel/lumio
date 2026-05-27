@@ -140,7 +140,7 @@ function Editor() {
   const canSubmit = subject.trim().length > 0 && bodyMarkdown.trim().length > 0;
 
   return (
-    <div className="px-8 py-6 max-w-7xl">
+    <div className="px-4 sm:px-8 py-6 max-w-7xl">
       <div className="mb-4">
         <button
           type="button"

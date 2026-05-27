@@ -644,6 +644,119 @@ export async function registerAuthRoutes(app: FastifyInstance) {
   });
 
   // -------------------------------------------------------------------------
+  // POST /auth/impersonate-redeem
+  // -------------------------------------------------------------------------
+  // Tauscht einen Intent-Token (kind='impersonate') gegen eine echte
+  // Session. Der Endpoint wird von /auth/impersonate-complete im Studio-
+  // Frontend aufgerufen — also auf der Tenant-Subdomain. Damit wird der
+  // Session-Cookie korrekt fuer die Tenant-Domain gesetzt.
+  //
+  // Token ist one-shot (consumeSetupToken) und 60s gueltig (siehe
+  // setupToken.ts TTL_MS.impersonate). Reuse-Attempts schlagen fehl.
+  const impersonateRedeemSchema = z.object({
+    token: z.string().min(1),
+  });
+  app.post("/auth/impersonate-redeem", async (req, reply) => {
+    const body = impersonateRedeemSchema.parse(req.body);
+
+    const found = await lookupSetupToken(body.token, "impersonate");
+    if (!found) {
+      return reply
+        .status(400)
+        .send({ error: "invalid_or_expired", message: "Token ungültig oder abgelaufen." });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: found.userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        status: true,
+        tenant: {
+          select: {
+            id: true,
+            name: true,
+            displayName: true,
+            status: true,
+            slug: true,
+          },
+        },
+      },
+    });
+    if (!user || user.status !== "active") {
+      await consumeSetupToken(found.tokenId);
+      return reply.status(400).send({ error: "user_inactive" });
+    }
+    if (user.tenant.status !== "active") {
+      await consumeSetupToken(found.tokenId);
+      return reply.status(400).send({ error: "tenant_inactive" });
+    }
+
+    // Payload aus dem Token holen
+    const payload = (found.payload ?? {}) as {
+      superAdminId?: string;
+      superAdminEmail?: string;
+      reason?: string | null;
+    };
+    if (!payload.superAdminId) {
+      await consumeSetupToken(found.tokenId);
+      return reply.status(400).send({ error: "invalid_payload" });
+    }
+
+    // Token verbrauchen BEVOR wir Session anlegen — Replay-Schutz, auch
+    // wenn die Session-Erstellung danach scheitert.
+    await consumeSetupToken(found.tokenId);
+
+    const { token: sessionToken } = await createSession({
+      userId: user.id,
+      ipAddress: req.ip,
+      userAgent: req.headers["user-agent"] ?? null,
+      impersonatedBySuperAdminId: payload.superAdminId,
+    });
+
+    reply.setCookie(SESSION_COOKIE, sessionToken, {
+      ...cookieOpts(0),
+      // 60min — passt zur Server-Side-Session-TTL fuer Impersonate
+      maxAge: 60 * 60,
+    });
+
+    await logEvent({
+      tenantId: user.tenant.id,
+      actorType: "super_admin",
+      actorId: payload.superAdminId,
+      action: "super.tenant.impersonate_redeemed",
+      targetType: "user",
+      targetId: user.id,
+      payload: {
+        userEmail: user.email,
+        reason: payload.reason ?? null,
+      },
+      ipAddress: req.ip,
+    });
+
+    // Transparenz-Mail an User. Best-effort, blockiert nicht.
+    if (payload.superAdminEmail) {
+      void sendMail({
+        to: user.email,
+        subject: `Support-Zugriff auf dein Studio "${user.tenant.displayName ?? user.tenant.name}"`,
+        text:
+          `Hallo${user.name ? " " + user.name : ""},\n\n` +
+          `ein Mitglied des Lumio-Supports (${payload.superAdminEmail}) hat sich gerade ` +
+          `in dein Studio "${user.tenant.displayName ?? user.tenant.name}" eingeloggt, ` +
+          `um ein Problem zu untersuchen. Der Zugriff ist auf maximal 60 Minuten begrenzt ` +
+          `und wird vollständig im Audit-Log dokumentiert.\n\n` +
+          (payload.reason ? `Grund: ${payload.reason}\n\n` : "") +
+          `Falls du KEINEN Support-Zugriff angefragt hast und das ungewöhnlich ` +
+          `findest, antworte auf diese Mail.\n\n` +
+          `— Lumio`,
+      });
+    }
+
+    return { ok: true };
+  });
+
+  // -------------------------------------------------------------------------
   // GET /auth/setup-password/check?token=...
   // -------------------------------------------------------------------------
   // Vorab-Lookup vom Frontend, damit die Setup-Page direkt anzeigen kann,

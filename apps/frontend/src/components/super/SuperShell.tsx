@@ -13,13 +13,20 @@ interface Admin {
 
 /**
  * Layout-Wrapper für /super/* Pages. Lädt den eingeloggten Super-Admin,
- * redirected sonst zu /super/login. Stellt eine schmale Sidebar bereit.
+ * redirected sonst zu /super/login.
+ *
+ * Layout:
+ *  - Desktop (>=sm): Sidebar permanent links sichtbar
+ *  - Mobile (<sm): Sidebar als Slide-over-Drawer, getriggert durch
+ *    Hamburger-Button oben links. Schliessbar via Overlay-Click oder
+ *    Navigation. Pattern wie im StudioShell — gleiches z-Index-System.
  */
 export function SuperShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [admin, setAdmin] = useState<Admin | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -34,6 +41,11 @@ export function SuperShell({ children }: { children: React.ReactNode }) {
     })();
   }, [router]);
 
+  // Drawer schliessen bei Route-Wechsel
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-surface-canvas">
@@ -45,15 +57,52 @@ export function SuperShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen flex bg-surface-canvas text-ink-primary">
-      {/* Sidebar */}
-      <aside className="w-56 border-r border-line-subtle bg-surface-raised flex flex-col">
-        <div className="h-14 flex items-center px-5 border-b border-line-subtle">
+      {/* Mobile Hamburger — fixed oben links, nur <sm sichtbar */}
+      <button
+        type="button"
+        onClick={() => setMobileOpen(true)}
+        aria-label="Menü öffnen"
+        className="fixed top-3 left-3 z-30 sm:hidden h-9 w-9 rounded bg-surface-raised border border-line-subtle flex items-center justify-center text-ink-primary shadow"
+      >
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            d="M2 4h12M2 8h12M2 12h12"
+          />
+        </svg>
+      </button>
+
+      {/* Sidebar — fixed slide-over auf Mobile, statisch auf Desktop */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 w-[220px] border-r border-line-subtle bg-surface-raised flex flex-col transition-transform duration-motion ease-out sm:translate-x-0 sm:static sm:flex-shrink-0 sm:w-56 ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <div className="h-14 flex items-center justify-between px-5 border-b border-line-subtle">
           <span className="text-accent text-ui-md font-semibold tracking-tight">
             Lumio · Super
           </span>
+          {/* Schliessen-Knopf nur auf Mobile */}
+          <button
+            type="button"
+            onClick={() => setMobileOpen(false)}
+            aria-label="Menü schließen"
+            className="sm:hidden h-7 w-7 -mr-1 flex items-center justify-center text-ink-tertiary hover:text-ink-primary"
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                d="M2 2l10 10M12 2L2 12"
+              />
+            </svg>
+          </button>
         </div>
 
-        <nav className="flex-1 py-2">
+        <nav className="flex-1 py-2 overflow-y-auto">
           <SidebarLink
             href="/super"
             active={pathname === "/super"}
@@ -119,7 +168,22 @@ export function SuperShell({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-auto">{children}</main>
+      {/* Overlay zum Schliessen */}
+      {mobileOpen && (
+        <button
+          type="button"
+          aria-label="Menü schließen"
+          onClick={() => setMobileOpen(false)}
+          className="fixed inset-0 z-30 bg-black/40 sm:hidden"
+        />
+      )}
+
+      {/* Main — auf Mobile bleibt oben Platz fuer den Hamburger.
+          pt-14 sm:pt-0: gibt der Hamburger-Button auf Mobile etwas
+          Freiraum oben damit er nicht mit dem Page-Titel kollidiert. */}
+      <main className="flex-1 min-w-0 overflow-auto pt-14 sm:pt-0">
+        {children}
+      </main>
     </div>
   );
 }

@@ -24,7 +24,7 @@ function DashboardContent() {
   }, [refreshTick]);
 
   return (
-    <div className="px-8 py-6 max-w-4xl">
+    <div className="px-4 sm:px-8 py-6 max-w-4xl">
       <h1 className="text-2xl font-semibold mb-1">Übersicht</h1>
       <p className="text-ui-sm text-ink-tertiary mb-6">
         Plattform-Status auf einen Blick.

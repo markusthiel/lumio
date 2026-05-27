@@ -74,7 +74,7 @@ function AnnouncementsContent() {
   }
 
   return (
-    <div className="px-8 py-6 max-w-4xl">
+    <div className="px-4 sm:px-8 py-6 max-w-4xl">
       <div className="flex items-baseline justify-between mb-6">
         <div>
           <h1 className="text-2xl font-semibold mb-1">System-Banner</h1>

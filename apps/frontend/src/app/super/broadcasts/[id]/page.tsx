@@ -79,7 +79,7 @@ function Detail() {
 
   if (!data) {
     return (
-      <div className="px-8 py-6 max-w-4xl">
+      <div className="px-4 sm:px-8 py-6 max-w-4xl">
         {error ? (
           <div className="rounded-md border border-semantic-danger/30 bg-semantic-danger/8 px-3 py-2 text-sm text-semantic-danger">
             {error}
@@ -103,7 +103,7 @@ function Detail() {
   const canDelete = b.status !== "sending" && b.status !== "finished";
 
   return (
-    <div className="px-8 py-6 max-w-4xl">
+    <div className="px-4 sm:px-8 py-6 max-w-4xl">
       <div className="mb-4">
         <button
           type="button"

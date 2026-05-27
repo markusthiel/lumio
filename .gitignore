@@ -43,8 +43,10 @@ playwright-report/
 test-results/
 
 # Local data (Docker volumes mounted as bind, if used)
-data/
-storage/
+# Pattern muss anchored sein, sonst matched es z.B.
+# apps/frontend/src/app/super/storage/ als Source-Code-Verzeichnis.
+/data/
+/storage/
 
 # Misc
 *.local

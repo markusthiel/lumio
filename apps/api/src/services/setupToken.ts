@@ -52,13 +52,15 @@ export function buildEmailChangeUrl(token: string): string {
 /** Token-Kinds. 'setup' = Erstanmeldung nach Invite (72h TTL),
  *  'reset' = Passwort vergessen (24h TTL, knapper weil Recovery-Mails
  *  schneller benutzt werden sollten), 'email_change' = E-Mail-Wechsel
- *  bestaetigen (24h TTL). */
-export type TokenKind = "setup" | "reset" | "email_change";
+ *  bestaetigen (24h TTL), 'impersonate' = Einmal-Token fuer Super-Admin-
+ *  Cross-Subdomain-Login (60s TTL, one-shot). */
+export type TokenKind = "setup" | "reset" | "email_change" | "impersonate";
 
 const TTL_MS: Record<TokenKind, number> = {
   setup: 72 * 60 * 60 * 1000,
   reset: 24 * 60 * 60 * 1000,
   email_change: 24 * 60 * 60 * 1000,
+  impersonate: 60 * 1000, // 60 Sekunden — nur zum Cross-Domain-Redeem
 };
 
 export interface CreateSetupTokenResult {

@@ -108,7 +108,7 @@ function AuditContent() {
   }, [actions]);
 
   return (
-    <div className="px-8 py-6 max-w-6xl">
+    <div className="px-4 sm:px-8 py-6 max-w-6xl">
       <h1 className="text-2xl font-semibold mb-1">Audit-Log</h1>
       <p className="text-ui-sm text-ink-tertiary mb-6">
         Vollständige Aktions-Historie über alle Tenants und den Super-Admin.
@@ -186,7 +186,8 @@ function AuditContent() {
       )}
 
       <div className="border border-line-subtle rounded-md bg-surface-raised overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm min-w-[720px]">
           <thead>
             <tr className="border-b border-line-subtle text-xs uppercase tracking-wider text-ink-tertiary text-left">
               <th className="px-3 py-2 font-medium">Zeit</th>
@@ -212,6 +213,7 @@ function AuditContent() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       <div className="mt-4 flex items-center justify-center">
