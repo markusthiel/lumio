@@ -124,12 +124,17 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       // Login nur erfolgreich wenn:
       //   - User existiert + Status active
       //   - Passwort korrekt
-      //   - Tenant aktiv (nicht suspended/archived)
+      //   - Tenant aktiv ODER 'pending_deletion' (= Self-Service-Loeschung
+      //     in Karenzphase: Owner muss noch einloggen koennen, um die
+      //     Loeschung zurueckzunehmen oder Daten zu exportieren. Schreib-
+      //     vorgaenge sind dann via read-only-Plugin gesperrt)
       // Bei suspended/archived behandeln wir das wie disabled — keine extra
       // Fehlermeldung, damit man von außen Tenant-Status nicht enumerieren
       // kann. Ein Super-Admin sieht ja sowieso direkt was los ist.
-      const tenantActive = user?.tenant?.status === "active";
-      if (!user || user.status !== "active" || !validPwd || !tenantActive) {
+      const tenantLoginAllowed =
+        user?.tenant?.status === "active" ||
+        user?.tenant?.status === "pending_deletion";
+      if (!user || user.status !== "active" || !validPwd || !tenantLoginAllowed) {
         await logEvent({
           tenantId: req.tenantId,
           actorType: "user",
@@ -142,7 +147,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
               ? "no_user"
               : user.status !== "active"
               ? "user_inactive"
-              : !tenantActive
+              : !tenantLoginAllowed
               ? "tenant_inactive"
               : "bad_password",
           },
@@ -241,10 +246,13 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         where: { id: claims.uid },
         include: { tenant: { select: { status: true } } },
       });
+      // Login waehrend pending_deletion erlaubt — siehe Begruendung
+      // im POST /auth/login oben.
       if (
         !user ||
         user.status !== "active" ||
-        user.tenant.status !== "active"
+        (user.tenant.status !== "active" &&
+          user.tenant.status !== "pending_deletion")
       ) {
         return reply.status(401).send({ error: "invalid_credentials" });
       }
@@ -449,10 +457,12 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         where: { id: result.userId },
         include: { tenant: { select: { status: true } } },
       });
+      // pending_deletion erlauben — siehe Begruendung im POST /auth/login
       if (
         !user ||
         user.status !== "active" ||
-        user.tenant.status !== "active"
+        (user.tenant.status !== "active" &&
+          user.tenant.status !== "pending_deletion")
       ) {
         return reply.status(401).send({ error: "invalid_credentials" });
       }
