@@ -1157,6 +1157,7 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
       recentTenants,
       planDistribution,
       signupTenants,
+      failedPaymentSubs,
     ] = await Promise.all([
       prisma.tenant.groupBy({
         by: ["status"],
@@ -1213,6 +1214,42 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
       prisma.tenant.findMany({
         where: { createdAt: { gte: signupHorizon } },
         select: { createdAt: true },
+      }),
+      // Zahlungsprobleme: Subscriptions in problematischen Status.
+      // Wir laden das hier zentral statt separat, weil der Dashboard
+      // den Block prominent zeigen soll — und ein zusaetzlicher
+      // Roundtrip macht die Page nicht schneller. Nimmt active +
+      // suspended-Tenants — archived/pending_deletion sind ohnehin
+      // weg vom Tisch.
+      prisma.billingSubscription.findMany({
+        where: {
+          status: {
+            in: ["past_due", "unpaid", "incomplete", "incomplete_expired"],
+          },
+          tenant: { status: { in: ["active", "suspended"] } },
+        },
+        select: {
+          status: true,
+          updatedAt: true,
+          readOnlySince: true,
+          currentPeriodEnd: true,
+          stripeCustomerId: true,
+          tenant: {
+            select: {
+              id: true,
+              name: true,
+              displayName: true,
+              slug: true,
+              users: {
+                where: { role: "owner", status: "active" },
+                select: { email: true },
+                take: 1,
+              },
+            },
+          },
+          plan: { select: { name: true } },
+        },
+        orderBy: { updatedAt: "asc" },
       }),
     ]);
 
@@ -1303,6 +1340,22 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
       })),
       planDistribution: planDistArr,
       signupsPerWeek,
+      failedPayments: failedPaymentSubs.map((s) => ({
+        tenantId: s.tenant.id,
+        tenantName: s.tenant.displayName ?? s.tenant.name,
+        tenantSlug: s.tenant.slug,
+        ownerEmail: s.tenant.users[0]?.email ?? null,
+        planName: s.plan.name,
+        status: s.status,
+        // Wann ist die Sub in den problematischen Status gerutscht?
+        // updatedAt ist ein gutes Proxy (Stripe-Webhook updated bei
+        // Status-Wechsel). currentPeriodEnd ist der ungefaehre
+        // Grace-Period-Stichtag.
+        problemSince: s.updatedAt,
+        readOnlySince: s.readOnlySince,
+        currentPeriodEnd: s.currentPeriodEnd,
+        stripeCustomerId: s.stripeCustomerId,
+      })),
     };
   });
 

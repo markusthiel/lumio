@@ -1835,6 +1835,18 @@ export const api = {
         byStatus: Record<string, number>;
       }>;
       signupsPerWeek: Array<{ weekStart: string; count: number }>;
+      failedPayments: Array<{
+        tenantId: string;
+        tenantName: string;
+        tenantSlug: string;
+        ownerEmail: string | null;
+        planName: string;
+        status: string;
+        problemSince: string;
+        readOnlySince: string | null;
+        currentPeriodEnd: string | null;
+        stripeCustomerId: string | null;
+      }>;
     }>("/super/stats"),
 
   /** Manueller Cancel der Self-Service-Loeschung durch den Super-Admin

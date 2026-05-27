@@ -62,6 +62,10 @@ function DashboardContent() {
             <StatCard label="Files insgesamt" value={stats.totalFiles} />
           </div>
 
+          {stats.failedPayments.length > 0 && (
+            <FailedPaymentsList payments={stats.failedPayments} />
+          )}
+
           {stats.pendingDeletions.length > 0 && (
             <PendingDeletionsList
               pending={stats.pendingDeletions}
@@ -471,4 +475,92 @@ function relativeTime(iso: string): string {
     month: "short",
     year: "numeric",
   });
+}
+
+// ---------------------------------------------------------------------------
+// Failed-Payments
+// ---------------------------------------------------------------------------
+// Prominenter Block: Tenants mit problematischem Subscription-Status.
+// Reihenfolge nach Aelteste-Probleme zuerst (kommt aus Backend so).
+function FailedPaymentsList({
+  payments,
+}: {
+  payments: StatsResponse["failedPayments"];
+}) {
+  return (
+    <section className="mt-6">
+      <h2 className="text-lg font-semibold mb-1 text-semantic-danger">
+        Zahlungsprobleme · {payments.length}
+      </h2>
+      <p className="text-ui-sm text-ink-tertiary mb-3">
+        Subscriptions mit Status past_due, unpaid oder incomplete. Älteste
+        zuerst — die brauchen am dringensten Aufmerksamkeit.
+      </p>
+      <div className="border border-semantic-danger/30 rounded-md bg-semantic-danger/5 divide-y divide-line-subtle">
+        {payments.map((p) => (
+          <FailedPaymentRow key={p.tenantId} payment={p} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function FailedPaymentRow({
+  payment,
+}: {
+  payment: StatsResponse["failedPayments"][number];
+}) {
+  const sinceDays = Math.floor(
+    (Date.now() - new Date(payment.problemSince).getTime()) /
+      (1000 * 60 * 60 * 24)
+  );
+
+  return (
+    <div className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div className="min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Link
+            href={`/super/tenants/${payment.tenantId}`}
+            className="text-sm font-medium hover:underline"
+          >
+            {payment.tenantName}
+          </Link>
+          <span className="text-xs px-1.5 py-0.5 rounded bg-semantic-danger/15 text-semantic-danger font-mono">
+            {payment.status}
+          </span>
+          {payment.readOnlySince && (
+            <span className="text-xs px-1.5 py-0.5 rounded bg-semantic-warning/15 text-semantic-warning">
+              Read-Only
+            </span>
+          )}
+        </div>
+        <div className="text-xs text-ink-tertiary mt-0.5 truncate">
+          {payment.planName}
+          {payment.ownerEmail && (
+            <>
+              {" · "}
+              {payment.ownerEmail}
+            </>
+          )}
+          {" · "}
+          {sinceDays === 0
+            ? "heute eskaliert"
+            : sinceDays === 1
+              ? "seit gestern"
+              : `seit ${sinceDays} Tagen`}
+        </div>
+      </div>
+      {payment.stripeCustomerId && (
+        <a
+          href={`https://dashboard.stripe.com/customers/${payment.stripeCustomerId}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-xs px-3 py-1.5 rounded border border-line-subtle hover:bg-surface-sunken whitespace-nowrap"
+          onClick={(e) => e.stopPropagation()}
+        >
+          ↗ In Stripe öffnen
+        </a>
+      )}
+    </div>
+  );
 }
