@@ -18,6 +18,14 @@ export function SharePanel({
   const [invitingId, setInvitingId] = useState<string | null>(null);
   /** Welche Access-Einladung wurde gerade erfolgreich verschickt? Reset nach 2s. */
   const [invitedId, setInvitedId] = useState<string | null>(null);
+  /** Welcher Access soll gerade eine Einladung verschicken? Dann zeigt das
+   *  InviteModal. Wir uebergeben die Access-Daten damit das Modal Label/Email
+   *  anzeigen kann. */
+  const [inviteFor, setInviteFor] = useState<GalleryAccess | null>(null);
+  /** Welcher Access ist im Zwei-Klick-Confirm-Modus für Widerrufen? */
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(
+    null
+  );
 
   async function load() {
     try {
@@ -51,21 +59,15 @@ export function SharePanel({
     }
   }
 
-  async function sendInvitation(accessId: string, label: string) {
-    // Optionale Notiz vom Studio per simplem prompt() — eine
-    // dedicated Dialog-Komponente waere schoener, aber prompt
-    // reicht fuer die Mehrheit der Faelle.
-    const personalMessage = window.prompt(
-      `Persönliche Nachricht für ${label} (optional, max 1000 Zeichen):`,
-      ""
-    );
-    // null = abgebrochen, "" = leer = ohne Nachricht weiter
-    if (personalMessage === null) return;
-
+  /** Direkt-Versand ohne Nachricht (z.B. nach Bestaetigung im Modal). */
+  async function performSendInvitation(
+    accessId: string,
+    personalMessage: string | undefined
+  ) {
     setInvitingId(accessId);
     try {
       const res = await api.sendAccessInvitation(galleryId, accessId, {
-        personalMessage: personalMessage || undefined,
+        personalMessage,
       });
       if (res.sent) {
         setInvitedId(accessId);
@@ -84,10 +86,28 @@ export function SharePanel({
     }
   }
 
-  async function deleteAccess(id: string) {
-    if (!confirm("Share-Link wirklich widerrufen?")) return;
-    await api.deleteAccess(galleryId, id);
-    void load();
+  /** Widerrufen mit Zwei-Klick-Confirm (kein confirm()-Dialog,
+   *  weil viele Browser den unterdruecken). Erster Klick markiert
+   *  den Eintrag, zweiter Klick fuehrt durch. Auto-Reset nach 4s. */
+  async function onDeleteClick(id: string) {
+    if (confirmingDeleteId !== id) {
+      setConfirmingDeleteId(id);
+      setTimeout(() => {
+        setConfirmingDeleteId((curr) => (curr === id ? null : curr));
+      }, 4000);
+      return;
+    }
+    setConfirmingDeleteId(null);
+    try {
+      await api.deleteAccess(galleryId, id);
+      void load();
+    } catch (err) {
+      alert(
+        err instanceof Error
+          ? `Fehler beim Widerrufen: ${err.message}`
+          : "Fehler beim Widerrufen"
+      );
+    }
   }
 
   return (
@@ -151,7 +171,7 @@ export function SharePanel({
                     <div className="flex items-center gap-2">
                       {a.email && (
                         <button
-                          onClick={() => sendInvitation(a.id, a.label)}
+                          onClick={() => setInviteFor(a)}
                           disabled={invitingId === a.id}
                           className="text-xs text-accent hover:underline disabled:opacity-50"
                           title="Einladungs-Mail an diese Adresse schicken"
@@ -164,10 +184,16 @@ export function SharePanel({
                         </button>
                       )}
                       <button
-                        onClick={() => deleteAccess(a.id)}
-                        className="text-xs text-red-600 hover:underline"
+                        onClick={() => onDeleteClick(a.id)}
+                        className={
+                          confirmingDeleteId === a.id
+                            ? "text-xs text-red-600 font-medium hover:underline"
+                            : "text-xs text-red-600 hover:underline"
+                        }
                       >
-                        Widerrufen
+                        {confirmingDeleteId === a.id
+                          ? "Sicher? Nochmal klicken"
+                          : "Widerrufen"}
                       </button>
                     </div>
                   </div>
@@ -208,7 +234,100 @@ export function SharePanel({
           }}
         />
       )}
+
+      {inviteFor && (
+        <InviteDialog
+          access={inviteFor}
+          onClose={() => setInviteFor(null)}
+          onSent={(message) => {
+            const id = inviteFor.id;
+            setInviteFor(null);
+            void performSendInvitation(id, message || undefined);
+          }}
+        />
+      )}
     </section>
+  );
+}
+
+/**
+ * Mini-Modal fuer "Einladung senden" — zeigt Empfaenger-Adresse + Textarea
+ * fuer optionale persoenliche Nachricht. Bewusst klein gehalten, der eigentliche
+ * Versand passiert nach Submit ueber den Parent-Callback.
+ */
+function InviteDialog({
+  access,
+  onClose,
+  onSent,
+}: {
+  access: GalleryAccess;
+  onClose: () => void;
+  onSent: (personalMessage: string) => void;
+}) {
+  const [message, setMessage] = useState("");
+
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    onSent(message);
+  }
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[100]"
+      onClick={onClose}
+    >
+      <form
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={onSubmit}
+        className="w-full max-w-md bg-surface-raised border border-line-subtle shadow-2xl rounded-lg p-6 space-y-4"
+      >
+        <div>
+          <h2 className="text-lg font-semibold">Einladung senden</h2>
+          <p className="text-sm text-ink-secondary mt-1">
+            Empfänger: <strong>{access.label}</strong>
+            {access.email && (
+              <>
+                {" "}
+                <span className="text-ink-tertiary">({access.email})</span>
+              </>
+            )}
+          </p>
+        </div>
+
+        <div className="space-y-1">
+          <label htmlFor="invite-msg" className="text-sm font-medium">
+            Persönliche Nachricht{" "}
+            <span className="text-ink-tertiary">(optional)</span>
+          </label>
+          <textarea
+            id="invite-msg"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            rows={4}
+            maxLength={1000}
+            autoFocus
+            className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm"
+            placeholder="z.B. Liebe Anna, hier sind eure Hochzeitsbilder. Viel Freude beim Anschauen!"
+          />
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2 border-t border-line-subtle">
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-sm px-3 py-2 rounded-md border border-line-subtle hover:bg-surface-sunken"
+          >
+            Abbrechen
+          </button>
+          <button
+            type="submit"
+            className="text-sm px-3 py-2 rounded-md bg-accent text-accent-contrast hover:bg-accent-hover"
+          >
+            Einladung verschicken
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }
 
