@@ -164,6 +164,14 @@ model User {
   passwordResetTokens PasswordResetToken[]
   smartCollections SmartCollection[] @relation("SmartCollectionOwner")
 
+  /// Wenn true: dieser User erhaelt keine Broadcast-Mails mehr.
+  /// System-Mails (Password-Reset, Galerie-Einladungen, Lifecycle-
+  /// Mails) gehen UNABHAENGIG raus — die sind kein Marketing.
+  broadcastOptOut Boolean @default(false)
+  /// Stabiles Token fuer Unsubscribe-Links. Wird lazy beim ersten
+  /// Broadcast-Versand generiert. Frei rotierbar.
+  broadcastOptOutToken String? @unique
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   lastLoginAt  DateTime?
@@ -1525,4 +1533,53 @@ model SystemAnnouncement {
 
   @@index([activeFrom, activeUntil])
   @@map("system_announcements")
+}
+
+// -----------------------------------------------------------------------------
+// Broadcast-Mails (Super-Admin an alle Tenant-User)
+// -----------------------------------------------------------------------------
+// Bewusst KEIN Redis-Queue, KEIN Python-Worker fuer Versand — Lumio ist
+// Solo-SaaS mit Tenant-Zahlen die in einen In-Process-Loop passen.
+// Der API-Prozess feuert processBroadcast(id) als async fire-and-forget,
+// updated counts inkrementell in der DB. Bei Process-Crash erkennt der
+// Sweeper offene Broadcasts und kann sie resumen (status='sending'
+// laenger als X Minuten → resume).
+model Broadcast {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  subject         String
+  bodyMarkdown    String
+  /// Gerendetes HTML, gespeichert beim Anlegen — der konkrete Output
+  /// soll auch in 6 Monaten exakt rekonstruierbar sein, auch wenn das
+  /// Layout-Template sich aendert.
+  bodyHtml        String
+
+  /// Empfaenger-Zielgruppe. Siehe services/broadcast.ts listAudienceUsers().
+  audience        String
+
+  /// pending | sending | finished | failed | cancelled
+  status          String   @default("pending")
+
+  totalRecipients Int      @default(0)
+  sentCount       Int      @default(0)
+  failedCount     Int      @default(0)
+  optedOutSkippedCount Int @default(0)
+
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  /// Letzte Status-Update-Zeit — fuer Stale-Detection beim Sweeper-Resume
+  lastProgressAt  DateTime?
+
+  /// Optionale Fehler-Nachricht bei status='failed' (sammelt erste 500 Zeichen)
+  errorMessage    String?
+
+  /// Super-Admin der das Broadcast erstellt hat (denormalisiert)
+  createdById     String   @db.Uuid
+  createdByEmail  String
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([status, lastProgressAt])
+  @@map("broadcasts")
 }

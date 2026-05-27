@@ -25,6 +25,7 @@ import { prisma } from "../db.js";
 import { sendMail } from "./mail.js";
 import { logEvent } from "./audit.js";
 import { writeMrrSnapshot } from "./mrr.js";
+import { processBroadcast } from "./broadcast.js";
 import { logger } from "../logger.js";
 
 const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
@@ -46,7 +47,44 @@ async function runOnce() {
     // mrr_snapshots.date — mehrfache Calls am gleichen Tag schreiben
     // das gleiche Tagesdatum mit aktualisierten Werten via upsert).
     writeMrrSnapshot(),
+    // Broadcast-Resume: nach Process-Crashes koennen Broadcasts in
+    // 'pending' (noch nie gestartet) oder 'sending' mit stale
+    // lastProgressAt haengen geblieben sein. Beide aufgreifen und neu
+    // starten — processBroadcast ist idempotent durch Counter-Increment.
+    resumeStuckBroadcasts(),
   ]);
+}
+
+async function resumeStuckBroadcasts() {
+  try {
+    const staleThreshold = new Date(Date.now() - 5 * 60 * 1000);
+    const stuck = await prisma.broadcast.findMany({
+      where: {
+        OR: [
+          { status: "pending" },
+          {
+            status: "sending",
+            OR: [
+              { lastProgressAt: null },
+              { lastProgressAt: { lt: staleThreshold } },
+            ],
+          },
+        ],
+      },
+      select: { id: true, status: true, lastProgressAt: true },
+      take: 5, // pro Run nur eine kleine Charge
+    });
+    for (const b of stuck) {
+      logger.info({ broadcastId: b.id, status: b.status }, "broadcast resume");
+      setImmediate(() => {
+        processBroadcast(b.id).catch((err) => {
+          logger.warn({ err, broadcastId: b.id }, "broadcast resume crashed");
+        });
+      });
+    }
+  } catch (err) {
+    logger.warn({ err }, "resumeStuckBroadcasts failed");
+  }
 }
 
 async function triggerExpiredExportsCleanup() {

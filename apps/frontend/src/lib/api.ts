@@ -2078,6 +2078,77 @@ export const api = {
       method: "DELETE",
     }),
 
+  superListBroadcasts: () =>
+    request<{
+      broadcasts: Array<{
+        id: string;
+        subject: string;
+        audience: string;
+        status: string;
+        totalRecipients: number;
+        sentCount: number;
+        failedCount: number;
+        optedOutSkippedCount: number;
+        startedAt: string | null;
+        finishedAt: string | null;
+        createdAt: string;
+        createdByEmail: string;
+      }>;
+      audienceLabels: Record<string, string>;
+    }>("/super/broadcasts"),
+
+  superGetBroadcast: (id: string) =>
+    request<{
+      broadcast: {
+        id: string;
+        subject: string;
+        bodyMarkdown: string;
+        bodyHtml: string;
+        audience: string;
+        status: string;
+        totalRecipients: number;
+        sentCount: number;
+        failedCount: number;
+        optedOutSkippedCount: number;
+        startedAt: string | null;
+        finishedAt: string | null;
+        lastProgressAt: string | null;
+        errorMessage: string | null;
+        createdByEmail: string;
+        createdAt: string;
+        updatedAt: string;
+      };
+    }>(`/super/broadcasts/${id}`),
+
+  superCreateBroadcast: (input: {
+    subject: string;
+    bodyMarkdown: string;
+    audience:
+      | "all_paid_owners"
+      | "all_trial_owners"
+      | "all_owners"
+      | "all_active_users";
+  }) =>
+    request<{ broadcast: { id: string } }>("/super/broadcasts", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  superPreviewBroadcast: (bodyMarkdown: string) =>
+    request<{ html: string }>("/super/broadcasts/preview", {
+      method: "POST",
+      body: JSON.stringify({ bodyMarkdown }),
+    }),
+
+  superTestSendBroadcast: (input: { subject: string; bodyMarkdown: string }) =>
+    request<{ ok: true }>("/super/broadcasts/test-send", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  superDeleteBroadcast: (id: string) =>
+    request<{ ok: true }>(`/super/broadcasts/${id}`, { method: "DELETE" }),
+
   superListTenants: () =>
     request<{ tenants: SuperTenantSummary[] }>("/super/tenants"),
   superGetTenant: (id: string) =>

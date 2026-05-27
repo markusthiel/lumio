@@ -45,6 +45,7 @@ import { registerAccountRoutes } from "./routes/account.js";
 import { registerSuperAuthRoutes } from "./routes/super-auth.js";
 import { registerSuperTenantRoutes } from "./routes/super-tenants.js";
 import { registerAnnouncementRoutes } from "./routes/announcements.js";
+import { registerBroadcastRoutes } from "./routes/broadcasts.js";
 import { registerWsRoutes } from "./routes/ws.js";
 import superAdminPlugin from "./plugins/super-admin.js";
 import { startPeriodicSweeper } from "./services/sweeper.js";
@@ -151,6 +152,9 @@ async function buildServer() {
       // Rest ist Super-Admin (Guard innerhalb der Funktion via
       // requireSuperAdmin).
       await registerAnnouncementRoutes(api);
+      // Broadcast-Routes: GET /broadcasts/unsubscribe ist public, der
+      // Rest ist Super-Admin.
+      await registerBroadcastRoutes(api);
       if (config.BILLING_ENABLED) {
         await registerBillingRoutes(api);
         await registerSignupRoutes(api);

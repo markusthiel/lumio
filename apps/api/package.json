@@ -36,6 +36,7 @@
     "fastify": "^4.28.1",
     "fastify-plugin": "^4.5.1",
     "ioredis": "^5.4.1",
+    "marked": "^18.0.4",
     "nodemailer": "^6.9.16",
     "otplib": "^13.4.0",
     "pino": "^9.5.0",
