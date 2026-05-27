@@ -201,7 +201,19 @@ export async function sendGalleryInvitation(opts: {
           select: {
             slug: true,
             title: true,
-            tenant: { select: { name: true } },
+            tenant: {
+              select: {
+                name: true,
+                displayName: true,
+                // Tenant-Default-Branding fuer Logo + Akzentfarbe
+                branding: {
+                  select: {
+                    logoUrl: true,
+                    accentColor: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -216,26 +228,28 @@ export async function sendGalleryInvitation(opts: {
     }
 
     const shareUrl = `${publicUrl(access.gallery.slug)}?t=${access.token}`;
+    const tenant = access.gallery.tenant;
+    const studioDisplayName = tenant.displayName ?? tenant.name;
 
     const tpl = tmplGalleryInvite({
       galleryTitle: access.gallery.title,
       shareUrl,
-      studioName: access.gallery.tenant.name,
+      studioName: studioDisplayName,
       recipientLabel: access.label,
       personalMessage: opts.personalMessage,
       canSelect: access.canSelect,
       canDownload: access.canDownload,
       expiresAt: access.expiresAt,
+      branding: {
+        logoUrl: tenant.branding?.logoUrl ?? null,
+        accentColor: tenant.branding?.accentColor ?? null,
+        brandName: studioDisplayName,
+      },
     });
 
     await sendMail({ to: access.email, ...tpl });
     return true;
   } catch (err) {
-    // Schluck den Fehler bewusst — Mail-Versand darf den Auslosenden
-    // Request nicht killen. Loggen aber sehr klar damit man bei Fehl-
-    // diagnose sehen kann, dass eine Mail wegen DB-Fehler nicht raus
-    // ging (anders als bei SMTP-Fehler, der schon in sendMail() gefangen
-    // wird).
     logger.warn(
       { err, accessId: opts.accessId },
       "sendGalleryInvitation failed before SMTP"

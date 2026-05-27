@@ -41,6 +41,10 @@ export interface MailMessage {
   to: string;
   subject: string;
   text: string;
+  /** Optional HTML-Version. Wenn gesetzt, wird die Mail multipart
+   *  (alternative) versendet: Klartext als Fallback fuer Clients die
+   *  HTML nicht koennen/wollen, HTML als bevorzugte Darstellung. */
+  html?: string;
 }
 
 export async function sendMail(msg: MailMessage): Promise<void> {
@@ -58,6 +62,7 @@ export async function sendMail(msg: MailMessage): Promise<void> {
       to: msg.to,
       subject: msg.subject,
       text: msg.text,
+      html: msg.html,
     });
     logger.info({ to: msg.to, subject: msg.subject }, "mail sent");
   } catch (err) {
@@ -67,14 +72,39 @@ export async function sendMail(msg: MailMessage): Promise<void> {
 }
 
 // -----------------------------------------------------------------------------
-// Templates
+
 // -----------------------------------------------------------------------------
+// Templates
+//
+// Jedes Template gibt zurueck: { subject, text, html }
+//   - text: Klartext-Fallback (manche Mail-Clients ziehen den vor; Tools wie
+//     mutt zeigen ohnehin nur text)
+//   - html: Schicke HTML-Variante mit Layout-Wrapper aus mail-layout.ts
+//
+// Templates die an Endkund:innen gehen (tmplGalleryInvite) duerfen
+// optional Studio-Branding (Logo + Akzentfarbe) bekommen — siehe
+// notifier.ts wo das geladen wird. System-Mails an den Fotograf nutzen
+// das default Lumio-Branding.
+// -----------------------------------------------------------------------------
+import {
+  renderMailLayout,
+  mailParagraph,
+  mailParagraphInterpolated,
+  mailHeading,
+  mailButton,
+  mailBullets,
+  mailDivider,
+  mailNoticeBox,
+  mailQuoteBlock,
+  type MailBranding,
+} from "./mail-layout.js";
+
 export function tmplNewComment(opts: {
   galleryTitle: string;
   galleryUrl: string;
   authorLabel: string;
   body: string;
-}): { subject: string; text: string } {
+}): { subject: string; text: string; html: string } {
   return {
     subject: `Neuer Kommentar in "${opts.galleryTitle}"`,
     text:
@@ -82,6 +112,14 @@ export function tmplNewComment(opts: {
       `"${opts.body}"\n\n` +
       `Galerie ansehen: ${opts.galleryUrl}\n\n` +
       `— Lumio`,
+    html: renderMailLayout({
+      preheader: `${opts.authorLabel} hat in "${opts.galleryTitle}" kommentiert`,
+      bodyHtml:
+        mailHeading(`Neuer Kommentar in „${opts.galleryTitle}"`) +
+        mailParagraph(`${opts.authorLabel} hat einen Kommentar hinterlassen:`) +
+        mailQuoteBlock(opts.body) +
+        mailButton(opts.galleryUrl, "Galerie öffnen"),
+    }),
   };
 }
 
@@ -90,14 +128,24 @@ export function tmplSelectionFinished(opts: {
   galleryUrl: string;
   accessLabel: string;
   count: number;
-}): { subject: string; text: string } {
+}): { subject: string; text: string; html: string } {
+  const fileWord = opts.count === 1 ? "Datei" : "Dateien";
   return {
     subject: `Auswahl fertig: "${opts.galleryTitle}"`,
     text:
       `${opts.accessLabel} hat die Auswahl abgeschlossen ` +
-      `(${opts.count} Datei${opts.count === 1 ? "" : "en"}).\n\n` +
+      `(${opts.count} ${fileWord}).\n\n` +
       `Galerie ansehen: ${opts.galleryUrl}\n\n` +
       `— Lumio`,
+    html: renderMailLayout({
+      preheader: `${opts.accessLabel} hat ${opts.count} ${fileWord} ausgewählt`,
+      bodyHtml:
+        mailHeading(`Auswahl abgeschlossen`) +
+        mailParagraph(
+          `${opts.accessLabel} hat die Auswahl in „${opts.galleryTitle}" abgeschlossen — ${opts.count} ${fileWord} markiert.`
+        ) +
+        mailButton(opts.galleryUrl, "Auswahl ansehen"),
+    }),
   };
 }
 
@@ -105,31 +153,35 @@ export function tmplZipReady(opts: {
   galleryTitle: string;
   downloadUrl: string;
   fileCount: number;
-}): { subject: string; text: string } {
+}): { subject: string; text: string; html: string } {
+  const fileWord = opts.fileCount === 1 ? "Datei" : "Dateien";
   return {
     subject: `Download bereit: "${opts.galleryTitle}"`,
     text:
-      `Dein ZIP-Download mit ${opts.fileCount} Datei` +
-      `${opts.fileCount === 1 ? "" : "en"} ist fertig:\n\n` +
+      `Dein ZIP-Download mit ${opts.fileCount} ${fileWord} ist fertig:\n\n` +
       `${opts.downloadUrl}\n\n` +
       `Der Link ist 7 Tage gültig.\n\n` +
       `— Lumio`,
+    html: renderMailLayout({
+      preheader: `Dein ZIP-Download (${opts.fileCount} ${fileWord}) ist fertig`,
+      bodyHtml:
+        mailHeading(`Download bereit`) +
+        mailParagraph(
+          `Dein ZIP-Download mit ${opts.fileCount} ${fileWord} aus „${opts.galleryTitle}" ist fertig.`
+        ) +
+        mailButton(opts.downloadUrl, "ZIP herunterladen") +
+        mailNoticeBox("Der Link ist 7 Tage gültig."),
+    }),
   };
 }
 
-/**
- * Mail für neu angelegte Tenant-Owner. Der Super-Admin hat einen
- * Account vorbereitet und ein Setup-Token vergeben; per Link landet
- * der neue Owner im Frontend bei /auth/setup-password?token=...
- * und setzt dort sein eigenes Passwort.
- */
 export function tmplOwnerSetup(opts: {
   displayName: string;
   tenantName: string;
   setupUrl: string;
   invitedBy: string;
   validHours: number;
-}): { subject: string; text: string } {
+}): { subject: string; text: string; html: string } {
   return {
     subject: `Dein Lumio-Studio "${opts.tenantName}" ist bereit`,
     text:
@@ -142,22 +194,28 @@ export function tmplOwnerSetup(opts: {
       `Der Link ist ${opts.validHours} Stunden gültig. Falls die Frist ` +
       `abläuft, melde dich bei ${opts.invitedBy}.\n\n` +
       `— Lumio`,
+    html: renderMailLayout({
+      preheader: `Dein Studio „${opts.tenantName}" wartet auf dich`,
+      bodyHtml:
+        mailHeading(`Hallo ${opts.displayName},`) +
+        mailParagraph(
+          `${opts.invitedBy} hat ein Lumio-Studio für dich angelegt: „${opts.tenantName}". Setze jetzt dein Passwort und leg los.`
+        ) +
+        mailButton(opts.setupUrl, "Passwort setzen") +
+        mailNoticeBox(
+          `Der Link ist ${opts.validHours} Stunden gültig. Falls die Frist abläuft, melde dich bei ${opts.invitedBy}.`
+        ),
+    }),
   };
 }
 
-/**
- * Mail bei Passwort-Reset. Wird per "Passwort vergessen"-Flow vom
- * User selbst angestossen. tenantName lassen wir bewusst leer wenn
- * mehrere Tenants pro E-Mail existieren — die Mail soll keinen
- * Tenant-Hint geben, der jemand anderen verwirren wuerde.
- */
 export function tmplPasswordReset(opts: {
   displayName: string;
   tenantName: string;
   resetUrl: string;
   validHours: number;
   ipAddress?: string;
-}): { subject: string; text: string } {
+}): { subject: string; text: string; html: string } {
   const ipLine = opts.ipAddress
     ? `Angefordert von IP-Adresse: ${opts.ipAddress}\n\n`
     : "";
@@ -175,14 +233,27 @@ export function tmplPasswordReset(opts: {
       `dein aktuelles Passwort bleibt gültig. Bei verdächtiger Aktivität ` +
       `melde dich bitte beim Studio-Owner.\n\n` +
       `— Lumio`,
+    html: renderMailLayout({
+      preheader: `Passwort-Reset für „${opts.tenantName}"`,
+      bodyHtml:
+        mailHeading(`Hallo ${opts.displayName},`) +
+        mailParagraph(
+          `Du (oder jemand mit deiner E-Mail-Adresse) hat ein neues Passwort für dein Lumio-Studio „${opts.tenantName}" angefordert.`
+        ) +
+        mailButton(opts.resetUrl, "Neues Passwort setzen") +
+        mailNoticeBox(
+          `Der Link ist ${opts.validHours} Stunden gültig.` +
+            (opts.ipAddress
+              ? ` Angefordert von IP-Adresse: ${opts.ipAddress}.`
+              : "")
+        ) +
+        mailParagraph(
+          `Falls du das NICHT angefordert hast, kannst du diese Mail ignorieren — dein aktuelles Passwort bleibt gültig.`
+        ),
+    }),
   };
 }
 
-/**
- * Bestaetigungsmail an die NEUE E-Mail-Adresse beim E-Mail-Wechsel.
- * Erst nach Klick auf den Link ist der Wechsel vollzogen. So koennen
- * Tippfehler in der neuen Adresse den User nicht aussperren.
- */
 export function tmplEmailChangeConfirm(opts: {
   displayName: string;
   tenantName: string;
@@ -190,7 +261,7 @@ export function tmplEmailChangeConfirm(opts: {
   newEmail: string;
   confirmUrl: string;
   validHours: number;
-}): { subject: string; text: string } {
+}): { subject: string; text: string; html: string } {
   return {
     subject: `Bestätige deine neue E-Mail-Adresse für „${opts.tenantName}"`,
     text:
@@ -206,21 +277,30 @@ export function tmplEmailChangeConfirm(opts: {
       `Falls du diesen Wechsel NICHT angefordert hast, ignoriere die Mail ` +
       `einfach.\n\n` +
       `— Lumio`,
+    html: renderMailLayout({
+      preheader: `Bestätige den Wechsel zu ${opts.newEmail}`,
+      bodyHtml:
+        mailHeading(`Hallo ${opts.displayName},`) +
+        mailParagraph(
+          `Du hast deine E-Mail-Adresse für dein Lumio-Studio „${opts.tenantName}" geändert:`
+        ) +
+        mailParagraphInterpolated(
+          `Von: \${old}\nZu: \${new}`,
+          { old: opts.oldEmail, new: opts.newEmail }
+        ) +
+        mailButton(opts.confirmUrl, "Wechsel bestätigen") +
+        mailNoticeBox(
+          `Der Link ist ${opts.validHours} Stunden gültig. Bis du klickst, bleibt deine alte E-Mail-Adresse aktiv.`
+        ),
+    }),
   };
 }
 
-/**
- * Info-Mail an die ALTE E-Mail-Adresse beim E-Mail-Wechsel. Hilft
- * Account-Hijacks zu erkennen: wenn der User selbst den Wechsel
- * angefordert hat, ist das nur eine Bestätigung; wenn jemand
- * Fremdes Zugriff hatte und die Adresse ändert, sieht der echte
- * Inhaber Bescheid.
- */
 export function tmplEmailChangeNotice(opts: {
   displayName: string;
   tenantName: string;
   newEmail: string;
-}): { subject: string; text: string } {
+}): { subject: string; text: string; html: string } {
   return {
     subject: `E-Mail-Wechsel für „${opts.tenantName}" angefordert`,
     text:
@@ -235,17 +315,27 @@ export function tmplEmailChangeNotice(opts: {
       `ändere dein Passwort — möglicherweise hat jemand Fremdes Zugriff ` +
       `auf deinen Account.\n\n` +
       `— Lumio`,
+    html: renderMailLayout({
+      preheader: `E-Mail-Wechsel auf ${opts.newEmail} angefordert`,
+      bodyHtml:
+        mailHeading(`Hallo ${opts.displayName},`) +
+        mailParagraph(
+          `Es wurde ein Wechsel deiner E-Mail-Adresse für dein Lumio-Studio „${opts.tenantName}" angefordert. Neue Adresse: ${opts.newEmail}.`
+        ) +
+        mailParagraph(
+          `An die neue Adresse haben wir einen Bestätigungslink geschickt. Erst nach Klick darauf ist der Wechsel vollzogen.`
+        ) +
+        mailNoticeBox(
+          `Wenn du das selbst angefordert hast, ist alles in Ordnung. Wenn NICHT, melde dich beim Studio-Owner und ändere dein Passwort — möglicherweise hat jemand Fremdes Zugriff auf deinen Account.`
+        ),
+    }),
   };
 }
 
 /**
- * Galerie-Einladung an Endkund:innen — wird verschickt wenn ein
- * GalleryAccess angelegt wird (oder spaeter manuell "Einladung
- * erneut senden" geklickt wird).
- *
- * personalMessage: optionale persoenliche Notiz vom Fotograf
- * (z.B. "Liebe Anna, hier sind eure Hochzeitsbilder!"). Wird ueber
- * den Standard-Text gesetzt damit sie als erstes sichtbar ist.
+ * Galerie-Einladung — die EINZIGE Mail die optional Studio-Branding
+ * bekommt (Logo + Akzentfarbe vom Studio). Geht an Endkunden, deshalb
+ * soll der Fotograf vorne stehen, nicht Lumio.
  */
 export function tmplGalleryInvite(opts: {
   galleryTitle: string;
@@ -256,7 +346,9 @@ export function tmplGalleryInvite(opts: {
   canSelect: boolean;
   canDownload: boolean;
   expiresAt?: Date | null;
-}): { subject: string; text: string } {
+  /** Optional: Studio-Branding fuer die HTML-Mail. */
+  branding?: MailBranding;
+}): { subject: string; text: string; html: string } {
   const greetingName = opts.recipientLabel || "Hallo";
   const expiryLine = opts.expiresAt
     ? `\nDer Link ist gültig bis ${opts.expiresAt.toLocaleDateString(
@@ -265,8 +357,6 @@ export function tmplGalleryInvite(opts: {
       )}.\n`
     : "";
 
-  // Was kann der Empfaenger? Kleiner Bullet-Block damit klar ist,
-  // was er ohne Account tun kann.
   const capabilities: string[] = [];
   capabilities.push("Bilder ansehen");
   if (opts.canSelect) capabilities.push("Lieblings-Bilder markieren");
@@ -278,6 +368,8 @@ export function tmplGalleryInvite(opts: {
     : `${greetingName},\n\n` +
       `deine Galerie „${opts.galleryTitle}" ist da. ` +
       `Über den folgenden Link kannst du:\n\n`;
+
+  const accent = opts.branding?.accentColor ?? null;
 
   return {
     subject: `Deine Galerie „${opts.galleryTitle}" von ${opts.studioName}`,
@@ -292,26 +384,43 @@ export function tmplGalleryInvite(opts: {
       `— ${opts.studioName}\n` +
       `\n` +
       `(verschickt via Lumio)`,
+    html: renderMailLayout({
+      branding: {
+        ...(opts.branding ?? {}),
+        brandName: opts.studioName,
+        footerNote: `Diese Mail wurde von ${opts.studioName} über Lumio verschickt.`,
+      },
+      preheader: opts.personalMessage
+        ? opts.personalMessage.slice(0, 100)
+        : `Deine Galerie „${opts.galleryTitle}" ist bereit`,
+      bodyHtml:
+        (opts.personalMessage
+          ? mailQuoteBlock(opts.personalMessage, accent)
+          : mailParagraph(
+              `${greetingName}, deine Galerie „${opts.galleryTitle}" ist da.`
+            )) +
+        mailParagraph(`Was du in der Galerie tun kannst:`) +
+        mailBullets(capabilities) +
+        mailButton(opts.shareUrl, "Galerie öffnen", accent) +
+        (opts.expiresAt
+          ? mailNoticeBox(
+              `Der Link ist gültig bis ${opts.expiresAt.toLocaleDateString(
+                "de-DE",
+                { day: "2-digit", month: "long", year: "numeric" }
+              )}.`
+            )
+          : ""),
+    }),
   };
 }
 
-/**
- * Welcome-Mail nach erfolgreicher Self-Service-Account-Anlage.
- * Wird im Signup-Flow nach erfolgreichem Stripe-Checkout-Session-
- * Create verschickt — der Tenant ist zu dem Zeitpunkt persistiert
- * und die Subscription auf 'trialing' gesetzt.
- *
- * Inhalt bewusst auf das Wichtigste reduziert: was hat der User
- * gerade angelegt, wann endet sein Trial, wo loggt er sich ein,
- * wo bekommt er Hilfe.
- */
 export function tmplWelcome(opts: {
   displayName: string | null;
   studioName: string;
   studioUrl: string;
   trialEndsAt: Date;
   planName: string;
-}): { subject: string; text: string } {
+}): { subject: string; text: string; html: string } {
   const greeting = opts.displayName ? `Hallo ${opts.displayName},` : "Hallo,";
   const trialEnd = opts.trialEndsAt.toLocaleDateString("de-DE", {
     day: "2-digit",
@@ -336,26 +445,38 @@ export function tmplWelcome(opts: {
       `support@lumio-cloud.de.\n\n` +
       `Bis bald\n` +
       `— Lumio`,
+    html: renderMailLayout({
+      preheader: `Dein Studio „${opts.studioName}" ist startklar`,
+      bodyHtml:
+        mailHeading(`Willkommen bei Lumio`) +
+        mailParagraph(
+          `${opts.displayName ? opts.displayName + ", " : ""}dein Studio „${opts.studioName}" ist angelegt und einsatzbereit. Du bist im ${opts.planName}-Plan mit einem 14-tägigen Trial — kostenlos bis zum ${trialEnd}.`
+        ) +
+        mailButton(opts.studioUrl, "Studio öffnen") +
+        mailDivider() +
+        mailHeading(`Erste Schritte`) +
+        mailBullets([
+          "Branding anpassen (Logo, Farben, eigene Domain)",
+          "Eine erste Galerie anlegen und ein paar Bilder hochladen",
+          "Test-Share-Link an dich selbst schicken, um den Endkunden-Workflow zu durchlaufen",
+        ]) +
+        mailNoticeBox(
+          `Fragen? Antworte einfach auf diese Mail oder schreib an support@lumio-cloud.de.`
+        ),
+    }),
   };
 }
 
-// -----------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 // Self-Service Tenant-Loeschung (DSGVO Art. 17)
-// -----------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
 
-/**
- * Mail nach Anfrage zur Loeschung. Klar machen:
- *   - das ist passiert
- *   - bis wann er es zuruecknehmen kann (60 Tage)
- *   - dass die Abrechnung gestoppt wurde
- *   - wie er es rueckgaengig macht
- */
 export function tmplDeletionRequested(opts: {
   displayName: string | null;
   studioName: string;
   scheduledFor: Date;
   cancelUrl: string;
-}): { subject: string; text: string } {
+}): { subject: string; text: string; html: string } {
   const greeting = opts.displayName ? `Hallo ${opts.displayName},` : "Hallo,";
   const dateStr = opts.scheduledFor.toLocaleDateString("de-DE", {
     day: "2-digit",
@@ -363,89 +484,137 @@ export function tmplDeletionRequested(opts: {
     year: "numeric",
   });
   return {
-    subject: `Loeschung deines Studios „${opts.studioName}" geplant`,
+    subject: `Löschung deines Studios „${opts.studioName}" geplant`,
     text:
       `${greeting}\n\n` +
-      `wir haben deine Anfrage zur Loeschung deines Lumio-Studios ` +
+      `wir haben deine Anfrage zur Löschung deines Lumio-Studios ` +
       `„${opts.studioName}" erhalten.\n\n` +
       `Was jetzt passiert:\n` +
-      `  • Deine Stripe-Subscription wurde sofort gekuendigt — keine ` +
+      `  • Deine Stripe-Subscription wurde sofort gekündigt — keine ` +
       `weitere Abrechnung.\n` +
-      `  • Das Studio bleibt fuer 60 Tage in der Karenzphase. Bestehende ` +
+      `  • Das Studio bleibt für 60 Tage in der Karenzphase. Bestehende ` +
       `Kunden-Galerien sind in dieser Zeit weiter erreichbar.\n` +
-      `  • Du kannst die Loeschung bis zum ${dateStr} jederzeit ` +
-      `zuruecknehmen.\n` +
-      `  • Am ${dateStr} werden alle Daten endgueltig geloescht — ` +
-      `inklusive aller Bilder, Galerien, und Account-Informationen.\n\n` +
-      `Loeschung zuruecknehmen:\n${opts.cancelUrl}\n\n` +
-      `Wenn du die Loeschung NICHT angefordert hast, melde dich umgehend ` +
-      `bei support@lumio-cloud.de — moeglicherweise hat jemand Fremdes ` +
-      `Zugriff auf deinen Account.\n\n` +
+      `  • Du kannst die Löschung bis zum ${dateStr} jederzeit ` +
+      `zurücknehmen.\n` +
+      `  • Am ${dateStr} werden alle Daten endgültig gelöscht.\n\n` +
+      `Löschung zurücknehmen:\n${opts.cancelUrl}\n\n` +
+      `Wenn du die Löschung NICHT angefordert hast, melde dich umgehend ` +
+      `bei support@lumio-cloud.de.\n\n` +
       `— Lumio`,
+    html: renderMailLayout({
+      preheader: `Endgültige Löschung am ${dateStr} — bis dahin rücknehmbar`,
+      bodyHtml:
+        mailHeading(`Studio-Löschung geplant`) +
+        mailParagraph(
+          `${greeting.replace(",", "")} — wir haben deine Anfrage zur Löschung von „${opts.studioName}" erhalten.`
+        ) +
+        mailHeading(`Was jetzt passiert`) +
+        mailBullets([
+          "Deine Stripe-Subscription wurde sofort gekündigt — keine weitere Abrechnung.",
+          "Das Studio bleibt für 60 Tage in der Karenzphase. Bestehende Kunden-Galerien sind weiter erreichbar.",
+          `Du kannst die Löschung bis zum ${dateStr} jederzeit zurücknehmen.`,
+          `Am ${dateStr} werden alle Daten endgültig gelöscht.`,
+        ]) +
+        mailButton(opts.cancelUrl, "Löschung zurücknehmen") +
+        mailNoticeBox(
+          `Wenn du die Löschung NICHT angefordert hast, melde dich umgehend bei support@lumio-cloud.de — möglicherweise hat jemand Fremdes Zugriff auf deinen Account.`
+        ),
+    }),
   };
 }
 
-/** Mail wenn der User es sich anders ueberlegt und die Loeschung
- *  vor dem Stichtag zurueckgenommen hat. Reine Bestaetigung. */
 export function tmplDeletionCancelled(opts: {
   displayName: string | null;
   studioName: string;
-}): { subject: string; text: string } {
+}): { subject: string; text: string; html: string } {
   const greeting = opts.displayName ? `Hallo ${opts.displayName},` : "Hallo,";
   return {
-    subject: `Loeschung deines Studios „${opts.studioName}" zurueckgenommen`,
+    subject: `Löschung deines Studios „${opts.studioName}" zurückgenommen`,
     text:
       `${greeting}\n\n` +
-      `du hast die Loeschung deines Studios „${opts.studioName}" ` +
-      `zurueckgenommen. Dein Studio ist wieder aktiv und voll nutzbar.\n\n` +
+      `du hast die Löschung deines Studios „${opts.studioName}" ` +
+      `zurückgenommen. Dein Studio ist wieder aktiv und voll nutzbar.\n\n` +
       `Wichtiger Hinweis zur Abrechnung:\n` +
-      `Deine Stripe-Subscription wurde bei der Loesch-Anfrage gekuendigt ` +
+      `Deine Stripe-Subscription wurde bei der Lösch-Anfrage gekündigt ` +
       `und wird NICHT automatisch reaktiviert. Wenn du Lumio weiter ` +
       `nutzen willst, musst du im Studio unter „Billing" eine neue ` +
-      `Subscription starten — sonst landet dein Account nach Ablauf ` +
-      `der aktuellen Bezahlperiode im Read-only-Modus.\n\n` +
+      `Subscription starten.\n\n` +
       `— Lumio`,
+    html: renderMailLayout({
+      preheader: `Dein Studio „${opts.studioName}" ist wieder aktiv`,
+      bodyHtml:
+        mailHeading(`Löschung zurückgenommen`) +
+        mailParagraph(
+          `${greeting.replace(",", "")} — du hast die Löschung deines Studios „${opts.studioName}" zurückgenommen. Dein Studio ist wieder aktiv und voll nutzbar.`
+        ) +
+        mailNoticeBox(
+          `Wichtig zur Abrechnung: Deine Stripe-Subscription wurde bei der Lösch-Anfrage gekündigt und wird NICHT automatisch reaktiviert. Wenn du Lumio weiter nutzen willst, starte im Studio unter „Billing" eine neue Subscription.`
+        ),
+    }),
   };
 }
 
-/** Finale Bestaetigungs-Mail wenn die Daten tatsaechlich geloescht
- *  wurden. Kurz und klar — der User soll wissen dass es durch ist. */
 export function tmplDeletionExecuted(opts: {
   studioName: string;
-}): { subject: string; text: string } {
+}): { subject: string; text: string; html: string } {
   return {
-    subject: `Dein Lumio-Studio „${opts.studioName}" wurde geloescht`,
+    subject: `Dein Lumio-Studio „${opts.studioName}" wurde gelöscht`,
     text:
       `Hallo,\n\n` +
-      `wie angekuendigt haben wir dein Lumio-Studio „${opts.studioName}" ` +
-      `und alle zugehoerigen Daten endgueltig geloescht.\n\n` +
-      `Geloescht wurden:\n` +
+      `wie angekündigt haben wir dein Lumio-Studio „${opts.studioName}" ` +
+      `und alle zugehörigen Daten endgültig gelöscht.\n\n` +
+      `Gelöscht wurden:\n` +
       `  • Alle Bilder und Videos in deinen Galerien\n` +
       `  • Alle Galerien und ihre Konfiguration\n` +
       `  • Dein Account und alle Team-Accounts\n` +
       `  • Branding, Watermarks, Templates\n` +
       `  • Audit-Logs (nur die Tenant-spezifischen)\n\n` +
       `Behalten:\n` +
-      `  • Stripe-Customer-Datensatz (fuer Rechnungs-Audit-Trail in Stripe).\n` +
-      `    Wenn du den auch endgueltig geloescht haben moechtest, schreibe ` +
+      `  • Stripe-Customer-Datensatz (für Rechnungs-Audit-Trail in Stripe).\n` +
+      `    Wenn du den auch endgültig gelöscht haben möchtest, schreibe ` +
       `an support@lumio-cloud.de.\n\n` +
-      `Diese Mail ist deine Loeschungs-Bestaetigung — bitte aufbewahren ` +
-      `falls du sie spaeter fuer dein eigenes Verarbeitungsverzeichnis ` +
+      `Diese Mail ist deine Löschungs-Bestätigung — bitte aufbewahren ` +
+      `falls du sie später für dein eigenes Verarbeitungsverzeichnis ` +
       `brauchst.\n\n` +
-      `Schade dass du gehst. Falls es technische Gruende waren oder ein ` +
+      `Schade dass du gehst. Falls es technische Gründe waren oder ein ` +
       `Feature gefehlt hat: feedback@lumio-cloud.de — wir lesen das.\n\n` +
       `— Lumio`,
+    html: renderMailLayout({
+      preheader: `Bestätigung der endgültigen Löschung von „${opts.studioName}"`,
+      bodyHtml:
+        mailHeading(`Studio gelöscht`) +
+        mailParagraph(
+          `Wie angekündigt haben wir dein Lumio-Studio „${opts.studioName}" und alle zugehörigen Daten endgültig gelöscht.`
+        ) +
+        mailHeading(`Gelöscht wurden`) +
+        mailBullets([
+          "Alle Bilder und Videos in deinen Galerien",
+          "Alle Galerien und ihre Konfiguration",
+          "Dein Account und alle Team-Accounts",
+          "Branding, Watermarks, Templates",
+          "Audit-Logs (nur die Tenant-spezifischen)",
+        ]) +
+        mailHeading(`Behalten`) +
+        mailParagraph(
+          `Stripe-Customer-Datensatz (für Rechnungs-Audit-Trail in Stripe). Wenn du den auch endgültig gelöscht haben möchtest, schreibe an support@lumio-cloud.de.`
+        ) +
+        mailDivider() +
+        mailNoticeBox(
+          `Diese Mail ist deine Löschungs-Bestätigung — bitte aufbewahren, falls du sie später für dein eigenes Verarbeitungsverzeichnis brauchst.`
+        ) +
+        mailParagraph(
+          `Schade dass du gehst. Falls es technische Gründe waren oder ein Feature gefehlt hat: feedback@lumio-cloud.de — wir lesen das.`
+        ),
+    }),
   };
 }
 
-/** 7-Tage-Reminder vor dem Hard-Delete. Letzte Chance zur ` +
- *  Reaktivierung. */
 export function tmplDeletionReminder(opts: {
   displayName: string | null;
   studioName: string;
   scheduledFor: Date;
   cancelUrl: string;
-}): { subject: string; text: string } {
+}): { subject: string; text: string; html: string } {
   const greeting = opts.displayName ? `Hallo ${opts.displayName},` : "Hallo,";
   const dateStr = opts.scheduledFor.toLocaleDateString("de-DE", {
     day: "2-digit",
@@ -453,15 +622,28 @@ export function tmplDeletionReminder(opts: {
     year: "numeric",
   });
   return {
-    subject: `Erinnerung: dein Studio „${opts.studioName}" wird in 7 Tagen geloescht`,
+    subject: `Erinnerung: dein Studio „${opts.studioName}" wird in 7 Tagen gelöscht`,
     text:
       `${greeting}\n\n` +
-      `am ${dateStr} loeschen wir dein Lumio-Studio „${opts.studioName}" ` +
-      `endgueltig — wie von dir angefragt.\n\n` +
-      `Das ist deine letzte Erinnerung. Wenn du es dir anders ueberlegt ` +
-      `hast, kannst du die Loeschung jetzt noch zuruecknehmen:\n\n` +
+      `am ${dateStr} löschen wir dein Lumio-Studio „${opts.studioName}" ` +
+      `endgültig — wie von dir angefragt.\n\n` +
+      `Das ist deine letzte Erinnerung. Wenn du es dir anders überlegt ` +
+      `hast, kannst du die Löschung jetzt noch zurücknehmen:\n\n` +
       `${opts.cancelUrl}\n\n` +
       `Nach dem Stichtag sind die Daten unwiderruflich weg.\n\n` +
       `— Lumio`,
+    html: renderMailLayout({
+      preheader: `Letzte 7 Tage — endgültige Löschung am ${dateStr}`,
+      bodyHtml:
+        mailHeading(`Letzte Erinnerung`) +
+        mailParagraph(
+          `${greeting.replace(",", "")} — am ${dateStr} löschen wir dein Lumio-Studio „${opts.studioName}" endgültig, wie von dir angefragt.`
+        ) +
+        mailParagraph(
+          `Wenn du es dir anders überlegt hast, kannst du die Löschung jetzt noch zurücknehmen:`
+        ) +
+        mailButton(opts.cancelUrl, "Löschung zurücknehmen") +
+        mailNoticeBox(`Nach dem Stichtag sind die Daten unwiderruflich weg.`),
+    }),
   };
 }
