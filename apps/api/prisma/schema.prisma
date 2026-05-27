@@ -573,7 +573,13 @@ model GalleryAccess {
   
   token         String   @unique     // kryptografisch zufällig
   label         String   // z.B. "Brautpaar", "Agentur ABC", "Team Sales"
-  email         String?  @db.Citext  // optional, für Notifications
+  // Empfaenger fuer Einladungs-Mails. Leeres Array = keine Mail-
+  // Adresse hinterlegt, Re-Send nicht moeglich. Mehrere Adressen
+  // sind moeglich (Brautpaar = 2 Personen, Familie = mehrere, etc.).
+  // citext-Typ wuerde wir gerne nutzen aber Postgres erlaubt das
+  // nicht direkt fuer Array-Spalten — die Case-insensitive-Vergleiche
+  // machen wir bei Bedarf programmatisch.
+  emails        String[] @default([])
   
   // Berechtigungen
   canDownload   Boolean  @default(true)

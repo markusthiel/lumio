@@ -137,9 +137,9 @@ export async function notifyZipReadyOnce(opts: {
 
     const access = await prisma.galleryAccess.findUnique({
       where: { id: zip.accessId },
-      select: { email: true },
+      select: { emails: true },
     });
-    if (!access?.email) return true;
+    if (!access || access.emails.length === 0) return true;
 
     const downloadUrl = `${config.PUBLIC_URL}/g/${zip.gallery.slug}` +
       `?zip=${zip.id}`;
@@ -148,7 +148,13 @@ export async function notifyZipReadyOnce(opts: {
       downloadUrl,
       fileCount: zip.fileCount,
     });
-    await sendMail({ to: access.email, ...tpl });
+    // ZIP-Ready geht an alle hinterlegten Adressen — wer den Download
+    // angestoßen hat, ist im aktuellen Datenmodell nicht trennbar von
+    // den anderen Empfaengern des gleichen Access. Pragmatisch: alle
+    // benachrichtigen, ist nicht intrusiv.
+    for (const to of access.emails) {
+      await sendMail({ to, ...tpl });
+    }
     return true;
   } catch (err) {
     logger.warn({ err }, "notifyZipReadyOnce failed");
@@ -192,6 +198,9 @@ export { publicUrl };
 export async function sendGalleryInvitation(opts: {
   accessId: string;
   personalMessage?: string;
+  /** Wenn gesetzt: nutze diese Adressen statt der hinterlegten emails
+   *  am Access. Fuer ad-hoc Versand aus dem InviteDialog. */
+  recipientsOverride?: string[];
 }): Promise<boolean> {
   try {
     const access = await prisma.galleryAccess.findUnique({
@@ -205,7 +214,6 @@ export async function sendGalleryInvitation(opts: {
               select: {
                 name: true,
                 displayName: true,
-                // Tenant-Default-Branding fuer Logo + Akzentfarbe
                 branding: {
                   select: {
                     logoUrl: true,
@@ -219,10 +227,19 @@ export async function sendGalleryInvitation(opts: {
       },
     });
 
-    if (!access?.email) {
+    if (!access) {
       logger.info(
         { accessId: opts.accessId },
-        "gallery invitation skipped: no email on access"
+        "gallery invitation skipped: access not found"
+      );
+      return false;
+    }
+
+    const recipients = opts.recipientsOverride ?? access.emails;
+    if (recipients.length === 0) {
+      logger.info(
+        { accessId: opts.accessId },
+        "gallery invitation skipped: no recipients"
       );
       return false;
     }
@@ -247,7 +264,14 @@ export async function sendGalleryInvitation(opts: {
       },
     });
 
-    await sendMail({ to: access.email, ...tpl });
+    // Pro Empfaenger eine eigene Mail (keine BCC-Sammelmail). Vorteile:
+    //   - Bounces/Spam-Reports lassen sich klar zuordnen
+    //   - Empfaenger sieht "an: ich" (statt "an: 4 leute")
+    //   - Bei einem fehlgeschlagenen Send haengen die anderen nicht
+    // Sequential, weil Postmark bei Rate-Limits sonst rumzickt.
+    for (const to of recipients) {
+      await sendMail({ to, ...tpl });
+    }
     return true;
   } catch (err) {
     logger.warn(

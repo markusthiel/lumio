@@ -369,7 +369,7 @@ export interface MySelection {
 export interface GalleryAccess {
   id: string;
   label: string;
-  email: string | null;
+  emails: string[];
   token: string;
   canDownload: boolean;
   canComment: boolean;
@@ -1152,14 +1152,14 @@ export const api = {
     galleryId: string,
     input: {
       label: string;
-      email?: string;
+      emails?: string[];
       canDownload?: boolean;
       canComment?: boolean;
       canSelect?: boolean;
       canSeeOthers?: boolean;
       expiresAt?: string;
-      /** Wenn true UND email gesetzt: direkt nach dem Anlegen eine
-       *  Einladungs-Mail an die Adresse schicken. */
+      /** Wenn true UND mindestens eine Adresse in emails: direkt nach
+       *  dem Anlegen Einladungs-Mails an alle Adressen schicken. */
       sendInvitation?: boolean;
       /** Persoenliche Notiz fuer die Einladungs-Mail. Max 1000 Zeichen. */
       personalMessage?: string;
@@ -1170,13 +1170,39 @@ export const api = {
       { method: "POST", body: JSON.stringify(input) }
     ),
 
+  /** PATCH eines bestehenden Access — fuer Label/Emails/Berechtigungs-
+   *  Aenderungen. Schickt KEINE Mail (dafuer ist /invite da). */
+  updateAccess: (
+    galleryId: string,
+    accessId: string,
+    input: {
+      label?: string;
+      emails?: string[];
+      canDownload?: boolean;
+      canComment?: boolean;
+      canSelect?: boolean;
+      canSeeOthers?: boolean;
+      expiresAt?: string;
+    }
+  ) =>
+    request<{ access: GalleryAccess }>(
+      `/galleries/${galleryId}/access/${accessId}`,
+      { method: "PATCH", body: JSON.stringify(input) }
+    ),
+
   /** Einladung zu einem bestehenden Access (erneut) verschicken.
-   *  Backend antwortet 400 wenn keine email auf dem Access hinterlegt
-   *  ist. */
+   *  - Ohne recipients: nutzt die hinterlegten emails am Access.
+   *  - Mit recipients: ueberschreibt fuer diesen einen Versand.
+   *  - updateDefaults=true: speichert recipients als neue Defaults
+   *    auf dem Access (nur sinnvoll wenn recipients gesetzt). */
   sendAccessInvitation: (
     galleryId: string,
     accessId: string,
-    input?: { personalMessage?: string }
+    input?: {
+      personalMessage?: string;
+      recipients?: string[];
+      updateDefaults?: boolean;
+    }
   ) =>
     request<{ sent: boolean }>(
       `/galleries/${galleryId}/access/${accessId}/invite`,

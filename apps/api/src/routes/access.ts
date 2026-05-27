@@ -21,32 +21,35 @@ import { hashPassword } from "../services/auth.js";
 import { logEvent } from "../services/audit.js";
 import { sendGalleryInvitation } from "../services/notifier.js";
 
+/** Empfaenger-Liste: max 10 Adressen pro Access, jede valid + lowercase
+ *  + getrimmt + unique. Doppelte werden silently dedupliziert. */
+const emailsSchema = z
+  .array(z.string().email().toLowerCase().trim().max(200))
+  .max(10)
+  .transform((arr) => Array.from(new Set(arr)));
+
 const createAccessSchema = z.object({
   label: z.string().min(1).max(100),
-  email: z.string().email().optional(),
+  emails: emailsSchema.default([]),
   canDownload: z.boolean().default(true),
   canComment: z.boolean().default(true),
   canSelect: z.boolean().default(true),
   canSeeOthers: z.boolean().default(false),
   expiresAt: z.string().datetime().optional(),
-  /** Wenn true UND eine email gesetzt ist: direkt nach dem Anlegen
-   *  eine Einladungs-Mail an die Adresse schicken. Default false,
-   *  damit das alte Verhalten (nur Link, kein Versand) erhalten
-   *  bleibt. */
+  /** Wenn true UND mindestens eine Adresse in emails: direkt nach dem
+   *  Anlegen eine Einladungs-Mail an alle Adressen schicken. */
   sendInvitation: z.boolean().default(false),
-  /** Optionale persoenliche Nachricht in der Einladung. Wird ueber
-   *  den Standard-Begruessungstext gesetzt. Max 1000 Zeichen damit
-   *  die Mail nicht ausartet. */
+  /** Optionale persoenliche Nachricht in der Einladung. Max 1000 Zeichen. */
   personalMessage: z.string().max(1000).optional(),
 });
 
-// PATCH-Schema: explizit ohne sendInvitation/personalMessage — bei
-// einer Aenderung sollen NICHT automatisch Mails rausgehen. Wer eine
-// Einladung neu schicken will, nutzt POST /access/:id/invite.
+// PATCH-Schema: ohne sendInvitation/personalMessage — bei Patch
+// gehen NICHT automatisch Mails raus. Re-Send geht ueber den
+// separaten Invite-Endpoint.
 const updateAccessSchema = z
   .object({
     label: z.string().min(1).max(100),
-    email: z.string().email(),
+    emails: emailsSchema,
     canDownload: z.boolean(),
     canComment: z.boolean(),
     canSelect: z.boolean(),
@@ -55,9 +58,19 @@ const updateAccessSchema = z
   })
   .partial();
 
-// Schema fuer den (Re-)Send-Endpoint — nur personalMessage als Option.
+// Re-Send-Schema:
+//   - personalMessage: optionale Notiz fuer diesen Versand
+//   - recipients: optional, ueberschreibt fuer DIESEN Versand die
+//     hinterlegten emails (z.B. um nur an eine bestimmte Adresse zu
+//     senden oder eine neue Adresse einmalig zu versuchen). Ohne
+//     recipients geht die Mail an alle hinterlegten emails.
+//   - updateDefaults: wenn true, werden die recipients als neue
+//     Default-emails auf dem Access gespeichert. Damit kann der
+//     User aus dem Re-Send-Dialog die Liste pflegen.
 const invitationSchema = z.object({
   personalMessage: z.string().max(1000).optional(),
+  recipients: emailsSchema.optional(),
+  updateDefaults: z.boolean().default(false),
 });
 
 const setPasswordSchema = z.object({
@@ -98,7 +111,7 @@ export async function registerAccessRoutes(app: FastifyInstance) {
         accesses: accesses.map((a) => ({
           id: a.id,
           label: a.label,
-          email: a.email,
+          emails: a.emails,
           token: a.token,
           canDownload: a.canDownload,
           canComment: a.canComment,
@@ -129,7 +142,7 @@ export async function registerAccessRoutes(app: FastifyInstance) {
           galleryId: gallery.id,
           token: generateAccessToken(),
           label: body.label,
-          email: body.email ?? null,
+          emails: body.emails,
           canDownload: body.canDownload,
           canComment: body.canComment,
           canSelect: body.canSelect,
@@ -149,11 +162,10 @@ export async function registerAccessRoutes(app: FastifyInstance) {
         ipAddress: req.ip,
       });
 
-      // Einladungs-Mail: nur wenn explizit angefordert UND eine email
-      // gesetzt ist. Fire-and-forget — das Response darf nicht auf SMTP
-      // warten (3-5s Latenz waeren UX-Killer).
+      // Einladungs-Mail: nur wenn explizit angefordert UND mindestens
+      // eine Adresse vorhanden ist. Fire-and-forget.
       let invitationSent = false;
-      if (body.sendInvitation && body.email) {
+      if (body.sendInvitation && body.emails.length > 0) {
         invitationSent = await sendGalleryInvitation({
           accessId: access.id,
           personalMessage: body.personalMessage,
@@ -166,7 +178,10 @@ export async function registerAccessRoutes(app: FastifyInstance) {
             action: "share.invite",
             targetType: "gallery_access",
             targetId: access.id,
-            payload: { galleryId: gallery.id, email: body.email },
+            payload: {
+              galleryId: gallery.id,
+              recipientCount: body.emails.length,
+            },
             ipAddress: req.ip,
           });
         }
@@ -177,7 +192,7 @@ export async function registerAccessRoutes(app: FastifyInstance) {
           id: access.id,
           label: access.label,
           token: access.token,
-          email: access.email,
+          emails: access.emails,
           canDownload: access.canDownload,
           canComment: access.canComment,
           canSelect: access.canSelect,
@@ -211,7 +226,7 @@ export async function registerAccessRoutes(app: FastifyInstance) {
         where: { id: access.id },
         data: {
           ...(body.label !== undefined ? { label: body.label } : {}),
-          ...(body.email !== undefined ? { email: body.email } : {}),
+          ...(body.emails !== undefined ? { emails: body.emails } : {}),
           ...(body.canDownload !== undefined
             ? { canDownload: body.canDownload }
             : {}),
@@ -277,19 +292,39 @@ export async function registerAccessRoutes(app: FastifyInstance) {
 
       const access = await prisma.galleryAccess.findFirst({
         where: { id: req.params.accessId, galleryId: gallery.id },
-        select: { id: true, email: true },
+        select: { id: true, emails: true },
       });
       if (!access) return reply.status(404).send({ error: "not_found" });
-      if (!access.email)
-        return reply
-          .status(400)
-          .send({ error: "no_email", message: "Auf diesem Link ist keine E-Mail hinterlegt." });
 
       const body = invitationSchema.parse(req.body ?? {});
+
+      // Welche Empfaenger fuer DIESEN Versand?
+      // - Wenn recipients im Body: die nehmen
+      // - Sonst: hinterlegte emails am Access
+      const recipients =
+        body.recipients !== undefined ? body.recipients : access.emails;
+
+      if (recipients.length === 0) {
+        return reply.status(400).send({
+          error: "no_recipients",
+          message:
+            "Keine Empfänger angegeben. Lege erst Adressen am Access an oder gib sie im Versand mit.",
+        });
+      }
+
+      // Optional: ad-hoc-Adressen als neue Defaults speichern
+      if (body.updateDefaults && body.recipients !== undefined) {
+        await prisma.galleryAccess.update({
+          where: { id: access.id },
+          data: { emails: body.recipients },
+        });
+      }
 
       const sent = await sendGalleryInvitation({
         accessId: access.id,
         personalMessage: body.personalMessage,
+        recipientsOverride:
+          body.recipients !== undefined ? body.recipients : undefined,
       });
 
       if (sent) {
@@ -300,7 +335,12 @@ export async function registerAccessRoutes(app: FastifyInstance) {
           action: "share.invite",
           targetType: "gallery_access",
           targetId: access.id,
-          payload: { galleryId: gallery.id, email: access.email, resend: true },
+          payload: {
+            galleryId: gallery.id,
+            recipientCount: recipients.length,
+            resend: true,
+            updateDefaults: body.updateDefaults,
+          },
           ipAddress: req.ip,
         });
       }

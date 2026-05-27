@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api, type GalleryAccess } from "@/lib/api";
+import { EmailChipsInput } from "@/components/studio/EmailChipsInput";
 
 export function SharePanel({
   galleryId,
@@ -59,19 +60,24 @@ export function SharePanel({
     }
   }
 
-  /** Direkt-Versand ohne Nachricht (z.B. nach Bestaetigung im Modal). */
+  /** Direkt-Versand. Optional Override-Empfänger und Save-as-Default. */
   async function performSendInvitation(
     accessId: string,
-    personalMessage: string | undefined
+    payload: {
+      personalMessage?: string;
+      recipients?: string[];
+      updateDefaults?: boolean;
+    }
   ) {
     setInvitingId(accessId);
     try {
-      const res = await api.sendAccessInvitation(galleryId, accessId, {
-        personalMessage,
-      });
+      const res = await api.sendAccessInvitation(galleryId, accessId, payload);
       if (res.sent) {
         setInvitedId(accessId);
         setTimeout(() => setInvitedId(null), 2000);
+        // Wenn defaults geupdatet wurden, neu laden damit die Card
+        // die neuen Adressen zeigt
+        if (payload.updateDefaults) void load();
       } else {
         alert("Einladung konnte nicht verschickt werden.");
       }
@@ -162,19 +168,23 @@ export function SharePanel({
                   className="border border-line-subtle rounded p-3 space-y-2"
                 >
                   <div className="flex items-center justify-between">
-                    <div>
+                    <div className="min-w-0">
                       <div className="text-sm font-medium">{a.label}</div>
-                      {a.email && (
-                        <div className="text-xs text-ink-tertiary">{a.email}</div>
+                      {a.emails.length > 0 && (
+                        <div className="text-xs text-ink-tertiary truncate">
+                          {a.emails.length === 1
+                            ? a.emails[0]
+                            : `${a.emails[0]} +${a.emails.length - 1} weitere`}
+                        </div>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
-                      {a.email && (
+                      {a.emails.length > 0 && (
                         <button
                           onClick={() => setInviteFor(a)}
                           disabled={invitingId === a.id}
                           className="text-xs text-accent hover:underline disabled:opacity-50"
-                          title="Einladungs-Mail an diese Adresse schicken"
+                          title="Einladungs-Mail verschicken"
                         >
                           {invitingId === a.id
                             ? "Senden…"
@@ -239,10 +249,10 @@ export function SharePanel({
         <InviteDialog
           access={inviteFor}
           onClose={() => setInviteFor(null)}
-          onSent={(message) => {
+          onSend={(payload) => {
             const id = inviteFor.id;
             setInviteFor(null);
-            void performSendInvitation(id, message || undefined);
+            void performSendInvitation(id, payload);
           }}
         />
       )}
@@ -251,24 +261,42 @@ export function SharePanel({
 }
 
 /**
- * Mini-Modal fuer "Einladung senden" — zeigt Empfaenger-Adresse + Textarea
- * fuer optionale persoenliche Nachricht. Bewusst klein gehalten, der eigentliche
- * Versand passiert nach Submit ueber den Parent-Callback.
+ * Versand-Modal. Standardmaessig sind die hinterlegten Empfaenger
+ * vorausgefuellt; der Studio-User kann anpassen (mehr/weniger
+ * Adressen) und optional als neuen Default speichern.
  */
 function InviteDialog({
   access,
   onClose,
-  onSent,
+  onSend,
 }: {
   access: GalleryAccess;
   onClose: () => void;
-  onSent: (personalMessage: string) => void;
+  onSend: (payload: {
+    personalMessage?: string;
+    recipients?: string[];
+    updateDefaults?: boolean;
+  }) => void;
 }) {
+  const [recipients, setRecipients] = useState<string[]>(access.emails);
   const [message, setMessage] = useState("");
+  /** Hat der User die hinterlegten Adressen veraendert? Nur dann
+   *  macht der Save-as-Default-Switch Sinn. */
+  const changed =
+    recipients.length !== access.emails.length ||
+    recipients.some((e, i) => e !== access.emails[i]);
+  const [saveAsDefault, setSaveAsDefault] = useState(false);
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    onSent(message);
+    if (recipients.length === 0) return;
+    onSend({
+      personalMessage: message || undefined,
+      // recipients nur mitschicken wenn geaendert — sonst nutzt Backend
+      // die hinterlegten Defaults
+      recipients: changed ? recipients : undefined,
+      updateDefaults: changed && saveAsDefault,
+    });
   }
 
   return (
@@ -285,14 +313,41 @@ function InviteDialog({
           <h2 className="text-lg font-semibold">Einladung senden</h2>
           <p className="text-sm text-ink-secondary mt-1">
             Empfänger: <strong>{access.label}</strong>
-            {access.email && (
-              <>
-                {" "}
-                <span className="text-ink-tertiary">({access.email})</span>
-              </>
-            )}
           </p>
         </div>
+
+        <div className="space-y-1">
+          <label htmlFor="invite-emails" className="text-sm font-medium">
+            E-Mail-Adressen
+          </label>
+          <EmailChipsInput
+            id="invite-emails"
+            value={recipients}
+            onChange={setRecipients}
+            placeholder="Adresse eintippen + Enter"
+          />
+          <p className="text-xs text-ink-tertiary">
+            Pro Adresse wird eine eigene Mail versendet.
+          </p>
+        </div>
+
+        {changed && (
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={saveAsDefault}
+              onChange={(e) => setSaveAsDefault(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              Geänderte Liste als Standard speichern
+              <span className="block text-xs text-ink-tertiary">
+                Bei der nächsten „Einladung senden" werden diese Adressen
+                automatisch vorgeschlagen.
+              </span>
+            </span>
+          </label>
+        )}
 
         <div className="space-y-1">
           <label htmlFor="invite-msg" className="text-sm font-medium">
@@ -303,9 +358,8 @@ function InviteDialog({
             id="invite-msg"
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            rows={4}
+            rows={3}
             maxLength={1000}
-            autoFocus
             className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm"
             placeholder="z.B. Liebe Anna, hier sind eure Hochzeitsbilder. Viel Freude beim Anschauen!"
           />
@@ -321,9 +375,12 @@ function InviteDialog({
           </button>
           <button
             type="submit"
-            className="text-sm px-3 py-2 rounded-md bg-accent text-accent-contrast hover:bg-accent-hover"
+            disabled={recipients.length === 0}
+            className="text-sm px-3 py-2 rounded-md bg-accent text-accent-contrast hover:bg-accent-hover disabled:opacity-50"
           >
-            Einladung verschicken
+            {recipients.length === 1
+              ? "Einladung verschicken"
+              : `An ${recipients.length} Adressen schicken`}
           </button>
         </div>
       </form>
@@ -341,19 +398,18 @@ function CreateAccessDialog({
   onCreated: () => void;
 }) {
   const [label, setLabel] = useState("");
-  const [email, setEmail] = useState("");
+  const [emails, setEmails] = useState<string[]>([]);
   const [canDownload, setCanDownload] = useState(true);
   const [canComment, setCanComment] = useState(true);
   const [canSelect, setCanSelect] = useState(true);
   const [canSeeOthers, setCanSeeOthers] = useState(false);
-  /** Wenn die Email leer ist, ist die Option unwirksam — wir blenden
-   *  die Eingaben deshalb erst ein, wenn email gesetzt ist. */
+  /** Wenn keine Adressen drin: Option unwirksam, wird nicht angezeigt. */
   const [sendInvitation, setSendInvitation] = useState(true);
   const [personalMessage, setPersonalMessage] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const wantsInvitation = !!email && sendInvitation;
+  const wantsInvitation = emails.length > 0 && sendInvitation;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -362,7 +418,7 @@ function CreateAccessDialog({
     try {
       await api.createAccess(galleryId, {
         label,
-        email: email || undefined,
+        emails: emails.length > 0 ? emails : undefined,
         canDownload,
         canComment,
         canSelect,
@@ -381,13 +437,13 @@ function CreateAccessDialog({
 
   return (
     <div
-      className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
+      className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[100]"
       onClick={onClose}
     >
       <form
         onClick={(e) => e.stopPropagation()}
         onSubmit={onSubmit}
-        className="w-full max-w-md bg-surface-raised rounded-lg p-6 space-y-4"
+        className="w-full max-w-md bg-surface-raised border border-line-subtle shadow-2xl rounded-lg p-6 space-y-4"
       >
         <h2 className="text-lg font-semibold">Neuer Share-Link</h2>
 
@@ -407,15 +463,15 @@ function CreateAccessDialog({
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="email" className="text-sm font-medium">
-            E-Mail <span className="text-ink-tertiary">(optional, für Notifications)</span>
+          <label htmlFor="emails" className="text-sm font-medium">
+            E-Mail-Adressen{" "}
+            <span className="text-ink-tertiary">(optional)</span>
           </label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm"
+          <EmailChipsInput
+            id="emails"
+            value={emails}
+            onChange={setEmails}
+            placeholder="Adresse + Enter — mehrere möglich"
           />
         </div>
 
@@ -455,9 +511,9 @@ function CreateAccessDialog({
           </label>
         </div>
 
-        {/* Einladungs-Optionen — nur sichtbar wenn eine E-Mail gesetzt ist.
-            Ohne E-Mail koennen wir nichts schicken, also auch nichts anbieten. */}
-        {email && (
+        {/* Einladungs-Optionen — nur sichtbar wenn mindestens eine Adresse
+            angegeben ist. */}
+        {emails.length > 0 && (
           <div className="space-y-1.5 border-t border-line-subtle pt-4">
             <label className="flex items-center gap-2 text-sm font-medium">
               <input
