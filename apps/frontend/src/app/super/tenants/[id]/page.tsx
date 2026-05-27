@@ -481,6 +481,8 @@ function TenantDetail() {
 
       <NotesSection tenantId={tenant.id} />
 
+      <FeatureFlagsSection tenantId={tenant.id} />
+
       {inviting && (
         <InviteOwnerDialog
           tenantId={tenant.id}
@@ -1858,6 +1860,174 @@ function ImpersonateDialog({
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Feature-Flags-Section
+// ---------------------------------------------------------------------------
+// Liste aller registrierten Flags mit Toggle pro Tenant. Effective-Wert
+// = Override (falls vorhanden) ODER Default. Toggle setzt Override.
+// Wenn Toggle wieder auf Default zurueck-gestellt wird, loescht das
+// Backend den Override automatisch (Sauberkeit).
+function FeatureFlagsSection({ tenantId }: { tenantId: string }) {
+  type Flag = Awaited<
+    ReturnType<typeof api.superGetTenantFeatureFlags>
+  >["flags"][number];
+
+  const [flags, setFlags] = useState<Flag[] | null>(null);
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function load() {
+    try {
+      const r = await api.superGetTenantFeatureFlags(tenantId);
+      setFlags(r.flags);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Fehler");
+    }
+  }
+  useEffect(() => {
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tenantId]);
+
+  async function toggle(flag: Flag) {
+    setBusyKey(flag.key);
+    setError(null);
+    try {
+      await api.superSetTenantFeatureFlag(
+        tenantId,
+        flag.key,
+        !flag.effectiveValue
+      );
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Fehler");
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  return (
+    <Section title="Feature-Flags">
+      {error && (
+        <div className="text-sm text-semantic-danger mb-3">{error}</div>
+      )}
+      {!flags ? (
+        <div className="text-sm text-ink-tertiary">Lädt…</div>
+      ) : (
+        <div className="space-y-2">
+          {flags.map((f) => (
+            <FlagRow
+              key={f.key}
+              flag={f}
+              busy={busyKey === f.key}
+              onToggle={() => toggle(f)}
+            />
+          ))}
+          <p className="text-xs text-ink-tertiary pt-2 border-t border-line-subtle">
+            Zurück auf Default = Override wird gelöscht.
+          </p>
+        </div>
+      )}
+    </Section>
+  );
+}
+
+function FlagRow({
+  flag,
+  busy,
+  onToggle,
+}: {
+  flag: {
+    key: string;
+    name: string;
+    description: string;
+    defaultValue: boolean;
+    badge?: "beta" | "experimental" | "deprecated";
+    effectiveValue: boolean;
+    hasOverride: boolean;
+    overrideSetBy: string | null;
+    overrideSetAt: string | null;
+  };
+  busy: boolean;
+  onToggle: () => void;
+}) {
+  const badgeColor = (() => {
+    switch (flag.badge) {
+      case "beta":
+        return "bg-accent/15 text-accent";
+      case "experimental":
+        return "bg-semantic-warning/15 text-semantic-warning";
+      case "deprecated":
+        return "bg-semantic-danger/15 text-semantic-danger";
+      default:
+        return "";
+    }
+  })();
+
+  return (
+    <div className="rounded-md border border-line-subtle bg-surface-base px-4 py-3">
+      <div className="flex items-start gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+            <strong className="text-sm">{flag.name}</strong>
+            {flag.badge && (
+              <span
+                className={`text-xs px-1.5 py-0.5 rounded font-mono ${badgeColor}`}
+              >
+                {flag.badge}
+              </span>
+            )}
+            <span className="text-xs text-ink-tertiary font-mono">
+              {flag.key}
+            </span>
+          </div>
+          <div className="text-xs text-ink-secondary">{flag.description}</div>
+          {flag.hasOverride && (
+            <div className="text-xs text-ink-tertiary mt-1">
+              Override durch {flag.overrideSetBy}
+              {flag.overrideSetAt && (
+                <>
+                  {" "}
+                  am{" "}
+                  {new Date(flag.overrideSetAt).toLocaleDateString("de-DE", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </>
+              )}
+            </div>
+          )}
+          {!flag.hasOverride && (
+            <div className="text-xs text-ink-tertiary mt-1 italic">
+              Default ({flag.defaultValue ? "an" : "aus"})
+            </div>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={onToggle}
+          disabled={busy}
+          className={
+            flag.effectiveValue
+              ? "shrink-0 inline-flex items-center h-6 w-11 rounded-full bg-semantic-success transition-colors disabled:opacity-50"
+              : "shrink-0 inline-flex items-center h-6 w-11 rounded-full bg-surface-sunken transition-colors disabled:opacity-50"
+          }
+          aria-label={flag.effectiveValue ? "Deaktivieren" : "Aktivieren"}
+        >
+          <span
+            className={
+              flag.effectiveValue
+                ? "inline-block h-5 w-5 rounded-full bg-white shadow translate-x-5 transition-transform"
+                : "inline-block h-5 w-5 rounded-full bg-white shadow translate-x-0.5 transition-transform"
+            }
+          />
+        </button>
+      </div>
     </div>
   );
 }

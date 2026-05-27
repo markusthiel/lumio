@@ -94,6 +94,7 @@ model Tenant {
   smartCollections SmartCollection[]
   exports     TenantExport[]
   notes       TenantNote[]
+  featureFlags TenantFeatureFlag[]
   // Stripe-Customer-ID: lifetime-stabil pro Tenant. Wir setzen sie
   // beim ersten Checkout-Session-Create und nutzen sie wieder bei
   // Plan-Wechseln, Storage-Pack-Käufen, Customer-Portal-Calls.
@@ -1582,4 +1583,35 @@ model Broadcast {
 
   @@index([status, lastProgressAt])
   @@map("broadcasts")
+}
+
+// -----------------------------------------------------------------------------
+// Feature-Flags pro Tenant
+// -----------------------------------------------------------------------------
+// Erlaubt schrittweisen Feature-Rollout: Print-Shop fuer ausgewaehlte
+// Beta-Tester, Lightroom-Plugin nur fuer Pro+, etc.
+//
+// Schluessel sind in services/feature-flags.ts zentral definiert (TypeScript
+// enum-aehnlich) — nur dort registrierte Keys werden im UI angezeigt.
+//
+// Wenn kein Eintrag existiert: gilt der Default aus der Definition.
+model TenantFeatureFlag {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId    String   @db.Uuid
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  flagKey     String
+
+  enabled     Boolean
+
+  /// Super-Admin der den Flag gesetzt hat
+  setById     String   @db.Uuid
+  setByEmail  String
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([tenantId, flagKey])
+  @@index([flagKey])
+  @@map("tenant_feature_flags")
 }

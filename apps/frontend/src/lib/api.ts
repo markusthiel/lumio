@@ -2149,6 +2149,45 @@ export const api = {
   superDeleteBroadcast: (id: string) =>
     request<{ ok: true }>(`/super/broadcasts/${id}`, { method: "DELETE" }),
 
+  superListFeatureFlagDefs: () =>
+    request<{
+      flags: Array<{
+        key: string;
+        name: string;
+        description: string;
+        defaultValue: boolean;
+        badge?: "beta" | "experimental" | "deprecated";
+      }>;
+    }>("/super/feature-flags"),
+
+  superGetTenantFeatureFlags: (tenantId: string) =>
+    request<{
+      flags: Array<{
+        key: string;
+        name: string;
+        description: string;
+        defaultValue: boolean;
+        badge?: "beta" | "experimental" | "deprecated";
+        effectiveValue: boolean;
+        hasOverride: boolean;
+        overrideSetBy: string | null;
+        overrideSetAt: string | null;
+      }>;
+    }>(`/super/tenants/${tenantId}/feature-flags`),
+
+  superSetTenantFeatureFlag: (
+    tenantId: string,
+    flagKey: string,
+    enabled: boolean
+  ) =>
+    request<{
+      ok: true;
+      action: "set" | "deleted" | "unchanged";
+    }>(`/super/tenants/${tenantId}/feature-flags/${flagKey}`, {
+      method: "PUT",
+      body: JSON.stringify({ enabled }),
+    }),
+
   superListTenants: () =>
     request<{ tenants: SuperTenantSummary[] }>("/super/tenants"),
   superGetTenant: (id: string) =>

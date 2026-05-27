@@ -45,6 +45,7 @@ import { enqueue, Queues } from "../services/queue.js";
 import { createExport } from "../services/export-service.js";
 import { cancelDeletion } from "../services/tenant-deletion.js";
 import { computeCurrentMrr, listRecentSnapshots } from "../services/mrr.js";
+import { FEATURE_FLAG_DEFS, setFeatureFlag } from "../services/feature-flags.js";
 import { logger } from "../logger.js";
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
@@ -1677,6 +1678,109 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
       })),
     };
   });
+
+  // -------------------------------------------------------------------------
+  // GET /super/feature-flags
+  // -------------------------------------------------------------------------
+  // Liste aller registrierten Feature-Flags (Definition aus Code).
+  app.get("/super/feature-flags", async (req) => {
+    req.requireSuperAdmin();
+    return { flags: FEATURE_FLAG_DEFS };
+  });
+
+  // -------------------------------------------------------------------------
+  // GET /super/tenants/:id/feature-flags
+  // -------------------------------------------------------------------------
+  // Effektive Flag-Werte fuer einen Tenant (Default + ggf. Overrides).
+  // Plus Liste der existierenden Overrides damit das UI 'auf Default
+  // zurueck' anbieten kann.
+  app.get<{ Params: { id: string } }>(
+    "/super/tenants/:id/feature-flags",
+    async (req, reply) => {
+      req.requireSuperAdmin();
+      const t = await prisma.tenant.findUnique({
+        where: { id: req.params.id },
+        select: { id: true },
+      });
+      if (!t) return reply.status(404).send({ error: "not_found" });
+
+      const overrides = await prisma.tenantFeatureFlag.findMany({
+        where: { tenantId: t.id },
+        select: {
+          flagKey: true,
+          enabled: true,
+          setByEmail: true,
+          updatedAt: true,
+        },
+      });
+      const overrideMap = new Map(overrides.map((o) => [o.flagKey, o]));
+
+      return {
+        flags: FEATURE_FLAG_DEFS.map((def) => {
+          const override = overrideMap.get(def.key);
+          return {
+            ...def,
+            effectiveValue: override?.enabled ?? def.defaultValue,
+            hasOverride: !!override,
+            overrideSetBy: override?.setByEmail ?? null,
+            overrideSetAt: override?.updatedAt ?? null,
+          };
+        }),
+      };
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // PUT /super/tenants/:id/feature-flags/:flagKey
+  // -------------------------------------------------------------------------
+  const flagSetSchema = z.object({
+    enabled: z.boolean(),
+  });
+  app.put<{ Params: { id: string; flagKey: string } }>(
+    "/super/tenants/:id/feature-flags/:flagKey",
+    async (req, reply) => {
+      const sa = req.requireSuperAdmin();
+      const body = flagSetSchema.parse(req.body);
+
+      const t = await prisma.tenant.findUnique({
+        where: { id: req.params.id },
+        select: { id: true },
+      });
+      if (!t) return reply.status(404).send({ error: "not_found" });
+
+      try {
+        const result = await setFeatureFlag({
+          tenantId: t.id,
+          flagKey: req.params.flagKey,
+          enabled: body.enabled,
+          setById: sa.admin.id,
+          setByEmail: sa.admin.email,
+        });
+
+        await logEvent({
+          tenantId: t.id,
+          actorType: "super_admin",
+          actorId: sa.admin.id,
+          action: "super.tenant.feature_flag_set",
+          targetType: "feature_flag",
+          targetId: req.params.flagKey,
+          payload: {
+            flagKey: req.params.flagKey,
+            enabled: body.enabled,
+            action: result.action,
+          },
+          ipAddress: req.ip,
+        });
+
+        return { ok: true, ...result };
+      } catch (err) {
+        if (err instanceof Error && err.message.startsWith("unknown feature flag")) {
+          return reply.status(400).send({ error: "unknown_flag" });
+        }
+        throw err;
+      }
+    }
+  );
 
   // -------------------------------------------------------------------------
   // GET /super/mrr
