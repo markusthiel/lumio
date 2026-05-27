@@ -148,6 +148,10 @@ export async function requestDeletion(opts: {
 export async function cancelDeletion(opts: {
   tenantId: string;
   cancelledById: string;
+  /** "user" = Owner hat selbst zurueck genommen (Standardfall).
+   *  "super_admin" = Cloud-Admin/Support hat manuell zurueckgenommen
+   *  weil der Owner sich z.B. nicht einloggen konnte. */
+  actorType?: "user" | "super_admin";
   ipAddress?: string;
 }): Promise<{ status: "reactivated" | "not_pending" }> {
   const tenant = await prisma.tenant.findUnique({
@@ -175,9 +179,12 @@ export async function cancelDeletion(opts: {
 
   await logEvent({
     tenantId: opts.tenantId,
-    actorType: "user",
+    actorType: opts.actorType ?? "user",
     actorId: opts.cancelledById,
-    action: "tenant.self_deletion_cancelled",
+    action:
+      opts.actorType === "super_admin"
+        ? "super.tenant.deletion_cancelled"
+        : "tenant.self_deletion_cancelled",
     targetType: "tenant",
     targetId: opts.tenantId,
     payload: {},

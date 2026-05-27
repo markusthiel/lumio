@@ -59,7 +59,7 @@ type Stage =
 type TenantContext = {
   name: string;
   slug: string;
-  status: "active" | "suspended" | "archived";
+  status: "active" | "suspended" | "archived" | "pending_deletion";
 };
 
 type LoginBranding = {

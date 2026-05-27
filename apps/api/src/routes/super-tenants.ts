@@ -43,6 +43,7 @@ import { sendMail, tmplOwnerSetup } from "../services/mail.js";
 import { cancelSubscriptionImmediately } from "../services/stripe-service.js";
 import { enqueue, Queues } from "../services/queue.js";
 import { createExport } from "../services/export-service.js";
+import { cancelDeletion } from "../services/tenant-deletion.js";
 import { logger } from "../logger.js";
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
@@ -724,6 +725,46 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
     }
   );
 
+  // -------------------------------------------------------------------------
+  // POST /super/tenants/:id/cancel-self-deletion
+  // -------------------------------------------------------------------------
+  // Manuell die 60-Tage-Karenzphase einer Self-Service-Loeschung beenden.
+  // Use-Case: Owner ist nach Klick auf "Loeschen" raus und kommt nicht mehr
+  // rein (vergessenes Passwort, Email-Probleme, was auch immer). Super-Admin
+  // kann hier mit einem Klick die Loeschung stoppen — der Tenant ist danach
+  // wieder voll funktionsfaehig.
+  //
+  // Hinweis bzgl. Stripe: die Subscription wurde beim Lösch-Request sofort
+  // gekuendigt und wird hier NICHT automatisch reaktiviert. Owner muss
+  // selbst im Studio-Billing eine neue Subscription starten — Mail-Hinweis
+  // dazu ist im DeletionCancelled-Template enthalten.
+  app.post<{ Params: { id: string } }>(
+    "/super/tenants/:id/cancel-self-deletion",
+    async (req, reply) => {
+      const sa = req.requireSuperAdmin();
+      const t = await prisma.tenant.findUnique({
+        where: { id: req.params.id },
+        select: { id: true, status: true },
+      });
+      if (!t) return reply.status(404).send({ error: "not_found" });
+      if (t.status !== "pending_deletion") {
+        return reply.status(409).send({
+          error: "not_pending_deletion",
+          message: "Dieser Tenant ist nicht in der Karenzphase.",
+        });
+      }
+
+      const result = await cancelDeletion({
+        tenantId: t.id,
+        cancelledById: sa.admin.id,
+        actorType: "super_admin",
+        ipAddress: req.ip,
+      });
+
+      return { ok: true, status: result.status };
+    }
+  );
+
   app.post<{ Params: { id: string } }>(
     "/super/tenants/:id/archive",
     async (req, reply) => {
@@ -1023,6 +1064,7 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
       totalUsers,
       totalGalleries,
       totalFiles,
+      pendingDeletions,
     ] = await Promise.all([
       prisma.tenant.groupBy({
         by: ["status"],
@@ -1031,6 +1073,26 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
       prisma.user.count(),
       prisma.gallery.count(),
       prisma.file.count(),
+      // Tenants in der 60-Tage-Karenzphase mit Owner-Email + Termin-
+      // Daten, damit das Dashboard direkt eine Mahnliste rendern kann
+      // ohne separate Roundtrips.
+      prisma.tenant.findMany({
+        where: { status: "pending_deletion" },
+        select: {
+          id: true,
+          name: true,
+          displayName: true,
+          slug: true,
+          selfDeletionRequestedAt: true,
+          selfDeletionScheduledFor: true,
+          users: {
+            where: { role: "owner", status: "active" },
+            select: { email: true, name: true },
+            take: 1,
+          },
+        },
+        orderBy: { selfDeletionScheduledFor: "asc" },
+      }),
     ]);
 
     return {
@@ -1041,6 +1103,15 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
       totalUsers,
       totalGalleries,
       totalFiles,
+      pendingDeletions: pendingDeletions.map((t) => ({
+        id: t.id,
+        name: t.displayName ?? t.name,
+        slug: t.slug,
+        requestedAt: t.selfDeletionRequestedAt,
+        scheduledFor: t.selfDeletionScheduledFor,
+        ownerEmail: t.users[0]?.email ?? null,
+        ownerName: t.users[0]?.name ?? null,
+      })),
     };
   });
 

@@ -425,7 +425,7 @@ export const api = {
         id: string;
         name: string;
         slug: string;
-        status: "active" | "suspended" | "archived";
+        status: "active" | "suspended" | "archived" | "pending_deletion";
         archiveScheduledAt: string | null;
       } | null;
     }>("/auth/me"),
@@ -443,7 +443,7 @@ export const api = {
         id: string;
         name: string;
         slug: string;
-        status: "active" | "suspended" | "archived";
+        status: "active" | "suspended" | "archived" | "pending_deletion";
       } | null;
       branding: {
         id: string;
@@ -1808,7 +1808,24 @@ export const api = {
       totalUsers: number;
       totalGalleries: number;
       totalFiles: number;
+      pendingDeletions: Array<{
+        id: string;
+        name: string;
+        slug: string;
+        requestedAt: string | null;
+        scheduledFor: string | null;
+        ownerEmail: string | null;
+        ownerName: string | null;
+      }>;
     }>("/super/stats"),
+
+  /** Manueller Cancel der Self-Service-Loeschung durch den Super-Admin
+   *  — Use-Case: Owner kann sich nicht selbst zurueck-einloggen. */
+  superCancelSelfDeletion: (tenantId: string) =>
+    request<{ ok: true; status: "reactivated" | "not_pending" }>(
+      `/super/tenants/${tenantId}/cancel-self-deletion`,
+      { method: "POST" }
+    ),
 
   superListTenants: () =>
     request<{ tenants: SuperTenantSummary[] }>("/super/tenants"),
@@ -1958,7 +1975,7 @@ export interface SuperTenantSummary {
   name: string;
   /** Oeffentlicher Anzeigename (Login, Mails). Null = Fallback auf name. */
   displayName: string | null;
-  status: "active" | "suspended" | "archived";
+  status: "active" | "suspended" | "archived" | "pending_deletion";
   customDomain: string | null;
   createdAt: string;
   userCount: number;
@@ -1982,7 +1999,7 @@ export interface SuperTenantDetail {
   name: string;
   /** Oeffentlicher Anzeigename. Null = Fallback auf name. */
   displayName: string | null;
-  status: "active" | "suspended" | "archived";
+  status: "active" | "suspended" | "archived" | "pending_deletion";
   /** Timestamp wann der Tenant archiviert wurde. Null bei aktiven/
    *  suspendierten Tenants. */
   archivedAt: string | null;
