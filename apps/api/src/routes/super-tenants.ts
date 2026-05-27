@@ -37,9 +37,9 @@ import { z } from "zod";
 import { prisma } from "../db.js";
 import { config } from "../config.js";
 import { hashPassword } from "../services/auth.js";
-import { createSetupToken, buildSetupUrl } from "../services/setupToken.js";
+import { createSetupToken, buildSetupUrl, buildResetUrl } from "../services/setupToken.js";
 import { logEvent } from "../services/audit.js";
-import { sendMail, tmplOwnerSetup } from "../services/mail.js";
+import { sendMail, tmplOwnerSetup, tmplPasswordReset } from "../services/mail.js";
 import { cancelSubscriptionImmediately } from "../services/stripe-service.js";
 import { enqueue, Queues } from "../services/queue.js";
 import { createExport } from "../services/export-service.js";
@@ -1676,6 +1676,91 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
       })),
     };
   });
+
+  // -------------------------------------------------------------------------
+  // POST /super/tenants/:id/owner-password-reset
+  // -------------------------------------------------------------------------
+  // Super-Admin kann fuer einen User des Tenants einen Passwort-Reset-Link
+  // generieren und an die Mail-Adresse des Users verschicken. Use-Case:
+  // Owner kommt nicht rein, Self-Service-Reset funktioniert auch nicht
+  // (typischerweise Mail-Probleme oder vergessene Mail-Adresse). Mit
+  // diesem Endpoint kann der Support gezielt einen Reset triggern.
+  //
+  // Wir geben den Klartext-Token im Response zurueck — der Super-Admin
+  // kann den Link dann auch telefonisch durchgeben, falls der Mail-Versand
+  // selbst Teil des Problems ist. (Mail-Versand passiert trotzdem
+  // best-effort — wenn die Mail-Adresse stimmt und nur Postmark hakt,
+  // bringt das nichts.) Reset-TTL ist normal 24h.
+  const ownerResetSchema = z.object({
+    userId: z.string().uuid(),
+  });
+  app.post<{ Params: { id: string } }>(
+    "/super/tenants/:id/owner-password-reset",
+    async (req, reply) => {
+      const sa = req.requireSuperAdmin();
+      const body = ownerResetSchema.parse(req.body);
+
+      const user = await prisma.user.findFirst({
+        where: {
+          id: body.userId,
+          tenantId: req.params.id,
+          status: "active",
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          tenant: { select: { name: true, displayName: true } },
+        },
+      });
+      if (!user) {
+        return reply
+          .status(404)
+          .send({ error: "user_not_found", message: "User nicht gefunden" });
+      }
+
+      const setupResult = await createSetupToken({
+        userId: user.id,
+        kind: "reset",
+      });
+      const resetUrl = buildResetUrl(setupResult.token);
+
+      const tpl = tmplPasswordReset({
+        displayName: user.name ?? user.email,
+        tenantName: user.tenant.displayName ?? user.tenant.name,
+        resetUrl,
+        validHours: 24,
+        // ipAddress lassen wir weg — der Super-Admin ist nicht der
+        // 'requesting' User. Der Hinweis im Mail-Template ('falls du
+        // das nicht angefordert hast') ist trotzdem sinnvoll.
+      });
+      await sendMail({ to: user.email, ...tpl });
+
+      await logEvent({
+        tenantId: req.params.id,
+        actorType: "super_admin",
+        actorId: sa.admin.id,
+        action: "super.owner.password_reset",
+        targetType: "user",
+        targetId: user.id,
+        payload: {
+          email: user.email,
+          tokenId: setupResult.tokenId,
+        },
+        ipAddress: req.ip,
+      });
+
+      return {
+        ok: true,
+        // Reset-Link wird zurueckgegeben damit der Super-Admin ihn
+        // notfalls telefonisch durchgeben kann. Wird aber nicht
+        // dauerhaft sichtbar gemacht — UI soll ihn nach 'Kopieren'
+        // wieder verbergen.
+        resetUrl,
+        expiresAt: setupResult.expiresAt,
+      };
+    }
+  );
 
   // -------------------------------------------------------------------------
   // GET /super/tenants/:id/notes

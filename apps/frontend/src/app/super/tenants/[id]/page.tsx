@@ -458,6 +458,9 @@ function TenantDetail() {
                     {u.status}
                   </span>
                 </div>
+                {u.status === "active" && (
+                  <PasswordResetButton tenantId={tenant.id} userId={u.id} />
+                )}
               </li>
             ))}
           </ul>
@@ -1418,5 +1421,118 @@ function NotesSection({ tenantId }: { tenantId: string }) {
         </ul>
       )}
     </Section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Password-Reset-Button (pro User in der User-Liste)
+// ---------------------------------------------------------------------------
+// Zwei-Klick-Confirm. Nach erfolgreichem Trigger wird der Reset-Link
+// kurz angezeigt mit Copy-Button, damit der Support ihn notfalls am
+// Telefon durchgeben kann.
+function PasswordResetButton({
+  tenantId,
+  userId,
+}: {
+  tenantId: string;
+  userId: string;
+}) {
+  const [state, setState] = useState<
+    | { kind: "idle" }
+    | { kind: "confirming" }
+    | { kind: "submitting" }
+    | { kind: "done"; resetUrl: string }
+    | { kind: "error"; message: string }
+  >({ kind: "idle" });
+  const [copied, setCopied] = useState(false);
+
+  async function onClick() {
+    if (state.kind === "idle") {
+      setState({ kind: "confirming" });
+      setTimeout(() => {
+        setState((curr) =>
+          curr.kind === "confirming" ? { kind: "idle" } : curr
+        );
+      }, 4000);
+      return;
+    }
+    if (state.kind !== "confirming") return;
+
+    setState({ kind: "submitting" });
+    try {
+      const res = await api.superTriggerPasswordReset(tenantId, userId);
+      setState({ kind: "done", resetUrl: res.resetUrl });
+    } catch (err) {
+      setState({
+        kind: "error",
+        message: err instanceof Error ? err.message : "Fehler",
+      });
+    }
+  }
+
+  async function copy() {
+    if (state.kind !== "done") return;
+    try {
+      await navigator.clipboard.writeText(state.resetUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Wenn clipboard fehlschlaegt: User sieht den Link ohnehin und
+      // kann ihn manuell markieren+kopieren.
+    }
+  }
+
+  if (state.kind === "done") {
+    return (
+      <div className="flex flex-col items-end gap-1 max-w-[260px]">
+        <div className="text-ui-xs text-semantic-success">
+          Reset-Mail verschickt
+        </div>
+        <div className="text-ui-xs text-ink-tertiary truncate w-full text-right font-mono">
+          {state.resetUrl}
+        </div>
+        <button
+          type="button"
+          onClick={copy}
+          className="text-ui-xs text-accent hover:underline"
+        >
+          {copied ? "Kopiert ✓" : "Link kopieren"}
+        </button>
+      </div>
+    );
+  }
+
+  if (state.kind === "error") {
+    return (
+      <div className="text-ui-xs text-semantic-danger max-w-[200px] text-right">
+        {state.message}
+        <button
+          type="button"
+          onClick={() => setState({ kind: "idle" })}
+          className="block ml-auto text-ui-xs text-ink-tertiary hover:underline mt-0.5"
+        >
+          Erneut versuchen
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={state.kind === "submitting"}
+      className={
+        state.kind === "confirming"
+          ? "text-ui-xs px-2 py-1 rounded border border-semantic-warning text-semantic-warning font-medium whitespace-nowrap"
+          : "text-ui-xs px-2 py-1 rounded border border-line-subtle hover:bg-surface-sunken whitespace-nowrap"
+      }
+    >
+      {state.kind === "submitting"
+        ? "Sendet…"
+        : state.kind === "confirming"
+          ? "Sicher? Nochmal klicken"
+          : "Passwort-Reset"}
+    </button>
   );
 }

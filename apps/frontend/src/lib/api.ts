@@ -1927,6 +1927,15 @@ export const api = {
       { method: "DELETE" }
     ),
 
+  /** Super-Admin loest einen Passwort-Reset-Link fuer einen User aus.
+   *  Mail wird verschickt und der Link wird zusaetzlich zurueckgegeben,
+   *  damit man ihn notfalls telefonisch durchgeben kann. */
+  superTriggerPasswordReset: (tenantId: string, userId: string) =>
+    request<{ ok: true; resetUrl: string; expiresAt: string }>(
+      `/super/tenants/${tenantId}/owner-password-reset`,
+      { method: "POST", body: JSON.stringify({ userId }) }
+    ),
+
   superListTenants: () =>
     request<{ tenants: SuperTenantSummary[] }>("/super/tenants"),
   superGetTenant: (id: string) =>
