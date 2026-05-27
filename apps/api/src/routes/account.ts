@@ -24,9 +24,13 @@
  *
  * Bewusst nicht hier:
  *  - 2FA-Setup (totp/webauthn) — eigene Endpoints in auth.ts.
- *  - Account-Loeschung — gehoert zu Team-Mgmt (Owner loescht User),
- *    Self-Delete wuerde DSGVO-Recht abdecken aber Implementierung
- *    laesst sich besser zentral als Tenant-Export+Anonymize machen.
+ *
+ * Self-Service-Tenant-Loeschung (DSGVO Art. 17):
+ *  POST   /account/delete-request          — Loeschung anfordern
+ *  POST   /account/delete-request/cancel   — Loeschung zuruecknehmen
+ *  GET    /account/deletion-status         — aktuellen Stand abfragen
+ *  Nur Owner duerfen das. Doppelte Bestaetigung (Passwort + studioName-
+ *  Echo) verhindert versehentliche Loeschung.
  */
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
@@ -45,6 +49,10 @@ import {
 } from "../services/mail.js";
 import { tenantDisplayName } from "../services/tenant.js";
 import { logEvent } from "../services/audit.js";
+import {
+  requestDeletion,
+  cancelDeletion,
+} from "../services/tenant-deletion.js";
 
 
 const updateNameSchema = z.object({
@@ -94,6 +102,19 @@ export async function registerAccountRoutes(app: FastifyInstance) {
       select: { payload: true, expiresAt: true },
       orderBy: { createdAt: "desc" },
     });
+    // Tenant-Info — wird in der UI gebraucht fuer Studio-Name-Anzeige
+    // (z.B. Danger-Zone) und um den Pending-Deletion-State sichtbar
+    // zu machen (Banner global im Layout).
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: s.user.tenantId },
+      select: {
+        id: true,
+        name: true,
+        displayName: true,
+        status: true,
+        selfDeletionScheduledFor: true,
+      },
+    });
     return {
       user,
       pendingEmailChange: pendingChange
@@ -101,6 +122,16 @@ export async function registerAccountRoutes(app: FastifyInstance) {
             newEmail: (pendingChange.payload as { newEmail?: string } | null)
               ?.newEmail,
             expiresAt: pendingChange.expiresAt,
+          }
+        : null,
+      tenant: tenant
+        ? {
+            id: tenant.id,
+            name: tenant.name,
+            displayName: tenant.displayName,
+            status: tenant.status,
+            selfDeletionScheduledFor:
+              tenant.selfDeletionScheduledFor?.toISOString() ?? null,
           }
         : null,
     };
@@ -339,5 +370,121 @@ export async function registerAccountRoutes(app: FastifyInstance) {
       });
     }
     return { ok: true, cancelled: deleted.count };
+  });
+
+  // ===========================================================================
+  // Self-Service Tenant-Loeschung
+  // ===========================================================================
+
+  /**
+   * POST /account/delete-request
+   * Body: { password: string, confirmStudioName: string }
+   *
+   * Doppelte Bestaetigung:
+   *   1. Re-Auth via Passwort (geklaute Session kann nicht einfach loeschen)
+   *   2. Studio-Name muss exakt eingetippt werden (UI-side schon, hier nochmal
+   *      defensiv)
+   *
+   * Nur Owner duerfen das anfordern. Team-Mitglieder, Admins, etc. nicht —
+   * sonst koennte ein "Team-Verraeter" mit Zugriff das ganze Studio killen.
+   */
+  app.post("/account/delete-request", async (req, reply) => {
+    const s = req.requireAuth();
+
+    const body = z
+      .object({
+        password: z.string().min(1),
+        confirmStudioName: z.string().min(1),
+      })
+      .parse(req.body);
+
+    if (s.user.role !== "owner") {
+      return reply.status(403).send({
+        error: "owner_required",
+        message: "Nur der Studio-Owner kann das Studio loeschen.",
+      });
+    }
+
+    const fresh = await prisma.user.findUnique({
+      where: { id: s.user.id },
+      select: { passwordHash: true },
+    });
+    if (!fresh || !(await verifyPassword(body.password, fresh.passwordHash))) {
+      return reply.status(401).send({
+        error: "password_wrong",
+        message: "Passwort ist nicht korrekt.",
+      });
+    }
+
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: s.user.tenantId },
+      select: { name: true },
+    });
+    if (!tenant) return reply.status(404).send({ error: "tenant_not_found" });
+    if (
+      body.confirmStudioName.trim().toLowerCase() !==
+      tenant.name.trim().toLowerCase()
+    ) {
+      return reply.status(400).send({
+        error: "studio_name_mismatch",
+        message: "Der eingegebene Studio-Name stimmt nicht.",
+      });
+    }
+
+    const result = await requestDeletion({
+      tenantId: s.user.tenantId,
+      requestedById: s.user.id,
+      ipAddress: req.ip,
+    });
+
+    return {
+      status: result.status,
+      scheduledFor: result.scheduledFor.toISOString(),
+    };
+  });
+
+  /**
+   * POST /account/delete-request/cancel
+   * Loeschung zuruecknehmen waehrend der Karenzphase.
+   */
+  app.post("/account/delete-request/cancel", async (req, reply) => {
+    const s = req.requireAuth();
+
+    if (s.user.role !== "owner") {
+      return reply.status(403).send({
+        error: "owner_required",
+        message: "Nur der Studio-Owner kann die Loeschung zuruecknehmen.",
+      });
+    }
+
+    const result = await cancelDeletion({
+      tenantId: s.user.tenantId,
+      cancelledById: s.user.id,
+      ipAddress: req.ip,
+    });
+
+    return { status: result.status };
+  });
+
+  /**
+   * GET /account/deletion-status
+   * Liefert den aktuellen Stand. Wird vom Frontend genutzt um den
+   * Banner mit Countdown anzuzeigen.
+   */
+  app.get("/account/deletion-status", async (req) => {
+    const s = req.requireAuth();
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: s.user.tenantId },
+      select: {
+        status: true,
+        selfDeletionRequestedAt: true,
+        selfDeletionScheduledFor: true,
+      },
+    });
+    return {
+      isPendingDeletion: tenant?.status === "pending_deletion",
+      requestedAt: tenant?.selfDeletionRequestedAt?.toISOString() ?? null,
+      scheduledFor: tenant?.selfDeletionScheduledFor?.toISOString() ?? null,
+    };
   });
 }

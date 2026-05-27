@@ -38,6 +38,9 @@ async function runOnce() {
     triggerExpiredExportsCleanup(),
     sendPreArchiveReminders(),
     notifyArchiveScheduleReached(),
+    // Self-Service-Tenant-Loeschung
+    sendSelfDeletionReminders(),
+    executeScheduledSelfDeletions(),
   ]);
 }
 
@@ -198,5 +201,107 @@ export function stopPeriodicSweeper() {
   if (_interval) {
     clearInterval(_interval);
     _interval = null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Self-Service Tenant-Loeschung — Sweeper-Tasks
+// ---------------------------------------------------------------------------
+
+/**
+ * 7-Tage-Reminder vor dem Hard-Delete. Sucht Tenants mit
+ * selfDeletionScheduledFor <= now+7d und ohne bisherigen Reminder,
+ * schickt eine "letzte Chance"-Mail. Sperre via selfDeletionReminderMailedAt.
+ */
+async function sendSelfDeletionReminders() {
+  const sevenDaysFromNow = new Date(Date.now() + SEVEN_DAYS_MS);
+  const tenants = await prisma.tenant.findMany({
+    where: {
+      status: "pending_deletion",
+      selfDeletionScheduledFor: {
+        not: null,
+        lte: sevenDaysFromNow,
+        gt: new Date(), // noch nicht faellig (= noch in Karenz)
+      },
+      selfDeletionReminderMailedAt: null,
+    },
+    select: {
+      id: true,
+      name: true,
+      selfDeletionScheduledFor: true,
+      users: {
+        where: { role: "owner" },
+        select: { email: true, name: true },
+      },
+    },
+  });
+
+  // Lazy-Import um Circular Deps zu vermeiden — sweeper -> mail -> sweeper
+  const { tmplDeletionReminder } = await import("./mail.js");
+  const { config } = await import("../config.js");
+
+  for (const t of tenants) {
+    try {
+      const cancelUrl = `${config.PUBLIC_URL}/studio/settings/account`;
+      for (const owner of t.users) {
+        const tpl = tmplDeletionReminder({
+          displayName: owner.name,
+          studioName: t.name,
+          scheduledFor: t.selfDeletionScheduledFor!,
+          cancelUrl,
+        });
+        await sendMail({ to: owner.email, ...tpl });
+      }
+      await prisma.tenant.update({
+        where: { id: t.id },
+        data: { selfDeletionReminderMailedAt: new Date() },
+      });
+      logger.info(
+        { tenantId: t.id, mailedCount: t.users.length },
+        "sweeper.self_deletion_reminder_sent"
+      );
+    } catch (err) {
+      logger.warn({ err, tenantId: t.id }, "sweeper.self_deletion_reminder_failed");
+    }
+  }
+}
+
+/**
+ * Hard-Delete-Phase. Sucht Tenants mit faelligem selfDeletionScheduledFor
+ * und executet die Loeschung. Sequenziell (nicht parallel) damit
+ * S3-API-Limits nicht ueberlaufen — bei vielen pending Tenants kann
+ * das eine Weile dauern, ist aber OK.
+ */
+async function executeScheduledSelfDeletions() {
+  const due = await prisma.tenant.findMany({
+    where: {
+      status: "pending_deletion",
+      selfDeletionScheduledFor: {
+        not: null,
+        lte: new Date(),
+      },
+    },
+    select: { id: true, name: true },
+  });
+
+  if (due.length === 0) return;
+  logger.info({ count: due.length }, "sweeper.executing_self_deletions");
+
+  const { executeHardDeletion } = await import("./tenant-deletion.js");
+
+  for (const t of due) {
+    try {
+      const result = await executeHardDeletion(t.id);
+      logger.info(
+        { tenantId: t.id, studioName: t.name, ...result },
+        "sweeper.self_deletion_executed"
+      );
+    } catch (err) {
+      // Single tenant scheitert → die anderen weitermachen
+      logger.error(
+        { err, tenantId: t.id, studioName: t.name },
+        "sweeper.self_deletion_failed"
+      );
+    }
   }
 }

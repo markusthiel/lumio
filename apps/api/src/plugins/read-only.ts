@@ -54,6 +54,33 @@ export function registerReadOnlyEnforcement(app: FastifyInstance) {
     // Allowlist: Billing + Auth dürfen immer schreiben
     if (isAllowlisted(req.url)) return;
 
+    // Self-Service-Deletion-Karenzphase: Tenant ist 'pending_deletion'.
+    // Schreibvorgaenge sperren — der User kann sein Studio nicht mehr
+    // veraendern, aber Login + Lesezugriff bleibt (damit er Daten
+    // exportieren oder die Loeschung zuruecknehmen kann). Account-Routes
+    // (Cancel-Endpoint) sind ebenfalls allowlisted, damit Reaktivierung
+    // funktioniert.
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: req.tenantId },
+      select: {
+        status: true,
+        selfDeletionScheduledFor: true,
+      },
+    });
+    if (tenant?.status === "pending_deletion") {
+      // Cancel-Endpoint allow-listen (sonst kann der User nicht
+      // reaktivieren) — aber alles andere blockieren.
+      const path = req.url.replace(/^\/api\/v1/, "").split("?")[0];
+      if (!path.startsWith("/account/delete-request/cancel")) {
+        return reply.status(409).send({
+          error: "pending_deletion",
+          message:
+            "Dieses Studio wurde zur Loeschung angemeldet. Schreibvorgaenge sind gesperrt — du kannst die Loeschung in den Account-Settings zuruecknehmen.",
+          scheduledFor: tenant.selfDeletionScheduledFor?.toISOString(),
+        });
+      }
+    }
+
     const sub = await prisma.billingSubscription.findUnique({
       where: { tenantId: req.tenantId },
       select: { readOnlySince: true, status: true },

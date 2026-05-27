@@ -27,6 +27,10 @@ import { GlobalSearchModal } from "@/components/studio/GlobalSearchModal";
 import { StorageBanner } from "@/components/studio/StorageBanner";
 import { SubscriptionBanner } from "@/components/studio/SubscriptionBanner";
 import { PreArchiveBanner } from "@/components/studio/PreArchiveBanner";
+import {
+  PendingDeletionBanner,
+  useDeletionStatus,
+} from "@/components/studio/DangerZone";
 
 interface NavItem {
   href: string;
@@ -62,6 +66,11 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
     null
   );
   const t = useT();
+
+  // Deletion-Status global tracken — wird oben im Banner angezeigt
+  // und nach Cancel-Click reloaded.
+  const { status: deletionStatus, reload: reloadDeletionStatus } =
+    useDeletionStatus();
 
   // Rolle einmal beim Mount laden — bestimmt welche Nav-Eintraege
   // sichtbar sind. Solange der Wert null ist, zeigen wir nur die
@@ -197,6 +206,10 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
 
       {/* Main Area */}
       <main className="flex-1 min-w-0 min-h-screen">
+        <PendingDeletionBanner
+          status={deletionStatus}
+          onCancelled={() => void reloadDeletionStatus()}
+        />
         <PreArchiveBanner />
         <SubscriptionBanner />
         <StorageBanner />

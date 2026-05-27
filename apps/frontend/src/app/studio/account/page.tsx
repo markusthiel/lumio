@@ -26,6 +26,7 @@ import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { Button } from "@/components/ui";
+import { DangerZone } from "@/components/studio/DangerZone";
 
 interface AccountData {
   user: {
@@ -41,6 +42,13 @@ interface AccountData {
   pendingEmailChange: {
     newEmail: string | undefined;
     expiresAt: string;
+  } | null;
+  tenant: {
+    id: string;
+    name: string;
+    displayName: string | null;
+    status: string;
+    selfDeletionScheduledFor: string | null;
   } | null;
 }
 
@@ -149,6 +157,15 @@ export default function AccountPage() {
       />
 
       <PasswordSection />
+
+      {/* Tenant-Loeschung (Self-Service, DSGVO Art. 17). Nur fuer Owner
+          sichtbar — die Komponente prueft die Rolle selbst. */}
+      {data.tenant && (
+        <DangerZone
+          studioName={data.tenant.name}
+          userRole={data.user.role}
+        />
+      )}
     </div>
   );
 }

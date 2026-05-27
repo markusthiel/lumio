@@ -338,3 +338,130 @@ export function tmplWelcome(opts: {
       `— Lumio`,
   };
 }
+
+// -----------------------------------------------------------------------------
+// Self-Service Tenant-Loeschung (DSGVO Art. 17)
+// -----------------------------------------------------------------------------
+
+/**
+ * Mail nach Anfrage zur Loeschung. Klar machen:
+ *   - das ist passiert
+ *   - bis wann er es zuruecknehmen kann (60 Tage)
+ *   - dass die Abrechnung gestoppt wurde
+ *   - wie er es rueckgaengig macht
+ */
+export function tmplDeletionRequested(opts: {
+  displayName: string | null;
+  studioName: string;
+  scheduledFor: Date;
+  cancelUrl: string;
+}): { subject: string; text: string } {
+  const greeting = opts.displayName ? `Hallo ${opts.displayName},` : "Hallo,";
+  const dateStr = opts.scheduledFor.toLocaleDateString("de-DE", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+  return {
+    subject: `Loeschung deines Studios „${opts.studioName}" geplant`,
+    text:
+      `${greeting}\n\n` +
+      `wir haben deine Anfrage zur Loeschung deines Lumio-Studios ` +
+      `„${opts.studioName}" erhalten.\n\n` +
+      `Was jetzt passiert:\n` +
+      `  • Deine Stripe-Subscription wurde sofort gekuendigt — keine ` +
+      `weitere Abrechnung.\n` +
+      `  • Das Studio bleibt fuer 60 Tage in der Karenzphase. Bestehende ` +
+      `Kunden-Galerien sind in dieser Zeit weiter erreichbar.\n` +
+      `  • Du kannst die Loeschung bis zum ${dateStr} jederzeit ` +
+      `zuruecknehmen.\n` +
+      `  • Am ${dateStr} werden alle Daten endgueltig geloescht — ` +
+      `inklusive aller Bilder, Galerien, und Account-Informationen.\n\n` +
+      `Loeschung zuruecknehmen:\n${opts.cancelUrl}\n\n` +
+      `Wenn du die Loeschung NICHT angefordert hast, melde dich umgehend ` +
+      `bei support@lumio-cloud.de — moeglicherweise hat jemand Fremdes ` +
+      `Zugriff auf deinen Account.\n\n` +
+      `— Lumio`,
+  };
+}
+
+/** Mail wenn der User es sich anders ueberlegt und die Loeschung
+ *  vor dem Stichtag zurueckgenommen hat. Reine Bestaetigung. */
+export function tmplDeletionCancelled(opts: {
+  displayName: string | null;
+  studioName: string;
+}): { subject: string; text: string } {
+  const greeting = opts.displayName ? `Hallo ${opts.displayName},` : "Hallo,";
+  return {
+    subject: `Loeschung deines Studios „${opts.studioName}" zurueckgenommen`,
+    text:
+      `${greeting}\n\n` +
+      `du hast die Loeschung deines Studios „${opts.studioName}" ` +
+      `zurueckgenommen. Dein Studio ist wieder aktiv und voll nutzbar.\n\n` +
+      `Wichtiger Hinweis zur Abrechnung:\n` +
+      `Deine Stripe-Subscription wurde bei der Loesch-Anfrage gekuendigt ` +
+      `und wird NICHT automatisch reaktiviert. Wenn du Lumio weiter ` +
+      `nutzen willst, musst du im Studio unter „Billing" eine neue ` +
+      `Subscription starten — sonst landet dein Account nach Ablauf ` +
+      `der aktuellen Bezahlperiode im Read-only-Modus.\n\n` +
+      `— Lumio`,
+  };
+}
+
+/** Finale Bestaetigungs-Mail wenn die Daten tatsaechlich geloescht
+ *  wurden. Kurz und klar — der User soll wissen dass es durch ist. */
+export function tmplDeletionExecuted(opts: {
+  studioName: string;
+}): { subject: string; text: string } {
+  return {
+    subject: `Dein Lumio-Studio „${opts.studioName}" wurde geloescht`,
+    text:
+      `Hallo,\n\n` +
+      `wie angekuendigt haben wir dein Lumio-Studio „${opts.studioName}" ` +
+      `und alle zugehoerigen Daten endgueltig geloescht.\n\n` +
+      `Geloescht wurden:\n` +
+      `  • Alle Bilder und Videos in deinen Galerien\n` +
+      `  • Alle Galerien und ihre Konfiguration\n` +
+      `  • Dein Account und alle Team-Accounts\n` +
+      `  • Branding, Watermarks, Templates\n` +
+      `  • Audit-Logs (nur die Tenant-spezifischen)\n\n` +
+      `Behalten:\n` +
+      `  • Stripe-Customer-Datensatz (fuer Rechnungs-Audit-Trail in Stripe).\n` +
+      `    Wenn du den auch endgueltig geloescht haben moechtest, schreibe ` +
+      `an support@lumio-cloud.de.\n\n` +
+      `Diese Mail ist deine Loeschungs-Bestaetigung — bitte aufbewahren ` +
+      `falls du sie spaeter fuer dein eigenes Verarbeitungsverzeichnis ` +
+      `brauchst.\n\n` +
+      `Schade dass du gehst. Falls es technische Gruende waren oder ein ` +
+      `Feature gefehlt hat: feedback@lumio-cloud.de — wir lesen das.\n\n` +
+      `— Lumio`,
+  };
+}
+
+/** 7-Tage-Reminder vor dem Hard-Delete. Letzte Chance zur ` +
+ *  Reaktivierung. */
+export function tmplDeletionReminder(opts: {
+  displayName: string | null;
+  studioName: string;
+  scheduledFor: Date;
+  cancelUrl: string;
+}): { subject: string; text: string } {
+  const greeting = opts.displayName ? `Hallo ${opts.displayName},` : "Hallo,";
+  const dateStr = opts.scheduledFor.toLocaleDateString("de-DE", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+  return {
+    subject: `Erinnerung: dein Studio „${opts.studioName}" wird in 7 Tagen geloescht`,
+    text:
+      `${greeting}\n\n` +
+      `am ${dateStr} loeschen wir dein Lumio-Studio „${opts.studioName}" ` +
+      `endgueltig — wie von dir angefragt.\n\n` +
+      `Das ist deine letzte Erinnerung. Wenn du es dir anders ueberlegt ` +
+      `hast, kannst du die Loeschung jetzt noch zuruecknehmen:\n\n` +
+      `${opts.cancelUrl}\n\n` +
+      `Nach dem Stichtag sind die Daten unwiderruflich weg.\n\n` +
+      `— Lumio`,
+  };
+}

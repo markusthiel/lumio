@@ -538,6 +538,35 @@ export const api = {
       method: "DELETE",
     }),
 
+  // ---------- Self-Service Tenant-Loeschung (DSGVO Art. 17) ----------
+
+  /** Studio-Loeschung anfordern. Doppelte Bestaetigung:
+   *  - aktuelles Passwort (Re-Auth)
+   *  - Studio-Name exakt eingetippt (UI-side, hier nochmal Backend-side) */
+  requestStudioDeletion: (input: {
+    password: string;
+    confirmStudioName: string;
+  }) =>
+    request<{ status: "scheduled" | "already_pending"; scheduledFor: string }>(
+      "/account/delete-request",
+      { method: "POST", body: JSON.stringify(input) }
+    ),
+
+  /** Studio-Loeschung zuruecknehmen (Reaktivierung waehrend Karenzphase). */
+  cancelStudioDeletion: () =>
+    request<{ status: "reactivated" | "not_pending" }>(
+      "/account/delete-request/cancel",
+      { method: "POST" }
+    ),
+
+  /** Status der Loeschung — fuer Banner-Anzeige. */
+  getDeletionStatus: () =>
+    request<{
+      isPendingDeletion: boolean;
+      requestedAt: string | null;
+      scheduledFor: string | null;
+    }>("/account/deletion-status"),
+
   /** Auto-Login nach Stripe-Checkout. Welcome-Page ruft das mit der
    *  session_id aus der URL auf — Backend validiert via Stripe und
    *  stellt das Session-Cookie aus. Returnt {ok:true} bei Erfolg,

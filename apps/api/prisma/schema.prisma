@@ -102,10 +102,37 @@ model Tenant {
   // Stripe-Dashboard archivieren falls gewünscht.
   stripeCustomerId String?  @unique
 
+  // ---------------------------------------------------------------------------
+  // Self-Service-Tenant-Loeschung (DSGVO Art. 17)
+  //
+  // Owner kann sein Studio selbst loeschen — Flow:
+  //   1. POST /account/delete-request → setzt diese drei Felder + 
+  //      status='pending_deletion'. Stripe-Subscription wird sofort
+  //      gecancelled. Login bleibt moeglich, aber Schreiboperationen
+  //      sind gesperrt (read-only-Plugin pruefte status).
+  //   2. Bis selfDeletionScheduledFor kann der Owner ueber
+  //      POST /account/delete-request/cancel die Loeschung zuruecknehmen.
+  //      Stripe-Subscription muss er dann ggf. neu starten.
+  //   3. Wenn selfDeletionScheduledFor erreicht: Sweeper macht
+  //      Hard-Delete (S3-Files + DB-Cascade) und schickt finale
+  //      Bestaetigung an die Owner-Email (gemerkt im Audit-Log).
+  //
+  // Trennung zu archivedAt/archiveScheduledAt (Super-Admin-Pfad):
+  // Self-Service ist OWNER-getrieben mit 60 Tagen Karenz und HARD-
+  // DELETE am Ende. Super-Admin-Archive ist Compliance/Strafe-Pfad
+  // mit Soft-Archive (keep data forever) und manuellem Hard-Delete.
+  selfDeletionRequestedAt   DateTime?
+  selfDeletionRequestedById String?   @db.Uuid
+  selfDeletionScheduledFor  DateTime?
+  // Reminder-Mail 7 Tage vor Hard-Delete — Sweeper-Sperre wie bei
+  // archiveReminderMailedAt damit nicht mehrfach gemailed wird.
+  selfDeletionReminderMailedAt DateTime?
+
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@index([slug])
+  @@index([selfDeletionScheduledFor])
   @@map("tenants")
 }
 
