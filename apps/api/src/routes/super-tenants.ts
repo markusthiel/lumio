@@ -1676,4 +1676,113 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
       })),
     };
   });
+
+  // -------------------------------------------------------------------------
+  // GET /super/tenants/:id/notes
+  // -------------------------------------------------------------------------
+  // Liste der internen Stichpunkte zu einem Tenant. Sortierung: neueste
+  // zuerst (typische Timeline-Erwartung).
+  app.get<{ Params: { id: string } }>(
+    "/super/tenants/:id/notes",
+    async (req, reply) => {
+      req.requireSuperAdmin();
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: req.params.id },
+        select: { id: true },
+      });
+      if (!tenant) return reply.status(404).send({ error: "not_found" });
+
+      const notes = await prisma.tenantNote.findMany({
+        where: { tenantId: tenant.id },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          body: true,
+          authorEmail: true,
+          authorName: true,
+          createdAt: true,
+        },
+      });
+      return { notes };
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // POST /super/tenants/:id/notes
+  // -------------------------------------------------------------------------
+  const noteCreateSchema = z.object({
+    body: z.string().min(1).max(2000),
+  });
+  app.post<{ Params: { id: string } }>(
+    "/super/tenants/:id/notes",
+    async (req, reply) => {
+      const sa = req.requireSuperAdmin();
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: req.params.id },
+        select: { id: true },
+      });
+      if (!tenant) return reply.status(404).send({ error: "not_found" });
+
+      const body = noteCreateSchema.parse(req.body);
+      const note = await prisma.tenantNote.create({
+        data: {
+          tenantId: tenant.id,
+          body: body.body,
+          authorId: sa.admin.id,
+          authorEmail: sa.admin.email,
+          authorName: sa.admin.displayName,
+        },
+        select: {
+          id: true,
+          body: true,
+          authorEmail: true,
+          authorName: true,
+          createdAt: true,
+        },
+      });
+
+      await logEvent({
+        tenantId: tenant.id,
+        actorType: "super_admin",
+        actorId: sa.admin.id,
+        action: "super.tenant.note_added",
+        targetType: "tenant_note",
+        targetId: note.id,
+        payload: { bodyLength: body.body.length },
+        ipAddress: req.ip,
+      });
+
+      return reply.status(201).send({ note });
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // DELETE /super/tenants/:id/notes/:noteId
+  // -------------------------------------------------------------------------
+  app.delete<{ Params: { id: string; noteId: string } }>(
+    "/super/tenants/:id/notes/:noteId",
+    async (req, reply) => {
+      const sa = req.requireSuperAdmin();
+      const note = await prisma.tenantNote.findFirst({
+        where: { id: req.params.noteId, tenantId: req.params.id },
+        select: { id: true },
+      });
+      if (!note) return reply.status(404).send({ error: "not_found" });
+
+      await prisma.tenantNote.delete({ where: { id: note.id } });
+
+      await logEvent({
+        tenantId: req.params.id,
+        actorType: "super_admin",
+        actorId: sa.admin.id,
+        action: "super.tenant.note_deleted",
+        targetType: "tenant_note",
+        targetId: note.id,
+        payload: {},
+        ipAddress: req.ip,
+      });
+
+      return { ok: true };
+    }
+  );
 }

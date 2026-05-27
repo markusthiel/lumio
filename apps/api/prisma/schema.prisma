@@ -93,7 +93,7 @@ model Tenant {
   tags        Tag[]
   smartCollections SmartCollection[]
   exports     TenantExport[]
-
+  notes       TenantNote[]
   // Stripe-Customer-ID: lifetime-stabil pro Tenant. Wir setzen sie
   // beim ersten Checkout-Session-Create und nutzen sie wieder bei
   // Plan-Wechseln, Storage-Pack-Käufen, Customer-Portal-Calls.
@@ -1413,4 +1413,33 @@ model ExportToken {
   createdAt   DateTime @default(now())
 
   @@map("export_tokens")
+}
+
+// -----------------------------------------------------------------------------
+// Super-Admin Interne Notizen
+// -----------------------------------------------------------------------------
+// Notizen die NUR der Super-Admin sieht — niemals im Studio sichtbar.
+// Use-Cases: "Hat angerufen wegen X", "VIP-Kunde", "Zahlt manchmal spät",
+// "Hat Sonder-Konditionen", etc.
+//
+// Bewusst minimalistisch: kein Markdown, keine Edits (Append-only-
+// Timeline), keine Threads/Mentions. Wenn der Solo-Operator das mal
+// erweitern will, ist die Architektur einfach genug.
+model TenantNote {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String   @db.Uuid
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  body         String
+
+  /// Super-Admin der die Notiz angelegt hat. Wenn mal mehrere Super-
+  /// Admins existieren, kann man so sehen wer was geschrieben hat.
+  authorId     String   @db.Uuid
+  authorEmail  String   // gemerkt, damit auch nach Super-Admin-Loeschung lesbar
+  authorName   String?
+
+  createdAt    DateTime @default(now())
+
+  @@index([tenantId, createdAt])
+  @@map("tenant_notes")
 }

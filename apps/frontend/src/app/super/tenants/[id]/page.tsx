@@ -464,6 +464,8 @@ function TenantDetail() {
         )}
       </Section>
 
+      <NotesSection tenantId={tenant.id} />
+
       {inviting && (
         <InviteOwnerDialog
           tenantId={tenant.id}
@@ -1281,4 +1283,140 @@ function daysUntil(iso: string): string {
   if (days === 0) return "heute";
   if (days === 1) return "morgen";
   return `in ${days} Tagen`;
+}
+
+// ---------------------------------------------------------------------------
+// Notes-Section
+// ---------------------------------------------------------------------------
+// Interne Stichpunkte des Super-Admin pro Tenant. NIEMALS im Studio
+// sichtbar. Append-only Timeline plus Delete-per-Entry. Bewusst keine
+// Edits — eine Note ist ein Zeitpunkts-Snapshot ("hat heute angerufen").
+// Wenn der User nachjustieren will, schreibt er eine neue Note.
+function NotesSection({ tenantId }: { tenantId: string }) {
+  type Note = Awaited<
+    ReturnType<typeof api.superListTenantNotes>
+  >["notes"][number];
+
+  const [notes, setNotes] = useState<Note[] | null>(null);
+  const [body, setBody] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(
+    null
+  );
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .superListTenantNotes(tenantId)
+      .then((r) => setNotes(r.notes))
+      .catch(() => setNotes([]));
+  }, [tenantId]);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!body.trim()) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await api.superCreateTenantNote(tenantId, body.trim());
+      setNotes((curr) => [res.note, ...(curr ?? [])]);
+      setBody("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Fehler");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function deleteNote(noteId: string) {
+    if (confirmingDeleteId !== noteId) {
+      setConfirmingDeleteId(noteId);
+      setTimeout(
+        () =>
+          setConfirmingDeleteId((curr) => (curr === noteId ? null : curr)),
+        4000
+      );
+      return;
+    }
+    setConfirmingDeleteId(null);
+    try {
+      await api.superDeleteTenantNote(tenantId, noteId);
+      setNotes((curr) => (curr ?? []).filter((n) => n.id !== noteId));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Fehler beim Löschen");
+    }
+  }
+
+  return (
+    <Section title="Interne Notizen">
+      <form onSubmit={submit} className="mb-4">
+        <textarea
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          rows={2}
+          maxLength={2000}
+          placeholder="z.B. Hat am 28.5. wegen Trial-Verlängerung angerufen — 7 Tage zusätzlich verprochen."
+          className="w-full rounded-md border border-line-subtle px-3 py-2 text-ui-sm bg-surface-base"
+        />
+        <div className="flex items-center justify-between mt-2">
+          <span className="text-ui-xs text-ink-tertiary">
+            Nur für dich sichtbar. Tenant sieht das nie.
+          </span>
+          <button
+            type="submit"
+            disabled={!body.trim() || submitting}
+            className="h-8 px-3 rounded bg-accent text-accent-contrast text-ui-sm disabled:opacity-50"
+          >
+            {submitting ? "Speichert…" : "Notiz hinzufügen"}
+          </button>
+        </div>
+        {error && (
+          <div className="mt-2 text-ui-xs text-semantic-danger">{error}</div>
+        )}
+      </form>
+
+      {notes === null ? (
+        <div className="text-ui-sm text-ink-tertiary">Lädt…</div>
+      ) : notes.length === 0 ? (
+        <div className="text-ui-sm text-ink-tertiary italic">
+          Noch keine Notizen.
+        </div>
+      ) : (
+        <ul className="space-y-2">
+          {notes.map((n) => (
+            <li
+              key={n.id}
+              className="rounded-md border border-line-subtle bg-surface-base px-3 py-2"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="text-ui-sm whitespace-pre-wrap min-w-0">
+                  {n.body}
+                </div>
+                <button
+                  onClick={() => deleteNote(n.id)}
+                  className={
+                    confirmingDeleteId === n.id
+                      ? "text-ui-xs text-semantic-danger font-medium shrink-0"
+                      : "text-ui-xs text-ink-tertiary hover:text-semantic-danger shrink-0"
+                  }
+                >
+                  {confirmingDeleteId === n.id ? "Sicher?" : "Löschen"}
+                </button>
+              </div>
+              <div className="text-ui-xs text-ink-tertiary mt-1">
+                {n.authorName ?? n.authorEmail} ·{" "}
+                {new Date(n.createdAt).toLocaleString("de-DE", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Section>
+  );
 }

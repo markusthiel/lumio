@@ -1896,6 +1896,37 @@ export const api = {
       actions: Array<{ action: string; count: number }>;
     }>("/super/audit-log/distinct-actions"),
 
+  superListTenantNotes: (tenantId: string) =>
+    request<{
+      notes: Array<{
+        id: string;
+        body: string;
+        authorEmail: string;
+        authorName: string | null;
+        createdAt: string;
+      }>;
+    }>(`/super/tenants/${tenantId}/notes`),
+
+  superCreateTenantNote: (tenantId: string, body: string) =>
+    request<{
+      note: {
+        id: string;
+        body: string;
+        authorEmail: string;
+        authorName: string | null;
+        createdAt: string;
+      };
+    }>(`/super/tenants/${tenantId}/notes`, {
+      method: "POST",
+      body: JSON.stringify({ body }),
+    }),
+
+  superDeleteTenantNote: (tenantId: string, noteId: string) =>
+    request<{ ok: true }>(
+      `/super/tenants/${tenantId}/notes/${noteId}`,
+      { method: "DELETE" }
+    ),
+
   superListTenants: () =>
     request<{ tenants: SuperTenantSummary[] }>("/super/tenants"),
   superGetTenant: (id: string) =>
