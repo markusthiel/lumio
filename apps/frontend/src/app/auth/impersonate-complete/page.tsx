@@ -13,11 +13,40 @@
  * Admin via /super/tenants/.../impersonate vergeben.
  */
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 
+// useSearchParams() erzwingt eine Client-Side-Render-Boundary. Ohne diese
+// Direktive versucht Next.js die Page beim Production-Build statisch
+// vorzurendern, was scheitert weil die Query-Parameter zur Build-Zeit
+// nicht existieren ('Error occurred prerendering page
+// /auth/impersonate-complete').
+export const dynamic = "force-dynamic";
+
 export default function ImpersonateCompletePage() {
+  // Suspense-Boundary ist Pflicht fuer useSearchParams unter Next.js 14+
+  // im App-Router. Der Fallback ist trivial, weil die Inner-Komponente
+  // beim Mount sofort eigenes State-Rendering uebernimmt.
+  return (
+    <Suspense fallback={<LoadingShell />}>
+      <Inner />
+    </Suspense>
+  );
+}
+
+function LoadingShell() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-surface-canvas">
+      <div className="max-w-md w-full mx-4 rounded-lg border border-line-subtle bg-surface-raised p-6 text-center">
+        <h1 className="text-lg font-semibold mb-2">Support-Login</h1>
+        <p className="text-sm text-ink-tertiary">Session wird angelegt…</p>
+      </div>
+    </div>
+  );
+}
+
+function Inner() {
   const router = useRouter();
   const params = useSearchParams();
   const [error, setError] = useState<string | null>(null);
@@ -57,19 +86,14 @@ export default function ImpersonateCompletePage() {
               Impersonate fehlgeschlagen
             </h1>
             <p className="text-sm text-ink-secondary mb-4">{error}</p>
-            <a
-              href="/"
-              className="text-sm text-accent hover:underline"
-            >
+            <a href="/" className="text-sm text-accent hover:underline">
               Zurück zur Startseite
             </a>
           </>
         ) : (
           <>
             <h1 className="text-lg font-semibold mb-2">Support-Login</h1>
-            <p className="text-sm text-ink-tertiary">
-              Session wird angelegt…
-            </p>
+            <p className="text-sm text-ink-tertiary">Session wird angelegt…</p>
           </>
         )}
       </div>
