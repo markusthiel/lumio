@@ -1817,6 +1817,24 @@ export const api = {
         ownerEmail: string | null;
         ownerName: string | null;
       }>;
+      recentSignups: Array<{
+        id: string;
+        name: string;
+        slug: string;
+        status: string;
+        createdAt: string;
+        planName: string | null;
+        planSlug: string | null;
+        subscriptionStatus: string | null;
+      }>;
+      planDistribution: Array<{
+        planId: string;
+        planSlug: string;
+        planName: string;
+        total: number;
+        byStatus: Record<string, number>;
+      }>;
+      signupsPerWeek: Array<{ weekStart: string; count: number }>;
     }>("/super/stats"),
 
   /** Manueller Cancel der Self-Service-Loeschung durch den Super-Admin

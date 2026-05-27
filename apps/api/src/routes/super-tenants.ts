@@ -48,6 +48,16 @@ import { logger } from "../logger.js";
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 
+/** Liefert Montag 00:00 UTC der ISO-Woche, in der das Datum liegt. */
+function startOfIsoWeek(d: Date): Date {
+  const day = d.getUTCDay() || 7; // Sun(0) → 7
+  const monday = new Date(
+    Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
+  );
+  monday.setUTCDate(monday.getUTCDate() - (day - 1));
+  return monday;
+}
+
 // Reservierte Subdomains die kein Tenant als Slug nutzen darf. MUSS
 // synchron bleiben mit RESERVED_SUBDOMAINS in plugins/auth.ts und im
 // Frontend app/page.tsx (Apex-Erkennung).
@@ -1131,12 +1141,22 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
   // GET /super/stats — globale Übersicht
   // -------------------------------------------------------------------------
   app.get("/super/stats", async () => {
+    // 12 Wochen Fenster fuer Signup-Trend. ISO-Wochenstart Mo 00:00 UTC
+    // — pragmatisch, gut genug. Wir gruppieren in Code, weil Postgres-
+    // date_trunc('week') Locale-sensitive ist und Prisma raw-SQL hier
+    // ein Overkill waere.
+    const TWELVE_WEEKS_MS = 12 * 7 * 24 * 60 * 60 * 1000;
+    const signupHorizon = new Date(Date.now() - TWELVE_WEEKS_MS);
+
     const [
       tenantsByStatus,
       totalUsers,
       totalGalleries,
       totalFiles,
       pendingDeletions,
+      recentTenants,
+      planDistribution,
+      signupTenants,
     ] = await Promise.all([
       prisma.tenant.groupBy({
         by: ["status"],
@@ -1145,9 +1165,6 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
       prisma.user.count(),
       prisma.gallery.count(),
       prisma.file.count(),
-      // Tenants in der 60-Tage-Karenzphase mit Owner-Email + Termin-
-      // Daten, damit das Dashboard direkt eine Mahnliste rendern kann
-      // ohne separate Roundtrips.
       prisma.tenant.findMany({
         where: { status: "pending_deletion" },
         select: {
@@ -1165,7 +1182,97 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
         },
         orderBy: { selfDeletionScheduledFor: "asc" },
       }),
+      // Letzte 10 Signups — wer ist neu auf der Plattform
+      prisma.tenant.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 10,
+        select: {
+          id: true,
+          name: true,
+          displayName: true,
+          slug: true,
+          status: true,
+          createdAt: true,
+          subscription: {
+            select: {
+              status: true,
+              plan: { select: { slug: true, name: true } },
+            },
+          },
+        },
+      }),
+      // Plan-Verteilung: groupBy auf BillingSubscription, dann
+      // Plan-Namen via separater Query nachladen. Status-Filter
+      // weglassen — auch trialing/canceled gehoeren in die Statistik
+      // damit man sieht wie sich die Basis bewegt.
+      prisma.billingSubscription.groupBy({
+        by: ["planId", "status"],
+        _count: { _all: true },
+      }),
+      // Signups der letzten 12 Wochen — fuer Sparkline
+      prisma.tenant.findMany({
+        where: { createdAt: { gte: signupHorizon } },
+        select: { createdAt: true },
+      }),
     ]);
+
+    // Plan-Distribution: ueber Status-Buckets aggregieren, Plan-Name
+    // aufloesen
+    const planIds = Array.from(
+      new Set(planDistribution.map((r) => r.planId))
+    );
+    const plans = planIds.length
+      ? await prisma.billingPlan.findMany({
+          where: { id: { in: planIds } },
+          select: { id: true, slug: true, name: true },
+        })
+      : [];
+    const planById = new Map(plans.map((p) => [p.id, p]));
+
+    type PlanDistRow = {
+      planId: string;
+      planSlug: string;
+      planName: string;
+      total: number;
+      byStatus: Record<string, number>;
+    };
+    const planDistMap = new Map<string, PlanDistRow>();
+    for (const row of planDistribution) {
+      const plan = planById.get(row.planId);
+      const key = row.planId;
+      const existing = planDistMap.get(key) ?? {
+        planId: row.planId,
+        planSlug: plan?.slug ?? "unknown",
+        planName: plan?.name ?? "Unknown",
+        total: 0,
+        byStatus: {},
+      };
+      existing.total += row._count._all;
+      existing.byStatus[row.status] =
+        (existing.byStatus[row.status] ?? 0) + row._count._all;
+      planDistMap.set(key, existing);
+    }
+    const planDistArr = Array.from(planDistMap.values()).sort(
+      (a, b) => b.total - a.total
+    );
+
+    // Signups pro Woche: Bucketing in Code. Eine Woche = 7 Tage,
+    // beginnend am Montag der jeweiligen Woche (UTC).
+    const weekBuckets = new Map<string, number>();
+    const now = Date.now();
+    for (let i = 11; i >= 0; i--) {
+      const ws = startOfIsoWeek(new Date(now - i * 7 * 24 * 60 * 60 * 1000));
+      weekBuckets.set(ws.toISOString().slice(0, 10), 0);
+    }
+    for (const t of signupTenants) {
+      const wk = startOfIsoWeek(t.createdAt).toISOString().slice(0, 10);
+      if (weekBuckets.has(wk)) {
+        weekBuckets.set(wk, (weekBuckets.get(wk) ?? 0) + 1);
+      }
+    }
+    const signupsPerWeek = Array.from(weekBuckets.entries()).map(
+      ([weekStart, count]) => ({ weekStart, count })
+    );
 
     return {
       tenants: tenantsByStatus.reduce(
@@ -1184,6 +1291,18 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
         ownerEmail: t.users[0]?.email ?? null,
         ownerName: t.users[0]?.name ?? null,
       })),
+      recentSignups: recentTenants.map((t) => ({
+        id: t.id,
+        name: t.displayName ?? t.name,
+        slug: t.slug,
+        status: t.status,
+        createdAt: t.createdAt,
+        planName: t.subscription?.plan.name ?? null,
+        planSlug: t.subscription?.plan.slug ?? null,
+        subscriptionStatus: t.subscription?.status ?? null,
+      })),
+      planDistribution: planDistArr,
+      signupsPerWeek,
     };
   });
 

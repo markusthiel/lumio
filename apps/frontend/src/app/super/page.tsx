@@ -68,6 +68,13 @@ function DashboardContent() {
               onChange={() => setRefreshTick((n) => n + 1)}
             />
           )}
+
+          <SignupsSparkline weekly={stats.signupsPerWeek} />
+
+          <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <RecentSignupsList signups={stats.recentSignups} />
+            <PlanDistribution plans={stats.planDistribution} />
+          </div>
         </>
       )}
     </div>
@@ -233,4 +240,235 @@ function StatCard({
       </div>
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Recent-Signups
+// ---------------------------------------------------------------------------
+function RecentSignupsList({
+  signups,
+}: {
+  signups: StatsResponse["recentSignups"];
+}) {
+  return (
+    <section>
+      <h2 className="text-lg font-semibold mb-3">Neueste Signups</h2>
+      {signups.length === 0 ? (
+        <div className="text-sm text-ink-tertiary">
+          Noch keine Signups.
+        </div>
+      ) : (
+        <div className="border border-line-subtle rounded-md bg-surface-raised divide-y divide-line-subtle">
+          {signups.map((s) => (
+            <Link
+              key={s.id}
+              href={`/super/tenants/${s.id}`}
+              className="block px-4 py-2.5 hover:bg-surface-sunken/40"
+            >
+              <div className="flex items-center justify-between gap-3 min-w-0">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium truncate">{s.name}</div>
+                  <div className="text-xs text-ink-tertiary truncate">
+                    {s.planName ?? "Kein Plan"}
+                    {s.subscriptionStatus && (
+                      <>
+                        {" · "}
+                        <span className="font-mono">{s.subscriptionStatus}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div className="text-xs text-ink-tertiary shrink-0">
+                  {relativeTime(s.createdAt)}
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Plan-Verteilung
+// ---------------------------------------------------------------------------
+// Horizontaler Bar-Chart pro Plan, gestapelt nach Subscription-Status
+// (active vs trialing vs canceled etc.). So sieht man auf einen Blick
+// wo die Basis ist und wo der Trial-Pool wartet.
+function PlanDistribution({
+  plans,
+}: {
+  plans: StatsResponse["planDistribution"];
+}) {
+  if (plans.length === 0) {
+    return (
+      <section>
+        <h2 className="text-lg font-semibold mb-3">Plan-Verteilung</h2>
+        <div className="text-sm text-ink-tertiary">
+          Noch keine Subscriptions.
+        </div>
+      </section>
+    );
+  }
+
+  const maxTotal = Math.max(...plans.map((p) => p.total));
+
+  return (
+    <section>
+      <h2 className="text-lg font-semibold mb-3">Plan-Verteilung</h2>
+      <div className="border border-line-subtle rounded-md bg-surface-raised p-4 space-y-3">
+        {plans.map((p) => (
+          <div key={p.planId}>
+            <div className="flex items-baseline justify-between mb-1 text-sm">
+              <span className="font-medium">{p.planName}</span>
+              <span className="text-ink-tertiary">
+                {p.total} {p.total === 1 ? "Tenant" : "Tenants"}
+              </span>
+            </div>
+            <StatusStackBar
+              byStatus={p.byStatus}
+              max={maxTotal}
+              total={p.total}
+            />
+          </div>
+        ))}
+        <div className="pt-2 border-t border-line-subtle flex flex-wrap gap-3 text-xs text-ink-tertiary">
+          <StatusLegendDot color="bg-semantic-success" label="active" />
+          <StatusLegendDot color="bg-accent" label="trialing" />
+          <StatusLegendDot color="bg-semantic-warning" label="past_due" />
+          <StatusLegendDot color="bg-semantic-danger" label="unpaid" />
+          <StatusLegendDot color="bg-ink-tertiary" label="canceled" />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function StatusStackBar({
+  byStatus,
+  max,
+  total,
+}: {
+  byStatus: Record<string, number>;
+  max: number;
+  total: number;
+}) {
+  // Anteil der Bar gegenueber dem groessten Plan. So bleiben Plans mit
+  // wenigen Tenants schmaler — gibt Wuerde Verhaeltnis.
+  const widthPct = max > 0 ? (total / max) * 100 : 0;
+  const order: Array<{ key: string; color: string }> = [
+    { key: "active", color: "bg-semantic-success" },
+    { key: "trialing", color: "bg-accent" },
+    { key: "past_due", color: "bg-semantic-warning" },
+    { key: "unpaid", color: "bg-semantic-danger" },
+    { key: "canceled", color: "bg-ink-tertiary" },
+  ];
+  return (
+    <div className="h-2 bg-surface-sunken rounded overflow-hidden" style={{ width: `${widthPct}%` }}>
+      <div className="flex h-full">
+        {order.map(({ key, color }) => {
+          const n = byStatus[key] ?? 0;
+          if (n === 0) return null;
+          const pct = (n / total) * 100;
+          return (
+            <div
+              key={key}
+              className={color}
+              style={{ width: `${pct}%` }}
+              title={`${key}: ${n}`}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function StatusLegendDot({
+  color,
+  label,
+}: {
+  color: string;
+  label: string;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className={`inline-block w-2 h-2 rounded-sm ${color}`} />
+      {label}
+    </span>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Signup-Trend (12 Wochen)
+// ---------------------------------------------------------------------------
+// SVG-Inline-Sparkline ohne Lib. Bei 12 Datenpunkten ist eine Recharts-
+// Dependency Overkill.
+function SignupsSparkline({
+  weekly,
+}: {
+  weekly: StatsResponse["signupsPerWeek"];
+}) {
+  if (weekly.length === 0) return null;
+  const max = Math.max(...weekly.map((w) => w.count), 1);
+  const total = weekly.reduce((sum, w) => sum + w.count, 0);
+  const W = 600;
+  const H = 60;
+  const barWidth = W / weekly.length;
+
+  return (
+    <section className="mt-8">
+      <div className="flex items-baseline justify-between mb-2">
+        <h2 className="text-lg font-semibold">Signups · letzte 12 Wochen</h2>
+        <span className="text-sm text-ink-tertiary">
+          {total} {total === 1 ? "Tenant" : "Tenants"} insgesamt
+        </span>
+      </div>
+      <div className="border border-line-subtle rounded-md bg-surface-raised p-4">
+        <svg
+          viewBox={`0 0 ${W} ${H}`}
+          className="w-full h-16"
+          preserveAspectRatio="none"
+        >
+          {weekly.map((w, i) => {
+            const h = (w.count / max) * (H - 4);
+            return (
+              <g key={w.weekStart}>
+                <rect
+                  x={i * barWidth + 1}
+                  y={H - h}
+                  width={Math.max(0, barWidth - 2)}
+                  height={h}
+                  className="fill-accent"
+                  opacity={w.count === 0 ? 0.2 : 1}
+                >
+                  <title>
+                    KW ab {w.weekStart}: {w.count}{" "}
+                    {w.count === 1 ? "Signup" : "Signups"}
+                  </title>
+                </rect>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+    </section>
+  );
+}
+
+function relativeTime(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(ms / 60000);
+  if (m < 1) return "gerade eben";
+  if (m < 60) return `vor ${m} min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `vor ${h}h`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `vor ${d} ${d === 1 ? "Tag" : "Tagen"}`;
+  return new Date(iso).toLocaleDateString("de-DE", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
