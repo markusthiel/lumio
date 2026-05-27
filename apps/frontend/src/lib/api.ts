@@ -2045,6 +2045,10 @@ export interface SuperTenantDetail {
   /** Wenn gesetzt: Super-Admin hat eine Archivierung im Voraus geplant.
    *  Studio zeigt ab dann einen Countdown-Banner. */
   archiveScheduledAt: string | null;
+  /** Self-Service-Loeschung: gesetzt wenn Owner das Studio zur
+   *  endgueltigen Loeschung angemeldet hat (status = pending_deletion). */
+  selfDeletionRequestedAt: string | null;
+  selfDeletionScheduledFor: string | null;
   /** Karenz-Info bei archivierten Tenants. Null sonst.
    *  - active: true wenn die Karenzfrist (30 Tage) noch läuft
    *  - deletableAt: ISO-Zeitstring ab wann Hard-Delete erlaubt ist
@@ -2059,6 +2063,35 @@ export interface SuperTenantDetail {
   updatedAt: string;
   galleryCount: number;
   users: SuperTenantUser[];
+  /** Stripe-Subscription, falls vorhanden. Null bei Tenants ohne
+   *  Subscription (Self-Hosting-Tests, etc.). */
+  subscription: SuperTenantSubscription | null;
+}
+
+export interface SuperTenantSubscription {
+  status: string;
+  billingInterval: string;
+  stripeCustomerId: string | null;
+  stripeSubscriptionId: string | null;
+  currentPeriodStart: string | null;
+  currentPeriodEnd: string | null;
+  cancelAtPeriodEnd: boolean;
+  trialEndsAt: string | null;
+  storageBytesUsed: number;
+  storageAddonGib: number;
+  galleriesCount: number;
+  readOnlySince: string | null;
+  createdAt: string;
+  updatedAt: string;
+  plan: {
+    slug: string;
+    name: string;
+    storageGib: number | null;
+    galleriesMax: number | null;
+    priceMonthlyCents: number | null;
+    priceYearlyCents: number | null;
+    currency: string;
+  };
 }
 
 export interface SuperTenantCreated {

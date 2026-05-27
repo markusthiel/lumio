@@ -2,7 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { api, type SuperTenantDetail } from "@/lib/api";
+import {
+  api,
+  type SuperTenantDetail,
+  type SuperTenantSubscription,
+} from "@/lib/api";
 import { SuperShell } from "@/components/super/SuperShell";
 import { InviteOwnerDialog } from "@/components/super/InviteOwnerDialog";
 
@@ -338,6 +342,33 @@ function TenantDetail() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Pending-Deletion-Banner: Tenant ist in der 60-Tage-Karenz fuer
+          Self-Service-Loeschung. Hinweis + (verlinkter) Cancel im Dashboard. */}
+      {tenant.status === "pending_deletion" &&
+        tenant.selfDeletionScheduledFor && (
+          <div className="rounded-md border border-semantic-warning/30 bg-semantic-warning/8 px-4 py-3 mb-6">
+            <div className="text-ui-sm">
+              <span className="font-medium text-ink-primary">
+                Self-Service-Löschung läuft — Hard-Delete am{" "}
+                {new Date(tenant.selfDeletionScheduledFor).toLocaleDateString(
+                  "de-DE",
+                  { day: "2-digit", month: "long", year: "numeric" }
+                )}
+              </span>
+              <div className="text-ui-xs text-ink-tertiary mt-1">
+                Owner kann sich bis dahin selbst zurücknehmen. Falls nicht,
+                kannst du im Dashboard manuell canceln.
+              </div>
+            </div>
+          </div>
+        )}
+
+      {tenant.subscription && (
+        <Section title="Billing">
+          <BillingBlock subscription={tenant.subscription} />
+        </Section>
       )}
 
       <Section title="Metadaten">
@@ -1015,4 +1046,239 @@ function EditMetaForm({
       </div>
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------
+// Billing-Block
+// ---------------------------------------------------------------------------
+// Stripe-Subscription-Uebersicht im Tenant-Detail. Ziel: typische
+// Support-Fragen ohne Tab-Wechsel zu Stripe beantworten koennen.
+//
+// Gezeigt:
+//  - Plan + monatlicher/jaehrlicher Preis
+//  - Status (mit Farbcoding bei past_due/unpaid)
+//  - Trial-Ende, sofern noch im Trial
+//  - Aktuelle Periode + cancelAtPeriodEnd-Hinweis
+//  - Storage-Auslastung mit Progress-Bar gegen Plan-Limit
+//  - Galerie-Zaehlung
+//  - Read-Only-Flag falls eskaliert
+//  - Deep-Links zum Stripe-Dashboard (Customer + Subscription)
+function BillingBlock({
+  subscription,
+}: {
+  subscription: SuperTenantSubscription;
+}) {
+  const plan = subscription.plan;
+
+  const price = (() => {
+    if (subscription.billingInterval === "yearly" && plan.priceYearlyCents !== null) {
+      return formatPrice(plan.priceYearlyCents, plan.currency) + " / Jahr";
+    }
+    if (plan.priceMonthlyCents !== null) {
+      return formatPrice(plan.priceMonthlyCents, plan.currency) + " / Monat";
+    }
+    return null;
+  })();
+
+  const storageGib = subscription.storageBytesUsed / (1024 ** 3);
+  const totalStorageGib =
+    plan.storageGib !== null
+      ? plan.storageGib + subscription.storageAddonGib
+      : null;
+  const storagePct =
+    totalStorageGib && totalStorageGib > 0
+      ? Math.min(100, (storageGib / totalStorageGib) * 100)
+      : null;
+
+  // Stripe-Dashboard-Links. Wir koennen nicht zwischen Live/Test
+  // unterscheiden ohne extra Config, also default auf Live — der
+  // Super-Admin sieht im Stripe-Dashboard selbst ob er im richtigen
+  // Mode ist. Acceptance-Test reicht.
+  const stripeCustomerUrl = subscription.stripeCustomerId
+    ? `https://dashboard.stripe.com/customers/${subscription.stripeCustomerId}`
+    : null;
+  const stripeSubUrl = subscription.stripeSubscriptionId
+    ? `https://dashboard.stripe.com/subscriptions/${subscription.stripeSubscriptionId}`
+    : null;
+
+  return (
+    <div className="space-y-4">
+      {/* Status-Warnungen prominent oben */}
+      {(subscription.status === "past_due" ||
+        subscription.status === "unpaid" ||
+        subscription.status === "incomplete" ||
+        subscription.status === "incomplete_expired") && (
+        <div className="rounded-md border border-semantic-danger/30 bg-semantic-danger/8 px-3 py-2 text-ui-sm">
+          <span className="font-medium text-semantic-danger">
+            Zahlungsproblem: {subscription.status}
+          </span>
+          {subscription.readOnlySince && (
+            <span className="text-ink-tertiary">
+              {" "}
+              · Read-Only seit{" "}
+              {new Date(subscription.readOnlySince).toLocaleDateString(
+                "de-DE"
+              )}
+            </span>
+          )}
+        </div>
+      )}
+
+      {subscription.cancelAtPeriodEnd && subscription.currentPeriodEnd && (
+        <div className="rounded-md border border-semantic-warning/30 bg-semantic-warning/8 px-3 py-2 text-ui-sm">
+          <span className="font-medium">Gekündigt zum </span>
+          {new Date(subscription.currentPeriodEnd).toLocaleDateString("de-DE")}{" "}
+          — danach automatisch beendet.
+        </div>
+      )}
+
+      <dl className="text-ui-sm grid grid-cols-[140px_1fr] gap-y-1.5">
+        <Label>Plan</Label>
+        <span>
+          {plan.name} <span className="text-ink-tertiary">({plan.slug})</span>
+        </span>
+
+        <Label>Preis</Label>
+        <span>{price ?? <span className="text-ink-tertiary">—</span>}</span>
+
+        <Label>Status</Label>
+        <span>
+          <SubscriptionStatusBadge status={subscription.status} />
+        </span>
+
+        <Label>Billing</Label>
+        <span>
+          {subscription.billingInterval === "yearly" ? "Jährlich" : "Monatlich"}
+        </span>
+
+        {subscription.status === "trialing" && subscription.trialEndsAt && (
+          <>
+            <Label>Trial-Ende</Label>
+            <span>
+              {new Date(subscription.trialEndsAt).toLocaleDateString("de-DE", {
+                day: "2-digit",
+                month: "long",
+                year: "numeric",
+              })}{" "}
+              <span className="text-ink-tertiary">
+                ({daysUntil(subscription.trialEndsAt)})
+              </span>
+            </span>
+          </>
+        )}
+
+        {subscription.currentPeriodStart && subscription.currentPeriodEnd && (
+          <>
+            <Label>Aktuelle Periode</Label>
+            <span>
+              {new Date(
+                subscription.currentPeriodStart
+              ).toLocaleDateString("de-DE")}
+              {" – "}
+              {new Date(
+                subscription.currentPeriodEnd
+              ).toLocaleDateString("de-DE")}
+            </span>
+          </>
+        )}
+
+        <Label>Speicher</Label>
+        <span>
+          {storageGib.toFixed(2)} GiB
+          {totalStorageGib !== null && ` von ${totalStorageGib} GiB`}
+          {subscription.storageAddonGib > 0 &&
+            ` (${plan.storageGib} Plan + ${subscription.storageAddonGib} Add-On)`}
+          {storagePct !== null && (
+            <div className="h-1.5 bg-surface-sunken rounded mt-1 overflow-hidden">
+              <div
+                className={
+                  "h-full " +
+                  (storagePct >= 95
+                    ? "bg-semantic-danger"
+                    : storagePct >= 80
+                      ? "bg-semantic-warning"
+                      : "bg-accent")
+                }
+                style={{ width: `${storagePct}%` }}
+              />
+            </div>
+          )}
+        </span>
+
+        <Label>Galerien</Label>
+        <span>
+          {subscription.galleriesCount}
+          {plan.galleriesMax !== null && ` von ${plan.galleriesMax}`}
+        </span>
+      </dl>
+
+      {(stripeCustomerUrl || stripeSubUrl) && (
+        <div className="pt-3 border-t border-line-subtle flex gap-3 text-ui-sm">
+          {stripeCustomerUrl && (
+            <a
+              href={stripeCustomerUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent hover:text-accent-hover"
+            >
+              ↗ Customer in Stripe
+            </a>
+          )}
+          {stripeSubUrl && (
+            <a
+              href={stripeSubUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent hover:text-accent-hover"
+            >
+              ↗ Subscription in Stripe
+            </a>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SubscriptionStatusBadge({ status }: { status: string }) {
+  const tone = (() => {
+    switch (status) {
+      case "active":
+        return "bg-semantic-success/15 text-semantic-success";
+      case "trialing":
+        return "bg-accent/15 text-accent";
+      case "past_due":
+      case "unpaid":
+      case "incomplete":
+      case "incomplete_expired":
+        return "bg-semantic-danger/15 text-semantic-danger";
+      case "canceled":
+        return "bg-surface-sunken text-ink-tertiary";
+      default:
+        return "bg-surface-sunken text-ink-secondary";
+    }
+  })();
+  return (
+    <span
+      className={`inline-block px-2 py-0.5 rounded text-ui-xs font-medium ${tone}`}
+    >
+      {status}
+    </span>
+  );
+}
+
+function formatPrice(cents: number, currency: string): string {
+  return new Intl.NumberFormat("de-DE", {
+    style: "currency",
+    currency,
+  }).format(cents / 100);
+}
+
+function daysUntil(iso: string): string {
+  const ms = new Date(iso).getTime() - Date.now();
+  const days = Math.ceil(ms / (1000 * 60 * 60 * 24));
+  if (days < 0) return "abgelaufen";
+  if (days === 0) return "heute";
+  if (days === 1) return "morgen";
+  return `in ${days} Tagen`;
 }

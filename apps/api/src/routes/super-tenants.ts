@@ -330,6 +330,39 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
           customDomain: true,
           createdAt: true,
           updatedAt: true,
+          // Self-Service-Loeschung — fuer Karenz-Anzeige im Detail
+          selfDeletionRequestedAt: true,
+          selfDeletionScheduledFor: true,
+          // Billing — fuer Subscription-Block
+          subscription: {
+            select: {
+              status: true,
+              billingInterval: true,
+              stripeCustomerId: true,
+              stripeSubscriptionId: true,
+              currentPeriodStart: true,
+              currentPeriodEnd: true,
+              cancelAtPeriodEnd: true,
+              trialEndsAt: true,
+              storageBytesUsed: true,
+              storageAddonGib: true,
+              galleriesCount: true,
+              readOnlySince: true,
+              createdAt: true,
+              updatedAt: true,
+              plan: {
+                select: {
+                  slug: true,
+                  name: true,
+                  storageGib: true,
+                  galleriesMax: true,
+                  priceMonthlyCents: true,
+                  priceYearlyCents: true,
+                  currency: true,
+                },
+              },
+            },
+          },
           users: {
             select: {
               id: true,
@@ -363,24 +396,63 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
         karenz = {
           active: remainingMs > 0,
           deletableAt,
-          remainingDays: Math.max(0, Math.ceil(remainingMs / (24 * 60 * 60 * 1000))),
+          remainingDays: Math.max(
+            0,
+            Math.ceil(remainingMs / (24 * 60 * 60 * 1000))
+          ),
         };
       }
+
+      // BigInt aus Prisma kann nicht direkt JSON-serialisiert werden,
+      // wir konvertieren zu number (sicher bis 9 PiB, mehr als wir
+      // jemals als Storage-Wert sehen werden).
+      const sub = tenant.subscription;
+      const subscription = sub
+        ? {
+            status: sub.status,
+            billingInterval: sub.billingInterval,
+            stripeCustomerId: sub.stripeCustomerId,
+            stripeSubscriptionId: sub.stripeSubscriptionId,
+            currentPeriodStart: sub.currentPeriodStart,
+            currentPeriodEnd: sub.currentPeriodEnd,
+            cancelAtPeriodEnd: sub.cancelAtPeriodEnd,
+            trialEndsAt: sub.trialEndsAt,
+            storageBytesUsed: Number(sub.storageBytesUsed),
+            storageAddonGib: sub.storageAddonGib,
+            galleriesCount: sub.galleriesCount,
+            readOnlySince: sub.readOnlySince,
+            createdAt: sub.createdAt,
+            updatedAt: sub.updatedAt,
+            plan: {
+              slug: sub.plan.slug,
+              name: sub.plan.name,
+              storageGib: sub.plan.storageGib,
+              galleriesMax: sub.plan.galleriesMax,
+              priceMonthlyCents: sub.plan.priceMonthlyCents,
+              priceYearlyCents: sub.plan.priceYearlyCents,
+              currency: sub.plan.currency,
+            },
+          }
+        : null;
 
       return {
         tenant: {
           id: tenant.id,
           slug: tenant.slug,
           name: tenant.name,
+          displayName: tenant.displayName,
           status: tenant.status,
           archivedAt: tenant.archivedAt,
           archiveScheduledAt: tenant.archiveScheduledAt,
+          selfDeletionRequestedAt: tenant.selfDeletionRequestedAt,
+          selfDeletionScheduledFor: tenant.selfDeletionScheduledFor,
           karenz,
           customDomain: tenant.customDomain,
           createdAt: tenant.createdAt,
           updatedAt: tenant.updatedAt,
           galleryCount: tenant._count.galleries,
           users: tenant.users,
+          subscription,
         },
       };
     }
