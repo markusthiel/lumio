@@ -33,7 +33,7 @@ import {
   buildResetUrl,
 } from "../services/setupToken.js";
 import { sendMail, tmplPasswordReset } from "../services/mail.js";
-import { tenantDisplayName } from "../services/tenant.js";
+import { tenantDisplayName, isTenantOperational } from "../services/tenant.js";
 import {
   createLoginChallenge,
   verifyLoginChallenge,
@@ -251,8 +251,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       if (
         !user ||
         user.status !== "active" ||
-        (user.tenant.status !== "active" &&
-          user.tenant.status !== "pending_deletion")
+        !isTenantOperational(user.tenant.status)
       ) {
         return reply.status(401).send({ error: "invalid_credentials" });
       }
@@ -461,8 +460,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       if (
         !user ||
         user.status !== "active" ||
-        (user.tenant.status !== "active" &&
-          user.tenant.status !== "pending_deletion")
+        !isTenantOperational(user.tenant.status)
       ) {
         return reply.status(401).send({ error: "invalid_credentials" });
       }
@@ -651,7 +649,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         },
       });
       if (!user) return reply.status(404).send({ error: "invalid_or_expired" });
-      if (user.tenant.status !== "active") {
+      if (!isTenantOperational(user.tenant.status)) {
         return reply.status(409).send({ error: "tenant_inactive" });
       }
       return {
@@ -691,7 +689,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         include: { tenant: { select: { status: true } } },
       });
       if (!user) return reply.status(404).send({ error: "invalid_or_expired" });
-      if (user.tenant.status !== "active") {
+      if (!isTenantOperational(user.tenant.status)) {
         return reply.status(409).send({ error: "tenant_inactive" });
       }
 
@@ -791,7 +789,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       if (
         user &&
         user.status === "active" &&
-        user.tenant.status === "active"
+        isTenantOperational(user.tenant.status)
       ) {
         const { token } = await createSetupToken({
           userId: user.id,
@@ -872,7 +870,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         },
       });
       if (!user) return reply.status(404).send({ error: "invalid_or_expired" });
-      if (user.status !== "active" || user.tenant.status !== "active") {
+      if (user.status !== "active" || !isTenantOperational(user.tenant.status)) {
         return reply.status(409).send({ error: "user_or_tenant_inactive" });
       }
       return {
@@ -919,7 +917,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         include: { tenant: { select: { status: true } } },
       });
       if (!user) return reply.status(404).send({ error: "invalid_or_expired" });
-      if (user.status !== "active" || user.tenant.status !== "active") {
+      if (user.status !== "active" || !isTenantOperational(user.tenant.status)) {
         return reply.status(409).send({ error: "user_or_tenant_inactive" });
       }
 
@@ -1008,7 +1006,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         where: { id: found.userId },
         include: { tenant: { select: { name: true, status: true } } },
       });
-      if (!user || user.tenant.status !== "active" || user.status !== "active") {
+      if (!user || !isTenantOperational(user.tenant.status) || user.status !== "active") {
         return reply
           .type("text/html; charset=utf-8")
           .status(409)

@@ -23,6 +23,7 @@ import fp from "fastify-plugin";
 
 import { config } from "../config.js";
 import { prisma } from "../db.js";
+import { isTenantOperational } from "../services/tenant.js";
 import { getDefaultTenantId } from "../bootstrap.js";
 import { validateSession, type SessionContext } from "../services/auth.js";
 import { validateApiToken } from "../services/apiToken.js";
@@ -134,7 +135,7 @@ async function resolveTenant(req: FastifyRequest): Promise<string> {
         where: { slug },
         select: { id: true, status: true },
       });
-      if (byHeader && byHeader.status === "active") return byHeader.id;
+      if (byHeader && isTenantOperational(byHeader.status)) return byHeader.id;
     }
   }
 
@@ -142,7 +143,10 @@ async function resolveTenant(req: FastifyRequest): Promise<string> {
   const host = (req.headers.host ?? "").split(":")[0].toLowerCase();
   if (host) {
     const byDomain = await prisma.tenant.findFirst({
-      where: { customDomain: host, status: "active" },
+      where: {
+        customDomain: host,
+        status: { in: ["active", "pending_deletion"] },
+      },
       select: { id: true },
     });
     if (byDomain) return byDomain.id;
@@ -166,7 +170,7 @@ async function resolveTenant(req: FastifyRequest): Promise<string> {
         where: { slug },
         select: { id: true, status: true },
       });
-      if (bySlug && bySlug.status === "active") return bySlug.id;
+      if (bySlug && isTenantOperational(bySlug.status)) return bySlug.id;
     }
   }
 

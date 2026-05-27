@@ -16,6 +16,7 @@ import argon2 from "argon2";
 import type { Session, User } from "@prisma/client";
 
 import { prisma } from "../db.js";
+import { isTenantOperational } from "./tenant.js";
 
 const SESSION_BYTES = 32;
 const SESSION_TTL_DAYS = 30;
@@ -114,7 +115,9 @@ export async function validateSession(
     return null;
   }
   if (session.user.status !== "active") return null;
-  if (session.user.tenant.status !== "active") return null;
+  // Tenant darf 'active' oder 'pending_deletion' (Karenzphase) sein —
+  // suspended/archived (Super-Admin) sperren weiterhin den Zugriff.
+  if (!isTenantOperational(session.user.tenant.status)) return null;
 
   // tenant-Feld entfernen, damit der zurückgegebene User wieder zur
   // SessionContext-Shape (ohne tenant-Eager-Load) passt — die Aufrufer

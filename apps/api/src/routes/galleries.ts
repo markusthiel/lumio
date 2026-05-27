@@ -21,6 +21,7 @@ import { config } from "../config.js";
 import { generateGallerySlug } from "../services/ids.js";
 import { presignGet, presignPut } from "../services/storage.js";
 import { verifyPassword } from "../services/auth.js";
+import { isTenantOperational } from "../services/tenant.js";
 import { enqueue, Queues } from "../services/queue.js";
 import { resolveGalleryBranding } from "../services/branding.js";
 import { logEvent } from "../services/audit.js";
@@ -1209,7 +1210,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
     if (!gallery || gallery.status !== "live") {
       return reply.status(404).send({ error: "not_found" });
     }
-    if (gallery.tenant.status !== "active") {
+    if (!isTenantOperational(gallery.tenant.status)) {
       return reply
         .status(503)
         .send({ error: "tenant_unavailable" });
@@ -1920,7 +1921,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
       if (!gallery || gallery.status !== "live") {
         return reply.status(404).send({ error: "not_found" });
       }
-      if (gallery.tenant.status !== "active") {
+      if (!isTenantOperational(gallery.tenant.status)) {
         return reply.status(503).send({ error: "tenant_unavailable" });
       }
 
