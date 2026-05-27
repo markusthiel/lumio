@@ -75,6 +75,11 @@ export function SuperShell({ children }: { children: React.ReactNode }) {
             label="MRR"
           />
           <SidebarLink
+            href="/super/announcements"
+            active={pathname?.startsWith("/super/announcements") ?? false}
+            label="Banner"
+          />
+          <SidebarLink
             href="/super/audit"
             active={pathname?.startsWith("/super/audit") ?? false}
             label="Audit-Log"

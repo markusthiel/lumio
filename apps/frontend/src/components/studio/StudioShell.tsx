@@ -27,6 +27,7 @@ import { GlobalSearchModal } from "@/components/studio/GlobalSearchModal";
 import { StorageBanner } from "@/components/studio/StorageBanner";
 import { SubscriptionBanner } from "@/components/studio/SubscriptionBanner";
 import { PreArchiveBanner } from "@/components/studio/PreArchiveBanner";
+import { AnnouncementBanner } from "@/components/studio/AnnouncementBanner";
 import {
   PendingDeletionBanner,
   useDeletionStatus,
@@ -128,6 +129,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col bg-surface-canvas text-ink-primary">
       {impersonation && <ImpersonationBanner imp={impersonation} />}
+      <AnnouncementBanner />
       <div className="flex-1 flex">
       <GlobalSearchModal
         open={searchOpen}

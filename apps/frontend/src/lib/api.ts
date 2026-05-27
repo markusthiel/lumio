@@ -2013,6 +2013,71 @@ export const api = {
       }>;
     }>("/super/mrr"),
 
+  /** Public: aktive Announcements (vom Studio-Shell gepollt). */
+  listActiveAnnouncements: () =>
+    request<{
+      announcements: Array<{
+        id: string;
+        title: string;
+        body: string;
+        severity: "info" | "warning" | "critical";
+        dismissible: boolean;
+        activeUntil: string | null;
+        createdAt: string;
+      }>;
+    }>("/announcements/active"),
+
+  /** Super-Admin: alle Announcements (inkl. zukuenftige + vergangene). */
+  superListAnnouncements: () =>
+    request<{
+      announcements: Array<{
+        id: string;
+        title: string;
+        body: string;
+        severity: string;
+        activeFrom: string | null;
+        activeUntil: string | null;
+        dismissible: boolean;
+        createdByEmail: string;
+        createdAt: string;
+        updatedAt: string;
+      }>;
+    }>("/super/announcements"),
+
+  superCreateAnnouncement: (input: {
+    title: string;
+    body: string;
+    severity?: "info" | "warning" | "critical";
+    activeFrom?: string | null;
+    activeUntil?: string | null;
+    dismissible?: boolean;
+  }) =>
+    request<{ announcement: { id: string } }>("/super/announcements", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  superUpdateAnnouncement: (
+    id: string,
+    input: {
+      title?: string;
+      body?: string;
+      severity?: "info" | "warning" | "critical";
+      activeFrom?: string | null;
+      activeUntil?: string | null;
+      dismissible?: boolean;
+    }
+  ) =>
+    request<{ announcement: { id: string } }>(
+      `/super/announcements/${id}`,
+      { method: "PATCH", body: JSON.stringify(input) }
+    ),
+
+  superDeleteAnnouncement: (id: string) =>
+    request<{ ok: true }>(`/super/announcements/${id}`, {
+      method: "DELETE",
+    }),
+
   superListTenants: () =>
     request<{ tenants: SuperTenantSummary[] }>("/super/tenants"),
   superGetTenant: (id: string) =>

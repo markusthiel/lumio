@@ -44,6 +44,7 @@ import { registerTeamRoutes } from "./routes/team.js";
 import { registerAccountRoutes } from "./routes/account.js";
 import { registerSuperAuthRoutes } from "./routes/super-auth.js";
 import { registerSuperTenantRoutes } from "./routes/super-tenants.js";
+import { registerAnnouncementRoutes } from "./routes/announcements.js";
 import { registerWsRoutes } from "./routes/ws.js";
 import superAdminPlugin from "./plugins/super-admin.js";
 import { startPeriodicSweeper } from "./services/sweeper.js";
@@ -146,6 +147,10 @@ async function buildServer() {
       // sind aber bewusst eingekapselt damit ihr Guard nicht auf andere
       // Routes des selben Scopes wirkt.
       await api.register(registerSuperTenantRoutes);
+      // Announcement-Routes: GET /announcements/active ist public, der
+      // Rest ist Super-Admin (Guard innerhalb der Funktion via
+      // requireSuperAdmin).
+      await registerAnnouncementRoutes(api);
       if (config.BILLING_ENABLED) {
         await registerBillingRoutes(api);
         await registerSignupRoutes(api);

@@ -1485,3 +1485,44 @@ model MrrSnapshot {
   @@index([date])
   @@map("mrr_snapshots")
 }
+
+// -----------------------------------------------------------------------------
+// System-Announcements (Wartungs-/Update-Banner an alle Studios)
+// -----------------------------------------------------------------------------
+// Super-Admin kann Banner schalten, die in JEDEM Studio im StudioShell
+// angezeigt werden. Use-Cases:
+//   - geplantes Wartungsfenster ("am Sonntag 02:00 UTC sind Lumio-Dienste
+//     fuer 30min nicht erreichbar")
+//   - Hinweis auf neue Features
+//   - akute Outage-Notification
+//
+// Severity entscheidet ueber Farbe und Dismissibility-Behavior. 'critical'
+// wird vom Frontend NICHT als dismiss-bar behandelt — wenn was richtig
+// brennt, soll der User es nicht wegklicken koennen.
+model SystemAnnouncement {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title        String
+  body         String
+
+  /// info | warning | critical
+  severity     String   @default("info")
+
+  /// Wenn null: ab sofort aktiv. Sonst ab dem Zeitpunkt.
+  activeFrom   DateTime?
+  /// Wenn null: aktiv bis manuell deaktiviert.
+  activeUntil  DateTime?
+
+  /// Wenn false: User kann den Banner NICHT wegklicken. Default true.
+  /// Critical-Severity ignoriert das ohnehin.
+  dismissible  Boolean  @default(true)
+
+  /// Super-Admin der das Announcement angelegt hat (denormalisiert).
+  createdById      String   @db.Uuid
+  createdByEmail   String
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([activeFrom, activeUntil])
+  @@map("system_announcements")
+}
