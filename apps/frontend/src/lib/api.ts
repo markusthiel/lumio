@@ -1129,11 +1129,29 @@ export const api = {
       canSelect?: boolean;
       canSeeOthers?: boolean;
       expiresAt?: string;
+      /** Wenn true UND email gesetzt: direkt nach dem Anlegen eine
+       *  Einladungs-Mail an die Adresse schicken. */
+      sendInvitation?: boolean;
+      /** Persoenliche Notiz fuer die Einladungs-Mail. Max 1000 Zeichen. */
+      personalMessage?: string;
     }
   ) =>
-    request<{ access: GalleryAccess }>(
+    request<{ access: GalleryAccess; invitationSent?: boolean }>(
       `/galleries/${galleryId}/access`,
       { method: "POST", body: JSON.stringify(input) }
+    ),
+
+  /** Einladung zu einem bestehenden Access (erneut) verschicken.
+   *  Backend antwortet 400 wenn keine email auf dem Access hinterlegt
+   *  ist. */
+  sendAccessInvitation: (
+    galleryId: string,
+    accessId: string,
+    input?: { personalMessage?: string }
+  ) =>
+    request<{ sent: boolean }>(
+      `/galleries/${galleryId}/access/${accessId}/invite`,
+      { method: "POST", body: JSON.stringify(input ?? {}) }
     ),
 
   deleteAccess: (galleryId: string, accessId: string) =>

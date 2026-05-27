@@ -237,3 +237,60 @@ export function tmplEmailChangeNotice(opts: {
       `— Lumio`,
   };
 }
+
+/**
+ * Galerie-Einladung an Endkund:innen — wird verschickt wenn ein
+ * GalleryAccess angelegt wird (oder spaeter manuell "Einladung
+ * erneut senden" geklickt wird).
+ *
+ * personalMessage: optionale persoenliche Notiz vom Fotograf
+ * (z.B. "Liebe Anna, hier sind eure Hochzeitsbilder!"). Wird ueber
+ * den Standard-Text gesetzt damit sie als erstes sichtbar ist.
+ */
+export function tmplGalleryInvite(opts: {
+  galleryTitle: string;
+  shareUrl: string;
+  studioName: string;
+  recipientLabel: string;
+  personalMessage?: string;
+  canSelect: boolean;
+  canDownload: boolean;
+  expiresAt?: Date | null;
+}): { subject: string; text: string } {
+  const greetingName = opts.recipientLabel || "Hallo";
+  const expiryLine = opts.expiresAt
+    ? `\nDer Link ist gültig bis ${opts.expiresAt.toLocaleDateString(
+        "de-DE",
+        { day: "2-digit", month: "long", year: "numeric" }
+      )}.\n`
+    : "";
+
+  // Was kann der Empfaenger? Kleiner Bullet-Block damit klar ist,
+  // was er ohne Account tun kann.
+  const capabilities: string[] = [];
+  capabilities.push("Bilder ansehen");
+  if (opts.canSelect) capabilities.push("Lieblings-Bilder markieren");
+  if (opts.canDownload) capabilities.push("Bilder herunterladen");
+  const capLines = capabilities.map((c) => `  • ${c}`).join("\n");
+
+  const intro = opts.personalMessage
+    ? `${opts.personalMessage}\n\n`
+    : `${greetingName},\n\n` +
+      `deine Galerie „${opts.galleryTitle}" ist da. ` +
+      `Über den folgenden Link kannst du:\n\n`;
+
+  return {
+    subject: `Deine Galerie „${opts.galleryTitle}" von ${opts.studioName}`,
+    text:
+      intro +
+      (opts.personalMessage ? `Was du in der Galerie tun kannst:\n` : "") +
+      capLines +
+      `\n\n` +
+      `Galerie öffnen:\n${opts.shareUrl}\n` +
+      expiryLine +
+      `\n` +
+      `— ${opts.studioName}\n` +
+      `\n` +
+      `(verschickt via Lumio)`,
+  };
+}

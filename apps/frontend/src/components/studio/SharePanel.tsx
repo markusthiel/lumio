@@ -14,6 +14,10 @@ export function SharePanel({
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
+  /** Welcher Access-Eintrag schickt gerade eine Einladung? Bremst Doppelklicks. */
+  const [invitingId, setInvitingId] = useState<string | null>(null);
+  /** Welche Access-Einladung wurde gerade erfolgreich verschickt? Reset nach 2s. */
+  const [invitedId, setInvitedId] = useState<string | null>(null);
 
   async function load() {
     try {
@@ -44,6 +48,39 @@ export function SharePanel({
       setTimeout(() => setCopied(null), 1500);
     } catch {
       // ignore
+    }
+  }
+
+  async function sendInvitation(accessId: string, label: string) {
+    // Optionale Notiz vom Studio per simplem prompt() — eine
+    // dedicated Dialog-Komponente waere schoener, aber prompt
+    // reicht fuer die Mehrheit der Faelle.
+    const personalMessage = window.prompt(
+      `Persönliche Nachricht für ${label} (optional, max 1000 Zeichen):`,
+      ""
+    );
+    // null = abgebrochen, "" = leer = ohne Nachricht weiter
+    if (personalMessage === null) return;
+
+    setInvitingId(accessId);
+    try {
+      const res = await api.sendAccessInvitation(galleryId, accessId, {
+        personalMessage: personalMessage || undefined,
+      });
+      if (res.sent) {
+        setInvitedId(accessId);
+        setTimeout(() => setInvitedId(null), 2000);
+      } else {
+        alert("Einladung konnte nicht verschickt werden.");
+      }
+    } catch (err) {
+      alert(
+        err instanceof Error
+          ? `Fehler: ${err.message}`
+          : "Einladung konnte nicht verschickt werden."
+      );
+    } finally {
+      setInvitingId(null);
     }
   }
 
@@ -111,12 +148,28 @@ export function SharePanel({
                         <div className="text-xs text-ink-tertiary">{a.email}</div>
                       )}
                     </div>
-                    <button
-                      onClick={() => deleteAccess(a.id)}
-                      className="text-xs text-red-600 hover:underline"
-                    >
-                      Widerrufen
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {a.email && (
+                        <button
+                          onClick={() => sendInvitation(a.id, a.label)}
+                          disabled={invitingId === a.id}
+                          className="text-xs text-accent hover:underline disabled:opacity-50"
+                          title="Einladungs-Mail an diese Adresse schicken"
+                        >
+                          {invitingId === a.id
+                            ? "Senden…"
+                            : invitedId === a.id
+                              ? "Gesendet ✓"
+                              : "Einladung senden"}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => deleteAccess(a.id)}
+                        className="text-xs text-red-600 hover:underline"
+                      >
+                        Widerrufen
+                      </button>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <code className="flex-1 text-xs bg-surface-sunken border border-line-subtle rounded px-2 py-1 truncate">
@@ -174,8 +227,14 @@ function CreateAccessDialog({
   const [canComment, setCanComment] = useState(true);
   const [canSelect, setCanSelect] = useState(true);
   const [canSeeOthers, setCanSeeOthers] = useState(false);
+  /** Wenn die Email leer ist, ist die Option unwirksam — wir blenden
+   *  die Eingaben deshalb erst ein, wenn email gesetzt ist. */
+  const [sendInvitation, setSendInvitation] = useState(true);
+  const [personalMessage, setPersonalMessage] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const wantsInvitation = !!email && sendInvitation;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -189,6 +248,9 @@ function CreateAccessDialog({
         canComment,
         canSelect,
         canSeeOthers,
+        sendInvitation: wantsInvitation,
+        personalMessage:
+          wantsInvitation && personalMessage ? personalMessage : undefined,
       });
       onCreated();
     } catch (err) {
@@ -274,6 +336,40 @@ function CreateAccessDialog({
           </label>
         </div>
 
+        {/* Einladungs-Optionen — nur sichtbar wenn eine E-Mail gesetzt ist.
+            Ohne E-Mail koennen wir nichts schicken, also auch nichts anbieten. */}
+        {email && (
+          <div className="space-y-1.5 border-t border-line-subtle pt-4">
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input
+                type="checkbox"
+                checked={sendInvitation}
+                onChange={(e) => setSendInvitation(e.target.checked)}
+              />
+              Einladungs-Mail jetzt verschicken
+            </label>
+            {sendInvitation && (
+              <div className="space-y-1 pl-6">
+                <label
+                  htmlFor="personalMessage"
+                  className="text-xs text-ink-tertiary"
+                >
+                  Persönliche Nachricht (optional)
+                </label>
+                <textarea
+                  id="personalMessage"
+                  value={personalMessage}
+                  onChange={(e) => setPersonalMessage(e.target.value)}
+                  rows={3}
+                  maxLength={1000}
+                  className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm"
+                  placeholder="z.B. Liebe Anna, lieber Tim — eure Hochzeitsbilder sind da! Viel Freude beim Anschauen."
+                />
+              </div>
+            )}
+          </div>
+        )}
+
         {error && (
           <div className="text-sm text-semantic-danger bg-semantic-danger/10 border border-semantic-danger/30 rounded-md px-3 py-2">
             {error}
@@ -293,7 +389,11 @@ function CreateAccessDialog({
             disabled={pending}
             className="text-sm px-3 py-2 rounded-md bg-accent text-accent-contrast hover:bg-accent-hover disabled:opacity-50"
           >
-            {pending ? "Wird erstellt…" : "Erstellen"}
+            {pending
+              ? "Wird erstellt…"
+              : wantsInvitation
+                ? "Erstellen & einladen"
+                : "Erstellen"}
           </button>
         </div>
       </form>

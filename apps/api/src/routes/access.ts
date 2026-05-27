@@ -19,6 +19,7 @@ import { prisma } from "../db.js";
 import { generateAccessToken } from "../services/ids.js";
 import { hashPassword } from "../services/auth.js";
 import { logEvent } from "../services/audit.js";
+import { sendGalleryInvitation } from "../services/notifier.js";
 
 const createAccessSchema = z.object({
   label: z.string().min(1).max(100),
@@ -28,9 +29,36 @@ const createAccessSchema = z.object({
   canSelect: z.boolean().default(true),
   canSeeOthers: z.boolean().default(false),
   expiresAt: z.string().datetime().optional(),
+  /** Wenn true UND eine email gesetzt ist: direkt nach dem Anlegen
+   *  eine Einladungs-Mail an die Adresse schicken. Default false,
+   *  damit das alte Verhalten (nur Link, kein Versand) erhalten
+   *  bleibt. */
+  sendInvitation: z.boolean().default(false),
+  /** Optionale persoenliche Nachricht in der Einladung. Wird ueber
+   *  den Standard-Begruessungstext gesetzt. Max 1000 Zeichen damit
+   *  die Mail nicht ausartet. */
+  personalMessage: z.string().max(1000).optional(),
 });
 
-const updateAccessSchema = createAccessSchema.partial();
+// PATCH-Schema: explizit ohne sendInvitation/personalMessage — bei
+// einer Aenderung sollen NICHT automatisch Mails rausgehen. Wer eine
+// Einladung neu schicken will, nutzt POST /access/:id/invite.
+const updateAccessSchema = z
+  .object({
+    label: z.string().min(1).max(100),
+    email: z.string().email(),
+    canDownload: z.boolean(),
+    canComment: z.boolean(),
+    canSelect: z.boolean(),
+    canSeeOthers: z.boolean(),
+    expiresAt: z.string().datetime(),
+  })
+  .partial();
+
+// Schema fuer den (Re-)Send-Endpoint — nur personalMessage als Option.
+const invitationSchema = z.object({
+  personalMessage: z.string().max(1000).optional(),
+});
 
 const setPasswordSchema = z.object({
   password: z.string().min(4).max(200),
@@ -121,6 +149,29 @@ export async function registerAccessRoutes(app: FastifyInstance) {
         ipAddress: req.ip,
       });
 
+      // Einladungs-Mail: nur wenn explizit angefordert UND eine email
+      // gesetzt ist. Fire-and-forget — das Response darf nicht auf SMTP
+      // warten (3-5s Latenz waeren UX-Killer).
+      let invitationSent = false;
+      if (body.sendInvitation && body.email) {
+        invitationSent = await sendGalleryInvitation({
+          accessId: access.id,
+          personalMessage: body.personalMessage,
+        });
+        if (invitationSent) {
+          await logEvent({
+            tenantId: req.tenantId,
+            actorType: "user",
+            actorId: s.user.id,
+            action: "share.invite",
+            targetType: "gallery_access",
+            targetId: access.id,
+            payload: { galleryId: gallery.id, email: body.email },
+            ipAddress: req.ip,
+          });
+        }
+      }
+
       return reply.status(201).send({
         access: {
           id: access.id,
@@ -134,6 +185,7 @@ export async function registerAccessRoutes(app: FastifyInstance) {
           expiresAt: access.expiresAt,
           createdAt: access.createdAt,
         },
+        invitationSent,
       });
     }
   );
@@ -207,6 +259,53 @@ export async function registerAccessRoutes(app: FastifyInstance) {
         ipAddress: req.ip,
       });
       return reply.status(204).send();
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // POST /galleries/:id/access/:accessId/invite
+  // Einladung (erneut) verschicken — z.B. wenn der Empfaenger die erste
+  // Mail nicht bekommen hat oder eine persoenliche Notiz nachgereicht
+  // werden soll.
+  // -------------------------------------------------------------------------
+  app.post<{ Params: { id: string; accessId: string } }>(
+    "/galleries/:id/access/:accessId/invite",
+    async (req, reply) => {
+      const s = req.requireAuth();
+      const gallery = await loadOwnedGallery(req, req.params.id);
+      if (!gallery) return reply.status(404).send({ error: "not_found" });
+
+      const access = await prisma.galleryAccess.findFirst({
+        where: { id: req.params.accessId, galleryId: gallery.id },
+        select: { id: true, email: true },
+      });
+      if (!access) return reply.status(404).send({ error: "not_found" });
+      if (!access.email)
+        return reply
+          .status(400)
+          .send({ error: "no_email", message: "Auf diesem Link ist keine E-Mail hinterlegt." });
+
+      const body = invitationSchema.parse(req.body ?? {});
+
+      const sent = await sendGalleryInvitation({
+        accessId: access.id,
+        personalMessage: body.personalMessage,
+      });
+
+      if (sent) {
+        await logEvent({
+          tenantId: req.tenantId,
+          actorType: "user",
+          actorId: s.user.id,
+          action: "share.invite",
+          targetType: "gallery_access",
+          targetId: access.id,
+          payload: { galleryId: gallery.id, email: access.email, resend: true },
+          ipAddress: req.ip,
+        });
+      }
+
+      return { sent };
     }
   );
 

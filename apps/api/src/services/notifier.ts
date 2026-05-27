@@ -13,6 +13,7 @@ import {
   tmplNewComment,
   tmplSelectionFinished,
   tmplZipReady,
+  tmplGalleryInvite,
 } from "./mail.js";
 
 function studioUrl(galleryId: string): string {
@@ -178,3 +179,66 @@ export async function notifyZipReady(opts: {
 
 // publicUrl wird von Webhook-Aufrufen benötigt
 export { publicUrl };
+
+/**
+ * Galerie-Einladung an einen Endkunden verschicken. Wird beim Anlegen
+ * eines GalleryAccess mit sendInvitation=true aufgerufen, oder beim
+ * expliziten "Einladung erneut senden"-Endpoint.
+ *
+ * Returns true bei Versand-Versuch (auch im no-op-mode), false wenn
+ * keine E-Mail-Adresse hinterlegt ist.
+ */
+export async function sendGalleryInvitation(opts: {
+  accessId: string;
+  personalMessage?: string;
+}): Promise<boolean> {
+  try {
+    const access = await prisma.galleryAccess.findUnique({
+      where: { id: opts.accessId },
+      include: {
+        gallery: {
+          select: {
+            slug: true,
+            title: true,
+            tenant: { select: { name: true } },
+          },
+        },
+      },
+    });
+
+    if (!access?.email) {
+      logger.info(
+        { accessId: opts.accessId },
+        "gallery invitation skipped: no email on access"
+      );
+      return false;
+    }
+
+    const shareUrl = `${publicUrl(access.gallery.slug)}?t=${access.token}`;
+
+    const tpl = tmplGalleryInvite({
+      galleryTitle: access.gallery.title,
+      shareUrl,
+      studioName: access.gallery.tenant.name,
+      recipientLabel: access.label,
+      personalMessage: opts.personalMessage,
+      canSelect: access.canSelect,
+      canDownload: access.canDownload,
+      expiresAt: access.expiresAt,
+    });
+
+    await sendMail({ to: access.email, ...tpl });
+    return true;
+  } catch (err) {
+    // Schluck den Fehler bewusst — Mail-Versand darf den Auslosenden
+    // Request nicht killen. Loggen aber sehr klar damit man bei Fehl-
+    // diagnose sehen kann, dass eine Mail wegen DB-Fehler nicht raus
+    // ging (anders als bei SMTP-Fehler, der schon in sendMail() gefangen
+    // wird).
+    logger.warn(
+      { err, accessId: opts.accessId },
+      "sendGalleryInvitation failed before SMTP"
+    );
+    return false;
+  }
+}
