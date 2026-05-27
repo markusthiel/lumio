@@ -80,12 +80,99 @@ export function DangerZone({
   onMutated?: () => void;
 }) {
   const [showModal, setShowModal] = useState(false);
+  const { status, reload } = useDeletionStatus();
+  const [cancelling, setCancelling] = useState(false);
 
   // Team-Member und Admins sehen die Danger-Zone gar nicht — nur Owner.
   if (userRole !== "owner") {
     return null;
   }
 
+  // Bei aktiver Loeschungs-Anfrage: Status-Anzeige statt Delete-Button.
+  if (status?.isPendingDeletion && status.scheduledFor) {
+    const scheduledDate = new Date(status.scheduledFor);
+    const requestedDate = status.requestedAt
+      ? new Date(status.requestedAt)
+      : null;
+    const daysLeft = Math.max(
+      0,
+      Math.ceil(
+        (scheduledDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000)
+      )
+    );
+
+    async function onCancelClick() {
+      if (
+        !confirm(
+          "Loeschung wirklich zuruecknehmen? Dein Studio wird wieder aktiv. Die Stripe-Subscription muss separat neu gestartet werden."
+        )
+      )
+        return;
+      setCancelling(true);
+      try {
+        await api.cancelStudioDeletion();
+        await reload();
+        onMutated?.();
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "Fehler");
+      } finally {
+        setCancelling(false);
+      }
+    }
+
+    return (
+      <section className="rounded-md border border-red-300 bg-red-50/40 p-5 space-y-3">
+        <h2 className="text-ui font-medium text-red-700">
+          Studio-Löschung läuft
+        </h2>
+        <dl className="grid grid-cols-[200px_1fr] gap-y-2 gap-x-3 text-ui-sm">
+          <dt className="text-ink-secondary">Status</dt>
+          <dd className="text-ink-primary font-medium">
+            Pending Deletion (Karenzphase)
+          </dd>
+          {requestedDate && (
+            <>
+              <dt className="text-ink-secondary">Angefordert am</dt>
+              <dd className="text-ink-primary">
+                {requestedDate.toLocaleString("de-DE", {
+                  day: "2-digit",
+                  month: "long",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </dd>
+            </>
+          )}
+          <dt className="text-ink-secondary">Endgültige Löschung</dt>
+          <dd className="text-ink-primary font-medium">
+            {scheduledDate.toLocaleDateString("de-DE", {
+              day: "2-digit",
+              month: "long",
+              year: "numeric",
+            })}{" "}
+            <span className="text-ink-tertiary">
+              ({daysLeft} {daysLeft === 1 ? "Tag" : "Tage"})
+            </span>
+          </dd>
+          <dt className="text-ink-secondary">Stripe-Subscription</dt>
+          <dd className="text-ink-primary">
+            Gekündigt — bei Reaktivierung manuell neu starten.
+          </dd>
+        </dl>
+        <Button
+          variant="secondary"
+          onClick={onCancelClick}
+          disabled={cancelling}
+          className="mt-2"
+        >
+          {cancelling ? "Wird zurückgenommen…" : "Löschung zurücknehmen"}
+        </Button>
+      </section>
+    );
+  }
+
+  // Normaler Zustand: Delete-Button
   return (
     <>
       <section className="rounded-md border border-red-200 bg-red-50/30 p-5 space-y-3">
@@ -115,6 +202,7 @@ export function DangerZone({
           onClose={() => setShowModal(false)}
           onDone={() => {
             setShowModal(false);
+            void reload();
             onMutated?.();
           }}
         />
