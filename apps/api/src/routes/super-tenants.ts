@@ -1678,6 +1678,93 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
   });
 
   // -------------------------------------------------------------------------
+  // GET /super/tenants/storage
+  // -------------------------------------------------------------------------
+  // Liste aller Tenants mit ihrer Storage-Auslastung — fuer Capacity-
+  // Planning + Up-Selling. Sortiert nach absolutem Storage-Bytes-Use
+  // absteigend (groesste zuerst).
+  //
+  // storageBytesUsed wird vom usage.ts beim Upload + bei einem regelmaessigen
+  // Background-Job aktualisiert. Wir lesen also nur den gecachten Wert,
+  // kein Live-Scan. Das ist genau der richtige Tradeoff — der Wert ist
+  // 'recent enough' fuer Operations.
+  //
+  // Anzeige im Frontend: Bytes + Plan-Limit + Add-On + Prozent. Ueber-
+  // limit-Tenants sind rot.
+  app.get("/super/tenants/storage", async (req) => {
+    req.requireSuperAdmin();
+
+    // Wir nehmen ALLE Tenants mit Subscription (auch ohne — fuer Self-
+    // Hosting-Tests, wir wollen sehen ob da Daten liegen). Order by
+    // storageBytesUsed in der Sub. Tenants ohne Sub kommen nach unten.
+    const rows = await prisma.tenant.findMany({
+      where: { status: { not: "archived" } },
+      select: {
+        id: true,
+        name: true,
+        displayName: true,
+        slug: true,
+        status: true,
+        subscription: {
+          select: {
+            storageBytesUsed: true,
+            storageAddonGib: true,
+            galleriesCount: true,
+            plan: {
+              select: {
+                slug: true,
+                name: true,
+                storageGib: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const items = rows.map((t) => {
+      const sub = t.subscription;
+      const usedBytes = sub ? Number(sub.storageBytesUsed) : 0;
+      const planGib = sub?.plan.storageGib ?? null;
+      const addonGib = sub?.storageAddonGib ?? 0;
+      const totalGib = planGib !== null ? planGib + addonGib : null;
+      const totalBytes =
+        totalGib !== null ? totalGib * 1024 ** 3 : null;
+      const pct =
+        totalBytes !== null && totalBytes > 0
+          ? (usedBytes / totalBytes) * 100
+          : null;
+      return {
+        id: t.id,
+        name: t.displayName ?? t.name,
+        slug: t.slug,
+        status: t.status,
+        usedBytes,
+        planName: sub?.plan.name ?? null,
+        planSlug: sub?.plan.slug ?? null,
+        planLimitGib: planGib,
+        addonGib,
+        totalLimitGib: totalGib,
+        usagePct: pct,
+        galleriesCount: sub?.galleriesCount ?? null,
+      };
+    });
+
+    // Sortierung: nach Prozent-Auslastung absteigend, danach nach
+    // usedBytes absteigend. So tauchen ueber-limit-Tenants ganz oben
+    // auf, gefolgt von 'fast voll', und am Ende leere/Self-Hosting-
+    // Tenants.
+    items.sort((a, b) => {
+      const ap = a.usagePct ?? -1;
+      const bp = b.usagePct ?? -1;
+      if (ap !== bp) return bp - ap;
+      return b.usedBytes - a.usedBytes;
+    });
+
+    return { tenants: items };
+  });
+
+  // -------------------------------------------------------------------------
   // POST /super/tenants/:id/extend-trial
   // -------------------------------------------------------------------------
   // Trial-Ende einer Subscription nach vorne verschieben. Validation:

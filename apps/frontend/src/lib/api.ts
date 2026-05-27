@@ -1949,6 +1949,24 @@ export const api = {
       }
     ),
 
+  superTenantsStorage: () =>
+    request<{
+      tenants: Array<{
+        id: string;
+        name: string;
+        slug: string;
+        status: string;
+        usedBytes: number;
+        planName: string | null;
+        planSlug: string | null;
+        planLimitGib: number | null;
+        addonGib: number;
+        totalLimitGib: number | null;
+        usagePct: number | null;
+        galleriesCount: number | null;
+      }>;
+    }>("/super/tenants/storage"),
+
   superListTenants: () =>
     request<{ tenants: SuperTenantSummary[] }>("/super/tenants"),
   superGetTenant: (id: string) =>
