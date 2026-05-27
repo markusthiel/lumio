@@ -95,8 +95,10 @@ async function plugin(app: FastifyInstance) {
                 expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
                 ipAddress: req.ip,
                 userAgent: req.headers["user-agent"] ?? null,
+                impersonatedBySuperAdminId: null,
                 createdAt: new Date(),
               },
+              isImpersonated: false,
             };
           }
         }

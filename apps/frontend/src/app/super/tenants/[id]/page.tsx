@@ -463,7 +463,15 @@ function TenantDetail() {
                   </span>
                 </div>
                 {u.status === "active" && (
-                  <PasswordResetButton tenantId={tenant.id} userId={u.id} />
+                  <>
+                    <ImpersonateButton
+                      tenantId={tenant.id}
+                      userId={u.id}
+                      userLabel={u.name ?? u.email}
+                      studioName={tenant.displayName ?? tenant.name}
+                    />
+                    <PasswordResetButton tenantId={tenant.id} userId={u.id} />
+                  </>
                 )}
               </li>
             ))}
@@ -1702,5 +1710,154 @@ function PasswordResetButton({
           ? "Sicher? Nochmal klicken"
           : "Passwort-Reset"}
     </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Impersonate-Button
+// ---------------------------------------------------------------------------
+// Vor dem eigentlichen Impersonate ein kleines Modal mit Pflicht-
+// Grundeingabe (datenschutz-relevant). Nach Bestaetigung: Backend-Call
+// setzt den Lumio-Session-Cookie, dann navigieren wir in einem neuen
+// Tab zum Studio des Tenants. Neuer Tab damit der Super-Admin-Bereich
+// nicht 'verschwindet'.
+function ImpersonateButton({
+  tenantId,
+  userId,
+  userLabel,
+  studioName,
+}: {
+  tenantId: string;
+  userId: string;
+  userLabel: string;
+  studioName: string;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="text-ui-xs px-2 py-1 rounded border border-line-subtle hover:bg-surface-sunken whitespace-nowrap"
+      >
+        Impersonate
+      </button>
+      {open && (
+        <ImpersonateDialog
+          tenantId={tenantId}
+          userId={userId}
+          userLabel={userLabel}
+          studioName={studioName}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </>
+  );
+}
+
+function ImpersonateDialog({
+  tenantId,
+  userId,
+  userLabel,
+  studioName,
+  onClose,
+}: {
+  tenantId: string;
+  userId: string;
+  userLabel: string;
+  studioName: string;
+  onClose: () => void;
+}) {
+  const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (reason.trim().length < 3) {
+      setError("Grund bitte ausfüllen (mindestens 3 Zeichen).");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await api.superImpersonate(tenantId, userId, reason.trim());
+      // Nach Erfolg: Studio in einem neuen Tab oeffnen. Der Cookie ist
+      // domain-scoped auf .lumio-cloud.de, also gilt er fuer alle
+      // Subdomains inklusive studio.lumio-cloud.de und <slug>.lumio-cloud.de.
+      // Wir nehmen die studio.-Subdomain weil das der primaere Login-
+      // Pfad ist; bei Custom-Domains nimmt der User selbst die richtige.
+      const url = `${window.location.protocol}//studio.${window.location.host.replace(/^[^.]+\./, "")}${res.redirectTo}`;
+      window.open(url, "_blank", "noopener");
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Fehler");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[100]"
+      onClick={onClose}
+    >
+      <form
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={submit}
+        className="w-full max-w-md bg-surface-raised border border-line-subtle shadow-2xl rounded-lg p-6 space-y-4"
+      >
+        <div>
+          <h2 className="text-lg font-semibold">Impersonate aktivieren</h2>
+          <p className="text-ui-sm text-ink-secondary mt-1">
+            Du loggst dich als <strong>{userLabel}</strong> im Studio{" "}
+            <strong>{studioName}</strong> ein. Maximal 60 Minuten gültig.
+          </p>
+        </div>
+
+        <div className="rounded-md border border-semantic-warning/30 bg-semantic-warning/8 p-3 text-ui-sm">
+          <strong className="block mb-1">DSGVO-Hinweis</strong>
+          Der User erhält automatisch eine E-Mail über deinen Support-Zugriff.
+          Alle Aktionen sind im Audit-Log nachvollziehbar.
+        </div>
+
+        <div>
+          <label htmlFor="imp-reason" className="text-sm font-medium block mb-1">
+            Grund <span className="text-semantic-danger">*</span>
+          </label>
+          <input
+            id="imp-reason"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            required
+            minLength={3}
+            maxLength={500}
+            autoFocus
+            placeholder="z.B. Hat um Hilfe bei fehlerhafter Galerie-Auswahl gebeten (Ticket #123)"
+            className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm"
+          />
+        </div>
+
+        {error && <div className="text-sm text-semantic-danger">{error}</div>}
+
+        <div className="flex justify-end gap-2 pt-2 border-t border-line-subtle">
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-sm px-3 py-2 rounded-md border border-line-subtle hover:bg-surface-sunken"
+          >
+            Abbrechen
+          </button>
+          <button
+            type="submit"
+            disabled={submitting || reason.trim().length < 3}
+            className="text-sm px-3 py-2 rounded-md bg-semantic-warning text-white hover:opacity-90 disabled:opacity-50"
+          >
+            {submitting ? "Wird gestartet…" : "Im neuen Tab impersonen"}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 }

@@ -21,6 +21,10 @@ import { isTenantOperational } from "./tenant.js";
 const SESSION_BYTES = 32;
 const SESSION_TTL_DAYS = 30;
 const SESSION_TTL_MS = SESSION_TTL_DAYS * 24 * 60 * 60 * 1000;
+/** Impersonate-Sessions sind viel kuerzer — Support-Zugriff sollte
+ *  nicht laenger als noetig sein. 1 Stunde reicht fuer Diagnose; danach
+ *  muss neu eingeloggt werden. */
+const IMPERSONATE_SESSION_TTL_MS = 60 * 60 * 1000;
 
 const ARGON2_OPTS: argon2.Options = {
   type: argon2.argon2id,
@@ -61,17 +65,28 @@ function hashToken(token: string): string {
 export interface SessionContext {
   user: User;
   session: Session;
+  /** True wenn der Login durch einen Super-Admin gemacht wurde (Support-
+   *  Modus). Beeinflusst Audit-Logging und Frontend-Banner. */
+  isImpersonated: boolean;
 }
 
-/** Erzeugt eine neue Session und liefert das Klartext-Token (geht in den Cookie). */
+/** Erzeugt eine neue Session und liefert das Klartext-Token (geht in den Cookie).
+ *
+ *  Wenn `impersonatedBySuperAdminId` gesetzt ist, gilt eine kuerzere
+ *  TTL (1h) und die Session ist als Support-Session markiert.
+ */
 export async function createSession(opts: {
   userId: string;
   ipAddress?: string | null;
   userAgent?: string | null;
+  impersonatedBySuperAdminId?: string | null;
 }): Promise<{ token: string; session: Session }> {
   const token = generateSessionToken();
   const tokenHash = hashToken(token);
-  const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
+  const ttl = opts.impersonatedBySuperAdminId
+    ? IMPERSONATE_SESSION_TTL_MS
+    : SESSION_TTL_MS;
+  const expiresAt = new Date(Date.now() + ttl);
 
   const session = await prisma.session.create({
     data: {
@@ -79,14 +94,20 @@ export async function createSession(opts: {
       tokenHash,
       ipAddress: opts.ipAddress ?? null,
       userAgent: opts.userAgent ?? null,
+      impersonatedBySuperAdminId: opts.impersonatedBySuperAdminId ?? null,
       expiresAt,
     },
   });
 
-  await prisma.user.update({
-    where: { id: opts.userId },
-    data: { lastLoginAt: new Date() },
-  });
+  // lastLoginAt NUR bei echten Logins aktualisieren. Bei Impersonate
+  // wollen wir nicht den Eindruck erwecken dass der User selbst aktiv
+  // war — das wuerde Account-Aktivitaets-Statistiken verfaelschen.
+  if (!opts.impersonatedBySuperAdminId) {
+    await prisma.user.update({
+      where: { id: opts.userId },
+      data: { lastLoginAt: new Date() },
+    });
+  }
 
   return { token, session };
 }
@@ -123,7 +144,11 @@ export async function validateSession(
   // SessionContext-Shape (ohne tenant-Eager-Load) passt — die Aufrufer
   // erwarten kein User.tenant.
   const { tenant: _tenant, ...userWithoutTenant } = session.user;
-  return { user: userWithoutTenant, session };
+  return {
+    user: userWithoutTenant,
+    session,
+    isImpersonated: session.impersonatedBySuperAdminId !== null,
+  };
 }
 
 export async function deleteSession(token: string): Promise<void> {

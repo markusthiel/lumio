@@ -428,6 +428,13 @@ export const api = {
         status: "active" | "suspended" | "archived" | "pending_deletion";
         archiveScheduledAt: string | null;
       } | null;
+      /** Wenn nicht null: aktuelle Session ist Impersonate-Modus durch
+       *  einen Super-Admin. Frontend zeigt einen Banner. */
+      impersonation: {
+        bySuperAdminEmail: string;
+        bySuperAdminName: string | null;
+        expiresAt: string;
+      } | null;
     }>("/auth/me"),
 
   /** Liefert Tenant-Info basierend auf dem aufgelösten Tenant (Host,
@@ -1946,6 +1953,23 @@ export const api = {
       {
         method: "POST",
         body: JSON.stringify({ extraDays, reason }),
+      }
+    ),
+
+  /** Impersonate-Login: Super-Admin erhaelt eine 1h-User-Session.
+   *  Nach Erfolg muessen wir den Browser auf das Studio des Tenants
+   *  navigieren — der Cookie ist domain-scoped, also funktioniert er
+   *  auf studio.lumio-cloud.de bzw. <slug>.lumio-cloud.de. */
+  superImpersonate: (
+    tenantId: string,
+    userId: string,
+    reason?: string
+  ) =>
+    request<{ ok: true; redirectTo: string; studioSlug: string }>(
+      `/super/tenants/${tenantId}/impersonate`,
+      {
+        method: "POST",
+        body: JSON.stringify({ userId, reason }),
       }
     ),
 

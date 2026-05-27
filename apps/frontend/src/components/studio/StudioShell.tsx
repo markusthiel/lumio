@@ -77,6 +77,12 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
   // alltime-Eintraege (ohne rolesAllowed-Filter); sobald die Rolle
   // bekannt ist, kommt der Filter dazu. So vermeiden wir einen
   // Flicker fuer Owner/Admin.
+  const [impersonation, setImpersonation] = useState<{
+    bySuperAdminEmail: string;
+    bySuperAdminName: string | null;
+    expiresAt: string;
+  } | null>(null);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -84,10 +90,8 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
         const r = await api.me();
         if (cancelled) return;
         setUserRole(r.user.role);
+        setImpersonation(r.impersonation);
       } catch {
-        // Bei Fehler: Default fail-safe = "member" (versteckt sensible
-        // Nav-Eintraege). Sollte selten passieren — me() wird auch
-        // schon vom Page-Auth-Check verwendet.
         setUserRole("member");
       }
     })();
@@ -122,7 +126,9 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div className="min-h-screen flex bg-surface-canvas text-ink-primary">
+    <div className="min-h-screen flex flex-col bg-surface-canvas text-ink-primary">
+      {impersonation && <ImpersonationBanner imp={impersonation} />}
+      <div className="flex-1 flex">
       <GlobalSearchModal
         open={searchOpen}
         onClose={() => setSearchOpen(false)}
@@ -215,6 +221,61 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
         <StorageBanner />
         {children}
       </main>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Impersonate-Banner
+// ---------------------------------------------------------------------------
+// Permanent oben sichtbar wenn die Session durch einen Super-Admin gestartet
+// wurde. Datenschutz-Transparenz und visueller Reminder dass das KEIN
+// echter User-Login ist. Tooltip mit Countdown bis Session-Ablauf.
+function ImpersonationBanner({
+  imp,
+}: {
+  imp: {
+    bySuperAdminEmail: string;
+    bySuperAdminName: string | null;
+    expiresAt: string;
+  };
+}) {
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(id);
+  }, []);
+
+  const remainingMs = Math.max(0, new Date(imp.expiresAt).getTime() - now);
+  const remainingMin = Math.floor(remainingMs / 60000);
+
+  async function endImpersonation() {
+    try {
+      await api.logout();
+    } finally {
+      // Zurueck zur Super-Admin-UI (anderer Tab/Subdomain)
+      window.location.href = "/";
+    }
+  }
+
+  return (
+    <div className="bg-semantic-warning text-black px-4 py-2 text-sm flex items-center justify-center gap-3 flex-wrap">
+      <span>
+        <strong>Impersonate-Modus</strong> — du bist hier als Support eingeloggt
+        durch <strong>{imp.bySuperAdminName ?? imp.bySuperAdminEmail}</strong>.
+        Alle Aktionen werden protokolliert.
+      </span>
+      <span className="text-xs opacity-80">
+        ({remainingMin} min verbleibend)
+      </span>
+      <button
+        type="button"
+        onClick={endImpersonation}
+        className="text-xs px-2 py-0.5 rounded bg-black/15 hover:bg-black/25 font-medium"
+      >
+        Beenden
+      </button>
     </div>
   );
 }

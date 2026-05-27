@@ -36,7 +36,7 @@ import { z } from "zod";
 
 import { prisma } from "../db.js";
 import { config } from "../config.js";
-import { hashPassword } from "../services/auth.js";
+import { hashPassword, createSession } from "../services/auth.js";
 import { createSetupToken, buildSetupUrl, buildResetUrl } from "../services/setupToken.js";
 import { logEvent } from "../services/audit.js";
 import { sendMail, tmplOwnerSetup, tmplPasswordReset } from "../services/mail.js";
@@ -1763,6 +1763,102 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
 
     return { tenants: items };
   });
+
+  // -------------------------------------------------------------------------
+  // POST /super/tenants/:id/impersonate
+  // -------------------------------------------------------------------------
+  // Erzeugt eine kurzlebige Session fuer einen User des Tenants und setzt
+  // den Lumio-Session-Cookie. Der Super-Admin landet danach im Studio
+  // und sieht alles wie der User. Eine Banner-Komponente im StudioShell
+  // weist deutlich darauf hin dass Impersonate-Modus laeuft.
+  //
+  // Datenschutz/AVV: Owner wird per Mail informiert dass Support-Zugriff
+  // stattgefunden hat. So bleibt es transparent.
+  const impersonateSchema = z.object({
+    userId: z.string().uuid(),
+    reason: z.string().min(3).max(500).optional(),
+  });
+  app.post<{ Params: { id: string } }>(
+    "/super/tenants/:id/impersonate",
+    async (req, reply) => {
+      const sa = req.requireSuperAdmin();
+      const body = impersonateSchema.parse(req.body);
+
+      const user = await prisma.user.findFirst({
+        where: {
+          id: body.userId,
+          tenantId: req.params.id,
+          status: "active",
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          tenant: { select: { name: true, displayName: true, slug: true } },
+        },
+      });
+      if (!user) {
+        return reply
+          .status(404)
+          .send({ error: "user_not_found", message: "User nicht gefunden" });
+      }
+
+      const { token } = await createSession({
+        userId: user.id,
+        ipAddress: req.ip,
+        userAgent: req.headers["user-agent"] ?? null,
+        impersonatedBySuperAdminId: sa.admin.id,
+      });
+
+      reply.setCookie("lumio_session", token, {
+        path: "/",
+        httpOnly: true,
+        sameSite: "lax",
+        secure: config.NODE_ENV === "production",
+        // Cookie laeuft frueh aus — gleichzeitig erzwingt die kuerzere
+        // Session-TTL aus auth.ts dass auch ohne Cookie-Ablauf der
+        // Server die Session ungueltig macht.
+        maxAge: 60 * 60, // 1h
+      });
+
+      await logEvent({
+        tenantId: req.params.id,
+        actorType: "super_admin",
+        actorId: sa.admin.id,
+        action: "super.tenant.impersonate_started",
+        targetType: "user",
+        targetId: user.id,
+        payload: {
+          userEmail: user.email,
+          reason: body.reason ?? null,
+        },
+        ipAddress: req.ip,
+      });
+
+      // Mail an den User: "Support-Zugriff durch ..." — datenschutz-
+      // transparent. Best-effort, blockiert nicht.
+      void sendMail({
+        to: user.email,
+        subject: `Support-Zugriff auf dein Studio "${user.tenant.displayName ?? user.tenant.name}"`,
+        text:
+          `Hallo${user.name ? " " + user.name : ""},\n\n` +
+          `ein Mitglied des Lumio-Supports (${sa.admin.email}) hat sich gerade ` +
+          `in dein Studio "${user.tenant.displayName ?? user.tenant.name}" eingeloggt, ` +
+          `um ein Problem zu untersuchen. Der Zugriff ist auf maximal 60 Minuten begrenzt ` +
+          `und wird vollständig im Audit-Log dokumentiert.\n\n` +
+          (body.reason ? `Grund: ${body.reason}\n\n` : "") +
+          `Falls du KEINEN Support-Zugriff angefragt hast und das ungewöhnlich ` +
+          `findest, antworte auf diese Mail.\n\n` +
+          `— Lumio`,
+      });
+
+      return {
+        ok: true,
+        redirectTo: `/`,
+        studioSlug: user.tenant.slug,
+      };
+    }
+  );
 
   // -------------------------------------------------------------------------
   // POST /super/tenants/:id/extend-trial

@@ -592,14 +592,10 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     if (!req.session) {
       return reply.status(401).send({ error: "unauthenticated" });
     }
-    const { user } = req.session;
+    const { user, isImpersonated, session } = req.session;
     const remainingBackup = user.totpEnabled
       ? await backupCodeCount(user.id)
       : 0;
-    // Tenant-Status mitliefern damit das Studio einen Pre-Archive-
-    // Banner mit Countdown anzeigen kann. Wir laden hier einmalig
-    // statt überall im Frontend separat — me() wird beim Page-Load
-    // sowieso aufgerufen.
     const tenant = await prisma.tenant.findUnique({
       where: { id: user.tenantId },
       select: {
@@ -610,6 +606,28 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         archiveScheduledAt: true,
       },
     });
+
+    // Bei Impersonate-Sessions auch die Identitaet des Super-Admins
+    // mitliefern fuer den Banner.
+    let impersonation: {
+      bySuperAdminEmail: string;
+      bySuperAdminName: string | null;
+      expiresAt: string;
+    } | null = null;
+    if (isImpersonated && session.impersonatedBySuperAdminId) {
+      const sa = await prisma.superAdmin.findUnique({
+        where: { id: session.impersonatedBySuperAdminId },
+        select: { email: true, displayName: true },
+      });
+      if (sa) {
+        impersonation = {
+          bySuperAdminEmail: sa.email,
+          bySuperAdminName: sa.displayName,
+          expiresAt: session.expiresAt.toISOString(),
+        };
+      }
+    }
+
     return {
       user: {
         id: user.id,
@@ -621,6 +639,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         backupCodesRemaining: remainingBackup,
       },
       tenant,
+      impersonation,
     };
   });
 

@@ -217,6 +217,14 @@ model Session {
   tokenHash String   @unique
   ipAddress String?
   userAgent String?
+
+  /// Wenn gesetzt: diese Session wurde durch einen Super-Admin als
+  /// Impersonate-Login erzeugt. Bedeutet:
+  ///   - kuerzere TTL (1h statt 30d)
+  ///   - Audit-Log bei Schreibaktionen taggt sich super-admin mit
+  ///   - Studio-Frontend zeigt einen Banner
+  /// Wird NIE auf einer regulaeren User-Login-Session gesetzt.
+  impersonatedBySuperAdminId String? @db.Uuid
   
   expiresAt DateTime
   createdAt DateTime @default(now())
