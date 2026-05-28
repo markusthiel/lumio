@@ -141,15 +141,16 @@ export function CustomerTagFilter({
     <div
       className="px-4 sm:px-6 md:px-12 py-4 border-b"
       style={{
-        borderColor: "var(--brand-border, rgba(0,0,0,0.08))",
-        backgroundColor: "var(--brand-surface-subtle, transparent)",
+        backgroundColor: "var(--brand-toolbar-bg)",
+        borderColor: "var(--brand-border)",
+        color: "var(--brand-fg)",
       }}
     >
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-wrap items-center gap-2">
           <span
             className="text-xs uppercase tracking-wider mr-2"
-            style={{ color: "var(--brand-text-soft, rgba(0,0,0,0.55))" }}
+            style={{ color: "var(--brand-fg-muted)" }}
           >
             Nach Tags filtern
           </span>
@@ -163,12 +164,12 @@ export function CustomerTagFilter({
                 className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full border transition-colors"
                 style={{
                   borderColor: isOn
-                    ? "var(--brand-accent, #2563eb)"
-                    : "var(--brand-border, rgba(0,0,0,0.15))",
+                    ? "rgb(var(--brand-accent))"
+                    : "var(--brand-border)",
                   backgroundColor: isOn
-                    ? "color-mix(in oklab, var(--brand-accent, #2563eb) 12%, transparent)"
-                    : "transparent",
-                  color: "var(--brand-text, currentColor)",
+                    ? "rgb(var(--brand-accent) / 0.18)"
+                    : "var(--brand-surface)",
+                  color: "var(--brand-fg)",
                 }}
                 title={`${tag.name} (${count} ${count === 1 ? "Foto" : "Fotos"})`}
               >
@@ -177,7 +178,7 @@ export function CustomerTagFilter({
                   style={{ backgroundColor: tag.color }}
                 />
                 <span>{tag.name}</span>
-                <span style={{ opacity: 0.6 }}>{count}</span>
+                <span style={{ color: "var(--brand-fg-muted)" }}>{count}</span>
               </button>
             );
           })}
@@ -185,7 +186,8 @@ export function CustomerTagFilter({
             <button
               type="button"
               onClick={() => setShowAll(true)}
-              className="text-xs px-2 py-1 opacity-60 hover:opacity-100"
+              className="text-xs px-2 py-1 hover:underline"
+              style={{ color: "var(--brand-fg-muted)" }}
             >
               +{aggregated.length - VISIBLE_LIMIT} mehr
             </button>
@@ -194,7 +196,8 @@ export function CustomerTagFilter({
             <button
               type="button"
               onClick={() => setShowAll(false)}
-              className="text-xs px-2 py-1 opacity-60 hover:opacity-100"
+              className="text-xs px-2 py-1 hover:underline"
+              style={{ color: "var(--brand-fg-muted)" }}
             >
               weniger
             </button>
@@ -203,7 +206,8 @@ export function CustomerTagFilter({
             <button
               type="button"
               onClick={() => onChange(new Set())}
-              className="text-xs px-2 py-1 opacity-60 hover:opacity-100 ml-auto"
+              className="text-xs px-2 py-1 hover:underline ml-auto"
+              style={{ color: "var(--brand-fg-muted)" }}
             >
               Filter zurücksetzen
             </button>
@@ -214,7 +218,7 @@ export function CustomerTagFilter({
           <div className="mt-3 flex items-center justify-between flex-wrap gap-3">
             <p
               className="text-xs"
-              style={{ color: "var(--brand-text-soft, rgba(0,0,0,0.55))" }}
+              style={{ color: "var(--brand-fg-muted)" }}
             >
               {selected.size === 1
                 ? "1 Filter aktiv"
@@ -231,8 +235,8 @@ export function CustomerTagFilter({
                     onClick={onRequestZip}
                     className="text-xs px-3 py-1.5 rounded-full font-medium"
                     style={{
-                      backgroundColor: "var(--brand-accent, #2563eb)",
-                      color: "var(--brand-accent-foreground, white)",
+                      backgroundColor: "rgb(var(--brand-accent))",
+                      color: "rgb(var(--brand-accent-contrast))",
                     }}
                   >
                     ⬇ {filteredCount} {filteredCount === 1 ? "Foto" : "Fotos"} herunterladen
@@ -243,14 +247,12 @@ export function CustomerTagFilter({
                   zipJob.status !== "failed" && (
                     <span
                       className="text-xs flex items-center gap-2"
-                      style={{
-                        color: "var(--brand-text-soft, rgba(0,0,0,0.65))",
-                      }}
+                      style={{ color: "var(--brand-fg-muted)" }}
                     >
                       <span
                         className="inline-block w-2 h-2 rounded-full animate-pulse"
                         style={{
-                          backgroundColor: "var(--brand-accent, #2563eb)",
+                          backgroundColor: "rgb(var(--brand-accent))",
                         }}
                       />
                       ZIP wird erstellt…
@@ -261,8 +263,8 @@ export function CustomerTagFilter({
                     href={api.zipDownloadUrl(slug, zipJob.zipId)}
                     className="text-xs px-3 py-1.5 rounded-full font-medium"
                     style={{
-                      backgroundColor: "color-mix(in oklab, green 80%, white)",
-                      color: "white",
+                      backgroundColor: "rgb(var(--brand-accent))",
+                      color: "rgb(var(--brand-accent-contrast))",
                     }}
                   >
                     ✓ ZIP herunterladen ({zipJob.fileCount}{" "}
@@ -270,7 +272,10 @@ export function CustomerTagFilter({
                   </a>
                 )}
                 {zipJob && zipJob.status === "failed" && (
-                  <span className="text-xs text-red-600">
+                  <span
+                    className="text-xs"
+                    style={{ color: "rgb(220 38 38)" }}
+                  >
                     Fehler{zipJob.error ? `: ${zipJob.error}` : ""}
                   </span>
                 )}
@@ -278,7 +283,8 @@ export function CustomerTagFilter({
                   <button
                     type="button"
                     onClick={() => setZipJob(null)}
-                    className="text-xs opacity-50 hover:opacity-100"
+                    className="text-xs hover:underline"
+                    style={{ color: "var(--brand-fg-muted)" }}
                   >
                     ✕
                   </button>
