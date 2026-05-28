@@ -499,29 +499,60 @@ export async function registerFileRoutes(app: FastifyInstance) {
   // Galerie statt pro File (deutlich schneller bei großen Sets).
   //
   // Actions:
-  //   - delete  : S3-Objekte + DB-Rows löschen
-  //   - hide    : status = 'hidden' (für Kunden unsichtbar, im Studio
-  //               weiterhin sichtbar)
-  //   - show    : status = 'ready' (Re-Aktivierung)
+  //   - delete         : S3-Objekte + DB-Rows löschen
+  //   - hide           : status = 'hidden' (für Kunden unsichtbar)
+  //   - show           : status = 'ready' (Re-Aktivierung)
+  //   - assign_tag     : Tag (tagId) auf alle Files setzen — idempotent
+  //   - remove_tag     : Tag (tagId) von allen Files entfernen
+  //   - move_to_section: sectionId | null setzen (null = aus Section
+  //                      raus zurück in den Default-Bucket)
   app.post<{
     Body: {
       galleryId: string;
       fileIds: string[];
-      action: "delete" | "hide" | "show";
+      action: "delete" | "hide" | "show" | "assign_tag" | "remove_tag" | "move_to_section";
+      tagId?: string;
+      sectionId?: string | null;
     };
   }>("/files/bulk-action", async (req, reply) => {
     const s = req.requireAuth();
     const body = req.body;
 
+    const VALID_ACTIONS = [
+      "delete",
+      "hide",
+      "show",
+      "assign_tag",
+      "remove_tag",
+      "move_to_section",
+    ];
     if (
       !body ||
       typeof body.galleryId !== "string" ||
       !Array.isArray(body.fileIds) ||
       body.fileIds.length === 0 ||
       body.fileIds.length > 500 ||
-      !["delete", "hide", "show"].includes(body.action)
+      !VALID_ACTIONS.includes(body.action)
     ) {
       return reply.status(400).send({ error: "bad_request" });
+    }
+    // Action-spezifische Parameter validieren
+    if (
+      (body.action === "assign_tag" || body.action === "remove_tag") &&
+      typeof body.tagId !== "string"
+    ) {
+      return reply
+        .status(400)
+        .send({ error: "tag_id_required", message: "tagId fehlt fuer Tag-Aktion." });
+    }
+    if (
+      body.action === "move_to_section" &&
+      body.sectionId !== null &&
+      typeof body.sectionId !== "string"
+    ) {
+      return reply
+        .status(400)
+        .send({ error: "section_id_required", message: "sectionId fehlt (null erlaubt fuer 'kein Section')." });
     }
     // Alle fileIds müssen UUIDs sein, sonst SQL-Injection-Risiko bei
     // Prisma `in` ist zwar abgedeckt, aber wir wollen auch dumme
@@ -593,6 +624,109 @@ export async function registerFileRoutes(app: FastifyInstance) {
         targetType: "gallery",
         targetId: gallery.id,
         payload: { op: "delete", count: result.count },
+        ipAddress: req.ip,
+      });
+      return { affected: result.count };
+    }
+
+    // assign_tag — Tag zu allen Files hinzufuegen. Idempotent: bestehende
+    // (fileId, tagId) Joins werden via skipDuplicates uebersprungen.
+    if (body.action === "assign_tag") {
+      const tag = await prisma.tag.findFirst({
+        where: { id: body.tagId, tenantId: req.tenantId },
+        select: { id: true },
+      });
+      if (!tag) return reply.status(404).send({ error: "tag_not_found" });
+      const created = await prisma.fileTag.createMany({
+        data: files.map((f) => ({ fileId: f.id, tagId: tag.id })),
+        skipDuplicates: true,
+      });
+      await logEvent({
+        tenantId: req.tenantId,
+        actorType: "user",
+        actorId: s.user.id,
+        action: "file.bulk",
+        targetType: "gallery",
+        targetId: gallery.id,
+        payload: {
+          op: "assign_tag",
+          tagId: tag.id,
+          requested: files.length,
+          newJoins: created.count,
+        },
+        ipAddress: req.ip,
+      });
+      return {
+        affected: files.length,
+        // Aufrufer erkennt an created.count wie viele Files den Tag
+        // wirklich neu bekommen haben (vs. hatten ihn schon)
+        newJoins: created.count,
+      };
+    }
+
+    // remove_tag — Tag von allen Files entfernen. Tag-Row bleibt.
+    if (body.action === "remove_tag") {
+      const result = await prisma.fileTag.deleteMany({
+        where: {
+          fileId: { in: files.map((f) => f.id) },
+          tagId: body.tagId,
+        },
+      });
+      await logEvent({
+        tenantId: req.tenantId,
+        actorType: "user",
+        actorId: s.user.id,
+        action: "file.bulk",
+        targetType: "gallery",
+        targetId: gallery.id,
+        payload: {
+          op: "remove_tag",
+          tagId: body.tagId,
+          count: result.count,
+        },
+        ipAddress: req.ip,
+      });
+      return { affected: result.count };
+    }
+
+    // move_to_section — sectionId | null setzen. Bei null: aus Section
+    // raus zurueck in den Default-Bucket der Galerie.
+    if (body.action === "move_to_section") {
+      if (body.sectionId !== null && typeof body.sectionId === "string") {
+        // Section muss zur gleichen Galerie gehoeren
+        const section = await prisma.gallerySection.findFirst({
+          where: { id: body.sectionId, galleryId: gallery.id },
+          select: { id: true },
+        });
+        if (!section) {
+          return reply
+            .status(404)
+            .send({ error: "section_not_found" });
+        }
+      }
+      const result = await prisma.file.updateMany({
+        where: {
+          id: { in: files.map((f) => f.id) },
+          galleryId: gallery.id,
+        },
+        data: { sectionId: body.sectionId ?? null },
+      });
+      // Kein SSE-publish hier — GalleryEvent kennt 'file.section_changed'
+      // noch nicht. Frontend lädt nach Bulk-Aktion ohnehin die Galerie
+      // neu (await load()), das reicht. SSE-Variante kann eine spaetere
+      // Etappe sein wenn Multi-User-Concurrency wichtig wird.
+      await logEvent({
+        tenantId: req.tenantId,
+        actorType: "user",
+        actorId: s.user.id,
+        action: "file.bulk",
+        targetType: "gallery",
+        targetId: gallery.id,
+        payload: {
+          op: "move_to_section",
+          sectionId: body.sectionId ?? null,
+          count: result.count,
+        },
         ipAddress: req.ip,
       });
       return { affected: result.count };

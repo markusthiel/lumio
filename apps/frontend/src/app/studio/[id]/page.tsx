@@ -16,6 +16,7 @@ import { useSlowConnection } from "@/lib/useSlowConnection";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { AutoTagsToolbar } from "@/components/studio/AutoTagsToolbar";
 import { GalleryFileTagFilter } from "@/components/studio/GalleryFileTagFilter";
+import { BulkSelectionActions } from "@/components/studio/BulkSelectionActions";
 import { TagPicker } from "@/components/studio/TagPicker";
 import { Button } from "@/components/ui";
 import { useT } from "@/lib/i18n";
@@ -1003,6 +1004,14 @@ export default function GalleryDetailPage() {
         selected={tagFilter}
         onChange={setTagFilter}
         filteredCount={visibleFiles.length}
+        onSelectFiltered={() => {
+          // Aktiviert den Auswahl-Modus und uebernimmt die gefilterten
+          // Files direkt als initiale Auswahl. So muss der User nicht
+          // erst 'Auswahl'-Modus + 'Alle' klicken — One-Click von
+          // Filter zu Bulk-aktion.
+          setSelectionMode(true);
+          setSelected(new Set(visibleFiles.map((f) => f.id)));
+        }}
       />
 
       <div className="px-6 sm:px-8 py-6 space-y-6 max-w-7xl">
@@ -1422,6 +1431,18 @@ export default function GalleryDetailPage() {
                     >
                       {t("studio.show")}
                     </Button>
+                    {/* Bulk Tag- und Section-Aktionen — Dropdowns oeffnen
+                        einen Picker, Backend macht's idempotent. Nach
+                        Erfolg: Selection-Mode beenden und neu laden. */}
+                    <BulkSelectionActions
+                      galleryId={gallery.id}
+                      selectedFileIds={Array.from(selected)}
+                      disabled={bulkPending}
+                      onApplied={async () => {
+                        exitSelectionMode();
+                        await load();
+                      }}
+                    />
                     <Button
                       size="sm"
                       variant="danger"

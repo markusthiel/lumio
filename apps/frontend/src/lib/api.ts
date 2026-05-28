@@ -1148,12 +1148,27 @@ export const api = {
       { method: "DELETE", body: JSON.stringify({ fileIds }) }
     ),
 
-  bulkFileAction: (input: {
-    galleryId: string;
-    fileIds: string[];
-    action: "delete" | "hide" | "show";
-  }) =>
-    request<{ affected: number }>(`/files/bulk-action`, {
+  bulkFileAction: (
+    input:
+      | {
+          galleryId: string;
+          fileIds: string[];
+          action: "delete" | "hide" | "show";
+        }
+      | {
+          galleryId: string;
+          fileIds: string[];
+          action: "assign_tag" | "remove_tag";
+          tagId: string;
+        }
+      | {
+          galleryId: string;
+          fileIds: string[];
+          action: "move_to_section";
+          sectionId: string | null;
+        }
+  ) =>
+    request<{ affected: number; newJoins?: number }>(`/files/bulk-action`, {
       method: "POST",
       body: JSON.stringify(input),
     }),

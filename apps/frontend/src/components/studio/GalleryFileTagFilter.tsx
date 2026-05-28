@@ -34,6 +34,9 @@ interface Props {
   // Anzahl der gefilterten Files — Parent berechnet eh, kann's uns
   // geben damit der Download-Button die Zahl zeigt
   filteredCount: number;
+  // Callback fuer 'gefilterte Files in den Selection-Mode uebernehmen'.
+  // Optional — wenn nicht gesetzt, kein Quick-Select-Button.
+  onSelectFiltered?: () => void;
 }
 
 const VISIBLE_LIMIT = 15;
@@ -44,6 +47,7 @@ export function GalleryFileTagFilter({
   selected,
   onChange,
   filteredCount,
+  onSelectFiltered,
 }: Props) {
   // Aktivierungs-Status pro Galerie persistiert
   const [enabled, setEnabled] = useState<boolean | null>(null);
@@ -295,7 +299,17 @@ export function GalleryFileTagFilter({
 
           {/* ZIP-Download-Bereich: nur wenn Filter wirklich Files matcht */}
           {filteredCount > 0 && (
-            <div className="mt-3 pt-3 border-t border-line-subtle">
+            <div className="mt-3 pt-3 border-t border-line-subtle flex items-center gap-3 flex-wrap">
+              {onSelectFiltered && (
+                <button
+                  type="button"
+                  onClick={onSelectFiltered}
+                  className="px-3 py-1.5 text-xs rounded bg-surface-sunken border border-line-subtle hover:bg-accent/8"
+                  title="Diese gefilterten Fotos im Auswahl-Modus markieren — danach Bulk-Aktionen (Section, Tag, Hide, Delete) wie gewohnt"
+                >
+                  ☑ {filteredCount} {filteredCount === 1 ? "Foto" : "Fotos"} markieren
+                </button>
+              )}
               {!zipJob && (
                 <button
                   type="button"
