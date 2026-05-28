@@ -2859,6 +2859,36 @@ export const api = {
       range: { days: number; since: string };
       steps: Array<{ key: string; label: string; count: number }>;
     }>(`/analytics/galleries/${galleryId}/funnel${days ? "?days=" + days : ""}`),
+
+  // ===========================================================================
+  // Auto-Tagging (Feature-Flag 'ai_tagging')
+  // ===========================================================================
+  getFileAutoTags: (fileId: string) =>
+    request<{
+      autoTags: Array<{
+        id: string;
+        tagName: string;
+        confidence: number;
+        source: string;
+        status: "suggested" | "accepted" | "rejected";
+        reviewedAt: string | null;
+        label: string;
+        group: string | null;
+        color: string;
+      }>;
+    }>(`/files/${fileId}/auto-tags`),
+
+  acceptAutoTag: (fileId: string, autoTagId: string) =>
+    request<{ ok: boolean; tag?: { id: string; name: string } }>(
+      `/files/${fileId}/auto-tags/${autoTagId}/accept`,
+      { method: "POST" }
+    ),
+
+  rejectAutoTag: (fileId: string, autoTagId: string) =>
+    request<{ ok: boolean }>(
+      `/files/${fileId}/auto-tags/${autoTagId}/reject`,
+      { method: "POST" }
+    ),
 };
 
 // ---------------------------------------------------------------------------

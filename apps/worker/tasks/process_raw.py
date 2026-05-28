@@ -129,6 +129,13 @@ def _process(file_row: dict) -> None:
         log.info("process_raw.complete",
                  file_id=file_id, width=final_w, height=final_h,
                  sha256=src_sha)
+        # Auto-Tagging anstossen — analog zu process_file. Task selbst
+        # entscheidet via Feature-Flag ob er was tut.
+        try:
+            app.send_task("tasks.auto_tag.tag_image", args=[file_id])
+        except Exception as err:
+            log.warning("process_raw.auto_tag_enqueue_failed",
+                        file_id=file_id, err=str(err))
 
 
 def _extract_or_demosaic(src_path: str, out_jpeg: str) -> str:

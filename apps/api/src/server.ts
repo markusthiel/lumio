@@ -49,6 +49,7 @@ import { registerBroadcastRoutes } from "./routes/broadcasts.js";
 import { registerPrintShopRoutes } from "./routes/print-shop.js";
 import { registerPrintShopPublicRoutes } from "./routes/print-shop-public.js";
 import { registerAnalyticsRoutes } from "./routes/analytics.js";
+import { registerAutoTagRoutes } from "./routes/auto-tags.js";
 import { registerWsRoutes } from "./routes/ws.js";
 import superAdminPlugin from "./plugins/super-admin.js";
 import { startPeriodicSweeper } from "./services/sweeper.js";
@@ -166,6 +167,8 @@ async function buildServer() {
       await registerPrintShopPublicRoutes(api);
       // Analytics-Routes — auch alle Feature-Flag-gated (advanced_analytics)
       await registerAnalyticsRoutes(api);
+      // Auto-Tag-Routes — Feature-Flag-gated (ai_tagging)
+      await registerAutoTagRoutes(api);
       if (config.BILLING_ENABLED) {
         await registerBillingRoutes(api);
         await registerSignupRoutes(api);

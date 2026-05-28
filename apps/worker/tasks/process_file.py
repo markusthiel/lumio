@@ -133,3 +133,13 @@ def _process(file_row: dict) -> None:
                         width=final_w, height=final_h)
         log.info("process_file.complete", file_id=file_id,
                  width=final_w, height=final_h, sha256=src_sha)
+
+        # Auto-Tagging anstossen — eigener Celery-Task, asynchron.
+        # Der Task selbst checkt das Feature-Flag und skipped wenn aus.
+        # Fehler im enqueue sind tolerant: wenn Celery/Redis ein Problem
+        # hat, ist das Bild trotzdem fertig — Tags fehlen halt.
+        try:
+            app.send_task("tasks.auto_tag.tag_image", args=[file_id])
+        except Exception as err:
+            log.warning("process_file.auto_tag_enqueue_failed",
+                        file_id=file_id, err=str(err))

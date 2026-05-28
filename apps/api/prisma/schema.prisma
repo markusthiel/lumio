@@ -770,6 +770,7 @@ model File {
   comments        Comment[]
   downloadLogs    DownloadLog[]
   tags            FileTag[]
+  autoTags        FileAutoTag[]
   printOrderItems PrintOrderItem[]
   
   createdAt       DateTime @default(now())
@@ -2073,4 +2074,72 @@ model PrintOrderEvent {
 
   @@index([printOrderId, createdAt])
   @@map("print_order_events")
+}
+
+// -----------------------------------------------------------------------------
+// KI-Auto-Tagging (Feature-Flag: ai_tagging)
+// -----------------------------------------------------------------------------
+// FileAutoTag haelt Vorschlaege vom Auto-Tagger pro File. Wird vom Worker
+// nach erfolgreichem Image-Processing geschrieben (siehe
+// apps/worker/tasks/auto_tag.py).
+//
+// Workflow:
+//   1. Worker analysiert das Bild (Etappe 1: rule-based Heuristiken;
+//      Etappe 2: CLIP/ML).
+//   2. Schreibt FileAutoTag-Rows mit Tag-Name + Confidence (0..1) +
+//      Source ('rule_based', 'clip', ...).
+//   3. Studio sieht die Vorschlaege im File-Detail, kann pro Vorschlag
+//      'accept' (→ wird zu echtem Tag via FileTag + Tag) oder
+//      'reject' (status='rejected', Worker schreibt es nicht nochmal).
+//
+// Tag-Namen werden aus einem festen Vokabular (siehe Worker-Code)
+// gezogen, NICHT free-form. Wenn der User custom Tags will, fuegt er
+// die manuell ueber das bestehende Tag-System hinzu — Auto-Tagger
+// und manuelle Tags koexistieren.
+//
+// Komplett deaktivierbar via TenantFeatureFlag 'ai_tagging' — wenn aus,
+// laeuft der Worker-Task nicht und API liefert 404. Tabelle bleibt leer.
+model FileAutoTag {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fileId      String   @db.Uuid
+  file        File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  /// Tag-Wert (z.B. 'portrait', 'landscape', 'black_and_white', 'indoor').
+  /// Werte kommen aus einem festen Vokabular im Worker-Code — kein freier
+  /// Text. Damit bleibt die UI-Anzeige konsistent (Uebersetzungen, Farben).
+  tagName     String
+
+  /// Konfidenz [0.0..1.0]. Bei rule_based-Source oft binary (0 oder 1),
+  /// bei CLIP/ML probabilistisch verteilt.
+  confidence  Float
+
+  /// Wo kommt der Vorschlag her. Erlaubt spaeter die Quelle zu sortieren
+  /// ('zeig mir nur rule_based-Vorschlaege') und beim Re-Tag andere
+  /// Sources unbeeinflusst zu lassen.
+  source      String   // 'rule_based' | 'clip' | ...
+
+  /// Status:
+  ///   'suggested' — Vorschlag noch nicht reviewed
+  ///   'accepted'  — Studio hat 'accept' geklickt; ein FileTag wurde
+  ///                 angelegt. Wir behalten die Row, damit Re-Tag den
+  ///                 Tag nicht doppelt vorschlaegt.
+  ///   'rejected'  — Studio hat 'reject' geklickt; beim naechsten Re-Tag
+  ///                 wird dieser Tag fuer dieses File NICHT mehr
+  ///                 vorgeschlagen.
+  status      String   @default("suggested")
+
+  /// Wer hat reviewed (User-Id). Null bei status='suggested'.
+  reviewedBy  String?  @db.Uuid
+  reviewedAt  DateTime?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Pro File darf ein Tag nur einmal existieren (egal welche Source).
+  // Wenn der Worker laeuft und der Tag schon da ist, macht er Update
+  // statt Insert (oder skip).
+  @@unique([fileId, tagName])
+  @@index([fileId, status])
+  @@index([tagName])
+  @@map("file_auto_tags")
 }

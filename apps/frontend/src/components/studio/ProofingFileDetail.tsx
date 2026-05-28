@@ -36,6 +36,7 @@ import {
   type AnnotationColor,
   type AnnotationData,
 } from "@/components/annotation/AnnotationOverlay";
+import { AutoTagsSection } from "@/components/studio/AutoTagsSection";
 
 interface Props {
   galleryId: string;
@@ -307,8 +308,11 @@ export function ProofingFileDetail({ galleryId, file, onClose }: Props) {
           </div>
         </div>
 
-        {/* Sidebar: Comments + Studio-Reply-Form */}
+        {/* Sidebar: Auto-Tags + Comments + Studio-Reply-Form */}
         <aside className="w-96 border-l border-line-subtle bg-surface-raised flex flex-col">
+          {/* KI-Vorschlaege — versteckt sich selbst wenn Feature aus */}
+          <AutoTagsSection fileId={file.id} />
+
           <div className="px-4 py-3 border-b border-line-subtle text-ui-sm font-medium text-ink-primary">
             {t("annotation.studioDetail.commentsHeading")} ({comments?.length ?? 0})
           </div>

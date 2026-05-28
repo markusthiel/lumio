@@ -57,6 +57,7 @@ app = Celery(
         "tasks.export_zip",
         "tasks.billing",
         "tasks.webhook_delivery",
+        "tasks.auto_tag",
     ],
 )
 
