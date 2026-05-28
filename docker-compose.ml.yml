@@ -1,0 +1,57 @@
+# =============================================================================
+# Lumio — ML-Variante des Workers (KI-Auto-Tagging Etappe 2 mit CLIP)
+# =============================================================================
+#
+# Tauscht den Standard-Worker gegen einen ML-faehigen Worker mit PyTorch
+# und open_clip_torch fuer semantic Tag-Klassifikation.
+#
+# Verwendung:
+#
+#   docker compose \
+#     -f docker-compose.yml \
+#     -f docker-compose.prod.yml \
+#     -f docker-compose.ml.yml \
+#     up -d --build worker
+#
+# Optional zusammen mit GPU-Compose fuer NVENC + CUDA-Beschleunigung:
+#
+#   docker compose \
+#     -f docker-compose.yml \
+#     -f docker-compose.prod.yml \
+#     -f docker-compose.ml.yml \
+#     -f docker-compose.gpu.yml \
+#     up -d --build worker
+#
+# Voraussetzungen am Host:
+#   - ~3 GB freier Disk-Space fuer Container + Modell-Cache
+#   - 2-4 GB RAM Aufschlag pro Worker-Prozess (CLIP-Modell + Inference)
+#   - CPU: 1-3s pro Bild ist ertraeglich aber spuerbar.
+#     GPU mit zusaetzlichem docker-compose.gpu.yml: 50-200ms.
+#
+# Worker entscheidet automatisch ob er CUDA hat (torch.cuda.is_available())
+# und nutzt es wenn vorhanden. Kein zusaetzlicher Code-Pfad.
+
+services:
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile.ml
+    environment:
+      # CLIP aktivieren — ohne diesen Flag waere das Modul auch im
+      # ML-Container inaktiv (Defense-in-Depth: niemand laedt aus
+      # Versehen ein 150-MB-Modell wenn er das nicht will).
+      LUMIO_CLIP_ENABLED: "1"
+      # Modell-Wahl ueberschreibbar (default ViT-B-32 / openai-pretrain)
+      # LUMIO_CLIP_MODEL: "ViT-B-32"
+      # LUMIO_CLIP_PRETRAINED: "openai"
+      # Threshold fuer Tag-Vorschlaege (0..1). Default 0.08; hoeher =
+      # weniger aber sicherere Vorschlaege.
+      # LUMIO_CLIP_THRESHOLD: "0.08"
+    volumes:
+      # Modell-Cache persistieren ueber Container-Restarts. Sonst wird
+      # CLIP-ViT-B/32 bei jedem Restart neu von HuggingFace gezogen
+      # (~150 MB).
+      - lumio_model_cache:/tmp/lumio_models
+
+volumes:
+  lumio_model_cache:

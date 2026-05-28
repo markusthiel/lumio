@@ -1,0 +1,30 @@
+# =============================================================================
+# Lumio Worker — Optionale ML-Dependencies (KI-Auto-Tagging Etappe 2)
+# =============================================================================
+#
+# Diese requirements werden NICHT vom Standard-Dockerfile installiert.
+# Wer den ML-Worker bauen will:
+#
+#   docker compose -f docker-compose.yml \
+#                  -f docker-compose.prod.yml \
+#                  -f docker-compose.ml.yml \
+#                  up -d --build worker
+#
+# Container wird dann ~1.5 GB groesser (PyTorch CPU-only + Modell).
+# Modell wird beim ersten Job geladen und in /tmp/lumio_models/ gecacht.
+
+# PyTorch CPU-only (statt Default CUDA-Build) — wir extrahieren das via
+# --extra-index-url im Dockerfile.ml damit pip die richtige Version
+# nimmt. Auf GPU-Hosts laeuft der gleiche CPU-Build (CLIP-Inference
+# auch ohne CUDA ertraeglich, ~1-3s/Bild). Wer GPU will: torch+cuda
+# selbst installieren.
+torch==2.5.1
+torchvision==0.20.1
+
+# CLIP-Modell + Tokenizer + Image-Preprocessing
+open_clip_torch==2.29.0
+
+# Tokenizer-Dependencies (open_clip importiert das selbst, listed for
+# transparency)
+ftfy>=6.1.1
+regex

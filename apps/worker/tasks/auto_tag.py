@@ -3,15 +3,23 @@ Lumio Worker — Auto-Tagging
 
 Analysiert ein Bild und schreibt Tag-Vorschlaege in file_auto_tags.
 
-Etappe 1 (jetzt): Rule-Based Heuristiken via PIL + EXIF.
-Etappe 2 (kommt): CLIP / ML-basiert mit semantischem Vokabular.
+Zwei Tagger-Schichten:
+  1. Rule-Based (immer aktiv):
+     Aspect/Brightness/Saettigung/EXIF/Tageszeit via PIL + EXIF.
+     Liefert Format/Lichtstimmung/Setting-Tags.
+
+  2. CLIP-Tagger (optional, LUMIO_CLIP_ENABLED=1):
+     Zero-Shot-Klassifikation gegen ein Hochzeits-fokussiertes Tag-
+     Vokabular. Liefert inhaltliche Tags (Brautpaar/Kuss/Ringe/...).
+     Wenn nicht verfuegbar (PyTorch fehlt oder Flag nicht gesetzt):
+     transparent skip — rule_based-Tags landen trotzdem in der DB.
 
 Triggered:
   - aus process_file.generate_renditions nach mark_file_ready
   - aus process_raw.develop nach mark_file_ready (RAW)
   Nur wenn Tenant-Feature-Flag 'ai_tagging' aktiv ist — sonst no-op.
 
-Tag-Vokabular (festes Set, alle keys/labels):
+Tag-Vokabular:
   Format: portrait | landscape | square
   Lichtstimmung: bright | dark | golden_hour
   Saettigung: vivid | muted | black_and_white
@@ -19,8 +27,14 @@ Tag-Vokabular (festes Set, alle keys/labels):
            Belichtung — daher confidence niedrig)
   Tageszeit (aus EXIF takenAt): morning | afternoon | evening | night
 
+  + CLIP-Tags (wenn aktiv): bride_and_groom, couple_kiss,
+    wedding_rings, bridal_bouquet, wedding_dress, first_dance,
+    group_photo, bridesmaids, ceremony, reception, cake_cutting,
+    toast, details, church, outdoor_ceremony, garden, beach, vineyard,
+    candid, posed_portrait, laughter, tears, dancing
+
 Jeder Tag bekommt eine Confidence 0..1 — bei rule-based meist binary,
-aber wir bewahren das Feld fuer Etappe 2 (CLIP liefert echte Scores).
+bei CLIP echte Softmax-Wahrscheinlichkeiten.
 """
 from __future__ import annotations
 
@@ -87,6 +101,18 @@ def tag_image(self, file_id: str) -> dict:
         log.exception("auto_tag.analyze_failed", file_id=file_id, err=str(err))
         return {"file_id": file_id, "status": "failed", "error": str(err)}
 
+    # Optional: CLIP-Tagger drueber laufen lassen. Liefert leere Liste
+    # wenn nicht verfuegbar — kein Fehlerfall.
+    try:
+        from ml import clip_tagger
+        if clip_tagger.is_available():
+            clip_suggestions = _classify_with_clip(preview_key)
+            if clip_suggestions:
+                suggestions = suggestions + clip_suggestions
+    except Exception as err:
+        # Fail-safe: CLIP-Fehler darf rule-based-Pipeline nicht killen
+        log.warning("auto_tag.clip_skipped", file_id=file_id, err=str(err))
+
     if not suggestions:
         return {"file_id": file_id, "status": "no_suggestions"}
 
@@ -99,6 +125,22 @@ def tag_image(self, file_id: str) -> dict:
         "status": "ok",
         "count": len(suggestions),
     }
+
+
+def _classify_with_clip(preview_storage_key: str) -> list[dict]:
+    """Laedt das Preview-File und ruft CLIP-Klassifikation auf."""
+    import tempfile
+    from ml import clip_tagger
+
+    with tempfile.NamedTemporaryFile(suffix=".webp", delete=False) as tmp:
+        try:
+            download_to_file(preview_storage_key, tmp.name)
+            return clip_tagger.classify_image(tmp.name)
+        finally:
+            try:
+                os.unlink(tmp.name)
+            except OSError:
+                pass
 
 
 def _fetch_file_for_tagging(file_id: str) -> Optional[dict]:

@@ -101,6 +101,14 @@ def _dispatch(stream: str, payload: dict) -> None:
         app.send_task(
             "tasks.process_watermark.generate", args=[file_id]
         )
+    elif job_type == "auto_tag":
+        # Wird vom Studio-Re-Tag-Endpoint (POST /galleries/:id/auto-tags
+        # /re-tag) enqueued, nicht von process_file.py — dort triggert
+        # process_file selbst via app.send_task. Der Re-Tag-Pfad geht
+        # ueber Redis-Streams, der reguläre Pfad direkt ueber Celery.
+        app.send_task(
+            "tasks.auto_tag.tag_image", args=[file_id]
+        )
     elif job_type == "build_zip":
         app.send_task(
             "tasks.build_zip.build",

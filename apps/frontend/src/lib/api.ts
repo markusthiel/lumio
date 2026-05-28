@@ -2889,6 +2889,18 @@ export const api = {
       `/files/${fileId}/auto-tags/${autoTagId}/reject`,
       { method: "POST" }
     ),
+
+  reTagGallery: (galleryId: string) =>
+    request<{ ok: boolean; enqueuedFiles: number }>(
+      `/galleries/${galleryId}/auto-tags/re-tag`,
+      { method: "POST" }
+    ),
+
+  bulkAcceptAutoTags: (galleryId: string, minConfidence: number) =>
+    request<{ ok: boolean; accepted: number; threshold: number }>(
+      `/galleries/${galleryId}/auto-tags/bulk-accept?min=${minConfidence}`,
+      { method: "POST" }
+    ),
 };
 
 // ---------------------------------------------------------------------------
