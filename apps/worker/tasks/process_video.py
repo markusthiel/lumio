@@ -58,12 +58,37 @@ log = structlog.get_logger(__name__)
 # HLS-Varianten — werden nur erzeugt, wenn das Source-Video mindestens diese
 # Höhe hat. So vermeiden wir Upscaling (sieht schlecht aus und macht das
 # File größer als das Original).
-HLS_VARIANTS = [
+#
+# Zwei Profile:
+#   HLS_VARIANTS_STANDARD: 480p / 720p / 1080p — Default fuer alle Tenants
+#   HLS_VARIANTS_4K:       + 1440p / 2160p — gegated durch Feature-Flag
+#                          'video_streaming_4k'. Storage-Aufschlag erheblich:
+#                          5 Min 2160p ~ 1.3 GB Bundle inkl. der niedrigeren
+#                          Stufen. Super-Admin schaltet pro Tenant.
+HLS_VARIANTS_STANDARD = [
     # (height, video_bitrate, audio_bitrate, name)
-    (480, "1000k", "96k", "v0"),
-    (720, "2500k", "128k", "v1"),
-    (1080, "5000k", "192k", "v2"),
+    (480,  "1000k",  "96k",  "v0"),
+    (720,  "2500k",  "128k", "v1"),
+    (1080, "5000k",  "192k", "v2"),
 ]
+
+HLS_VARIANTS_4K = HLS_VARIANTS_STANDARD + [
+    # 1440p (QHD): 16 Mbps reicht fuer h.264 Streaming. h.265 koennte das
+    # bei ~50% Bitrate, aber Browser-Support fuer h.265 ist immer noch
+    # luegnerisch (Safari ja, Chrome nur in HDR-Containern). h.264 bleibt
+    # Kompatibilitaets-Default.
+    (1440, "16000k", "192k", "v3"),
+    # 2160p (4K UHD): 35 Mbps deckt 99% der Hochzeits-Cameras (typisch
+    # 50-100 Mbps Source, das ist nicht streaming-tauglich). Wer wirklich
+    # die Source-Bitrate als HLS will, muss Download anbieten — HLS ist
+    # streaming, nicht Archiv.
+    (2160, "35000k", "192k", "v4"),
+]
+
+# Legacy: vorhandener Code referenziert HLS_VARIANTS — wir behalten den
+# Namen als Alias auf STANDARD damit nichts bricht. _make_hls waehlt jetzt
+# dynamisch.
+HLS_VARIANTS = HLS_VARIANTS_STANDARD
 
 POSTER_QUALITY = 90  # ffmpeg JPEG-Qualität (1-31, niedriger = besser)
 SPRITE_INTERVAL_S = 10
@@ -169,6 +194,7 @@ def _process(file_row: dict) -> None:
             out_dir=tmpdir / "hls",
             source_height=height,
             has_audio=has_audio,
+            tenant_id=tenant_id,
         )
         # Alle HLS-Dateien einzeln nach S3 hochladen (master.m3u8 +
         # variant playlists + segments). Wir behalten die Struktur bei.
@@ -352,9 +378,15 @@ def _publish_video_image_renditions(
 # HLS
 # ---------------------------------------------------------------------------
 def _make_hls(*, src_path: Path, out_dir: Path, source_height: int,
-              has_audio: bool) -> None:
+              has_audio: bool, tenant_id: str) -> None:
     """Erzeugt eine Master-Playlist + variant Playlists. Wir verwenden
     den eingebauten hls-Muxer von ffmpeg mit `var_stream_map`.
+
+    Variant-Auswahl:
+      - Default: HLS_VARIANTS_STANDARD (480p / 720p / 1080p)
+      - Tenant mit Feature-Flag 'video_streaming_4k' aktiv:
+        + 1440p (QHD) + 2160p (4K UHD) — werden nur erzeugt wenn die
+        Source mindestens diese Hoehe hat (kein Upscaling).
 
     Encoder-Auswahl: software (libx264, default) oder Hardware (NVENC, QSV,
     VAAPI) je nach LUMIO_HW_ENCODER-Env. Bei Hardware-Encodern haben wir
@@ -363,10 +395,18 @@ def _make_hls(*, src_path: Path, out_dir: Path, source_height: int,
     """
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    # Variant-Set je nach Tenant-Feature-Flag
+    from feature_flags import is_feature_enabled  # lazy import vermeidet
+    # Worker-Boot-Reihenfolge-Probleme
+    if is_feature_enabled(tenant_id, "video_streaming_4k"):
+        variants_pool = HLS_VARIANTS_4K
+    else:
+        variants_pool = HLS_VARIANTS_STANDARD
+
     # Welche Varianten machen wir? Nichts upscalen.
-    chosen = [v for v in HLS_VARIANTS if v[0] <= source_height]
+    chosen = [v for v in variants_pool if v[0] <= source_height]
     if not chosen:
-        chosen = [HLS_VARIANTS[0]]
+        chosen = [variants_pool[0]]
 
     # Wir nehmen das Profil der ersten (also höchsten) Variante als Vorlage,
     # weil hwaccel-Init für ALLE Varianten gemeinsam läuft. Codec/Preset
@@ -415,8 +455,13 @@ def _make_hls(*, src_path: Path, out_dir: Path, source_height: int,
         # sc_threshold gibt's nur bei libx264; NVENC/QSV/VAAPI ignorieren
         # bzw. brechen damit ab
         if prof.name == "software":
+            # H.264-Profile dynamisch: 'main' reicht bis 1080p, ab 1440p+
+            # erzeugt 'high' bei gleicher Bitrate spuerbar bessere Qualitaet
+            # (bessere Entropy-Coding-Tools). 'main' wuerde bei 4K mit den
+            # vorgesehenen 35 Mbps schwitzen.
+            h264_profile = "high" if h >= 1440 else "main"
             cmd += [
-                f"-profile:v:{i}", "main",
+                f"-profile:v:{i}", h264_profile,
                 f"-sc_threshold:v:{i}", "0",
             ]
         stream_part = f"v:{i}"
