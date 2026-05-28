@@ -197,8 +197,8 @@ export async function registerAnalyticsRoutes(app: FastifyInstance) {
       const storageTrendRaw = await prisma.$queryRawUnsafe<
         Array<{ day: Date; bytes: bigint }>
       >(`
-        SELECT DATE_TRUNC('${bucketDays > 1 ? "week" : "day"}', "createdAt") AS day,
-               SUM("sizeBytes")::bigint AS bytes
+        SELECT DATE_TRUNC('${bucketDays > 1 ? "week" : "day"}', files."createdAt") AS day,
+               SUM(files."sizeBytes")::bigint AS bytes
         FROM files
         JOIN galleries ON galleries.id = files."galleryId"
         WHERE galleries."tenantId" = $1::uuid
