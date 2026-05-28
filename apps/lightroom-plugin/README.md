@@ -1,8 +1,13 @@
 # Lumio Lightroom Classic Plugin
 
-Bringt die Kunden-Auswahl aus einer Lumio-Galerie direkt in den
-Lightroom-Katalog: Picks landen als Pick-Flag, Bewertungen als Sterne,
-Color-Labels werden gespiegelt.
+Bidirektionale Brücke zwischen Lightroom Classic und Lumio:
+
+1. **Selection-Import** (Lumio → LR): Kunden-Auswahl aus einer Galerie
+   landet als Pick-Flag, Sterne und Color-Label im Lightroom-Katalog.
+2. **Publish-Service** (LR → Lumio): Bilder aus LR direkt in eine
+   Lumio-Galerie hochladen. Pro Lumio-Galerie eine Veröffentlichte
+   Sammlung. Drag-and-Drop oder Smart-Collection-Regeln bestimmen den
+   Inhalt.
 
 ## Voraussetzungen
 
@@ -38,13 +43,7 @@ umbenennen (oder per Rechtsklick → „Paketinhalt zeigen").
 3. **Verbindung testen** klicken. Erwartete Ausgabe:
    `✓ Verbunden (API v1)`.
 
-Falls die Verbindung fehlschlägt, prüfe:
-- Erreichbarkeit des Servers (im Browser einloggen)
-- Token wurde nicht widerrufen
-- Plugin-Logs unter `~/Documents/LrClassicLogs/Lumio.log` (macOS) bzw.
-  `%USERPROFILE%\Documents\LrClassicLogs\Lumio.log` (Windows)
-
-## Benutzung
+## Benutzung: Selection-Import (Kunden-Picks nach LR)
 
 1. In Lightroom: **Bibliothek → Zusatzmoduloptionen → Lumio-Auswahl
    importieren…**
@@ -64,10 +63,41 @@ Falls die Verbindung fehlschlägt, prüfe:
    Transaktion, sodass du den Import mit Cmd/Strg-Z komplett rückgängig
    machen kannst.
 
-Am Ende erscheint eine Zusammenfassung mit der Anzahl gematchter Files
-und einer Liste der nicht gefundenen Filenames (die ersten 20).
+## Benutzung: Publish-Service (LR-Bilder zu Lumio)
 
-## Aggregations-Logik
+1. In Lightroom links unter „Veröffentlichungsdienste" erscheint
+   **Lumio**. Klick auf **Einrichten** → Service speichern.
+2. **Veröffentlichte Sammlung erstellen** unter dem Lumio-Service.
+3. Im Dialog:
+   - **Vorhandene Galerie** aus der Liste wählen, ODER
+   - **Neue anlegen** mit Titel + Modus (Auswahl/Proofing oder
+     Präsentation).
+   - **Nach Upload automatisch auf 'live' schalten**: wenn an, wird
+     die Galerie nach dem ersten erfolgreichen Upload sofort live —
+     Kunden können die URL aufrufen.
+4. **Speichern** → die Sammlung erscheint unter Lumio.
+5. Bilder per Drag-and-Drop oder Smart-Collection in die Sammlung
+   ziehen → unter der Sammlung sammeln sich die Bilder als „Bereit
+   zu veröffentlichen".
+6. **Veröffentlichen** klicken → Lightroom rendert die Bilder als
+   JPEG (sRGB), lädt sie zu Lumio hoch. Pro Upload werden im Hintergrund
+   Vorschau-, Thumbnail- und ggf. Watermark-Varianten erzeugt.
+7. **In Lumio anzeigen** (Rechtsklick auf Sammlung) öffnet die
+   Galerie im Browser.
+
+### Re-Publish
+
+Wenn du in LR ein Bild bearbeitest, kannst du es manuell auf
+„Erneut veröffentlichen" setzen (Rechtsklick → „Erneut veröffentlichen").
+Beim nächsten Upload-Lauf wird das alte File in Lumio gelöscht und das
+neue hochgeladen.
+
+### Bilder entfernen
+
+Photo aus der Sammlung entfernen oder Sammlung löschen → Lumio
+löscht die entsprechenden Files automatisch.
+
+## Aggregations-Logik (Selection-Import)
 
 Wenn mehrere Kunden in der Galerie verschiedene Auswahlen treffen,
 werden die Werte serverseitig zusammengefasst:
@@ -81,14 +111,19 @@ werden die Werte serverseitig zusammengefasst:
 
 ## Bekannte Einschränkungen
 
-- **Filename-Matching**: Wenn du Files in Lightroom umbenannt hast,
-  finden wir sie nicht. SHA-256-basiertes Matching ist als zukünftige
-  Verbesserung geplant.
+- **Filename-Matching (Selection-Import)**: Wenn du Files in Lightroom
+  umbenannt hast, finden wir sie nicht. SHA-256-basiertes Matching ist
+  als zukünftige Verbesserung geplant.
 - **Doppelte Filenames**: Wenn dein Katalog mehrere Photos mit demselben
   Dateinamen enthält (z.B. zwei Kameras), werden alle aktualisiert.
 - **Reject-Flag**: Lumio kennt aktuell nur „pick" und „none", kein
   „reject". Daher wird beim Import kein bestehender Reject-Flag
   überschrieben.
+- **Publish: nur JPEG, sRGB**: Wir rendern auf JPEG sRGB und laden
+  nur das hoch. Originale (RAW) bleiben lokal.
+- **Publish: nur single-part Upload**: Files > 100 MB werden aktuell
+  abgelehnt. Bei JPEG-Renders kein Problem; bei TIFF-Exporten ggf.
+  manuell die Quality reduzieren.
 - **Smart-Previews / RAW+JPEG-Stacks**: Wir matchen auf Dateinamens-
   Ebene, der primäre Catalog-Eintrag bekommt die Metadaten.
 
@@ -96,14 +131,21 @@ werden die Werte serverseitig zusammengefasst:
 
 ```
 lumio.lrdevplugin/
-├── Info.lua                       Manifest
+├── Info.lua                       Manifest (Selection + Publish)
 ├── PluginManager.lua              UI im Zusatzmodul-Manager (Host+Token)
-├── ImportSelectionDialog.lua      Galerie- + Optionen-Dialog
+├── ImportSelectionDialog.lua      Galerie- + Optionen-Dialog (Import)
 ├── ImportSelectionTask.lua        Eigentliche Import-Logik
+├── LumioPublishService.lua        Publish-Service-Provider (Upload)
 ├── LumioApi.lua                   HTTP-Wrapper mit Bearer-Auth
 ├── Json.lua                       JSON-Lib (MIT, rxi/json.lua)
 └── Logger.lua                     LrLogger-Wrapper
 ```
+
+## Logs
+
+Plugin-Logs liegen unter:
+- macOS: `~/Documents/LrClassicLogs/Lumio.log`
+- Windows: `%USERPROFILE%\Documents\LrClassicLogs\Lumio.log`
 
 ## Lizenz
 

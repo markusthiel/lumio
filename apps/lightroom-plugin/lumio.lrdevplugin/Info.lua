@@ -1,9 +1,11 @@
 --[[
     Lumio Lightroom Classic Plugin — Info.lua
 
-    Bringt die Kunden-Auswahl aus einer Lumio-Galerie direkt in den
-    Lightroom-Katalog: Picks werden als Flag markiert, Likes als Stern-
-    Rating, Color-Labels werden gespiegelt.
+    Zwei Richtungen:
+      1. Selection-Import: Kunden-Picks aus Lumio in den LR-Katalog
+         (Bibliothek → Zusatzmoduloptionen → "Lumio-Auswahl importieren…")
+      2. Publish-Service: Bilder aus LR in Lumio-Galerien hochladen
+         (Bibliothek → Veroeffentlichungsdienste → "Lumio")
 
     Voraussetzungen:
       - Lightroom Classic >= 9.0 (SDK 9 ist seit 2020 stabil)
@@ -14,7 +16,8 @@
          "lumio.lrplugin", falls .lrdevplugin in Finder als Bundle hindert)
       2. In Lightroom: Datei → Zusatzmodul-Manager → Hinzufügen
       3. In den Plugin-Optionen Host + Token eingeben
-      4. Bibliothek → Zusatzmoduloptionen → "Lumio-Auswahl importieren…"
+      4a. Selection-Import: Bibliothek → Zusatzmoduloptionen → "Lumio-Auswahl importieren…"
+      4b. Publish:          Bibliothek → Veroeffentlichungsdienste → "Lumio einrichten…"
 
     Author: Lumio
     License: AGPL-3.0
@@ -39,9 +42,16 @@ return {
         },
     },
 
+    -- Publish-Service: erscheint unter „Veröffentlichungsdienste" in LR
+    LrExportServiceProvider = {
+        title    = "Lumio",
+        file     = "LumioPublishService.lua",
+        builtInPresetsDir = "presets",
+    },
+
     VERSION = {
         major    = 0,
-        minor    = 1,
+        minor    = 2,
         revision = 0,
     },
 }
