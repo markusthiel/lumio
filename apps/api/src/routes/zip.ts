@@ -338,7 +338,26 @@ export async function registerZipRoutes(app: FastifyInstance) {
   // -------------------------------------------------------------------------
   // Studio: ZIP der ganzen Galerie (für Backup/Lieferung)
   // -------------------------------------------------------------------------
-  app.post<{ Params: { id: string } }>(
+  // -------------------------------------------------------------------------
+  // POST /galleries/:id/download/zip — Studio-seitige ZIP-Anfrage
+  // -------------------------------------------------------------------------
+  // Body (alles optional):
+  //   variant: "original" | "web"  (default "original")
+  //   tagIds:  string[]            wenn gesetzt: nur Files die ALLE diese
+  //                                Tags haben (UND-Filter, analog zum
+  //                                Studio-Galerie-Filter). Wenn leer oder
+  //                                undefined: ganze Galerie.
+  //
+  // Use-Case: Studio kann ZIP einer Auswahl bauen ('alle Schwarzweiß-
+  // Brautpaar-Fotos') und der Kundin per Mail-Link schicken — ohne dass
+  // die Kundin selbst Tag-Filter sehen muss.
+  app.post<{
+    Params: { id: string };
+    Body: {
+      variant?: "original" | "web";
+      tagIds?: string[];
+    };
+  }>(
     "/galleries/:id/download/zip",
     async (req, reply) => {
       const s = req.requireAuth();
@@ -352,16 +371,53 @@ export async function registerZipRoutes(app: FastifyInstance) {
       });
       if (!gallery) return reply.status(404).send({ error: "not_found" });
 
+      const body = req.body ?? {};
+      const variant: "original" | "web" =
+        body.variant === "web" ? "web" : "original";
+
+      // Tag-Filter: wenn gegeben, Files via UND-Filter resolven. Wir
+      // nehmen NUR ready-Files und ueberspringen rejected/hidden — der
+      // Studio-Download soll nicht versehentlich abgelehnte Uploads
+      // einpacken.
+      let fileIds: string[] | null = null;
+      let label = "studio_all";
+      if (body.tagIds && body.tagIds.length > 0) {
+        const files = await prisma.file.findMany({
+          where: {
+            galleryId: gallery.id,
+            status: "ready",
+            publicVisibility: "visible",
+            AND: body.tagIds.map((tagId) => ({
+              tags: { some: { tagId } },
+            })),
+          },
+          select: { id: true },
+        });
+        if (files.length === 0) {
+          return reply.status(400).send({
+            error: "no_files_matching_filter",
+            message: "Keine Dateien passen zum Tag-Filter.",
+          });
+        }
+        fileIds = files.map((f) => f.id);
+        // Label trackt im Audit was gewaehlt war — anonyme Tag-Liste
+        // reicht, Tag-Namen sind nicht persistent (User kann sie spaeter
+        // umbenennen, wir wollen historisches Label).
+        label = `studio_tags_${body.tagIds.slice().sort().join("_")}`;
+      }
+
       const zipDownload = await requestZipDownload({
         tenantId: gallery.tenantId,
         galleryId: gallery.id,
         accessId: null,
-        fileIds: null,
-        label: "studio_all",
+        fileIds,
+        label,
+        variant,
       });
       return reply.status(202).send({
         id: zipDownload.id,
         status: zipDownload.status,
+        fileCount: fileIds?.length ?? null,
       });
     }
   );
@@ -404,6 +460,60 @@ export async function registerZipRoutes(app: FastifyInstance) {
         sizeBytes: zip.sizeBytes ? Number(zip.sizeBytes) : null,
         errorMessage: zip.errorMessage,
         expiresAt: zip.expiresAt,
+      };
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // GET /galleries/:id/download/zip/:zipId/share-url
+  // -------------------------------------------------------------------------
+  // Direkt-teilbare S3-presigned URL fuer das ZIP. Use-Case: Studio baut
+  // eine Tag-gefilterte ZIP und schickt der Kundin den Link per Mail —
+  // ohne dass die Kundin einen Lumio-Login braucht.
+  //
+  // Gueltigkeit: 24h. Sollte einer der angemessenen Default sein —
+  // Kundin oeffnet die Mail nicht immer sofort, aber 7 Tage waeren
+  // schon Security-Risiko falls die Mail durchsickert.
+  app.get<{ Params: { id: string; zipId: string } }>(
+    "/galleries/:id/download/zip/:zipId/share-url",
+    async (req, reply) => {
+      const s = req.requireAuth();
+      const gallery = await prisma.gallery.findFirst({
+        where: {
+          id: req.params.id,
+          tenantId: req.tenantId,
+          ownerId: s.user.id,
+        },
+        select: { id: true },
+      });
+      if (!gallery) return reply.status(404).send({ error: "not_found" });
+
+      const zip = await prisma.zipDownload.findFirst({
+        where: { id: req.params.zipId, galleryId: gallery.id },
+      });
+      if (!zip) return reply.status(404).send({ error: "not_found" });
+      if (zip.status !== "ready" || !zip.storageKey) {
+        return reply
+          .status(409)
+          .send({ error: "not_ready", status: zip.status });
+      }
+
+      const SHARE_TTL_SECONDS = 24 * 60 * 60;
+      const url = await presignGet({
+        key: zip.storageKey,
+        responseContentDisposition: `attachment; filename="lumio-${zip.id.slice(
+          0,
+          8
+        )}.zip"`,
+        ttlSeconds: SHARE_TTL_SECONDS,
+      });
+      return {
+        url,
+        expiresAt: new Date(
+          Date.now() + SHARE_TTL_SECONDS * 1000
+        ).toISOString(),
+        fileCount: zip.fileCount,
+        sizeBytes: zip.sizeBytes ? Number(zip.sizeBytes) : null,
       };
     }
   );

@@ -1618,6 +1618,49 @@ export const api = {
   zipDownloadUrl: (slug: string, zipId: string) =>
     `${API_URL}/api/v1/g/${slug}/download/zip/${zipId}?download=1`,
 
+  // ===========================================================================
+  // Studio-side ZIP-Download (z.B. nach Tag-Filter)
+  // ===========================================================================
+  // Fotograf kann ZIP der ganzen Galerie ODER nur Tag-gefiltert anfordern.
+  // Wenn tagIds gesetzt: nur Files die ALLE diese Tags haben (UND-Filter).
+  requestStudioZip: (
+    galleryId: string,
+    opts: {
+      variant?: "original" | "web";
+      tagIds?: string[];
+    } = {}
+  ) =>
+    request<{
+      id: string;
+      status: ZipStatus;
+      fileCount: number | null;
+    }>(`/galleries/${galleryId}/download/zip`, {
+      method: "POST",
+      body: JSON.stringify(opts),
+      headers: { "Content-Type": "application/json" },
+    }),
+
+  getStudioZipStatus: (galleryId: string, zipId: string) =>
+    request<{
+      id: string;
+      status: ZipStatus;
+      fileCount: number;
+      sizeBytes: number | null;
+      errorMessage: string | null;
+      expiresAt: string;
+    }>(`/galleries/${galleryId}/download/zip/${zipId}`),
+
+  studioZipDownloadUrl: (galleryId: string, zipId: string) =>
+    `${API_URL}/api/v1/galleries/${galleryId}/download/zip/${zipId}?download=1`,
+
+  getStudioZipShareUrl: (galleryId: string, zipId: string) =>
+    request<{
+      url: string;
+      expiresAt: string;
+      fileCount: number;
+      sizeBytes: number | null;
+    }>(`/galleries/${galleryId}/download/zip/${zipId}/share-url`),
+
   // Studio Proofing Exports
   getProofingSummary: (galleryId: string) =>
     request<ProofingSummary>(`/galleries/${galleryId}/export/summary`),

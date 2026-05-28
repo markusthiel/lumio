@@ -1001,6 +1001,7 @@ export default function GalleryDetailPage() {
         files={gallery.files}
         selected={tagFilter}
         onChange={setTagFilter}
+        filteredCount={visibleFiles.length}
       />
 
       <div className="px-6 sm:px-8 py-6 space-y-6 max-w-7xl">

@@ -14,8 +14,13 @@
  *
  * Bei vielen Tags (> visibleLimit) wird die Liste eingeklappt und
  * 'mehr anzeigen' bietet die volle Sicht.
+ *
+ * ZIP-Download: wenn Filter aktiv ist, kann der Fotograf ein ZIP der
+ * gefilterten Files anfordern. Backend resolved Tags → Files, baut
+ * ZIP, gibt URL zum Teilen mit der Kundin.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { api } from "@/lib/api";
 
 type TagRef = { id: string; name: string; color: string };
 type FileLike = { id: string; tags?: TagRef[] };
@@ -26,6 +31,9 @@ interface Props {
   // Filter-State liegt im Parent damit Parent die Files filtern kann
   selected: Set<string>;
   onChange: (next: Set<string>) => void;
+  // Anzahl der gefilterten Files — Parent berechnet eh, kann's uns
+  // geben damit der Download-Button die Zahl zeigt
+  filteredCount: number;
 }
 
 const VISIBLE_LIMIT = 15;
@@ -35,10 +43,25 @@ export function GalleryFileTagFilter({
   files,
   selected,
   onChange,
+  filteredCount,
 }: Props) {
   // Aktivierungs-Status pro Galerie persistiert
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [showAll, setShowAll] = useState(false);
+  // ZIP-Download-State: { zipId, status, url } — null wenn kein laufender Job
+  const [zipJob, setZipJob] = useState<{
+    zipId: string;
+    status: string;
+    fileCount: number | null;
+    url: string | null;
+    error: string | null;
+  } | null>(null);
+  // Share-URL Copy-Feedback (5s)
+  const [shareInfo, setShareInfo] = useState<{
+    copied: boolean;
+    expiresAt: string;
+  } | null>(null);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     try {
@@ -50,6 +73,13 @@ export function GalleryFileTagFilter({
       setEnabled(false);
     }
   }, [galleryId]);
+
+  // Cleanup-Effect fuer Polling
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
 
   function persistEnabled(v: boolean) {
     setEnabled(v);
@@ -82,6 +112,60 @@ export function GalleryFileTagFilter({
       return a.tag.name.localeCompare(b.tag.name);
     });
   }, [files]);
+
+  async function onRequestZip() {
+    if (selected.size === 0) return;
+    try {
+      const res = await api.requestStudioZip(galleryId, {
+        tagIds: Array.from(selected),
+        variant: "original",
+      });
+      setZipJob({
+        zipId: res.id,
+        status: res.status,
+        fileCount: res.fileCount,
+        url: null,
+        error: null,
+      });
+      // Polling starten — alle 2s, bis 'ready' oder 'failed'
+      if (pollRef.current) clearInterval(pollRef.current);
+      pollRef.current = setInterval(async () => {
+        try {
+          const st = await api.getStudioZipStatus(galleryId, res.id);
+          setZipJob((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  status: st.status,
+                  fileCount: st.fileCount,
+                  error: st.errorMessage,
+                  url:
+                    st.status === "ready"
+                      ? api.studioZipDownloadUrl(galleryId, res.id)
+                      : null,
+                }
+              : prev
+          );
+          if (st.status === "ready" || st.status === "failed") {
+            if (pollRef.current) {
+              clearInterval(pollRef.current);
+              pollRef.current = null;
+            }
+          }
+        } catch (err) {
+          console.error("zip status poll failed:", err);
+        }
+      }, 2000);
+    } catch (err) {
+      setZipJob({
+        zipId: "",
+        status: "failed",
+        fileCount: null,
+        url: null,
+        error: err instanceof Error ? err.message : "Fehler",
+      });
+    }
+  }
 
   // Compact-Anzeige wenn Filter aus
   if (enabled === null) return null;
@@ -201,10 +285,106 @@ export function GalleryFileTagFilter({
       </div>
 
       {selected.size > 0 && (
-        <p className="mt-2 text-ui-xs text-ink-tertiary">
-          {selected.size} {selected.size === 1 ? "Tag aktiv" : "Tags aktiv"} —
-          nur Files anzeigen die ALLE diese Tags haben (UND-Filter).
-        </p>
+        <>
+          <p className="mt-2 text-ui-xs text-ink-tertiary">
+            {selected.size} {selected.size === 1 ? "Tag aktiv" : "Tags aktiv"} —
+            zeigt {filteredCount}{" "}
+            {filteredCount === 1 ? "Foto" : "Fotos"} die ALLE diese Tags haben
+            (UND-Filter).
+          </p>
+
+          {/* ZIP-Download-Bereich: nur wenn Filter wirklich Files matcht */}
+          {filteredCount > 0 && (
+            <div className="mt-3 pt-3 border-t border-line-subtle">
+              {!zipJob && (
+                <button
+                  type="button"
+                  onClick={onRequestZip}
+                  className="px-3 py-1.5 text-xs rounded bg-accent text-white hover:bg-accent/90"
+                  title="Erzeugt ein ZIP der gefilterten Fotos zum Teilen mit der Kundin"
+                >
+                  ⬇ {filteredCount} Foto{filteredCount === 1 ? "" : "s"} als ZIP herunterladen
+                </button>
+              )}
+              {zipJob && zipJob.status !== "ready" && zipJob.status !== "failed" && (
+                <div className="flex items-center gap-2 text-xs text-ink-secondary">
+                  <span className="inline-block w-3 h-3 rounded-full bg-accent animate-pulse" />
+                  ZIP wird gebaut
+                  {zipJob.fileCount !== null && (
+                    <span className="text-ink-tertiary">
+                      ({zipJob.fileCount} Foto{zipJob.fileCount === 1 ? "" : "s"})
+                    </span>
+                  )}
+                  <span className="text-ink-tertiary">— wenige Sekunden bis Minuten</span>
+                </div>
+              )}
+              {zipJob && zipJob.status === "ready" && zipJob.url && (
+                <div className="flex items-center gap-3 flex-wrap">
+                  <a
+                    href={zipJob.url}
+                    className="px-3 py-1.5 text-xs rounded bg-semantic-success/15 text-semantic-success border border-semantic-success/40 hover:bg-semantic-success/25 font-medium"
+                  >
+                    ✓ ZIP herunterladen ({zipJob.fileCount} Foto{zipJob.fileCount === 1 ? "" : "s"})
+                  </a>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const r = await api.getStudioZipShareUrl(
+                          galleryId,
+                          zipJob.zipId
+                        );
+                        await navigator.clipboard?.writeText(r.url);
+                        // Sicht-Feedback: kurz die Url im UI zeigen
+                        setShareInfo({
+                          copied: true,
+                          expiresAt: r.expiresAt,
+                        });
+                        setTimeout(
+                          () => setShareInfo(null),
+                          5000
+                        );
+                      } catch (err) {
+                        console.error("share-url failed:", err);
+                      }
+                    }}
+                    className="text-xs text-ink-secondary hover:text-accent border border-line-subtle rounded px-2 py-1"
+                    title="Teilbaren Download-Link (24h gültig) in die Zwischenablage kopieren"
+                  >
+                    🔗 Link für Kundin kopieren
+                  </button>
+                  {shareInfo?.copied && (
+                    <span className="text-xs text-semantic-success">
+                      Link kopiert (gültig 24h)
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setZipJob(null)}
+                    className="text-xs text-ink-tertiary hover:text-ink-secondary"
+                  >
+                    schließen
+                  </button>
+                </div>
+              )}
+              {zipJob && zipJob.status === "failed" && (
+                <div className="text-xs text-semantic-danger flex items-center gap-2">
+                  ZIP-Erzeugung fehlgeschlagen
+                  {zipJob.error && (
+                    <span className="text-ink-tertiary">— {zipJob.error}</span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setZipJob(null)}
+                    className="text-ink-secondary hover:text-ink-primary"
+                  >
+                    schließen
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
