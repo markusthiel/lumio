@@ -11,7 +11,7 @@
  *   - AGB-URL + Privacy-URL (Pflicht in DE wenn Online-Verkauf)
  *   - Stripe-Connect-Setup
  */
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { Button, Input, Select } from "@/components/ui";
@@ -21,7 +21,21 @@ type Connect = Awaited<
   ReturnType<typeof api.getPrintShopConfig>
 >["stripeConnect"];
 
+// useSearchParams() (siehe Inner-Komponente) erzwingt Client-Side-
+// Rendering. Ohne diese Direktive versucht Next.js die Page beim
+// 'npm run build' statisch zu prerendern und scheitert mit
+// 'should be wrapped in a suspense boundary'.
+export const dynamic = "force-dynamic";
+
 export default function PrintShopSettingsPage() {
+  return (
+    <Suspense fallback={<div className="text-sm text-ink-tertiary">Lädt…</div>}>
+      <SettingsInner />
+    </Suspense>
+  );
+}
+
+function SettingsInner() {
   const params = useSearchParams();
   const [config, setConfig] = useState<Config | null>(null);
   const [connect, setConnect] = useState<Connect | null>(null);
