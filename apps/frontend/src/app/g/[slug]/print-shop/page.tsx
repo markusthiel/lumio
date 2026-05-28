@@ -25,6 +25,7 @@ import { useRouter } from "next/navigation";
 import { loadStripe, Stripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { api, type PublicFile } from "@/lib/api";
+import { CropFrame, defaultCropForAspect, type Crop } from "@/components/print-shop/CropFrame";
 
 type Catalog = Awaited<ReturnType<typeof api.getGalleryPrintShopCatalog>>;
 type ProductRow = Catalog["products"][number];
@@ -271,27 +272,45 @@ function PickerDialog({
     catalog.products[0]?.variants[0] ?? null
   );
   const [quantity, setQuantity] = useState(1);
+  // Crop-State: aktiv wenn die ausgewaehlte Variante eine fixed
+  // aspectRatio hat UND wir die Bild-Pixel kennen (sonst koennten wir
+  // nichts constrainen). Default-Crop kommt vom Helper, der User kann
+  // ihn via Drag verschieben/resizen.
+  const cropActive = !!(
+    selectedVariant?.aspectRatio &&
+    file.width &&
+    file.height
+  );
+  const [crop, setCrop] = useState<Crop | null>(() =>
+    cropActive
+      ? defaultCropForAspect(
+          file.width!,
+          file.height!,
+          selectedVariant!.aspectRatio!
+        )
+      : null
+  );
+  // Wenn die Variante wechselt, setzt CropFrame intern den Crop auf
+  // das neue Default zurueck und ruft onChange — wir muessen also nur
+  // synchron 'crop' nullen/setzen damit die ueberreichte initialCrop-
+  // Prop stimmt.
+  useEffect(() => {
+    if (cropActive) {
+      setCrop(
+        defaultCropForAspect(
+          file.width!,
+          file.height!,
+          selectedVariant!.aspectRatio!
+        )
+      );
+    } else {
+      setCrop(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedVariant?.id, cropActive]);
 
   function add() {
     if (!selectedProduct || !selectedVariant) return;
-    // Crop: bei fixed-aspect erzeugen wir einen Center-Crop. Drag-Crop
-    // ist in V1 nicht implementiert.
-    let crop: CartItem["crop"] = null;
-    if (selectedVariant.aspectRatio && file.width && file.height) {
-      const targetRatio = selectedVariant.aspectRatio;
-      const imageRatio = file.width / file.height;
-      if (Math.abs(imageRatio - targetRatio) > 0.01) {
-        if (imageRatio > targetRatio) {
-          // Image breiter — schmaler Vertikal-Stripe
-          const w = targetRatio / imageRatio;
-          crop = { x: (1 - w) / 2, y: 0, width: w, height: 1 };
-        } else {
-          const h = imageRatio / targetRatio;
-          crop = { x: 0, y: (1 - h) / 2, width: 1, height: h };
-        }
-      }
-    }
-
     onAdd({
       variantId: selectedVariant.id,
       fileId: file.id,
@@ -300,7 +319,7 @@ function PickerDialog({
       product: selectedProduct,
       variant: selectedVariant,
       quantity,
-      crop,
+      crop: cropActive ? crop : null,
     });
   }
 
@@ -315,14 +334,26 @@ function PickerDialog({
     >
       <div className="bg-surface-raised rounded-md max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="grid sm:grid-cols-2 gap-0">
-          <div className="bg-black aspect-square flex items-center justify-center">
-            {file.thumbUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={file.previewUrl ?? file.thumbUrl}
-                alt={file.filename}
-                className="max-w-full max-h-full object-contain"
+          <div className="bg-black flex items-center justify-center p-2 sm:p-3">
+            {cropActive && file.width && file.height ? (
+              <CropFrame
+                imageUrl={file.previewUrl ?? file.thumbUrl ?? ""}
+                imageWidth={file.width}
+                imageHeight={file.height}
+                aspectRatio={selectedVariant!.aspectRatio!}
+                initialCrop={crop}
+                onChange={setCrop}
+                maxHeightPx={360}
               />
+            ) : (
+              file.thumbUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={file.previewUrl ?? file.thumbUrl}
+                  alt={file.filename}
+                  className="max-w-full max-h-[360px] object-contain"
+                />
+              )
             )}
           </div>
           <div className="p-5 space-y-4">
@@ -405,14 +436,12 @@ function PickerDialog({
                   />
                 </label>
 
-                {selectedVariant?.aspectRatio &&
-                  file.width &&
-                  file.height && (
-                    <p className="text-xs text-semantic-warning bg-semantic-warning/8 border border-semantic-warning/30 rounded px-2 py-1.5">
-                      Diese Variante hat ein festes Seitenverhältnis. Dein
-                      Bild wird mittig zugeschnitten.
-                    </p>
-                  )}
+                {cropActive && (
+                  <p className="text-xs text-ink-tertiary bg-surface-sunken rounded px-2 py-1.5">
+                    Verschiebe den Rahmen oder ziehe an den Ecken, um
+                    deinen Bildausschnitt zu wählen.
+                  </p>
+                )}
 
                 <div className="text-sm pt-2 border-t border-line-subtle flex justify-between">
                   <span className="text-ink-tertiary">Zwischensumme</span>
