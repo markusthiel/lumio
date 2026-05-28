@@ -13,7 +13,7 @@
  * Admin via /super/tenants/.../impersonate vergeben.
  */
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 
@@ -49,8 +49,18 @@ function LoadingShell() {
 function Inner() {
   const params = useSearchParams();
   const [error, setError] = useState<string | null>(null);
+  // useRef-Guard: useEffect kann durch React-StrictMode (dev) oder durch
+  // Re-Renders mit neuer useSearchParams-Referenz mehrfach feuern. Da
+  // der Token one-shot ist, wuerde der zweite Lauf einen 'Token
+  // ungueltig'-Fehler-Flash produzieren — sichtbar als kurze rote
+  // Meldung bevor der location.replace greift. Mit dieser Sperre laeuft
+  // der echte Redeem garantiert nur einmal pro Component-Mount.
+  const didRunRef = useRef(false);
 
   useEffect(() => {
+    if (didRunRef.current) return;
+    didRunRef.current = true;
+
     const token = params.get("t");
     if (!token) {
       setError("Kein Token im Link.");
@@ -65,10 +75,10 @@ function Inner() {
 
         // 2. Verifizieren dass die Session WIRKLICH steht. Wenn der
         //    Cookie aus irgendeinem Grund nicht akzeptiert wurde
-        //    (z.B. Browser-Privacy-Setting, Cross-Origin-Issue), sehen
-        //    wir das HIER und nicht erst auf einer Folge-Page als
-        //    'plötzlich auf Login geworfen'. me() schickt den frisch
-        //    gesetzten Cookie mit (credentials: 'include').
+        //    (z.B. Browser-Privacy-Setting), sehen wir das HIER und
+        //    nicht erst auf einer Folge-Page als 'plötzlich auf Login
+        //    geworfen'. me() schickt den frisch gesetzten Cookie mit
+        //    (credentials: 'include').
         const meResult = await api.me();
         if (!meResult.impersonation) {
           throw new Error(
@@ -76,19 +86,14 @@ function Inner() {
           );
         }
 
-        // 3. Token aus URL entfernen damit er nicht in der Browser-
-        //    History bleibt
-        if (typeof window !== "undefined") {
-          window.history.replaceState({}, "", "/");
-        }
-
-        // 4. HARTER Redirect zu /studio. router.replace würde Next.js-
+        // 3. Harter Redirect zu /studio. router.replace würde Next.js-
         //    client-side-Navigation machen — / macht server-side einen
-        //    unbedingten redirect zu /login (siehe app/page.tsx) und
-        //    /login zeigt das Login-Formular OHNE Session-Check beim
-        //    Mount. Resultat waere: User landet auf Login obwohl
-        //    Session steht. Wir gehen direkt zu /studio, das ist die
-        //    Studio-Startseite (StudioShell mit Session-Check).
+        //    unbedingten redirect zu /login (siehe app/page.tsx). Wir
+        //    gehen direkt zu /studio, das ist die Studio-Startseite
+        //    (StudioShell mit Session-Check). location.replace
+        //    ersetzt zusaetzlich den History-Entry, sodass der Token
+        //    nicht in der Browser-Back-History bleibt — eigener
+        //    history.replaceState entfaellt damit.
         window.location.replace("/studio");
       } catch (err) {
         setError(
