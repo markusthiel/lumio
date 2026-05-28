@@ -14,7 +14,7 @@
  */
 
 import { Suspense, useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 
 // useSearchParams() erzwingt eine Client-Side-Render-Boundary. Ohne diese
@@ -47,7 +47,6 @@ function LoadingShell() {
 }
 
 function Inner() {
-  const router = useRouter();
   const params = useSearchParams();
   const [error, setError] = useState<string | null>(null);
 
@@ -60,13 +59,37 @@ function Inner() {
 
     (async () => {
       try {
+        // 1. Token gegen Session eintauschen — setzt den Session-Cookie
+        //    auf dieser Tenant-Subdomain
         await api.redeemImpersonateToken(token);
-        // URL aufraeumen damit der Token nicht in der Browser-History
-        // bleibt. Dann zur Studio-Startseite.
+
+        // 2. Verifizieren dass die Session WIRKLICH steht. Wenn der
+        //    Cookie aus irgendeinem Grund nicht akzeptiert wurde
+        //    (z.B. Browser-Privacy-Setting, Cross-Origin-Issue), sehen
+        //    wir das HIER und nicht erst auf einer Folge-Page als
+        //    'plötzlich auf Login geworfen'. me() schickt den frisch
+        //    gesetzten Cookie mit (credentials: 'include').
+        const meResult = await api.me();
+        if (!meResult.impersonation) {
+          throw new Error(
+            "Session-Cookie wurde nicht akzeptiert. Bitte Cookies/Tracking-Schutz für diese Domain erlauben."
+          );
+        }
+
+        // 3. Token aus URL entfernen damit er nicht in der Browser-
+        //    History bleibt
         if (typeof window !== "undefined") {
           window.history.replaceState({}, "", "/");
         }
-        router.replace("/");
+
+        // 4. HARTER Redirect zu /studio. router.replace würde Next.js-
+        //    client-side-Navigation machen — / macht server-side einen
+        //    unbedingten redirect zu /login (siehe app/page.tsx) und
+        //    /login zeigt das Login-Formular OHNE Session-Check beim
+        //    Mount. Resultat waere: User landet auf Login obwohl
+        //    Session steht. Wir gehen direkt zu /studio, das ist die
+        //    Studio-Startseite (StudioShell mit Session-Check).
+        window.location.replace("/studio");
       } catch (err) {
         setError(
           err instanceof Error
@@ -75,7 +98,7 @@ function Inner() {
         );
       }
     })();
-  }, [params, router]);
+  }, [params]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface-canvas">

@@ -89,9 +89,28 @@ export default function LoginPage() {
   // Tenant + Branding einmalig beim Mount laden. Falls Multi-Mode +
   // Apex-Domain ohne Tenant: zurück zum Picker. Andere Fälle: einfach
   // Defaults zeigen.
+  //
+  // Plus: wenn der User schon eine gueltige Session hat (z.B. Impersonate-
+  // Redeem hat gerade einen Cookie gesetzt und der Browser hat ihn
+  // akzeptiert, oder normaler User landet hier nach Reload), direkt
+  // zu /studio durchwinken. Vorher tat das niemand — wer mit gueltiger
+  // Session zu /login navigierte, sah trotzdem das Login-Formular.
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // 1. Schneller Check: gibt es eine aktive Session?
+      try {
+        const me = await api.me();
+        if (cancelled) return;
+        if (me?.user) {
+          router.replace("/studio");
+          return;
+        }
+      } catch {
+        // Keine Session → normaler Login-Flow
+      }
+
+      // 2. Tenant-Context / Branding
       try {
         const r = await api.getTenantContext();
         if (cancelled) return;
