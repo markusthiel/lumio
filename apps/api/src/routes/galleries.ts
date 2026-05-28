@@ -743,6 +743,9 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
     title: z.string().min(1).max(120),
     description: z.string().max(400).nullable().optional(),
     coverFileId: z.string().uuid().nullable().optional(),
+    // Smart-Section: wenn gesetzt wird die Section bei Erstellung
+    // initial mit den Files mit diesem Tag befuellt.
+    autoTagId: z.string().uuid().nullable().optional(),
   });
 
   const sectionUpdateSchema = z.object({
@@ -750,6 +753,11 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
     description: z.string().max(400).nullable().optional(),
     coverFileId: z.string().uuid().nullable().optional(),
     sortIndex: z.number().int().min(0).max(10_000).optional(),
+    // Tag-Verknuepfung aendern. null = aus Smart wird manuell. Setzen
+    // triggert NICHT automatisch einen Sync — der Aufrufer muss
+    // /sync explizit aufrufen. Begruendung: User soll bewusst entscheiden
+    // wann der erste Sync laeuft (verschiebt potenziell viele Files).
+    autoTagId: z.string().uuid().nullable().optional(),
   });
 
   const sectionReorderSchema = z.object({
@@ -790,6 +798,10 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           description: true,
           coverFileId: true,
           sortIndex: true,
+          autoTagId: true,
+          autoTag: {
+            select: { id: true, name: true, color: true },
+          },
           _count: { select: { files: true } },
         },
       });
@@ -801,6 +813,8 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           coverFileId: s.coverFileId,
           sortIndex: s.sortIndex,
           fileCount: s._count.files,
+          autoTagId: s.autoTagId,
+          autoTag: s.autoTag,
         })),
       };
     }
@@ -824,6 +838,16 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         if (!f) return reply.status(400).send({ error: "invalid_cover_file" });
       }
 
+      // autoTagId muss zum gleichen Tenant gehoeren — sonst koennte
+      // ein User Sections auf fremde Tags binden.
+      if (body.autoTagId) {
+        const t = await prisma.tag.findFirst({
+          where: { id: body.autoTagId, tenantId: req.tenantId },
+          select: { id: true },
+        });
+        if (!t) return reply.status(400).send({ error: "invalid_auto_tag" });
+      }
+
       // sortIndex auf max+10 setzen, damit neue Section ans Ende kommt
       const last = await prisma.gallerySection.findFirst({
         where: { galleryId: gallery.id },
@@ -838,6 +862,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           title: body.title,
           description: body.description ?? null,
           coverFileId: body.coverFileId ?? null,
+          autoTagId: body.autoTagId ?? null,
           sortIndex,
         },
       });
@@ -867,6 +892,14 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         if (!f) return reply.status(400).send({ error: "invalid_cover_file" });
       }
 
+      if (body.autoTagId) {
+        const t = await prisma.tag.findFirst({
+          where: { id: body.autoTagId, tenantId: req.tenantId },
+          select: { id: true },
+        });
+        if (!t) return reply.status(400).send({ error: "invalid_auto_tag" });
+      }
+
       const updated = await prisma.gallerySection.update({
         where: { id: section.id },
         data: {
@@ -878,9 +911,83 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
             ? { coverFileId: body.coverFileId }
             : {}),
           ...(body.sortIndex !== undefined ? { sortIndex: body.sortIndex } : {}),
+          ...(body.autoTagId !== undefined
+            ? { autoTagId: body.autoTagId }
+            : {}),
         },
       });
       return { section: updated };
+    }
+  );
+
+  // POST /galleries/:id/sections/:sectionId/sync
+  // -------------------------------------------------------------------------
+  // Smart-Section synchronisieren: alle Files mit dem auto-Tag bekommen
+  // sectionId = section.id, alle Files die aktuell in der Section sind
+  // aber den Tag NICHT haben werden auf sectionId = null zurueckgesetzt.
+  //
+  // Wirft 400 wenn die Section keinen autoTagId hat — Sync ist nur fuer
+  // Smart-Sections sinnvoll.
+  app.post<{ Params: { id: string; sectionId: string } }>(
+    "/galleries/:id/sections/:sectionId/sync",
+    async (req, reply) => {
+      const gallery = await findOwnedGallery(req, req.params.id);
+      if (!gallery) return reply.status(404).send({ error: "not_found" });
+
+      const section = await prisma.gallerySection.findFirst({
+        where: { id: req.params.sectionId, galleryId: gallery.id },
+        select: { id: true, autoTagId: true },
+      });
+      if (!section) return reply.status(404).send({ error: "not_found" });
+      if (!section.autoTagId) {
+        return reply.status(400).send({
+          error: "not_a_smart_section",
+          message: "Section hat keinen auto-Tag — Sync nur fuer Smart-Sections.",
+        });
+      }
+
+      // Files mit dem Tag finden
+      const matchingFiles = await prisma.file.findMany({
+        where: {
+          galleryId: gallery.id,
+          tags: { some: { tagId: section.autoTagId } },
+        },
+        select: { id: true },
+      });
+      const matchingIds = matchingFiles.map((f) => f.id);
+
+      // Atomisches Update via Transaction: erst alle aktuellen
+      // Section-Files raus die NICHT mehr passen, dann die passenden
+      // rein. Beide updateMany sind idempotent, aber wir vermeiden
+      // einen Zwischenzustand 'leere Section'.
+      const [removed, added] = await prisma.$transaction([
+        prisma.file.updateMany({
+          where: {
+            galleryId: gallery.id,
+            sectionId: section.id,
+            id: matchingIds.length > 0 ? { notIn: matchingIds } : undefined,
+          },
+          data: { sectionId: null },
+        }),
+        prisma.file.updateMany({
+          where: {
+            galleryId: gallery.id,
+            id: { in: matchingIds },
+            // Nur Files updaten die NICHT schon in der Section sind —
+            // sonst no-op aber irrelevant, updateMany ist trotzdem
+            // O(matched) in der DB. Lassen wir's einfach laufen.
+          },
+          data: { sectionId: section.id },
+        }),
+      ]);
+
+      return {
+        ok: true,
+        sectionId: section.id,
+        added: added.count,
+        removed: removed.count,
+        totalNow: matchingIds.length,
+      };
     }
   );
 

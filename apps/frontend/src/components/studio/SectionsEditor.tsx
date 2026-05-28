@@ -27,7 +27,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { api, type StudioSection } from "@/lib/api";
+import { api, type StudioSection, type TagSummary } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 
 interface Props {
@@ -273,8 +273,25 @@ function SectionRow({
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="text-ui-sm font-medium text-ink-primary truncate">
+          <div className="text-ui-sm font-medium text-ink-primary truncate flex items-center gap-2">
             {section.title}
+            {section.autoTagId && section.autoTag && (
+              <span
+                className="text-ui-xs px-1.5 py-0.5 rounded font-normal inline-flex items-center gap-1 shrink-0"
+                style={{
+                  backgroundColor: `${section.autoTag.color}22`,
+                  color: section.autoTag.color,
+                  border: `1px solid ${section.autoTag.color}55`,
+                }}
+                title={`Smart-Section: befüllt sich aus Tag "${section.autoTag.name}"`}
+              >
+                <span
+                  className="inline-block w-1.5 h-1.5 rounded-full"
+                  style={{ backgroundColor: section.autoTag.color }}
+                />
+                Auto: {section.autoTag.name}
+              </span>
+            )}
           </div>
           {section.description && (
             <div className="text-ui-xs text-ink-tertiary truncate">
@@ -352,7 +369,29 @@ function SectionEditForm({
   const [coverFileId, setCoverFileId] = useState<string | null>(
     section.coverFileId
   );
+  const [autoTagId, setAutoTagId] = useState<string | null>(
+    section.autoTagId ?? null
+  );
   const [saving, setSaving] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<{
+    added: number;
+    removed: number;
+    totalNow: number;
+  } | null>(null);
+  // Tags lazy laden — viele User nutzen die Smart-Section nicht und
+  // brauchen den listTags-Roundtrip nicht.
+  const [tags, setTags] = useState<TagSummary[] | null>(null);
+
+  async function loadTagsIfNeeded() {
+    if (tags !== null) return;
+    try {
+      const r = await api.listTags();
+      setTags(r.tags);
+    } catch {
+      setTags([]);
+    }
+  }
 
   async function save() {
     setSaving(true);
@@ -361,10 +400,34 @@ function SectionEditForm({
         title: title.trim() || section.title,
         description: description.trim() || null,
         coverFileId,
+        autoTagId,
       });
       onSaved();
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function syncNow() {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      // Falls der User den Tag gerade geaendert hat aber noch nicht
+      // gespeichert: erst saven, dann syncen.
+      if ((section.autoTagId ?? null) !== autoTagId) {
+        await api.updateSection(galleryId, section.id, {
+          autoTagId,
+        });
+      }
+      const r = await api.syncSmartSection(galleryId, section.id);
+      setSyncResult({
+        added: r.added,
+        removed: r.removed,
+        totalNow: r.totalNow,
+      });
+      onSaved();
+    } finally {
+      setSyncing(false);
     }
   }
 
@@ -426,6 +489,64 @@ function SectionEditForm({
             ))}
           </select>
         </div>
+      </div>
+
+      {/* Smart-Section: optional an einen Tag binden. Files mit dem
+          Tag werden bei 'Jetzt synchronisieren' automatisch in die
+          Section verschoben (und nicht-passende raus). */}
+      <div className="pt-2 border-t border-line-subtle">
+        <label className="block text-ui-xs text-ink-tertiary mb-1">
+          Smart-Section (aus Tag befüllen)
+        </label>
+        <div className="flex items-center gap-2">
+          <select
+            value={autoTagId ?? ""}
+            onFocus={() => void loadTagsIfNeeded()}
+            onChange={(e) => {
+              setAutoTagId(e.target.value || null);
+              setSyncResult(null);
+            }}
+            className="h-9 px-2.5 rounded bg-surface-overlay border border-line-subtle text-ui text-ink-primary focus:border-accent focus:outline-none flex-1"
+          >
+            <option value="">— manuell (Files via Drag/Drop) —</option>
+            {tags === null && autoTagId && (
+              // Bevor tags geladen sind: aktuellen Tag anzeigen damit
+              // der Select nicht zurueckspringt
+              <option value={autoTagId}>
+                {section.autoTag?.name ?? "(aktueller Tag)"}
+              </option>
+            )}
+            {tags?.map((tag) => (
+              <option key={tag.id} value={tag.id}>
+                {tag.name}
+              </option>
+            ))}
+          </select>
+          {autoTagId && (
+            <button
+              type="button"
+              onClick={syncNow}
+              disabled={syncing || saving}
+              className="text-ui-sm h-9 px-3 rounded bg-surface-overlay border border-line-subtle hover:bg-surface-raised disabled:opacity-50 whitespace-nowrap"
+              title="Files mit dem Tag in die Section, andere raus"
+            >
+              {syncing ? "Sync…" : "Jetzt synchronisieren"}
+            </button>
+          )}
+        </div>
+        {syncResult && (
+          <p className="mt-1.5 text-ui-xs text-ink-secondary">
+            ✓ Synchronisiert: {syncResult.added > 0 && `+${syncResult.added} `}
+            {syncResult.removed > 0 && `−${syncResult.removed} `}
+            ({syncResult.totalNow} {syncResult.totalNow === 1 ? "Foto" : "Fotos"} in der Section)
+          </p>
+        )}
+        {autoTagId && !syncResult && (
+          <p className="mt-1.5 text-ui-xs text-ink-tertiary">
+            Tag-Aenderungen werden NICHT automatisch uebernommen — bei
+            jeder Aktualisierung 'Jetzt synchronisieren' klicken.
+          </p>
+        )}
       </div>
       <div className="flex items-center gap-2 justify-end pt-1">
         <button

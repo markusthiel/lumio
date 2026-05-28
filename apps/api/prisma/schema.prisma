@@ -547,12 +547,23 @@ model GallerySection {
   
   sortIndex   Int      @default(0)
   
+  // Smart-Section: wenn autoTagId gesetzt, ist diese Section eine
+  // "automatische" — sie sammelt Files via ihrem Tag statt manuell
+  // zugewiesen zu werden. Sync ist explizit (POST .../sync) und
+  // implizit nach Tag-Aenderungen (Studio + Auto-Tag-Accept).
+  //
+  // onDelete: SetNull → wenn der Tag geloescht wird, wird die
+  // Section zu einer normalen manuellen Section (Files bleiben drin).
+  autoTagId   String?  @db.Uuid
+  autoTag     Tag?     @relation(fields: [autoTagId], references: [id], onDelete: SetNull)
+  
   files       File[]
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
   @@index([galleryId, sortIndex])
+  @@index([autoTagId])
   @@map("gallery_sections")
 }
 
@@ -1194,6 +1205,9 @@ model Tag {
   
   galleries   GalleryTag[]
   files       FileTag[]
+  // Smart-Sections die diesen Tag als ihren auto-Tag haben. SetNull
+  // auf delete (siehe GallerySection.autoTag).
+  autoSections GallerySection[]
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

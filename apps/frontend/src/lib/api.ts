@@ -367,6 +367,10 @@ export interface StudioSection {
   coverFileId: string | null;
   sortIndex: number;
   fileCount: number;
+  /** Wenn gesetzt: Section ist eine Smart-Section, sammelt Files
+   *  automatisch ueber diesen Tag. Sync ist explizit (Button im UI). */
+  autoTagId?: string | null;
+  autoTag?: { id: string; name: string; color: string } | null;
 }
 
 export interface MySelection {
@@ -1095,7 +1099,12 @@ export const api = {
 
   createSection: (
     galleryId: string,
-    input: { title: string; description?: string | null; coverFileId?: string | null }
+    input: {
+      title: string;
+      description?: string | null;
+      coverFileId?: string | null;
+      autoTagId?: string | null;
+    }
   ) =>
     request<{ section: StudioSection }>(
       `/galleries/${galleryId}/sections`,
@@ -1110,12 +1119,27 @@ export const api = {
       description?: string | null;
       coverFileId?: string | null;
       sortIndex?: number;
+      autoTagId?: string | null;
     }
   ) =>
     request<{ section: StudioSection }>(
       `/galleries/${galleryId}/sections/${sectionId}`,
       { method: "PATCH", body: JSON.stringify(input) }
     ),
+
+  /** Smart-Section synchronisieren: Files mit dem auto-Tag rein,
+   *  Files ohne Tag raus. Nur sinnvoll wenn die Section einen
+   *  autoTagId hat — sonst 400. */
+  syncSmartSection: (galleryId: string, sectionId: string) =>
+    request<{
+      ok: boolean;
+      sectionId: string;
+      added: number;
+      removed: number;
+      totalNow: number;
+    }>(`/galleries/${galleryId}/sections/${sectionId}/sync`, {
+      method: "POST",
+    }),
 
   deleteSection: (galleryId: string, sectionId: string) =>
     request<{ ok: true }>(
