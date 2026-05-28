@@ -71,6 +71,24 @@ export default function GalleryDetailPage() {
   const { slow: slowConnection } = useSlowConnection();
   const [dragOver, setDragOver] = useState(false);
   const [togglingStatus, setTogglingStatus] = useState(false);
+  // Feature-Flags des Tenants — beim Mount via me() geladen. Bestimmt
+  // ob optionale UI-Bereiche (z.B. Print-Shop-Override-Toggle) gerendert
+  // werden. Wenn null: noch nicht geladen, Toggle erstmal versteckt.
+  const [tenantFeatures, setTenantFeatures] = useState<string[] | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await api.me();
+        if (!cancelled) setTenantFeatures(r.features ?? []);
+      } catch {
+        if (!cancelled) setTenantFeatures([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Effektives Pro-File-Upload-Limit für die Drop-Zone-Anzeige.
   // Wird aus den Tenant-Settings beim Page-Load geholt; bis das da
@@ -629,6 +647,21 @@ export default function GalleryDetailPage() {
   ) {
     if (!gallery) return;
     await api.updateGallery(gallery.id, { [key]: next });
+    await load();
+  }
+
+  /** Print-Shop-Override-Toggle. Tri-State unter der Haube:
+   *    null  = uebernimmt Tenant-Default (DB-Default)
+   *    true  = explizit fuer diese Galerie aktiv (override Tenant=off → on)
+   *    false = explizit ausgeblendet (override Tenant=on → off)
+   *  UI-Mapping: Toggle ist 'ON' wenn !== false (also null oder true).
+   *  Off-Klick: false. On-Klick: null (zurueck auf Tenant-Default —
+   *  nicht true, sonst koennten wir auf Tenant-off niemals wieder zurueck). */
+  async function togglePrintShop(showAsOn: boolean) {
+    if (!gallery) return;
+    await api.updateGallery(gallery.id, {
+      printShopEnabled: showAsOn ? null : false,
+    });
     await load();
   }
 
@@ -1216,6 +1249,18 @@ export default function GalleryDetailPage() {
                 : undefined
             }
           />
+          {tenantFeatures?.includes("print_shop") && (
+            <SettingToggle
+              label="Print-Shop für diese Galerie"
+              description={
+                gallery.printShopEnabled === false
+                  ? "Endkunden sehen den Print-Shop-Button NICHT, auch wenn er für das Studio aktiv ist."
+                  : "Wenn der Print-Shop im Studio aktiv ist, sehen Endkunden hier den Bestell-Button."
+              }
+              value={gallery.printShopEnabled !== false}
+              onChange={(v) => togglePrintShop(v)}
+            />
+          )}
           <SelectionLimitInput
             value={gallery.selectionLimit}
             onChange={async (v) => {

@@ -110,3 +110,65 @@ export async function createPaymentIntentForOrder(
     paymentIntentId: intent.id,
   };
 }
+
+/**
+ * Erstellt einen Stripe-Refund fuer eine bereits bezahlte stripe_connect-
+ * Order. Im Direct-Charge-Modell wird der Refund AUF dem Connected
+ * Account erstellt (gleicher Account auf dem der Charge lebt). Die
+ * application_fee_amount wird per default mitgerefunded — der Plattform-
+ * Cut geht damit auch zurueck. Das ist die Konvention die wir wollen:
+ * wenn der Endkunde sein Geld zurueckbekommt, soll Lumio auch nicht
+ * den Cut behalten.
+ *
+ * Wenn die Order kein Stripe-Charge hat (paymentMode=offline_invoice
+ * oder Charge fehlt), tut die Funktion nichts. Der Aufrufer ist dafuer
+ * verantwortlich, dass transitionOrder('refund') trotzdem den Status
+ * setzt — der Fotograf muss bei offline-Refund manuell sein Konto
+ * abgleichen.
+ */
+export async function refundStripeChargeForOrder(
+  orderId: string
+): Promise<{ refunded: boolean; refundId?: string; reason?: string }> {
+  const order = await prisma.printOrder.findUnique({
+    where: { id: orderId },
+  });
+  if (!order) throw new Error("Order nicht gefunden");
+
+  if (order.paymentMode !== "stripe_connect") {
+    return { refunded: false, reason: "not_stripe_payment" };
+  }
+  if (!order.stripeChargeId) {
+    return { refunded: false, reason: "no_charge_yet" };
+  }
+
+  const connect = await prisma.tenantStripeConnect.findUnique({
+    where: { tenantId: order.tenantId },
+  });
+  if (!connect) {
+    return { refunded: false, reason: "no_connect_account" };
+  }
+
+  try {
+    const refund = await getStripe().refunds.create(
+      {
+        charge: order.stripeChargeId,
+        // Default: refund_application_fee=true → Lumio gibt den Cut zurueck.
+        // Wenn das mal nicht gewollt ist (z.B. Storno-Gebuehr behalten),
+        // kann der Fotograf das manuell via Stripe-Dashboard machen.
+        refund_application_fee: true,
+        reverse_transfer: true,
+        metadata: {
+          lumio_order_id: order.id,
+          lumio_order_number: order.orderNumber,
+        },
+      },
+      { stripeAccount: connect.stripeConnectedAccountId }
+    );
+    return { refunded: true, refundId: refund.id };
+  } catch (err) {
+    // Stripe-Fehler nicht verschlucken — der Aufrufer entscheidet was
+    // damit zu tun. Wir loggen aber nicht den Stack hier; das macht
+    // die Route.
+    throw err;
+  }
+}

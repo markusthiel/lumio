@@ -75,6 +75,9 @@ export interface Gallery {
   slideshowTransition: "fade" | "slide" | "kenburns";
   // Slideshow-Hintergrund-Musik (S3-Storage-Key)
   slideshowAudioUrl: string | null;
+  // Print-Shop-Override pro Galerie. null = uebernimmt Tenant-Default,
+  // true = explizit aktiv, false = explizit ausgeblendet.
+  printShopEnabled: boolean | null;
   fileCount?: number;
   tags?: Tag[];
   createdAt: string;

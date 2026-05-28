@@ -83,6 +83,11 @@ const updateGallerySchema = createGallerySchema.partial().extend({
     .optional(),
   slideshowAudioUrl: z.string().max(500).nullable().optional(),
   footerMarkdown: z.string().max(20_000).nullable().optional(),
+  // Per-Galerie Print-Shop-Sichtbarkeit. true = sichtbar, false =
+  // unterdrueckt, null = uebernimmt Tenant-Default. Tenant kann eine
+  // Familien-Galerie ausnehmen, eine Hochzeitsgalerie aber den
+  // Endkunden-Bestellflow zeigen.
+  printShopEnabled: z.boolean().nullable().optional(),
   colorBackground: z
     .string()
     .regex(HEX_RGB, "must be #RRGGBB")
@@ -591,6 +596,9 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
             : {}),
           ...(body.colorAccent !== undefined
             ? { colorAccent: body.colorAccent }
+            : {}),
+          ...(body.printShopEnabled !== undefined
+            ? { printShopEnabled: body.printShopEnabled }
             : {}),
         },
       });

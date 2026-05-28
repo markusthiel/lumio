@@ -363,6 +363,30 @@ export async function transitionOrder(
       break;
   }
 
+  // Wenn Refund: zuerst Stripe-Refund versuchen. Lazy-Import vermeidet
+  // den Stripe-Init bei Modul-Load wenn STRIPE_SECRET_KEY nicht gesetzt
+  // ist (z.B. Self-Hoster ohne Stripe).
+  let stripeRefund: { refunded: boolean; refundId?: string; reason?: string } | null = null;
+  if (t.type === "refund" && order.paymentMode === "stripe_connect" && order.stripeChargeId) {
+    try {
+      const { refundStripeChargeForOrder } = await import("./payment.js");
+      stripeRefund = await refundStripeChargeForOrder(orderId);
+    } catch (err) {
+      // Stripe-Refund-Fehler ist NICHT fatal — wir setzen den Status
+      // trotzdem auf 'refunded' und packen den Fehler ins Event-Data.
+      // Der Fotograf sieht das in der Order-Timeline und kann den
+      // Refund manuell im Stripe-Dashboard nachholen.
+      logger.warn(
+        { err, orderId },
+        "print.order.stripe_refund_failed_continuing_with_status_change"
+      );
+      stripeRefund = {
+        refunded: false,
+        reason: err instanceof Error ? err.message : "stripe_error",
+      };
+    }
+  }
+
   await prisma.printOrder.update({
     where: { id: orderId },
     data: {
@@ -372,7 +396,10 @@ export async function transitionOrder(
           eventType: t.type,
           actor: t.actor,
           actorUserId: t.actorUserId ?? null,
-          data: extractEventData(t) as never,
+          data: {
+            ...(extractEventData(t) ?? {}),
+            ...(stripeRefund ? { stripeRefund } : {}),
+          } as never,
         },
       },
     },
