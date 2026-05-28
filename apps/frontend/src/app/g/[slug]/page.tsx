@@ -174,6 +174,27 @@ function PublicGalleryInner() {
     );
   }
 
+  // Print-Shop: prueft ob fuer diese Galerie verfuegbar (Feature-Flag,
+  // Tenant-Config, Galerie-Override). Catalog-Call ist der eindeutige
+  // Indikator — er liefert 404 wenn nicht verfuegbar. Wenn ja, reichen
+  // wir den Status an GalleryView durch, die einen dezenten Button in
+  // der Toolbar neben Download/Slideshow zeigt.
+  const [printShopAvailable, setPrintShopAvailable] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        await api.getGalleryPrintShopCatalog(slug);
+        if (!cancelled) setPrintShopAvailable(true);
+      } catch {
+        if (!cancelled) setPrintShopAvailable(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [slug]);
+
   return (
     <GalleryShell
       branding={meta.branding}
@@ -186,7 +207,6 @@ function PublicGalleryInner() {
         hideHeaderLogo: !!meta.header.eventLogoUrl,
       }}
     >
-      <PrintShopBanner slug={slug} />
       <GalleryView
         meta={meta}
         slug={slug}
@@ -194,6 +214,7 @@ function PublicGalleryInner() {
         mySelections={mySelections}
         finalizedAt={finalizedAt}
         canSelect={canSelect}
+        printShopAvailable={printShopAvailable}
         onSelectionChange={(fileId, sel) =>
           setMySelections((prev) => ({ ...prev, [fileId]: sel }))
         }
@@ -207,50 +228,5 @@ function PublicGalleryInner() {
         }}
       />
     </GalleryShell>
-  );
-}
-
-/**
- * Print-Shop-Banner ueber der Galerie. Prueft via Catalog-API ob der
- * Print-Shop fuer diese Galerie aktiv ist. Wenn ja: kleine Promo-Leiste
- * mit Link zur Print-Shop-Page. Wenn nicht (404): rendert nichts.
- */
-function PrintShopBanner({ slug }: { slug: string }) {
-  const [available, setAvailable] = useState<boolean | null>(null);
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        await api.getGalleryPrintShopCatalog(slug);
-        if (!cancelled) setAvailable(true);
-      } catch {
-        if (!cancelled) setAvailable(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [slug]);
-  if (!available) return null;
-  return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-4">
-      <a
-        href={`/g/${slug}/print-shop`}
-        className="block rounded-md border border-line-subtle bg-surface-raised p-3 hover:bg-surface-sunken transition-colors text-sm"
-      >
-        <div className="flex items-center gap-3">
-          <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-accent/15 text-accent">
-            🖼
-          </span>
-          <div className="flex-1">
-            <strong>Prints und Wandbilder bestellen</strong>
-            <div className="text-xs text-ink-tertiary">
-              Hochwertige Drucke deiner Lieblingsbilder.
-            </div>
-          </div>
-          <span className="text-accent text-sm">→</span>
-        </div>
-      </a>
-    </div>
   );
 }

@@ -35,6 +35,9 @@ interface Props {
   mySelections: Record<string, MySelection>;
   finalizedAt: string | null;
   canSelect: boolean;
+  /** Wenn true: zeigt einen Print-Shop-Button in der Toolbar, der zur
+   *  /g/:slug/print-shop-Page verlinkt. Default false. */
+  printShopAvailable?: boolean;
   onSelectionChange: (fileId: string, sel: MySelection) => void;
   onFinalize: () => void | Promise<void>;
 }
@@ -48,6 +51,7 @@ export function GalleryView({
   mySelections,
   finalizedAt,
   canSelect,
+  printShopAvailable = false,
   onSelectionChange,
   onFinalize,
 }: Props) {
@@ -264,6 +268,23 @@ export function GalleryView({
                 <PlayMiniIcon />
                 <span>{t("gallery.slideshowStart")}</span>
               </button>
+            )}
+            {/* Print-Shop-Eintrag — dezenter ghost-Style, sitzt zwischen
+                den primaeren Aktionen ohne wie Werbung zu wirken. Wird
+                nur gerendert wenn fuer diese Galerie verfuegbar. */}
+            {printShopAvailable && stats.total > 0 && (
+              <a
+                href={`/g/${slug}/print-shop`}
+                className="text-ui-sm px-3 h-8 rounded inline-flex items-center gap-1.5 font-medium hover:opacity-90 transition-opacity duration-motion border"
+                style={{
+                  borderColor: "var(--brand-border)",
+                  color: "var(--brand-fg)",
+                }}
+                title="Prints und Wandbilder bestellen"
+              >
+                <PrintIcon />
+                <span>Prints bestellen</span>
+              </a>
             )}
             {/* Pick-Modus-Toggle — nur sichtbar wenn Downloads aktiviert
                 und es überhaupt Files gibt. Im pickMode zeigen Tiles
@@ -590,6 +611,19 @@ function PlayMiniIcon() {
   return (
     <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" aria-hidden>
       <path d="M2.5 1.5v7l6-3.5-6-3.5z" />
+    </svg>
+  );
+}
+
+/** Bilderrahmen-Icon fuer den Print-Shop-Button. Schlichter Outline-
+ *  Look der zur dezenten Toolbar-Aesthetik passt — keine Fuelle, kein
+ *  Symbol-Drama. */
+function PrintIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.2" aria-hidden>
+      <rect x="1.5" y="1.5" width="9" height="9" rx="0.5" />
+      <path d="M1.5 8 L4 5.5 L6 7 L8.5 4 L10.5 6" />
+      <circle cx="7.5" cy="3.5" r="0.7" fill="currentColor" stroke="none" />
     </svg>
   );
 }
