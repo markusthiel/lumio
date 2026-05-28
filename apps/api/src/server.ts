@@ -47,9 +47,11 @@ import { registerSuperTenantRoutes } from "./routes/super-tenants.js";
 import { registerAnnouncementRoutes } from "./routes/announcements.js";
 import { registerBroadcastRoutes } from "./routes/broadcasts.js";
 import { registerPrintShopRoutes } from "./routes/print-shop.js";
+import { registerPrintShopPublicRoutes } from "./routes/print-shop-public.js";
 import { registerWsRoutes } from "./routes/ws.js";
 import superAdminPlugin from "./plugins/super-admin.js";
 import { startPeriodicSweeper } from "./services/sweeper.js";
+import { startPrintOrderMailSweeper } from "./services/print-mail-sweeper.js";
 
 async function buildServer() {
   const app = Fastify({
@@ -159,6 +161,8 @@ async function buildServer() {
       // Studio-Print-Shop-Routes: pruefen alle intern den Feature-Flag.
       // Wenn aus: 404. Damit ist 'komplett deaktivierbar' eingehalten.
       await registerPrintShopRoutes(api);
+      // Public-Print-Shop-Routes (Endkunden in der Galerie)
+      await registerPrintShopPublicRoutes(api);
       if (config.BILLING_ENABLED) {
         await registerBillingRoutes(api);
         await registerSignupRoutes(api);
@@ -219,6 +223,7 @@ async function start() {
     // abgelaufene Tenant-Exports. Idempotent — mehrere API-Instances
     // gleichzeitig sind harmlos.
     startPeriodicSweeper();
+    startPrintOrderMailSweeper();
   } catch (err) {
     app.log.error(err);
     process.exit(1);

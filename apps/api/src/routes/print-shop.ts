@@ -53,6 +53,7 @@ import {
   disconnectAccount,
   getConnectStatus,
 } from "../services/print/stripe-connect.js";
+import { transitionOrder } from "../services/print/orders.js";
 import { logEvent } from "../services/audit.js";
 
 /** Guard: User muss eingeloggt sein und role owner|admin haben.
@@ -558,6 +559,173 @@ export async function registerPrintShopRoutes(app: FastifyInstance) {
         });
       }
       await prisma.shippingMethod.delete({ where: { id: req.params.id } });
+      return { ok: true };
+    }
+  );
+
+  // ============================================================================
+  // ORDERS (Studio-Sicht)
+  // ============================================================================
+
+  // GET /print-shop/orders?status=&limit=&cursor=
+  app.get<{
+    Querystring: { status?: string; limit?: string; cursor?: string };
+  }>("/print-shop/orders", async (req, reply) => {
+    const ctx = await guard(req, reply);
+    if (!ctx) return;
+    const limit = Math.min(parseInt(req.query.limit ?? "30", 10) || 30, 100);
+    const where: Record<string, unknown> = { tenantId: ctx.tenantId };
+    if (req.query.status) where.status = req.query.status;
+
+    const orders = await prisma.printOrder.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take: limit + 1,
+      ...(req.query.cursor
+        ? { skip: 1, cursor: { id: req.query.cursor } }
+        : {}),
+      select: {
+        id: true,
+        orderNumber: true,
+        guestName: true,
+        guestEmail: true,
+        totalCents: true,
+        currency: true,
+        status: true,
+        paymentMode: true,
+        providerKey: true,
+        createdAt: true,
+        paidAt: true,
+        shippedAt: true,
+        deliveredAt: true,
+      },
+    });
+    const hasMore = orders.length > limit;
+    const list = hasMore ? orders.slice(0, limit) : orders;
+    return {
+      orders: list,
+      nextCursor: hasMore ? list[list.length - 1].id : null,
+    };
+  });
+
+  // GET /print-shop/orders/:id
+  app.get<{ Params: { id: string } }>(
+    "/print-shop/orders/:id",
+    async (req, reply) => {
+      const ctx = await guard(req, reply);
+      if (!ctx) return;
+      const order = await prisma.printOrder.findFirst({
+        where: { id: req.params.id, tenantId: ctx.tenantId },
+        include: {
+          items: {
+            include: {
+              printProductVariant: {
+                include: { printProduct: { select: { name: true } } },
+              },
+              file: {
+                select: { id: true, originalFilename: true, sha256: true },
+              },
+            },
+          },
+          shippingMethod: { select: { name: true, priceCents: true } },
+          events: { orderBy: { createdAt: "asc" } },
+          gallery: { select: { id: true, slug: true, title: true } },
+        },
+      });
+      if (!order) return reply.status(404).send({ error: "not_found" });
+      return { order };
+    }
+  );
+
+  // POST /print-shop/orders/:id/transitions
+  // Body: { type, trackingNumber?, trackingCarrier?, trackingUrl?, reason? }
+  const transitionSchema = z.object({
+    type: z.enum([
+      "mark_paid",
+      "mark_in_production",
+      "mark_shipped",
+      "mark_delivered",
+      "cancel",
+      "refund",
+    ]),
+    trackingNumber: z.string().max(200).optional(),
+    trackingCarrier: z.string().max(100).optional(),
+    trackingUrl: z.string().url().optional(),
+    reason: z.string().max(500).optional(),
+  });
+  app.post<{ Params: { id: string } }>(
+    "/print-shop/orders/:id/transitions",
+    async (req, reply) => {
+      const ctx = await guard(req, reply);
+      if (!ctx) return;
+      const body = transitionSchema.parse(req.body);
+      const order = await prisma.printOrder.findFirst({
+        where: { id: req.params.id, tenantId: ctx.tenantId },
+        select: { id: true },
+      });
+      if (!order) return reply.status(404).send({ error: "not_found" });
+      try {
+        await transitionOrder(req.params.id, {
+          type: body.type,
+          actor: "studio",
+          actorUserId: ctx.userId,
+          ...(body.type === "mark_shipped"
+            ? {
+                trackingNumber: body.trackingNumber,
+                trackingCarrier: body.trackingCarrier,
+                trackingUrl: body.trackingUrl,
+              }
+            : {}),
+          ...(body.type === "cancel" || body.type === "refund"
+            ? { reason: body.reason }
+            : {}),
+        });
+        await logEvent({
+          tenantId: ctx.tenantId,
+          actorType: "user",
+          actorId: ctx.userId,
+          action: `print_shop.order.${body.type}`,
+          targetType: "print_order",
+          targetId: req.params.id,
+          payload: body as Record<string, unknown>,
+          ipAddress: req.ip,
+        });
+        return { ok: true };
+      } catch (err) {
+        return reply.status(400).send({
+          error: "transition_failed",
+          message: err instanceof Error ? err.message : "Fehler",
+        });
+      }
+    }
+  );
+
+  // POST /print-shop/orders/:id/note
+  app.post<{ Params: { id: string } }>(
+    "/print-shop/orders/:id/note",
+    async (req, reply) => {
+      const ctx = await guard(req, reply);
+      if (!ctx) return;
+      const body = z.object({ note: z.string().max(2000) }).parse(req.body);
+      const order = await prisma.printOrder.findFirst({
+        where: { id: req.params.id, tenantId: ctx.tenantId },
+        select: { id: true },
+      });
+      if (!order) return reply.status(404).send({ error: "not_found" });
+      await prisma.printOrder.update({
+        where: { id: req.params.id },
+        data: {
+          studioNote: body.note,
+          events: {
+            create: {
+              eventType: "note_added",
+              actor: "studio",
+              actorUserId: ctx.userId,
+              data: { note: body.note } as never,
+            },
+          },
+        },
+      });
       return { ok: true };
     }
   );

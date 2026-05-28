@@ -313,6 +313,205 @@ def _handle_checkout_completed(
 
 
 # =============================================================================
+# Print-Shop-Handler
+# =============================================================================
+def _handle_print_payment_succeeded(
+    conn: psycopg.Connection, event: dict[str, Any]
+) -> str | None:
+    """payment_intent.succeeded fuer eine Print-Shop-Bestellung.
+
+    PaymentIntent.metadata enthaelt lumio_order_id (gesetzt in
+    services/print/payment.ts beim Erstellen). Wir laden die Order,
+    markieren sie als 'paid' (wenn noch in 'pending_payment'), und
+    schreiben ein PrintOrderEvent. Mail-Versand: das machen wir hier
+    NICHT — der Order-Service hat dafuer transitionOrder(), aber Python
+    kann das nicht aufrufen. Stattdessen: wir setzen den Status, das
+    naechste API-Request triggert sendOrderMails ueber ein Lazy-Re-Check.
+
+    Alternative: API-Endpoint /internal/print-orders/:id/finalize-payment
+    der vom Worker via HTTP gerufen wird. Pragmatischer Weg: wir
+    enqueuen einen separaten Job 'send_print_order_mails' den der
+    API-Container bedient — oder schreiben einen DB-Marker den ein
+    Cron im API-Container abarbeitet.
+
+    Pragmatisch fuer V1: wir markieren in der DB, plus setzen ein Flag
+    in print_order_events. Mail kommt beim naechsten Status-Refresh
+    (z.B. Studio oeffnet die Order-Detail-Page) — nicht ideal, aber
+    funktioniert.
+
+    Bessere Variante: ein separater Mail-Worker. Lassen wir fuer
+    spaeter — TODO.
+    """
+    intent = event["data"]["object"]
+    meta = intent.get("metadata") or {}
+    order_id = meta.get("lumio_order_id")
+    tenant_id = meta.get("lumio_tenant_id")
+
+    if not order_id:
+        log.warning(
+            "stripe.print_payment.missing_metadata",
+            intent_id=intent.get("id"),
+        )
+        return None
+
+    # Status pruefen + updaten atomar
+    row = conn.execute(
+        'SELECT status FROM print_orders WHERE id = %s',
+        (order_id,),
+    ).fetchone()
+    if not row:
+        log.warning(
+            "stripe.print_payment.order_not_found",
+            order_id=order_id,
+        )
+        return tenant_id
+
+    current_status = row[0]
+    if current_status != "pending_payment":
+        log.info(
+            "stripe.print_payment.already_processed",
+            order_id=order_id,
+            status=current_status,
+        )
+        return tenant_id
+
+    now = datetime.now(timezone.utc)
+    conn.execute(
+        'UPDATE print_orders '
+        'SET status = %s, "paidAt" = %s, "stripeChargeId" = %s, "updatedAt" = %s '
+        'WHERE id = %s AND status = %s',
+        ("paid", now, intent.get("latest_charge"), now, order_id, "pending_payment"),
+    )
+    conn.execute(
+        'INSERT INTO print_order_events ("printOrderId", "eventType", actor, data) '
+        'VALUES (%s, %s, %s, %s::jsonb)',
+        (
+            order_id,
+            "mark_paid",
+            "system",
+            json.dumps({
+                "stripePaymentIntentId": intent.get("id"),
+                "chargeId": intent.get("latest_charge"),
+                "trigger": "webhook",
+            }),
+        ),
+    )
+
+    # Mail-Versand: pragmatisch nicht hier (Worker hat keine TS-Mail-
+    # Templates). Stattdessen: das mark_paid-Event mit trigger=webhook
+    # signalisiert dem Print-Order-Mail-Sweeper im API-Container, dass
+    # Mails noch geschickt werden muessen. Der Sweeper laeuft alle 30s
+    # und sucht paid-Orders ohne anschliessendes 'mails_sent_paid'-Event.
+
+    log.info("stripe.print_payment_succeeded", order_id=order_id, tenant_id=tenant_id)
+    return tenant_id
+
+
+def _handle_print_payment_failed(
+    conn: psycopg.Connection, event: dict[str, Any]
+) -> str | None:
+    """payment_intent.payment_failed. Wir setzen den Order-Status auf
+    'cancelled' wenn er noch 'pending_payment' ist. Endkunde kann dann
+    neu starten (anderer Checkout-Versuch = neue Order)."""
+    intent = event["data"]["object"]
+    meta = intent.get("metadata") or {}
+    order_id = meta.get("lumio_order_id")
+    tenant_id = meta.get("lumio_tenant_id")
+    if not order_id:
+        return None
+
+    row = conn.execute(
+        'SELECT status FROM print_orders WHERE id = %s',
+        (order_id,),
+    ).fetchone()
+    if not row or row[0] != "pending_payment":
+        return tenant_id
+
+    now = datetime.now(timezone.utc)
+    conn.execute(
+        'UPDATE print_orders '
+        'SET status = %s, "cancelledAt" = %s, "updatedAt" = %s '
+        'WHERE id = %s AND status = %s',
+        ("cancelled", now, now, order_id, "pending_payment"),
+    )
+    conn.execute(
+        'INSERT INTO print_order_events ("printOrderId", "eventType", actor, data) '
+        'VALUES (%s, %s, %s, %s::jsonb)',
+        (
+            order_id,
+            "cancel",
+            "system",
+            json.dumps({
+                "reason": "payment_failed",
+                "stripePaymentIntentId": intent.get("id"),
+            }),
+        ),
+    )
+    log.info("stripe.print_payment_failed", order_id=order_id)
+    return tenant_id
+
+
+def _handle_stripe_account_updated(
+    conn: psycopg.Connection, event: dict[str, Any]
+) -> str | None:
+    """account.updated fuer einen Connected-Account. Synct
+    charges_enabled, payouts_enabled, details_submitted in
+    tenant_stripe_connect.
+    """
+    account = event["data"]["object"]
+    account_id = account.get("id")
+    if not account_id:
+        return None
+
+    # Lookup Tenant
+    row = conn.execute(
+        'SELECT "tenantId", "detailsSubmitted" FROM tenant_stripe_connect '
+        'WHERE "stripeConnectedAccountId" = %s',
+        (account_id,),
+    ).fetchone()
+    if not row:
+        log.info(
+            "stripe.account_updated.unknown_account",
+            account_id=account_id,
+        )
+        return None
+
+    tenant_id, prev_details = row
+    details_submitted = bool(account.get("details_submitted"))
+    charges_enabled = bool(account.get("charges_enabled"))
+    payouts_enabled = bool(account.get("payouts_enabled"))
+    just_onboarded = (not prev_details) and details_submitted
+
+    now = datetime.now(timezone.utc)
+    conn.execute(
+        'UPDATE tenant_stripe_connect '
+        'SET "detailsSubmitted" = %s, "chargesEnabled" = %s, '
+        '    "payoutsEnabled" = %s, "lastWebhookSyncAt" = %s, '
+        '    "onboardedAt" = COALESCE("onboardedAt", %s), '
+        '    "updatedAt" = %s '
+        'WHERE "stripeConnectedAccountId" = %s',
+        (
+            details_submitted,
+            charges_enabled,
+            payouts_enabled,
+            now,
+            now if just_onboarded else None,
+            now,
+            account_id,
+        ),
+    )
+    log.info(
+        "stripe.account_updated.synced",
+        tenant_id=tenant_id,
+        account_id=account_id,
+        details_submitted=details_submitted,
+        charges_enabled=charges_enabled,
+        payouts_enabled=payouts_enabled,
+    )
+    return tenant_id
+
+
+# =============================================================================
 # Main Task
 # =============================================================================
 @app.task(name="tasks.billing.process_stripe_event")
@@ -358,6 +557,18 @@ def process_stripe_event(event_id: str) -> dict:
                 tenant_id = _handle_invoice_payment_failed(conn, payload)
             elif event_type == "checkout.session.completed":
                 tenant_id = _handle_checkout_completed(conn, payload)
+            elif event_type == "payment_intent.succeeded":
+                # Print-Shop Online-Bezahlung: PaymentIntent ist erfolgreich.
+                # Wir markieren die zugehoerige PrintOrder als 'paid' und
+                # triggern die Mails. Lookup via metadata.lumio_order_id.
+                tenant_id = _handle_print_payment_succeeded(conn, payload)
+            elif event_type == "payment_intent.payment_failed":
+                tenant_id = _handle_print_payment_failed(conn, payload)
+            elif event_type == "account.updated":
+                # Stripe-Connect-Account hat sich geaendert (Onboarding-
+                # Status, charges_enabled, payouts_enabled). Wir syncen
+                # TenantStripeConnect.
+                tenant_id = _handle_stripe_account_updated(conn, payload)
             else:
                 # Ignorable: payment_method.attached etc. Trotzdem
                 # auf processed setzen damit der Row nicht hängt.
