@@ -435,6 +435,10 @@ export const api = {
         bySuperAdminName: string | null;
         expiresAt: string;
       } | null;
+      /** Aktive Feature-Flag-Keys fuer diesen Tenant. Frontend prueft
+       *  z.B. features.includes('print_shop') bevor es Print-Shop-
+       *  Eintraege rendert. */
+      features: string[];
     }>("/auth/me"),
 
   /** Liefert Tenant-Info basierend auf dem aufgelösten Tenant (Host,
@@ -2397,7 +2401,263 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ token, password }),
     }),
+
+  // ===========================================================================
+  // Print-Shop (Studio-Verwaltung)
+  // ===========================================================================
+  // Alle pruefen serverseitig den Feature-Flag print_shop. Bei aus: 404.
+
+  getPrintShopConfig: () =>
+    request<{
+      config: {
+        enabled: boolean;
+        studioDisplayName: string | null;
+        supportEmail: string | null;
+        vatHandling: "inclusive" | "exclusive";
+        defaultVatBps: number;
+        currency: string;
+        termsUrl: string | null;
+        privacyUrl: string | null;
+        applicationFeeBpsOverride: number | null;
+        featureFlagEnabled: boolean;
+      };
+      stripeConnect: {
+        configured: boolean;
+        stripeConnectedAccountId: string | null;
+        chargesEnabled: boolean;
+        payoutsEnabled: boolean;
+        detailsSubmitted: boolean;
+        ready: boolean;
+        onboardedAt: string | null;
+      };
+    }>("/print-shop/config"),
+
+  updatePrintShopConfig: (patch: {
+    enabled?: boolean;
+    studioDisplayName?: string | null;
+    supportEmail?: string | null;
+    vatHandling?: "inclusive" | "exclusive";
+    defaultVatBps?: number;
+    currency?: string;
+    termsUrl?: string | null;
+    privacyUrl?: string | null;
+  }) =>
+    request<{ ok: true }>("/print-shop/config", {
+      method: "PUT",
+      body: JSON.stringify(patch),
+    }),
+
+  startStripeConnectOnboarding: () =>
+    request<{ onboardingUrl: string }>("/print-shop/stripe-connect", {
+      method: "POST",
+    }),
+
+  refreshStripeConnect: () =>
+    request<{
+      stripeConnect: Awaited<
+        ReturnType<typeof api.getPrintShopConfig>
+      >["stripeConnect"];
+    }>("/print-shop/stripe-connect/refresh", { method: "POST" }),
+
+  disconnectStripeConnect: () =>
+    request<{ ok: true }>("/print-shop/stripe-connect", { method: "DELETE" }),
+
+  listAvailablePrintProviders: () =>
+    request<{
+      providers: Array<{
+        key: string;
+        label: string;
+        tagline: string;
+        market: string;
+        stage: "production" | "beta" | "planned" | "self_print";
+        categories: string[];
+        websiteUrl: string;
+        apiKeyHelpUrl?: string;
+        credentialFields: Array<{
+          key: string;
+          label: string;
+          kind: "text" | "password" | "email" | "url";
+          helpText?: string;
+          required: boolean;
+        }>;
+      }>;
+    }>("/print-shop/providers/available"),
+
+  listTenantPrintProviders: () =>
+    request<{
+      providers: Array<{
+        id: string;
+        providerKey: string;
+        providerLabel: string;
+        enabled: boolean;
+        isDefault: boolean;
+        displayName: string | null;
+        hasCredentials: boolean;
+        createdAt: string;
+        updatedAt: string;
+      }>;
+    }>("/print-shop/providers"),
+
+  setTenantPrintProvider: (
+    providerKey: string,
+    input: {
+      enabled?: boolean;
+      displayName?: string | null;
+      credentials?: Record<string, string>;
+      isDefault?: boolean;
+    }
+  ) =>
+    request<{ ok: true }>(`/print-shop/providers/${providerKey}`, {
+      method: "PUT",
+      body: JSON.stringify(input),
+    }),
+
+  deleteTenantPrintProvider: (providerKey: string) =>
+    request<{ ok: true }>(`/print-shop/providers/${providerKey}`, {
+      method: "DELETE",
+    }),
+
+  listPrintProducts: () =>
+    request<{
+      products: Array<{
+        id: string;
+        name: string;
+        description: string | null;
+        providerKey: string;
+        providerProductRef: string | null;
+        category: string;
+        vatBpsOverride: number | null;
+        displayOrder: number;
+        enabled: boolean;
+        variants: Array<{
+          id: string;
+          name: string;
+          widthMm: number;
+          heightMm: number;
+          aspectRatio: number | null;
+          finishType: string | null;
+          providerVariantRef: string | null;
+          priceCents: number;
+          costCents: number | null;
+          displayOrder: number;
+          enabled: boolean;
+        }>;
+      }>;
+    }>("/print-shop/products"),
+
+  createPrintProduct: (input: PrintProductCreateInput) =>
+    request<{ product: { id: string } }>("/print-shop/products", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  updatePrintProduct: (id: string, patch: Partial<PrintProductCreateInput>) =>
+    request<{ product: { id: string } }>(`/print-shop/products/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(patch),
+    }),
+
+  deletePrintProduct: (id: string) =>
+    request<{ ok: true }>(`/print-shop/products/${id}`, { method: "DELETE" }),
+
+  createPrintVariant: (productId: string, input: PrintVariantCreateInput) =>
+    request<{ variant: { id: string } }>(
+      `/print-shop/products/${productId}/variants`,
+      { method: "POST", body: JSON.stringify(input) }
+    ),
+
+  updatePrintVariant: (id: string, patch: Partial<PrintVariantCreateInput>) =>
+    request<{ variant: { id: string } }>(`/print-shop/variants/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(patch),
+    }),
+
+  deletePrintVariant: (id: string) =>
+    request<{ ok: true }>(`/print-shop/variants/${id}`, { method: "DELETE" }),
+
+  listShippingMethods: () =>
+    request<{
+      methods: Array<{
+        id: string;
+        providerKey: string;
+        name: string;
+        priceCents: number;
+        estimatedDaysMin: number | null;
+        estimatedDaysMax: number | null;
+        countries: string[];
+        providerShippingRef: string | null;
+        enabled: boolean;
+        displayOrder: number;
+      }>;
+    }>("/print-shop/shipping-methods"),
+
+  createShippingMethod: (input: ShippingMethodCreateInput) =>
+    request<{ method: { id: string } }>("/print-shop/shipping-methods", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  updateShippingMethod: (
+    id: string,
+    patch: Partial<ShippingMethodCreateInput>
+  ) =>
+    request<{ method: { id: string } }>(
+      `/print-shop/shipping-methods/${id}`,
+      { method: "PUT", body: JSON.stringify(patch) }
+    ),
+
+  deleteShippingMethod: (id: string) =>
+    request<{ ok: true }>(`/print-shop/shipping-methods/${id}`, {
+      method: "DELETE",
+    }),
 };
+
+// ---------------------------------------------------------------------------
+// Print-Shop Input-Types (extern definiert weil TS Self-References im
+// api-Objekt nicht aufloesen kann — sonst kaskadieren Type-Inferences
+// und alle 'typeof api.X'-Verwendungen in anderen Files brechen)
+// ---------------------------------------------------------------------------
+export interface PrintProductCreateInput {
+  name: string;
+  description?: string | null;
+  providerKey: string;
+  providerProductRef?: string | null;
+  category?:
+    | "print"
+    | "canvas"
+    | "photobook"
+    | "frame"
+    | "metal_print"
+    | "poster";
+  vatBpsOverride?: number | null;
+  displayOrder?: number;
+  enabled?: boolean;
+}
+
+export interface PrintVariantCreateInput {
+  name: string;
+  widthMm: number;
+  heightMm: number;
+  aspectRatio?: number | null;
+  finishType?: string | null;
+  providerVariantRef?: string | null;
+  priceCents: number;
+  costCents?: number | null;
+  displayOrder?: number;
+  enabled?: boolean;
+}
+
+export interface ShippingMethodCreateInput {
+  providerKey: string;
+  name: string;
+  priceCents: number;
+  estimatedDaysMin?: number | null;
+  estimatedDaysMax?: number | null;
+  countries?: string[];
+  providerShippingRef?: string | null;
+  enabled?: boolean;
+  displayOrder?: number;
+}
 
 export interface SuperTenantSummary {
   id: string;

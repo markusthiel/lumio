@@ -54,6 +54,7 @@ import {
   deleteCredential as webauthnDeleteCredential,
 } from "../services/webauthn.js";
 import { logEvent } from "../services/audit.js";
+import { getEffectiveFlags } from "../services/feature-flags.js";
 import { getStripe } from "../services/stripe-client.js";
 import { resolveTenantBranding } from "../services/branding.js";
 
@@ -628,6 +629,16 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       }
     }
 
+    // Aktive Feature-Flags fuer diesen Tenant. Frontend nutzt das um
+    // Navigations-Eintraege und Sub-Pages zu zeigen/verstecken (z.B.
+    // 'print_shop'-Menupunkt nur wenn aktiv). Effektive Werte
+    // (Defaults + Tenant-Overrides) aus getEffectiveFlags.
+    const effective = await getEffectiveFlags(user.tenantId);
+    const activeFeatures: string[] = [];
+    for (const [key, enabled] of effective.entries()) {
+      if (enabled) activeFeatures.push(key);
+    }
+
     return {
       user: {
         id: user.id,
@@ -640,6 +651,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       },
       tenant,
       impersonation,
+      features: activeFeatures,
     };
   });
 

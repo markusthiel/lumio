@@ -46,6 +46,7 @@ import { registerSuperAuthRoutes } from "./routes/super-auth.js";
 import { registerSuperTenantRoutes } from "./routes/super-tenants.js";
 import { registerAnnouncementRoutes } from "./routes/announcements.js";
 import { registerBroadcastRoutes } from "./routes/broadcasts.js";
+import { registerPrintShopRoutes } from "./routes/print-shop.js";
 import { registerWsRoutes } from "./routes/ws.js";
 import superAdminPlugin from "./plugins/super-admin.js";
 import { startPeriodicSweeper } from "./services/sweeper.js";
@@ -155,6 +156,9 @@ async function buildServer() {
       // Broadcast-Routes: GET /broadcasts/unsubscribe ist public, der
       // Rest ist Super-Admin.
       await registerBroadcastRoutes(api);
+      // Studio-Print-Shop-Routes: pruefen alle intern den Feature-Flag.
+      // Wenn aus: 404. Damit ist 'komplett deaktivierbar' eingehalten.
+      await registerPrintShopRoutes(api);
       if (config.BILLING_ENABLED) {
         await registerBillingRoutes(api);
         await registerSignupRoutes(api);

@@ -44,6 +44,9 @@ interface NavItem {
    *  Verwaltung. Wenn das Feld fehlt: fuer alle eingeloggten User
    *  sichtbar (Default). */
   rolesAllowed?: Array<"owner" | "admin" | "member">;
+  /** Wenn gesetzt: nur sichtbar wenn dieser Feature-Flag fuer den Tenant
+   *  aktiv ist (aus /auth/me.features). */
+  requiresFeature?: string;
 }
 
 const NAV: NavItem[] = [
@@ -52,6 +55,7 @@ const NAV: NavItem[] = [
   { href: "/studio/brandings",  labelKey: "nav.brandings",  fallback: "Branding",      prefix: "/studio/brandings" },
   { href: "/studio/templates",  labelKey: "nav.templates",  fallback: "Templates",     prefix: "/studio/templates" },
   { href: "/studio/tags",       labelKey: "nav.tags",       fallback: "Tags",          prefix: "/studio/tags" },
+  { href: "/studio/print-shop", labelKey: "nav.printShop",  fallback: "Print-Shop",    prefix: "/studio/print-shop", rolesAllowed: ["owner", "admin"], requiresFeature: "print_shop" },
   { href: "/studio/webhooks",   labelKey: "nav.webhooks",   fallback: "Webhooks",      prefix: "/studio/webhooks" },
   { href: "/studio/audit",      labelKey: "nav.audit",      fallback: "Audit",         prefix: "/studio/audit" },
   { href: "/studio/exports",    labelKey: "nav.exports",    fallback: "Datenexport",   prefix: "/studio/exports" },
@@ -83,6 +87,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
     bySuperAdminName: string | null;
     expiresAt: string;
   } | null>(null);
+  const [features, setFeatures] = useState<string[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,6 +97,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
         if (cancelled) return;
         setUserRole(r.user.role);
         setImpersonation(r.impersonation);
+        setFeatures(r.features ?? []);
       } catch {
         setUserRole("member");
       }
@@ -101,14 +107,18 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Nav nach Rolle filtern. Bevor die Rolle geladen ist, zeigen wir
-  // alle Eintraege OHNE rolesAllowed-Schraenkung. Sobald die Rolle
-  // bekannt ist, kommen die rolesAllowed-Eintraege nur dazu wenn der
-  // User die Berechtigung hat.
+  // Nav nach Rolle UND Feature-Flag filtern. Bevor Rolle/Features
+  // geladen sind, zeigen wir alle Eintraege ohne Restrictions; sobald
+  // beide bekannt sind, kommen rolesAllowed/requiresFeature dazu.
   const visibleNav = NAV.filter((item) => {
-    if (!item.rolesAllowed) return true;
-    if (!userRole) return false;
-    return item.rolesAllowed.includes(userRole);
+    if (item.rolesAllowed) {
+      if (!userRole) return false;
+      if (!item.rolesAllowed.includes(userRole)) return false;
+    }
+    if (item.requiresFeature) {
+      if (!features.includes(item.requiresFeature)) return false;
+    }
+    return true;
   });
 
   // Cmd/Ctrl + K öffnet die globale Suche, egal wo der Fokus ist.
