@@ -109,6 +109,71 @@ export async function registerAutoTagRoutes(app: FastifyInstance) {
   });
 
   // ---------------------------------------------------------------------------
+  // GET /galleries/:id/auto-tags/stats
+  // ---------------------------------------------------------------------------
+  // Diagnose-Stats fuer die Studio-Toolbar — zeigt direkt im UI ob die
+  // Pipeline laeuft. Vier Counts plus letzter Tag-Timestamp.
+  //
+  // Use-Case: Fotograf klickt 'Galerie neu taggen', wartet, sieht in der
+  // Toolbar wie pendingSuggestions hochzaehlt → Pipeline arbeitet.
+  // Wenn pendingSuggestions=0 bleibt nach Re-Tag-Klick und taggedFiles
+  // nicht steigt → irgendwas haengt (Worker, Feature-Flag-Mismatch, etc.)
+  app.get<{ Params: { id: string } }>(
+    "/galleries/:id/auto-tags/stats",
+    async (req, reply) => {
+      if (!(await requireFeature(req, reply))) return;
+      const s = req.requireAuth();
+
+      const gallery = await prisma.gallery.findFirst({
+        where: { id: req.params.id, tenantId: req.tenantId, ownerId: s.user.id },
+        select: { id: true },
+      });
+      if (!gallery) return reply.status(404).send({ error: "not_found" });
+
+      const [fileCount, taggedFiles, pendingSuggestions, accepted, rejected, lastTag] =
+        await Promise.all([
+          prisma.file.count({
+            where: {
+              galleryId: gallery.id,
+              status: "ready",
+              kind: { in: ["image", "raw"] },
+            },
+          }),
+          // DISTINCT-Files die mind. einen AutoTag haben (egal welcher Status)
+          prisma.$queryRaw<Array<{ count: bigint }>>`
+            SELECT COUNT(DISTINCT "fileId")::bigint AS count
+            FROM file_auto_tags fat
+            JOIN files f ON f.id = fat."fileId"
+            WHERE f."galleryId" = ${gallery.id}::uuid
+          `,
+          prisma.fileAutoTag.count({
+            where: { status: "suggested", file: { galleryId: gallery.id } },
+          }),
+          prisma.fileAutoTag.count({
+            where: { status: "accepted", file: { galleryId: gallery.id } },
+          }),
+          prisma.fileAutoTag.count({
+            where: { status: "rejected", file: { galleryId: gallery.id } },
+          }),
+          prisma.fileAutoTag.findFirst({
+            where: { file: { galleryId: gallery.id } },
+            orderBy: { createdAt: "desc" },
+            select: { createdAt: true },
+          }),
+        ]);
+
+      return {
+        fileCount,
+        taggedFiles: Number(taggedFiles[0]?.count ?? 0n),
+        pendingSuggestions,
+        accepted,
+        rejected,
+        lastTaggedAt: lastTag?.createdAt?.toISOString() ?? null,
+      };
+    }
+  );
+
+  // ---------------------------------------------------------------------------
   // GET /files/:id/auto-tags
   // ---------------------------------------------------------------------------
   app.get<{ Params: { id: string } }>(

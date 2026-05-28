@@ -29,7 +29,53 @@ export function AutoTagsToolbar({ galleryId }: { galleryId: string }) {
   const [available, setAvailable] = useState<boolean | null>(null);
   const [busy, setBusy] = useState<"re-tag" | "bulk" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  // Threshold wird in localStorage persistiert (global, nicht pro Galerie —
+  // der User entwickelt eine Praeferenz die fuer alle Galerien gilt).
+  // Default 0.7 wenn noch nichts gesetzt.
   const [threshold, setThreshold] = useState(0.7);
+  const [stats, setStats] = useState<{
+    fileCount: number;
+    taggedFiles: number;
+    pendingSuggestions: number;
+    accepted: number;
+    rejected: number;
+    lastTaggedAt: string | null;
+  } | null>(null);
+
+  // Threshold aus localStorage initial laden (nur client-side, daher
+  // useEffect statt useState-initializer — sonst SSR-Hydration-Konflikt).
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem("lumio.autotag.threshold");
+      if (stored) {
+        const v = parseFloat(stored);
+        if (!isNaN(v) && v >= 0.05 && v <= 0.95) {
+          setThreshold(v);
+        }
+      }
+    } catch {
+      // localStorage kann blockiert sein (private-mode / cookie-restrictions)
+    }
+  }, []);
+
+  // Bei jedem Threshold-Change in localStorage schreiben
+  function updateThreshold(v: number) {
+    setThreshold(v);
+    try {
+      window.localStorage.setItem("lumio.autotag.threshold", String(v));
+    } catch {
+      // siehe oben
+    }
+  }
+
+  async function refreshStats() {
+    try {
+      const r = await api.getGalleryAutoTagStats(galleryId);
+      setStats(r);
+    } catch {
+      setStats(null);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -38,7 +84,10 @@ export function AutoTagsToolbar({ galleryId }: { galleryId: string }) {
     (async () => {
       try {
         await api.getAutoTagStatus();
-        if (!cancelled) setAvailable(true);
+        if (!cancelled) {
+          setAvailable(true);
+          await refreshStats();
+        }
       } catch {
         if (!cancelled) setAvailable(false);
       }
@@ -46,6 +95,7 @@ export function AutoTagsToolbar({ galleryId }: { galleryId: string }) {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [galleryId]);
 
   if (!available) return null;
@@ -59,6 +109,9 @@ export function AutoTagsToolbar({ galleryId }: { galleryId: string }) {
         `${r.enqueuedFiles} Datei${r.enqueuedFiles === 1 ? "" : "en"} zur Re-Analyse eingereiht. ` +
           `Vorschlaege erscheinen in ca. 1-2 Minuten.`
       );
+      // Stats nach kurzem Delay neu laden — die ersten Tasks sollten
+      // schnell durch sein wenn der Worker laeuft.
+      setTimeout(() => void refreshStats(), 5000);
     } catch (err) {
       setMessage(
         "Fehler: " + (err instanceof Error ? err.message : "unbekannt")
@@ -79,6 +132,7 @@ export function AutoTagsToolbar({ galleryId }: { galleryId: string }) {
           : `${r.accepted} Vorschlag${r.accepted === 1 ? "" : "e"} ` +
             `mit Confidence >= ${Math.round(threshold * 100)}% übernommen.`
       );
+      await refreshStats();
     } catch (err) {
       setMessage(
         "Fehler: " + (err instanceof Error ? err.message : "unbekannt")
@@ -90,7 +144,35 @@ export function AutoTagsToolbar({ galleryId }: { galleryId: string }) {
 
   return (
     <section className="rounded-md border border-line-subtle bg-surface-raised p-4">
-      <h2 className="text-ui-sm font-semibold mb-3">KI-Auto-Tagging</h2>
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <h2 className="text-ui-sm font-semibold">KI-Auto-Tagging</h2>
+        <button
+          type="button"
+          onClick={() => void refreshStats()}
+          className="text-xs text-ink-tertiary hover:text-ink-secondary"
+          title="Status aktualisieren"
+        >
+          ↻ Status
+        </button>
+      </div>
+
+      {stats && (
+        <dl className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-3 text-xs">
+          <Stat label="Dateien" value={stats.fileCount} />
+          <Stat
+            label="Mit Tags"
+            value={stats.taggedFiles}
+            subtitle={
+              stats.fileCount > 0
+                ? `${Math.round((stats.taggedFiles / stats.fileCount) * 100)}%`
+                : undefined
+            }
+          />
+          <Stat label="Offene Vorschläge" value={stats.pendingSuggestions} highlight={stats.pendingSuggestions > 0} />
+          <Stat label="Übernommen" value={stats.accepted} />
+          <Stat label="Verworfen" value={stats.rejected} />
+        </dl>
+      )}
 
       <div className="flex flex-wrap gap-3 items-end">
         <button
@@ -112,7 +194,7 @@ export function AutoTagsToolbar({ galleryId }: { galleryId: string }) {
             max="0.95"
             step="0.05"
             value={threshold}
-            onChange={(e) => setThreshold(parseFloat(e.target.value))}
+            onChange={(e) => updateThreshold(parseFloat(e.target.value))}
             disabled={busy === "bulk"}
             className="w-32"
           />
@@ -140,7 +222,45 @@ export function AutoTagsToolbar({ galleryId }: { galleryId: string }) {
         Tipp: Niedrigere Schwelle = mehr Tags, weniger Präzision. Für
         Heuristik-Tags (Hochformat, Hell, …) reichen 70%, für KI-Modell-Tags
         (Brautpaar, Kuss, …) eher 20-30%.
+        {stats?.lastTaggedAt && (
+          <>
+            {" · Letztes Tagging: "}
+            {new Date(stats.lastTaggedAt).toLocaleString("de-DE")}
+          </>
+        )}
       </p>
     </section>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  subtitle,
+  highlight,
+}: {
+  label: string;
+  value: number;
+  subtitle?: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div
+      className={
+        highlight
+          ? "rounded border border-accent/30 bg-accent/8 px-2 py-1.5"
+          : "rounded border border-line-subtle bg-surface-sunken px-2 py-1.5"
+      }
+    >
+      <div className="text-ui-xs text-ink-tertiary">{label}</div>
+      <div className="text-sm font-semibold tabular-nums">
+        {value.toLocaleString("de-DE")}
+        {subtitle && (
+          <span className="ml-1 text-xs text-ink-tertiary font-normal">
+            {subtitle}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }

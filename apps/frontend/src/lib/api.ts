@@ -2906,6 +2906,16 @@ export const api = {
     request<{ enabled: boolean; vocabulary: string[] }>(
       `/auto-tags/status`
     ),
+
+  getGalleryAutoTagStats: (galleryId: string) =>
+    request<{
+      fileCount: number;
+      taggedFiles: number;
+      pendingSuggestions: number;
+      accepted: number;
+      rejected: number;
+      lastTaggedAt: string | null;
+    }>(`/galleries/${galleryId}/auto-tags/stats`),
 };
 
 // ---------------------------------------------------------------------------
