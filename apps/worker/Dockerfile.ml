@@ -68,5 +68,11 @@ COPY apps/worker /app
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD ps aux | grep -v grep | grep -q "celery worker" || exit 1
 
+# WICHTIG: gleicher Entrypoint wie das Standard-Worker-Image. Der
+# entrypoint.sh startet Celery UND den Stream-Consumer parallel.
+# Wenn wir hier nur 'celery worker' starten wuerden, kaemen Stream-Jobs
+# (z.B. Re-Tag-Galerie aus dem Studio) nie an — die Tasks waeren zwar
+# registriert, aber kein Prozess wuerde sie aus Redis lesen.
+RUN chmod +x /app/entrypoint.sh
 ENTRYPOINT ["tini", "--"]
-CMD ["celery", "-A", "app", "worker", "--loglevel=info", "--concurrency=2"]
+CMD ["/app/entrypoint.sh"]
