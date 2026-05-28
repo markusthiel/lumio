@@ -310,6 +310,29 @@ export async function registerTagRoutes(app: FastifyInstance) {
   // POST /files/:id/tags + DELETE /files/:id/tags/:tagId
   // -------------------------------------------------------------------------
   // File-Ownership läuft über Gallery → Tenant + Owner.
+  app.get<{ Params: { id: string } }>(
+    "/files/:id/tags",
+    async (req, reply) => {
+      const s = req.requireAuth();
+      const file = await prisma.file.findFirst({
+        where: {
+          id: req.params.id,
+          gallery: { tenantId: req.tenantId, ownerId: s.user.id },
+        },
+        select: {
+          id: true,
+          tags: {
+            select: {
+              tag: { select: { id: true, name: true, color: true } },
+            },
+          },
+        },
+      });
+      if (!file) return reply.status(404).send({ error: "not_found" });
+      return { tags: file.tags.map((ft) => ft.tag) };
+    }
+  );
+
   app.post<{ Params: { id: string } }>(
     "/files/:id/tags",
     async (req, reply) => {

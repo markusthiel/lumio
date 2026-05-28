@@ -15,6 +15,7 @@ import { SlowConnectionToggle } from "@/components/upload/SlowConnectionToggle";
 import { useSlowConnection } from "@/lib/useSlowConnection";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { AutoTagsToolbar } from "@/components/studio/AutoTagsToolbar";
+import { GalleryFileTagFilter } from "@/components/studio/GalleryFileTagFilter";
 import { TagPicker } from "@/components/studio/TagPicker";
 import { Button } from "@/components/ui";
 import { useT } from "@/lib/i18n";
@@ -146,6 +147,10 @@ export default function GalleryDetailPage() {
   // Upload-Link-Files). Wird auch via Header-Counter gesteuert,
   // der direkt darauf umschaltet.
   const [fileFilter, setFileFilter] = useState<"all" | "pending">("all");
+  // File-Tag-Filter: Set von Tag-IDs. UND-Semantik (File muss ALLE
+  // ausgewaehlten Tags haben). Zustand liegt hier oben damit die Filter-
+  // Bar und das File-Grid synchron sind.
+  const [tagFilter, setTagFilter] = useState<Set<string>>(new Set());
 
   // DnD-Sensoren (siehe Sprint 17)
   const sensors = useSensors(
@@ -821,8 +826,20 @@ export default function GalleryDetailPage() {
     (f) => f.uploadedVia === "upload_link" && f.publicVisibility === "hidden"
   );
   const pendingCount = pendingFiles.length;
-  const visibleFiles =
+  // Erst Pending-Filter, dann Tag-Filter (UND-Semantik: File muss ALLE
+  // ausgewählten Tags haben). Wenn tagFilter leer ist: kein Effekt.
+  const baseFiles =
     fileFilter === "pending" ? pendingFiles : gallery.files;
+  const visibleFiles =
+    tagFilter.size === 0
+      ? baseFiles
+      : baseFiles.filter((f) => {
+          const fileTagIds = new Set((f.tags ?? []).map((t) => t.id));
+          for (const tagId of tagFilter) {
+            if (!fileTagIds.has(tagId)) return false;
+          }
+          return true;
+        });
   const selectedPendingCount = pendingFiles.filter((f) =>
     selected.has(f.id)
   ).length;
@@ -975,6 +992,16 @@ export default function GalleryDetailPage() {
           }}
         />
       </div>
+
+      {/* File-Tag-Filter — pro-Galerie ein-/ausschaltbar via localStorage.
+          Default eingeklappt damit Galerien ohne Tag-Workflow keinen
+          visuellen Lärm haben. */}
+      <GalleryFileTagFilter
+        galleryId={gallery.id}
+        files={gallery.files}
+        selected={tagFilter}
+        onChange={setTagFilter}
+      />
 
       <div className="px-6 sm:px-8 py-6 space-y-6 max-w-7xl">
         {/* KI-Auto-Tagging-Toolbar — versteckt sich selbst wenn Feature

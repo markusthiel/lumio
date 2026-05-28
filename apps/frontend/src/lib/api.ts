@@ -769,6 +769,8 @@ export const api = {
     }),
   removeTagFromFile: (fileId: string, tagId: string) =>
     request<void>(`/files/${fileId}/tags/${tagId}`, { method: "DELETE" }),
+  getFileTags: (fileId: string) =>
+    request<{ tags: Tag[] }>(`/files/${fileId}/tags`),
 
   createGallery: (input: {
     title: string;

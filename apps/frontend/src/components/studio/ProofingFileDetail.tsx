@@ -37,6 +37,7 @@ import {
   type AnnotationData,
 } from "@/components/annotation/AnnotationOverlay";
 import { AutoTagsSection } from "@/components/studio/AutoTagsSection";
+import { FileTagsSection } from "@/components/studio/FileTagsSection";
 
 interface Props {
   galleryId: string;
@@ -308,8 +309,13 @@ export function ProofingFileDetail({ galleryId, file, onClose }: Props) {
           </div>
         </div>
 
-        {/* Sidebar: Auto-Tags + Comments + Studio-Reply-Form */}
+        {/* Sidebar: Tags + Auto-Tags + Comments + Studio-Reply-Form */}
         <aside className="w-96 border-l border-line-subtle bg-surface-raised flex flex-col">
+          {/* File-Tags — manuelles Tagging via TagPicker. Reload-Trigger
+              setzt nicht das ganze File-Detail neu — wir wollen den
+              State erhalten. */}
+          <FileTagsSection fileId={file.id} />
+
           {/* KI-Vorschlaege — versteckt sich selbst wenn Feature aus */}
           <AutoTagsSection fileId={file.id} />
 
