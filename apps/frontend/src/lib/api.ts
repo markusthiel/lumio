@@ -2901,6 +2901,11 @@ export const api = {
       `/galleries/${galleryId}/auto-tags/bulk-accept?min=${minConfidence}`,
       { method: "POST" }
     ),
+
+  getAutoTagStatus: () =>
+    request<{ enabled: boolean; vocabulary: string[] }>(
+      `/auto-tags/status`
+    ),
 };
 
 // ---------------------------------------------------------------------------

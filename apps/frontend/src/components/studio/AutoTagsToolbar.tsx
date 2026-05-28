@@ -33,12 +33,11 @@ export function AutoTagsToolbar({ galleryId }: { galleryId: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    // Probe: rufe re-tag mit einem nicht-existierenden Tag-Filter (geht
-    // nicht direkt, also nutzen wir bulk-accept mit Threshold > 1 → safe,
-    // accepted=0 erwartet). 404 wenn Feature aus.
+    // Probe via dedizierten Status-Endpoint. Liefert 200 wenn Feature
+    // aktiv, 404 sonst. Idempotent — keine Seiteneffekte.
     (async () => {
       try {
-        await api.bulkAcceptAutoTags(galleryId, 2);
+        await api.getAutoTagStatus();
         if (!cancelled) setAvailable(true);
       } catch {
         if (!cancelled) setAvailable(false);

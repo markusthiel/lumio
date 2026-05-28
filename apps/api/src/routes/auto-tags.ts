@@ -91,6 +91,24 @@ export async function registerAutoTagRoutes(app: FastifyInstance) {
   }
 
   // ---------------------------------------------------------------------------
+  // GET /auto-tags/status
+  // ---------------------------------------------------------------------------
+  // Idempotenter Probe-Endpoint fuer das Frontend. Liefert 200 + status-Info
+  // wenn das Feature aktiv ist, 404 sonst. So muss das Frontend nicht POST-
+  // Endpoints fuer Sichtbarkeits-Probes missbrauchen (das hat bei
+  // bulk-accept zu ungewollten Akzeptierungen gefuehrt, weil der min-Param
+  // serverseitig auf [0..1] geclamped wird und 2.0 als 1.0 ankam — was
+  // dann alle 1.0-Rule-Based-Tags traf).
+  app.get("/auto-tags/status", async (req, reply) => {
+    if (!(await requireFeature(req, reply))) return;
+    return {
+      enabled: true,
+      // Spaeter erweiterbar: ob CLIP geladen ist, welches Vokabular, ...
+      vocabulary: Object.keys(AUTO_TAG_VOCABULARY),
+    };
+  });
+
+  // ---------------------------------------------------------------------------
   // GET /files/:id/auto-tags
   // ---------------------------------------------------------------------------
   app.get<{ Params: { id: string } }>(

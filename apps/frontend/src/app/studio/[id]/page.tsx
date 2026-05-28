@@ -14,6 +14,7 @@ import { DuplicatesDialog } from "@/components/studio/DuplicatesDialog";
 import { SlowConnectionToggle } from "@/components/upload/SlowConnectionToggle";
 import { useSlowConnection } from "@/lib/useSlowConnection";
 import { PageHeader } from "@/components/studio/PageHeader";
+import { AutoTagsToolbar } from "@/components/studio/AutoTagsToolbar";
 import { TagPicker } from "@/components/studio/TagPicker";
 import { Button } from "@/components/ui";
 import { useT } from "@/lib/i18n";
@@ -976,6 +977,10 @@ export default function GalleryDetailPage() {
       </div>
 
       <div className="px-6 sm:px-8 py-6 space-y-6 max-w-7xl">
+        {/* KI-Auto-Tagging-Toolbar — versteckt sich selbst wenn Feature
+            aus. Bei aktivem Flag: Re-Tag + Bulk-Accept-Threshold. */}
+        <AutoTagsToolbar galleryId={gallery.id} />
+
         {/* Upload-Zone */}
         <section
           onDragOver={(e) => {
