@@ -52,6 +52,9 @@ export interface Gallery {
   downloadOriginalsEnabled: boolean;
   watermarkEnabled: boolean;
   commentsEnabled: boolean;
+  /** Wenn true: Tag-Filter ist in der Customer-Galerie sichtbar +
+   *  Tag-gefilterte ZIP-Downloads sind moeglich. Default false. */
+  customerTagFilterEnabled?: boolean;
   selectionLimit: number | null;
   brandingId?: string | null;
   // Header-Customization (Studio kann das hier direkt sehen + editieren)
@@ -246,6 +249,9 @@ export interface PublicGalleryMeta {
   watermarkEnabled: boolean;
   commentsEnabled: boolean;
   ratingsEnabled: boolean;
+  /** Wenn true: Tag-Filter wird in der Customer-Galerie angezeigt
+   *  und Tag-gefilterte ZIP-Downloads sind moeglich. */
+  customerTagFilterEnabled?: boolean;
   selectionLimit: number | null;
   requiresPassword: boolean;
   unlocked: boolean;
@@ -336,6 +342,9 @@ export interface PublicFile {
   sprite: SpriteSheet | null;
   previewWidth: number | null;
   previewHeight: number | null;
+  /** Tags am File — nur befuellt wenn die Galerie customerTagFilter-
+   *  Enabled hat. Sonst leeres Array. */
+  tags?: Array<{ id: string; name: string; color: string }>;
 }
 
 /** Section/Kapitel einer Galerie. Customer-Sicht. */
@@ -1602,6 +1611,23 @@ export const api = {
     }>(`/g/${slug}/download/picked?variant=${variant}`, {
       method: "POST",
       body: JSON.stringify({ fileIds }),
+      headers: { "Content-Type": "application/json" },
+    }),
+
+  /** Customer-side Tag-gefilterter ZIP-Download. Erfordert dass die
+   *  Galerie customerTagFilterEnabled aktiv hat — sonst 403. */
+  requestZipByTags: (
+    slug: string,
+    variant: "original" | "web" = "original",
+    tagIds: string[]
+  ) =>
+    request<{
+      id: string;
+      status: ZipStatus;
+      fileCount: number;
+    }>(`/g/${slug}/download/by-tags?variant=${variant}`, {
+      method: "POST",
+      body: JSON.stringify({ tagIds }),
       headers: { "Content-Type": "application/json" },
     }),
 

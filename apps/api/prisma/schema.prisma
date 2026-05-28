@@ -375,6 +375,11 @@ model Gallery {
   watermarkEnabled Boolean @default(false)
   commentsEnabled Boolean  @default(true)
   ratingsEnabled  Boolean  @default(true)
+  // Wenn true: Kunde sieht die FileTags in seiner Galerie und kann
+  // damit filtern + Tag-gefilterte ZIPs herunterladen. Default false
+  // damit Tag-Vorschlaege/-Korrekturen nicht versehentlich Kunden-
+  // sichtbar werden. Studio aktiviert pro Galerie wenn gewuenscht.
+  customerTagFilterEnabled Boolean @default(false)
   selectionLimit  Int?     // max Anzahl Auswahl für Kunde
   emailRequired   Boolean  @default(false) // Kunde muss E-Mail eingeben
   

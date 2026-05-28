@@ -256,6 +256,109 @@ export async function registerZipRoutes(app: FastifyInstance) {
   );
 
   // -------------------------------------------------------------------------
+  // POST /g/:slug/download/by-tags — Customer-side Tag-gefilterter ZIP
+  // -------------------------------------------------------------------------
+  // Pendant zum Studio-Endpoint, aber Customer-seitig: erfordert
+  // unlocked Visitor + customerTagFilterEnabled an der Galerie. Sonst
+  // 403 — Tags-Sichtbarkeit ist pro Galerie gegated.
+  //
+  // Body: { tagIds: string[] } — mind. 1, max 20.
+  // Querystring: ?variant=original|web (default original)
+  app.post<{
+    Params: { slug: string };
+    Querystring: { variant?: string };
+    Body: unknown;
+  }>(
+    "/g/:slug/download/by-tags",
+    async (req, reply) => {
+      const visitor = await loadVisitor(req);
+      if (!visitor) {
+        return reply.status(401).send({ error: "unlock_required" });
+      }
+
+      const gallery = await prisma.gallery.findUnique({
+        where: { id: visitor.galleryId },
+        select: {
+          id: true,
+          tenantId: true,
+          downloadEnabled: true,
+          downloadOriginalsEnabled: true,
+          customerTagFilterEnabled: true,
+        },
+      });
+      if (!gallery || !gallery.downloadEnabled) {
+        return reply.status(403).send({ error: "downloads_disabled" });
+      }
+      if (!gallery.customerTagFilterEnabled) {
+        // Galerie hat den Tag-Filter fuer Kunden nicht aktiv. Wir geben
+        // bewusst 403 zurueck (nicht 404), damit ein curiouser Aufruf
+        // erkennt: 'das Feature gibt es, ist hier nur aus'.
+        return reply
+          .status(403)
+          .send({ error: "tag_filter_disabled_for_gallery" });
+      }
+
+      const variant: "original" | "web" =
+        req.query.variant === "web" ? "web" : "original";
+      if (variant === "original" && !gallery.downloadOriginalsEnabled) {
+        return reply
+          .status(403)
+          .send({ error: "originals_disabled" });
+      }
+
+      const bodySchema = z.object({
+        tagIds: z.array(z.string().uuid()).min(1).max(20),
+      });
+      const body = bodySchema.safeParse(req.body);
+      if (!body.success) {
+        return reply
+          .status(400)
+          .send({ error: "invalid_body", issues: body.error.flatten() });
+      }
+
+      // UND-Filter: Files muessen ALLE ausgewaehlten Tags haben.
+      // Identische Logik wie im Studio-Endpoint, plus zusaetzlich
+      // publicVisibility=visible damit pending-Approval-Files
+      // (Upload-Link-Uploads ohne Studio-Freigabe) draussen bleiben.
+      const files = await prisma.file.findMany({
+        where: {
+          galleryId: gallery.id,
+          status: "ready",
+          publicVisibility: "visible",
+          AND: body.data.tagIds.map((tagId) => ({
+            tags: { some: { tagId } },
+          })),
+        },
+        select: { id: true },
+      });
+      if (files.length === 0) {
+        return reply.status(400).send({
+          error: "no_files_matching_filter",
+          message: "Keine Bilder passen zum Filter.",
+        });
+      }
+
+      const zipDownload = await requestZipDownload({
+        tenantId: gallery.tenantId,
+        galleryId: gallery.id,
+        accessId: visitor.accessId ?? null,
+        fileIds: files.map((f) => f.id),
+        // Label: 'tags_<sorted-ids>' damit der Cache pro Filter-Auswahl
+        // dedupliziert (zweiter Klick auf gleichen Filter → kein
+        // erneuter ZIP-Build sofern noch nicht abgelaufen)
+        label: `tags_${body.data.tagIds.slice().sort().join("_")}${variant === "web" ? "_web" : ""}`,
+        variant,
+      });
+
+      return reply.status(202).send({
+        id: zipDownload.id,
+        status: zipDownload.status,
+        fileCount: files.length,
+      });
+    }
+  );
+
+  // -------------------------------------------------------------------------
   // GET /g/:slug/download/zip/:zipId — Status oder Redirect
   // -------------------------------------------------------------------------
   app.get<{ Params: { slug: string; zipId: string } }>(

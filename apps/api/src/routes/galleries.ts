@@ -43,6 +43,7 @@ const createGallerySchema = z.object({
   watermarkEnabled: z.boolean().optional(),
   commentsEnabled: z.boolean().optional(),
   ratingsEnabled: z.boolean().optional(),
+  customerTagFilterEnabled: z.boolean().optional(),
   selectionLimit: z.number().int().positive().optional(),
   expiresAt: z.string().datetime().optional(),
   // Optional: Template übernehmen. Explizit gesetzte Felder im Request
@@ -545,6 +546,9 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
             : {}),
           ...(body.ratingsEnabled !== undefined
             ? { ratingsEnabled: body.ratingsEnabled }
+            : {}),
+          ...(body.customerTagFilterEnabled !== undefined
+            ? { customerTagFilterEnabled: body.customerTagFilterEnabled }
             : {}),
           ...(body.selectionLimit !== undefined
             ? { selectionLimit: body.selectionLimit }
@@ -1191,6 +1195,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         watermarkEnabled: true,
         commentsEnabled: true,
         ratingsEnabled: true,
+        customerTagFilterEnabled: true,
         selectionLimit: true,
         passwordHash: true,
         expiresAt: true,
@@ -1365,6 +1370,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         watermarkEnabled: gallery.watermarkEnabled,
         commentsEnabled: gallery.commentsEnabled,
         ratingsEnabled: gallery.ratingsEnabled,
+        customerTagFilterEnabled: gallery.customerTagFilterEnabled,
         selectionLimit: gallery.selectionLimit,
         requiresPassword: !!gallery.passwordHash,
         unlocked,
@@ -1571,12 +1577,31 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         select: {
           watermarkEnabled: true,
           downloadEnabled: true,
+          customerTagFilterEnabled: true,
         },
       });
       // Watermark wird ausgeliefert, wenn watermarkEnabled UND der Kunde
       // sowieso keinen Download bekommt (sonst hätten sie das Original).
       const useWatermark =
         !!galleryRow?.watermarkEnabled && !galleryRow?.downloadEnabled;
+      // Tags nur durchreichen wenn der Studio das pro Galerie aktiviert
+      // hat. Sonst bleiben FileTag-Joins komplett aus der Customer-Antwort
+      // — auch wenn der File welche hat. Default: privacy by default.
+      const tagMap = new Map<string, Array<{ id: string; name: string; color: string }>>();
+      if (galleryRow?.customerTagFilterEnabled) {
+        const tagRows = await prisma.fileTag.findMany({
+          where: { fileId: { in: files.map((f) => f.id) } },
+          select: {
+            fileId: true,
+            tag: { select: { id: true, name: true, color: true } },
+          },
+        });
+        for (const r of tagRows) {
+          const arr = tagMap.get(r.fileId) ?? [];
+          arr.push(r.tag);
+          tagMap.set(r.fileId, arr);
+        }
+      }
 
       // Signed URLs für thumb + preview + web. Wenn Watermark aktiv ist
       // und eine watermarked-Rendition existiert, ersetzen wir die
@@ -1639,6 +1664,10 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
             sprite: spritePayload,
             previewWidth: preview?.width ?? null,
             previewHeight: preview?.height ?? null,
+            // Tags nur wenn customerTagFilterEnabled — sonst leer/undefined.
+            // Frontend pruefe customerTagFilterEnabled aus dem Gallery-
+            // Endpoint und rendert die Filter-Bar nur entsprechend.
+            tags: tagMap.get(f.id) ?? [],
           };
         })
       );

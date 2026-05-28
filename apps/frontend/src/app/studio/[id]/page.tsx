@@ -648,7 +648,8 @@ export default function GalleryDetailPage() {
       | "downloadEnabled"
       | "downloadOriginalsEnabled"
       | "watermarkEnabled"
-      | "commentsEnabled",
+      | "commentsEnabled"
+      | "customerTagFilterEnabled",
     next: boolean
   ) {
     if (!gallery) return;
@@ -1281,6 +1282,12 @@ export default function GalleryDetailPage() {
                 ? "Nur im Auswahl/Proofing-Modus verfügbar."
                 : undefined
             }
+          />
+          <SettingToggle
+            label="Kunde darf nach Tags filtern"
+            description="Wenn aktiv, sieht die Kundin in ihrer Galerie die zugewiesenen Tags und kann damit filtern + Tag-gefilterte ZIPs herunterladen. Default aus — Tags bleiben dann eine interne Studio-Information."
+            value={gallery.customerTagFilterEnabled ?? false}
+            onChange={(v) => toggleSetting("customerTagFilterEnabled", v)}
           />
           {tenantFeatures?.includes("print_shop") && (
             <SettingToggle

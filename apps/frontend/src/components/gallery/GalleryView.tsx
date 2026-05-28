@@ -12,6 +12,7 @@ import {
 } from "@/lib/api";
 import { VideoPlayer } from "./VideoPlayer";
 import { ZipDownloadButton } from "./ZipDownloadButton";
+import { CustomerTagFilter } from "./CustomerTagFilter";
 import { Slideshow } from "./Slideshow";
 import { GalleryHero } from "./GalleryHero";
 import { ShareButton } from "./ShareButton";
@@ -57,6 +58,11 @@ export function GalleryView({
 }: Props) {
   const t = useT();
   const [filter, setFilter] = useState<FilterMode>("all");
+  // Customer-side Tag-Filter: Set von Tag-IDs (UND-Semantik). Nur
+  // aktiv wenn meta.customerTagFilterEnabled — die UI rendern wir
+  // bedingt unten. State immer halten damit Toggle nicht alles
+  // ueberraschend resetted.
+  const [tagFilter, setTagFilter] = useState<Set<string>>(new Set());
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [slideshowIdx, setSlideshowIdx] = useState<number | null>(null);
   const [finalizing, setFinalizing] = useState(false);
@@ -86,14 +92,30 @@ export function GalleryView({
     meta.commentsEnabled && meta.mode === "collaboration";
 
   const filtered = useMemo(() => {
-    if (filter === "all") return files;
-    return files.filter((f) => {
-      const sel = mySelections[f.id];
-      if (!sel) return false;
-      if (filter === "liked") return sel.liked;
-      return sel.color === filter;
-    });
-  }, [files, mySelections, filter]);
+    let out = files;
+    // Auswahl-Filter (liked / Farben)
+    if (filter !== "all") {
+      out = out.filter((f) => {
+        const sel = mySelections[f.id];
+        if (!sel) return false;
+        if (filter === "liked") return sel.liked;
+        return sel.color === filter;
+      });
+    }
+    // Tag-Filter (UND-Semantik) — nur wenn Galerie das aktiviert hat.
+    // Wir pruefen tagFilter.size statt customerTagFilterEnabled, weil
+    // tagFilter ohne aktives Feature ohnehin leer ist (UI versteckt).
+    if (tagFilter.size > 0) {
+      out = out.filter((f) => {
+        const fileTagIds = new Set((f.tags ?? []).map((t) => t.id));
+        for (const tagId of tagFilter) {
+          if (!fileTagIds.has(tagId)) return false;
+        }
+        return true;
+      });
+    }
+    return out;
+  }, [files, mySelections, filter, tagFilter]);
 
   // Die Lightbox und der Click-Handler müssen die GLEICHE Reihenfolge
   // sehen wie das Galerie-Grid — sonst springt der "Weiter"-Pfeil zu
@@ -413,6 +435,20 @@ export function GalleryView({
           sections={meta.sections}
           files={filtered}
           hasDefaultBucket={filtered.some((f) => f.sectionId === null)}
+        />
+      )}
+
+      {/* Customer-Tag-Filter — sichtbar wenn Galerie customerTagFilter-
+          Enabled aktiv hat und mind. ein File getaggt ist. Self-hiding
+          wenn keine Tags. */}
+      {meta.customerTagFilterEnabled && (
+        <CustomerTagFilter
+          slug={slug}
+          files={files}
+          selected={tagFilter}
+          onChange={setTagFilter}
+          filteredCount={filtered.length}
+          downloadEnabled={meta.downloadEnabled}
         />
       )}
 
