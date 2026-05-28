@@ -153,7 +153,7 @@ export async function registerAnalyticsRoutes(app: FastifyInstance) {
           SELECT g.id AS "galleryId", g.title, g.slug, COUNT(e.id)::bigint AS visits
           FROM galleries g
           LEFT JOIN events e
-            ON e."targetId" = g.id
+            ON e."targetId" = g.id::text
             AND e.action = 'share.unlock'
             AND e."targetType" = 'gallery'
             AND e."createdAt" >= ${since}
@@ -285,14 +285,17 @@ export async function registerAnalyticsRoutes(app: FastifyInstance) {
 
       const [visitorRows, engagedRows, finalizedCount, printOrdersCount] =
         await Promise.all([
-          // Eindeutige Visitors via DISTINCT actorId aus share.unlock
+          // Eindeutige Visitors via DISTINCT actorId aus share.unlock.
+          // targetId ist text (NICHT uuid), daher kein ::uuid-Cast auf
+          // den Vergleichswert — Postgres wuerde sonst text=uuid
+          // pruefen und schreit 42883.
           prisma.$queryRaw<Array<{ visitors: bigint }>>`
-            SELECT COUNT(DISTINCT COALESCE("actorId"::text, "ipAddress")) AS visitors
+            SELECT COUNT(DISTINCT COALESCE("actorId", "ipAddress")) AS visitors
             FROM events
             WHERE "tenantId" = ${tenantId}::uuid
               AND action = 'share.unlock'
               AND "targetType" = 'gallery'
-              AND "targetId" = ${galleryId}::uuid
+              AND "targetId" = ${galleryId}
               AND "createdAt" >= ${since}
           `,
 
