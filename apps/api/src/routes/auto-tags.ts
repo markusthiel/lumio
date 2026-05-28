@@ -24,6 +24,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { prisma } from "../db.js";
 import { isFeatureEnabled } from "../services/feature-flags.js";
 import { logEvent } from "../services/audit.js";
+import { presignGet } from "../services/storage.js";
 
 // Tag-Vokabular — feste Labels die der Worker-Code kennt. UI uebersetzt
 // daraus die Anzeige (kein freier Tag-String).
@@ -170,6 +171,128 @@ export async function registerAutoTagRoutes(app: FastifyInstance) {
         rejected,
         lastTaggedAt: lastTag?.createdAt?.toISOString() ?? null,
       };
+    }
+  );
+
+  // ---------------------------------------------------------------------------
+  // GET /galleries/:id/auto-tags/pending
+  // ---------------------------------------------------------------------------
+  // Alle 'suggested' Auto-Tags der Galerie gruppiert nach Tag-Name.
+  // Pro Tag-Gruppe: count, durchschnittliche Confidence, Liste der Files
+  // mit Thumb-URL. So kann der Studio im Frontend pro Tag-Gruppe
+  // entscheiden ohne durch jeden File einzeln klicken zu muessen.
+  //
+  // Pagination: pro Tag-Gruppe maximal 200 Files. Wenn mehr: 'hasMore'-
+  // Flag. Bei 300 Bildern und 23 Tags hat ein einzelner Tag selten
+  // 200+ Vorschlaege, aber Theorie-Schutz.
+  app.get<{ Params: { id: string } }>(
+    "/galleries/:id/auto-tags/pending",
+    async (req, reply) => {
+      if (!(await requireFeature(req, reply))) return;
+      const s = req.requireAuth();
+
+      const gallery = await prisma.gallery.findFirst({
+        where: { id: req.params.id, tenantId: req.tenantId, ownerId: s.user.id },
+        select: { id: true },
+      });
+      if (!gallery) return reply.status(404).send({ error: "not_found" });
+
+      // Alle suggested AutoTags + dazu die File-Info + Thumb-Rendition
+      // in EINER Query holen. Bei 300 Files * ~5 Tags = 1500 Rows max,
+      // unkritisch.
+      const rows = await prisma.fileAutoTag.findMany({
+        where: {
+          status: "suggested",
+          file: { galleryId: gallery.id },
+        },
+        select: {
+          id: true,
+          tagName: true,
+          confidence: true,
+          source: true,
+          fileId: true,
+          file: {
+            select: {
+              id: true,
+              originalFilename: true,
+              renditions: {
+                where: { kind: "thumb" },
+                select: { storageKey: true },
+                take: 1,
+              },
+            },
+          },
+        },
+        orderBy: [{ tagName: "asc" }, { confidence: "desc" }],
+      });
+
+      // Gruppieren nach tagName, presign nur eindeutige thumb-Keys
+      // (gleicher File kann mehrere Tags haben → mehrfache Presigns
+      // wuerden sinnlose S3-Roundtrips machen).
+      const uniqueKeys = new Set<string>();
+      for (const r of rows) {
+        const k = r.file.renditions[0]?.storageKey;
+        if (k) uniqueKeys.add(k);
+      }
+      const thumbUrlByKey = new Map<string, string>();
+      await Promise.all(
+        Array.from(uniqueKeys).map(async (k) => {
+          try {
+            thumbUrlByKey.set(k, await presignGet({ key: k }));
+          } catch {
+            // S3-Fehler: kein Thumb, File-Reihe wird ohne Bild angezeigt
+          }
+        })
+      );
+
+      type Suggestion = {
+        autoTagId: string;
+        fileId: string;
+        filename: string;
+        confidence: number;
+        source: string;
+        thumbUrl: string | null;
+      };
+      const grouped = new Map<string, Suggestion[]>();
+      for (const r of rows) {
+        const list = grouped.get(r.tagName) ?? [];
+        const thumbKey = r.file.renditions[0]?.storageKey;
+        list.push({
+          autoTagId: r.id,
+          fileId: r.file.id,
+          filename: r.file.originalFilename,
+          confidence: r.confidence,
+          source: r.source,
+          thumbUrl: thumbKey ? thumbUrlByKey.get(thumbKey) ?? null : null,
+        });
+        grouped.set(r.tagName, list);
+      }
+
+      // Output: nach Gruppen-Groesse absteigend sortiert (groesste
+      // zuerst — das sind die spannenden Bulks)
+      const groups = Array.from(grouped.entries())
+        .map(([tagName, suggestions]) => {
+          const vocab = AUTO_TAG_VOCABULARY[tagName];
+          const avgConf =
+            suggestions.reduce((sum, s) => sum + s.confidence, 0) /
+            suggestions.length;
+          return {
+            tagName,
+            label: vocab?.label ?? tagName,
+            group: vocab?.group ?? null,
+            color: vocab?.color ?? "#94a3b8",
+            count: suggestions.length,
+            avgConfidence: avgConf,
+            // Bei sehr grossen Gruppen capped — UI kann 'mehr laden'
+            // implementieren wenn noetig. Aktuell: 200 reicht fuer 99%
+            // der Use-Cases.
+            suggestions: suggestions.slice(0, 200),
+            hasMore: suggestions.length > 200,
+          };
+        })
+        .sort((a, b) => b.count - a.count);
+
+      return { groups };
     }
   );
 
@@ -504,6 +627,145 @@ export async function registerAutoTagRoutes(app: FastifyInstance) {
       });
 
       return { ok: true, accepted: acceptedIds.length, threshold: minConf };
+    }
+  );
+
+  // ---------------------------------------------------------------------------
+  // POST /galleries/:id/auto-tags/by-name/:tagName/accept-all
+  // ---------------------------------------------------------------------------
+  // Akzeptiert ALLE 'suggested' Vorschlaege fuer EINEN spezifischen Tag in
+  // der Galerie. Optional: body { autoTagIds: string[] } limitiert auf
+  // ausgewaehlte Vorschlaege (UI kann individuelle Files abwaehlen vor
+  // Bulk-Accept).
+  app.post<{
+    Params: { id: string; tagName: string };
+    Body: { autoTagIds?: string[] };
+  }>(
+    "/galleries/:id/auto-tags/by-name/:tagName/accept-all",
+    async (req, reply) => {
+      if (!(await requireFeature(req, reply))) return;
+      const s = req.requireAuth();
+
+      const gallery = await prisma.gallery.findFirst({
+        where: { id: req.params.id, tenantId: req.tenantId, ownerId: s.user.id },
+        select: { id: true },
+      });
+      if (!gallery) return reply.status(404).send({ error: "not_found" });
+
+      const candidates = await prisma.fileAutoTag.findMany({
+        where: {
+          status: "suggested",
+          tagName: req.params.tagName,
+          file: { galleryId: gallery.id },
+          ...(req.body?.autoTagIds && req.body.autoTagIds.length > 0
+            ? { id: { in: req.body.autoTagIds } }
+            : {}),
+        },
+        select: { id: true, fileId: true, tagName: true },
+      });
+
+      if (candidates.length === 0) {
+        return { ok: true, accepted: 0 };
+      }
+
+      // Tag-Row finden/anlegen
+      const vocab = AUTO_TAG_VOCABULARY[req.params.tagName];
+      const displayName = vocab?.label ?? req.params.tagName;
+      const color = vocab?.color ?? "#94a3b8";
+      let tag = await prisma.tag.findFirst({
+        where: { tenantId: req.tenantId!, name: displayName },
+        select: { id: true },
+      });
+      if (!tag) {
+        tag = await prisma.tag.create({
+          data: { tenantId: req.tenantId!, name: displayName, color },
+          select: { id: true },
+        });
+      }
+
+      await prisma.fileTag.createMany({
+        data: candidates.map((c) => ({ fileId: c.fileId, tagId: tag!.id })),
+        skipDuplicates: true,
+      });
+      await prisma.fileAutoTag.updateMany({
+        where: { id: { in: candidates.map((c) => c.id) } },
+        data: {
+          status: "accepted",
+          reviewedBy: s.user.id,
+          reviewedAt: new Date(),
+        },
+      });
+
+      await logEvent({
+        tenantId: req.tenantId!,
+        actorType: "user",
+        actorId: s.user.id,
+        action: "auto_tag.tag_group_accepted",
+        targetType: "gallery",
+        targetId: gallery.id,
+        payload: { tagName: req.params.tagName, count: candidates.length },
+        ipAddress: req.ip,
+      });
+
+      return { ok: true, accepted: candidates.length };
+    }
+  );
+
+  // ---------------------------------------------------------------------------
+  // POST /galleries/:id/auto-tags/by-name/:tagName/reject-all
+  // ---------------------------------------------------------------------------
+  app.post<{
+    Params: { id: string; tagName: string };
+    Body: { autoTagIds?: string[] };
+  }>(
+    "/galleries/:id/auto-tags/by-name/:tagName/reject-all",
+    async (req, reply) => {
+      if (!(await requireFeature(req, reply))) return;
+      const s = req.requireAuth();
+
+      const gallery = await prisma.gallery.findFirst({
+        where: { id: req.params.id, tenantId: req.tenantId, ownerId: s.user.id },
+        select: { id: true },
+      });
+      if (!gallery) return reply.status(404).send({ error: "not_found" });
+
+      const candidates = await prisma.fileAutoTag.findMany({
+        where: {
+          status: "suggested",
+          tagName: req.params.tagName,
+          file: { galleryId: gallery.id },
+          ...(req.body?.autoTagIds && req.body.autoTagIds.length > 0
+            ? { id: { in: req.body.autoTagIds } }
+            : {}),
+        },
+        select: { id: true },
+      });
+
+      if (candidates.length === 0) {
+        return { ok: true, rejected: 0 };
+      }
+
+      await prisma.fileAutoTag.updateMany({
+        where: { id: { in: candidates.map((c) => c.id) } },
+        data: {
+          status: "rejected",
+          reviewedBy: s.user.id,
+          reviewedAt: new Date(),
+        },
+      });
+
+      await logEvent({
+        tenantId: req.tenantId!,
+        actorType: "user",
+        actorId: s.user.id,
+        action: "auto_tag.tag_group_rejected",
+        targetType: "gallery",
+        targetId: gallery.id,
+        payload: { tagName: req.params.tagName, count: candidates.length },
+        ipAddress: req.ip,
+      });
+
+      return { ok: true, rejected: candidates.length };
     }
   );
 }

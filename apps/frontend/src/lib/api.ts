@@ -2916,6 +2916,53 @@ export const api = {
       rejected: number;
       lastTaggedAt: string | null;
     }>(`/galleries/${galleryId}/auto-tags/stats`),
+
+  getGalleryAutoTagsPending: (galleryId: string) =>
+    request<{
+      groups: Array<{
+        tagName: string;
+        label: string;
+        group: string | null;
+        color: string;
+        count: number;
+        avgConfidence: number;
+        hasMore: boolean;
+        suggestions: Array<{
+          autoTagId: string;
+          fileId: string;
+          filename: string;
+          confidence: number;
+          source: string;
+          thumbUrl: string | null;
+        }>;
+      }>;
+    }>(`/galleries/${galleryId}/auto-tags/pending`),
+
+  acceptTagGroup: (
+    galleryId: string,
+    tagName: string,
+    autoTagIds?: string[]
+  ) =>
+    request<{ ok: boolean; accepted: number }>(
+      `/galleries/${galleryId}/auto-tags/by-name/${encodeURIComponent(tagName)}/accept-all`,
+      {
+        method: "POST",
+        body: autoTagIds ? JSON.stringify({ autoTagIds }) : undefined,
+      }
+    ),
+
+  rejectTagGroup: (
+    galleryId: string,
+    tagName: string,
+    autoTagIds?: string[]
+  ) =>
+    request<{ ok: boolean; rejected: number }>(
+      `/galleries/${galleryId}/auto-tags/by-name/${encodeURIComponent(tagName)}/reject-all`,
+      {
+        method: "POST",
+        body: autoTagIds ? JSON.stringify({ autoTagIds }) : undefined,
+      }
+    ),
 };
 
 // ---------------------------------------------------------------------------

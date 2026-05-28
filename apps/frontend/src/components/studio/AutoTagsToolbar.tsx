@@ -23,6 +23,7 @@
  * machen — aber probe via existing endpoint ist weniger Code.
  */
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { api } from "@/lib/api";
 
 export function AutoTagsToolbar({ galleryId }: { galleryId: string }) {
@@ -183,6 +184,15 @@ export function AutoTagsToolbar({ galleryId }: { galleryId: string }) {
         >
           {busy === "re-tag" ? "Wird eingereiht…" : "Galerie neu taggen"}
         </button>
+
+        {stats && stats.pendingSuggestions > 0 && (
+          <Link
+            href={`/studio/${galleryId}/auto-tags`}
+            className="px-3 py-1.5 text-sm rounded bg-accent/15 border border-accent/40 text-accent hover:bg-accent/25 font-medium"
+          >
+            {stats.pendingSuggestions} Vorschläge ansehen →
+          </Link>
+        )}
 
         <div className="flex items-center gap-2">
           <label className="text-xs text-ink-tertiary">
