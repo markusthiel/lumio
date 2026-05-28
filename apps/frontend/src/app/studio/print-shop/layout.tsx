@@ -14,6 +14,7 @@ import { usePathname } from "next/navigation";
 
 const TABS: ReadonlyArray<{ href: string; label: string; exact?: boolean }> = [
   { href: "/studio/print-shop", label: "Übersicht", exact: true },
+  { href: "/studio/print-shop/orders", label: "Bestellungen" },
   { href: "/studio/print-shop/settings", label: "Einstellungen" },
   { href: "/studio/print-shop/providers", label: "Anbieter" },
   { href: "/studio/print-shop/products", label: "Produkte" },

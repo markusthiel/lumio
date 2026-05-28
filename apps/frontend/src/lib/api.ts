@@ -2610,7 +2610,281 @@ export const api = {
     request<{ ok: true }>(`/print-shop/shipping-methods/${id}`, {
       method: "DELETE",
     }),
+
+  // ===========================================================================
+  // Studio Print-Shop Orders
+  // ===========================================================================
+  listPrintOrders: (params?: {
+    status?: string;
+    limit?: number;
+    cursor?: string;
+  }) => {
+    const qs = new URLSearchParams();
+    if (params?.status) qs.set("status", params.status);
+    if (params?.limit) qs.set("limit", String(params.limit));
+    if (params?.cursor) qs.set("cursor", params.cursor);
+    const q = qs.toString();
+    return request<{
+      orders: Array<{
+        id: string;
+        orderNumber: string;
+        guestName: string;
+        guestEmail: string;
+        totalCents: number;
+        currency: string;
+        status: string;
+        paymentMode: string;
+        providerKey: string;
+        createdAt: string;
+        paidAt: string | null;
+        shippedAt: string | null;
+        deliveredAt: string | null;
+      }>;
+      nextCursor: string | null;
+    }>(`/print-shop/orders${q ? "?" + q : ""}`);
+  },
+
+  getPrintOrder: (id: string) =>
+    request<{
+      order: PrintOrderDetail;
+    }>(`/print-shop/orders/${id}`),
+
+  transitionPrintOrder: (
+    id: string,
+    body: {
+      type:
+        | "mark_paid"
+        | "mark_in_production"
+        | "mark_shipped"
+        | "mark_delivered"
+        | "cancel"
+        | "refund";
+      trackingNumber?: string;
+      trackingCarrier?: string;
+      trackingUrl?: string;
+      reason?: string;
+    }
+  ) =>
+    request<{ ok: true }>(`/print-shop/orders/${id}/transitions`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  setPrintOrderNote: (id: string, note: string) =>
+    request<{ ok: true }>(`/print-shop/orders/${id}/note`, {
+      method: "POST",
+      body: JSON.stringify({ note }),
+    }),
+
+  // ===========================================================================
+  // Public Print-Shop (Endkunde in Galerie)
+  // ===========================================================================
+  getGalleryPrintShopCatalog: (slug: string) =>
+    request<{
+      gallery: { slug: string; title: string };
+      config: {
+        studioDisplayName: string | null;
+        supportEmail: string | null;
+        vatHandling: "inclusive" | "exclusive";
+        vatBps: number;
+        currency: string;
+        termsUrl: string | null;
+        privacyUrl: string | null;
+      };
+      payment: {
+        stripeConnectReady: boolean;
+        offlineAvailable: boolean;
+        stripePublishableKey: string | null;
+        stripeAccountId: string | null;
+      };
+      products: Array<{
+        id: string;
+        name: string;
+        description: string | null;
+        category: string;
+        providerKey: string;
+        variants: Array<{
+          id: string;
+          name: string;
+          widthMm: number;
+          heightMm: number;
+          aspectRatio: number | null;
+          finishType: string | null;
+          priceCents: number;
+        }>;
+      }>;
+      shipping: Array<{
+        id: string;
+        name: string;
+        priceCents: number;
+        estimatedDaysMin: number | null;
+        estimatedDaysMax: number | null;
+        countries: string[];
+      }>;
+    }>(`/g/${slug}/print-shop/catalog`),
+
+  priceGalleryCart: (
+    slug: string,
+    input: {
+      items: Array<{
+        variantId: string;
+        fileId: string;
+        quantity: number;
+        crop?: { x: number; y: number; width: number; height: number } | null;
+      }>;
+      shippingMethodId: string | null;
+    }
+  ) =>
+    request<{
+      subtotalCents: number;
+      shippingCents: number;
+      taxCents: number;
+      totalCents: number;
+      currency: string;
+      vatBps: number;
+      vatHandling: "inclusive" | "exclusive";
+    }>(`/g/${slug}/print-shop/price`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  checkoutGalleryCart: (
+    slug: string,
+    input: {
+      items: Array<{
+        variantId: string;
+        fileId: string;
+        quantity: number;
+        crop?: { x: number; y: number; width: number; height: number } | null;
+      }>;
+      shippingMethodId: string;
+      guestName: string;
+      guestEmail: string;
+      shippingAddress: {
+        street: string;
+        street2?: string;
+        postalCode: string;
+        city: string;
+        region?: string;
+        countryCode: string;
+        phone?: string;
+      };
+      billingAddress?: typeof input.shippingAddress | null;
+      paymentMode: "stripe_connect" | "offline_invoice";
+      guestNote?: string;
+      acceptedTerms: boolean;
+    }
+  ) =>
+    request<{
+      orderId: string;
+      orderNumber: string;
+      totals: {
+        subtotalCents: number;
+        shippingCents: number;
+        taxCents: number;
+        totalCents: number;
+        currency: string;
+      };
+      payment:
+        | { mode: "stripe_connect"; clientSecret: string; paymentIntentId: string }
+        | { mode: "offline_invoice" };
+    }>(`/g/${slug}/print-shop/checkout`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  getGalleryPrintOrder: (slug: string, orderNumber: string) =>
+    request<{
+      orderNumber: string;
+      guestName: string;
+      status: string;
+      paymentMode: string;
+      currency: string;
+      totals: {
+        subtotalCents: number;
+        shippingCents: number;
+        taxCents: number;
+        totalCents: number;
+      };
+      items: Array<{
+        quantity: number;
+        variantName: string;
+        productName: string;
+        widthMm: number;
+        heightMm: number;
+        totalPriceCents: number;
+      }>;
+      shippingMethod: string | null;
+      trackingNumber: string | null;
+      trackingCarrier: string | null;
+      trackingUrl: string | null;
+      providerLabel: string;
+      paidAt: string | null;
+      shippedAt: string | null;
+      deliveredAt: string | null;
+    }>(`/g/${slug}/print-shop/order/${orderNumber}`),
 };
+
+// ---------------------------------------------------------------------------
+// Print-Shop Studio Order-Detail-Type (extern weil komplex)
+// ---------------------------------------------------------------------------
+export interface PrintOrderDetail {
+  id: string;
+  orderNumber: string;
+  guestName: string;
+  guestEmail: string;
+  shippingAddress: Record<string, string>;
+  billingAddress: Record<string, string> | null;
+  paymentMode: string;
+  stripePaymentIntentId: string | null;
+  stripeChargeId: string | null;
+  subtotalCents: number;
+  shippingCents: number;
+  taxCents: number;
+  totalCents: number;
+  applicationFeeCents: number;
+  currency: string;
+  status: string;
+  providerKey: string;
+  providerOrderRef: string | null;
+  trackingNumber: string | null;
+  trackingCarrier: string | null;
+  trackingUrl: string | null;
+  guestNote: string | null;
+  studioNote: string | null;
+  paidAt: string | null;
+  productionStartedAt: string | null;
+  shippedAt: string | null;
+  deliveredAt: string | null;
+  cancelledAt: string | null;
+  refundedAt: string | null;
+  createdAt: string;
+  items: Array<{
+    id: string;
+    quantity: number;
+    unitPriceCents: number;
+    totalPriceCents: number;
+    crop: { x: number; y: number; width: number; height: number } | null;
+    printProductVariant: {
+      name: string;
+      widthMm: number;
+      heightMm: number;
+      finishType: string | null;
+      printProduct: { name: string };
+    };
+    file: { id: string; originalFilename: string; sha256: string | null };
+  }>;
+  shippingMethod: { name: string; priceCents: number } | null;
+  events: Array<{
+    id: string;
+    eventType: string;
+    actor: string;
+    actorUserId: string | null;
+    data: Record<string, unknown> | null;
+    createdAt: string;
+  }>;
+  gallery: { id: string; slug: string; title: string };
+}
 
 // ---------------------------------------------------------------------------
 // Print-Shop Input-Types (extern definiert weil TS Self-References im
