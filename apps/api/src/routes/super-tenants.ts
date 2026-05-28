@@ -47,6 +47,10 @@ import { cancelDeletion } from "../services/tenant-deletion.js";
 import { computeCurrentMrr, listRecentSnapshots } from "../services/mrr.js";
 import { FEATURE_FLAG_DEFS, setFeatureFlag } from "../services/feature-flags.js";
 import {
+  listPrintProviders,
+  getPrintProvider,
+} from "../services/print/providers.js";
+import {
   checkSystemHealth,
   checkForUpdate,
   checkBackupStatus,
@@ -1703,6 +1707,96 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
     ]);
     return { health, update, backup };
   });
+
+  // -------------------------------------------------------------------------
+  // GET /super/print-providers
+  // -------------------------------------------------------------------------
+  // Liste aller Code-Provider plus aktueller Super-Admin-Aktivierungs-
+  // Status. Die Provider selbst kommen aus services/print/providers.ts;
+  // hier joinen wir mit der DB-Tabelle SuperAdminPrintProviderConfig.
+  app.get("/super/print-providers", async (req) => {
+    req.requireSuperAdmin();
+    const configs = await prisma.superAdminPrintProviderConfig.findMany();
+    const configMap = new Map(configs.map((c) => [c.providerKey, c]));
+    const providers = listPrintProviders().map((p) => {
+      const c = configMap.get(p.key);
+      return {
+        key: p.key,
+        label: p.label,
+        tagline: p.tagline,
+        market: p.market,
+        websiteUrl: p.websiteUrl,
+        apiKeyHelpUrl: p.apiKeyHelpUrl,
+        stage: p.stage,
+        categories: p.categories,
+        // Self-Print ist implizit aktiv — der DB-Eintrag ist optional.
+        enabled:
+          p.key === "manual_self_print" ? true : (c?.enabled ?? false),
+        adminNotes: c?.adminNotes ?? null,
+        configuredAt: c?.updatedAt ?? null,
+      };
+    });
+    return { providers };
+  });
+
+  // -------------------------------------------------------------------------
+  // PUT /super/print-providers/:key
+  // -------------------------------------------------------------------------
+  // Super-Admin schaltet einen Provider global ein/aus. Self-Print kann
+  // NICHT ausgeschaltet werden (immer verfuegbar).
+  const providerToggleSchema = z.object({
+    enabled: z.boolean(),
+    adminNotes: z.string().max(1000).nullable().optional(),
+  });
+  app.put<{ Params: { key: string } }>(
+    "/super/print-providers/:key",
+    async (req, reply) => {
+      const sa = req.requireSuperAdmin();
+      const body = providerToggleSchema.parse(req.body);
+
+      if (req.params.key === "manual_self_print") {
+        return reply.status(400).send({
+          error: "self_print_immutable",
+          message:
+            "Self-Print kann nicht deaktiviert werden — ist immer verfügbar.",
+        });
+      }
+      const provider = getPrintProvider(req.params.key);
+      if (!provider) {
+        return reply
+          .status(404)
+          .send({ error: "unknown_provider" });
+      }
+
+      await prisma.superAdminPrintProviderConfig.upsert({
+        where: { providerKey: req.params.key },
+        update: {
+          enabled: body.enabled,
+          ...(body.adminNotes !== undefined
+            ? { adminNotes: body.adminNotes }
+            : {}),
+        },
+        create: {
+          providerKey: req.params.key,
+          enabled: body.enabled,
+          adminNotes: body.adminNotes ?? null,
+        },
+      });
+
+      await logEvent({
+        tenantId: null,
+        actorType: "super_admin",
+        actorId: sa.admin.id,
+        action: "super.print_provider.toggle",
+        targetType: "print_provider",
+        targetId: req.params.key,
+        payload: { enabled: body.enabled, stage: provider.stage },
+        ipAddress: req.ip,
+      });
+
+      return { ok: true };
+    }
+  );
 
   // -------------------------------------------------------------------------
   // GET /super/feature-flags

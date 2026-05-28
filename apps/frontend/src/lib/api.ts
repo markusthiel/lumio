@@ -2195,6 +2195,33 @@ export const api = {
       body: JSON.stringify({ enabled }),
     }),
 
+  superListPrintProviders: () =>
+    request<{
+      providers: Array<{
+        key: string;
+        label: string;
+        tagline: string;
+        market: string;
+        websiteUrl: string;
+        apiKeyHelpUrl?: string;
+        stage: "production" | "beta" | "planned" | "self_print";
+        categories: string[];
+        enabled: boolean;
+        adminNotes: string | null;
+        configuredAt: string | null;
+      }>;
+    }>("/super/print-providers"),
+
+  superTogglePrintProvider: (
+    key: string,
+    enabled: boolean,
+    adminNotes?: string | null
+  ) =>
+    request<{ ok: true }>(`/super/print-providers/${key}`, {
+      method: "PUT",
+      body: JSON.stringify({ enabled, adminNotes }),
+    }),
+
   superSystemStatus: () =>
     request<{
       health: {

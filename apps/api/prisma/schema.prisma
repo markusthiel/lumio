@@ -95,6 +95,14 @@ model Tenant {
   exports     TenantExport[]
   notes       TenantNote[]
   featureFlags TenantFeatureFlag[]
+
+  // Print-Shop (alle optional — Tabellen bleiben leer wenn Feature-Flag aus)
+  printShopConfig    TenantPrintShopConfig?
+  printStripeConnect TenantStripeConnect?
+  printProviders     TenantPrintProvider[]
+  printProducts      PrintProduct[]
+  shippingMethods    ShippingMethod[]
+  printOrders        PrintOrder[]
   // Stripe-Customer-ID: lifetime-stabil pro Tenant. Wir setzen sie
   // beim ersten Checkout-Session-Create und nutzen sie wieder bei
   // Plan-Wechseln, Storage-Pack-Käufen, Customer-Portal-Calls.
@@ -483,6 +491,13 @@ model Gallery {
   zipDownloads    ZipDownload[]
   tags            GalleryTag[]
   sections        GallerySection[]
+
+  // Print-Shop: aktivierbar pro Galerie. null = uebernimmt
+  // TenantPrintShopConfig.enabled. true/false = expliziter Override.
+  // Wenn eine Hochzeitsgalerie privat fuer Familie ist, soll der
+  // Endkunde keine Bestellungen sehen koennen.
+  printShopEnabled Boolean?
+  printOrders     PrintOrder[]
   
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -755,6 +770,7 @@ model File {
   comments        Comment[]
   downloadLogs    DownloadLog[]
   tags            FileTag[]
+  printOrderItems PrintOrderItem[]
   
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -931,7 +947,13 @@ model BillingPlan {
   
   isActive        Boolean  @default(true)
   sortOrder       Int      @default(0)
-  
+
+  /// Lumio-Cut bei Print-Shop-Bestellungen, in Basispunkten.
+  /// 0 = kein Cut (Default). 250 = 2.5%. Tenant kann via
+  /// TenantPrintShopConfig.applicationFeeBpsOverride ueberschreiben
+  /// (z.B. fuer Bestandskunden oder Sondervereinbarungen).
+  printApplicationFeeBps Int @default(0)
+
   subscriptions   BillingSubscription[]
   
   createdAt       DateTime @default(now())
@@ -1614,4 +1636,441 @@ model TenantFeatureFlag {
   @@unique([tenantId, flagKey])
   @@index([flagKey])
   @@map("tenant_feature_flags")
+}
+
+// -----------------------------------------------------------------------------
+// Print-Shop (Feature-Flag: print_shop)
+// -----------------------------------------------------------------------------
+// Komplett deaktivierbar via TenantFeatureFlag 'print_shop'. Wenn aus,
+// liefern alle /print/* Routes 404 und das Frontend rendert nichts vom
+// Print-Shop. Schema-Tabellen koennen leer bleiben — keine Auswirkung
+// auf Non-Print-Tenants.
+//
+// Provider-Architektur:
+//   1. Code-Registry (services/print/providers.ts): definiert WELCHE
+//      Provider Lumio grundsaetzlich unterstuetzt (whitewall, saal, ...).
+//      Dort sind auch die jeweiligen Adapter-Implementierungen — Self-
+//      Print voll implementiert, externe Labs als Stubs fuer Phase 2+.
+//
+//   2. SuperAdminPrintProviderConfig: Super-Admin schaltet pro Provider
+//      global an/aus. Default = alle aus. So kannst du z.B. WhiteWall
+//      einschalten sobald die API-Integration fertig ist, ohne dass die
+//      anderen Labs schon auftauchen.
+//
+//   3. TenantPrintProvider: Pro Tenant aktivierte Provider. Enthaelt
+//      die Lab-API-Credentials des Fotografen (encrypted at rest).
+//      Self-Print braucht keine Credentials.
+//
+// Bezahlmodi:
+//   - stripe_connect: Endkunde zahlt online, Geld geht direkt an den
+//     Fotografen ueber sein Stripe-Connect-Express-Konto. Lumio nimmt
+//     optionalen application_fee_amount-Cut (BillingPlan-Setting).
+//   - offline_invoice: Fotograf rechnet selbst mit Endkunde ab
+//     (Rechnung/Ueberweisung). Lumio sammelt nur Bestellung + Adresse,
+//     Fotograf druckt nach Zahlungseingang.
+// Tenant kann pro Galerie/Produkt entscheiden was er anbietet.
+
+/// Super-Admin-globale Provider-Aktivierung. Ein Eintrag pro Provider-
+/// Key aus der Code-Registry. Default-Verhalten wenn kein Eintrag
+/// existiert: provider gilt als NICHT aktiviert.
+model SuperAdminPrintProviderConfig {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  providerKey  String   @unique
+  enabled      Boolean  @default(false)
+  /// Optionale interne Notiz vom Super-Admin (z.B. 'API-Key getestet am
+  /// 28.05., Beta-Stage').
+  adminNotes   String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("super_print_provider_config")
+}
+
+/// Tenant-weite Print-Shop-Einstellungen. Eine pro Tenant.
+model TenantPrintShopConfig {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId        String   @unique @db.Uuid
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  /// Globaler Print-Shop-Schalter dieses Tenants. Auch wenn das Feature-
+  /// Flag aktiv ist und Provider eingerichtet sind, kann der Fotograf
+  /// das ganze Modul temporaer ausblenden (z.B. Urlaubsmodus).
+  enabled         Boolean  @default(false)
+
+  /// Studio-Name fuer Order-Mails. Wenn null: tenant.displayName.
+  studioDisplayName String?
+  /// Support-Mail fuer Endkunden-Rueckfragen zu Bestellungen.
+  /// Wenn null: Owner-Email des Tenants.
+  supportEmail    String?
+
+  /// MwSt-Modus. 'inclusive' = Preise verstehen sich brutto. 'exclusive'
+  /// = netto, MwSt wird im Checkout aufgeschlagen. DE-Default: inclusive.
+  vatHandling     String   @default("inclusive")
+  /// Standard-MwSt-Satz in Basispunkten (1900 = 19%). Pro-Produkt
+  /// ueberschreibbar falls noetig (z.B. Photobooks 7% nach §12 UStG).
+  defaultVatBps   Int      @default(1900)
+  currency        String   @default("EUR")
+
+  /// Pfad zu Tenant-eigenen AGB (auf seiner Website). Wird im Endkunden-
+  /// Checkout verlinkt. Pflicht in DE — Endkunde muss zustimmen.
+  termsUrl        String?
+  privacyUrl      String?
+
+  /// Application-Fee-Override (Basispunkte). Wenn null: gilt
+  /// BillingPlan.printApplicationFeeBps. 100 = 1%.
+  applicationFeeBpsOverride Int?
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("tenant_print_shop_config")
+}
+
+/// Stripe-Connect-Express-Account des Tenants. Optional — Tenants
+/// koennen Print-Shop auch nur im offline_invoice-Modus betreiben.
+model TenantStripeConnect {
+  id                       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId                 String   @unique @db.Uuid
+  tenant                   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  stripeConnectedAccountId String   @unique
+  /// Aus Stripe-Webhook: 'charges_enabled' — darf der Account Geld einnehmen?
+  chargesEnabled           Boolean  @default(false)
+  /// Aus Stripe-Webhook: 'payouts_enabled' — darf der Account Auszahlungen?
+  payoutsEnabled           Boolean  @default(false)
+  /// 'details_submitted' — Onboarding-Formular ist komplett ausgefuellt
+  detailsSubmitted         Boolean  @default(false)
+
+  onboardedAt              DateTime?
+  lastWebhookSyncAt        DateTime?
+
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  @@map("tenant_stripe_connect")
+}
+
+/// Pro Tenant aktivierter Print-Provider. Self-Print ist immer
+/// implizit verfuegbar (kein Eintrag noetig, falls die Code-Registry
+/// das so vorsieht). Externe Labs brauchen einen Eintrag mit
+/// (encrypted) Credentials.
+model TenantPrintProvider {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String   @db.Uuid
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  /// Key aus services/print/providers.ts. Sanity-Check im Service-
+  /// Layer — kein FK weil die Registry Code ist, keine Tabelle.
+  providerKey   String
+
+  enabled       Boolean  @default(true)
+
+  /// Anzeigename im Studio-UI ('Mein WhiteWall-Account', etc.). Wenn
+  /// null: Provider-Default-Label.
+  displayName   String?
+
+  /// Adapter-spezifische Credentials. Encrypted at rest via libsodium
+  /// secretbox (siehe services/print/credentials.ts). Schema des
+  /// Klartext-Objects ist providerspezifisch.
+  credentialsEnc Bytes?
+
+  /// Wenn true: dieser Provider ist der Default beim Anlegen neuer
+  /// Produkte. Pro Tenant nur einer.
+  isDefault     Boolean  @default(false)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([tenantId, providerKey])
+  @@index([tenantId])
+  @@map("tenant_print_provider")
+}
+
+/// Produktkatalog des Tenants. Pro Produkt: ein Print-Typ
+/// (Klassischer Print, Leinwand, Photobook). Varianten in
+/// PrintProductVariant.
+model PrintProduct {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId     String   @db.Uuid
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  name         String
+  description  String?
+
+  /// Welcher Provider fulfilled diese Produkte. Ein Produkt = ein
+  /// Provider. Bei Provider-Wechsel: neues Produkt anlegen.
+  providerKey  String
+
+  /// Adapter-spezifische Produkt-Referenz (Lab-SKU). null fuer
+  /// manual_self_print.
+  providerProductRef String?
+
+  /// Anzeige-Kategorie fuer Filterung. Frei-Text aber typisch:
+  /// 'print', 'canvas', 'photobook', 'frame', 'metal_print'.
+  category     String   @default("print")
+
+  /// MwSt-Override fuer Produkte mit anderem Satz (z.B. Photobooks 7%).
+  /// Wenn null: TenantPrintShopConfig.defaultVatBps.
+  vatBpsOverride Int?
+
+  /// Anzeige-Reihenfolge im Endkunden-Picker (kleinster Wert zuerst).
+  displayOrder Int      @default(0)
+  enabled      Boolean  @default(true)
+
+  variants     PrintProductVariant[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([tenantId, enabled])
+  @@map("print_products")
+}
+
+/// Eine konkrete Variante (Groesse + Material) eines Produkts. Hier
+/// liegt der Preis. Beispiel: Produkt 'Premium-Foto-Print' hat Varianten
+/// '20x30 Glanz' (15 Euro), '30x45 Glanz' (25 Euro), '40x60 Matt' (35 Euro).
+model PrintProductVariant {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  printProductId  String   @db.Uuid
+  printProduct    PrintProduct @relation(fields: [printProductId], references: [id], onDelete: Cascade)
+
+  name            String
+
+  /// Groesse in Millimeter. Wir speichern fix metrisch — Conversions
+  /// fuer US-Maerkte falls noetig im Frontend.
+  widthMm         Int
+  heightMm        Int
+
+  /// Required Aspect-Ratio (width:height). Wenn gesetzt, muss der
+  /// Endkunde im Crop-Tool den Ausschnitt passend zuschneiden. null =
+  /// freier Crop. Beispiel: 2:3 ist 0.6667.
+  aspectRatio     Float?
+
+  /// 'matte', 'gloss', 'pearl', 'metallic', 'fine_art', ...
+  finishType      String?
+
+  /// Lab-spezifische Varianten-Referenz (z.B. WhiteWall-SKU).
+  providerVariantRef String?
+
+  /// Endkunden-Preis (brutto wenn vatHandling=inclusive). Always in
+  /// kleinster Waehrungseinheit (cents).
+  priceCents      Int
+
+  /// Was das LAB dem Fotograf kostet. Optional — nur fuer Margin-
+  /// Anzeige im Studio. Bei manual_self_print null.
+  costCents       Int?
+
+  displayOrder    Int      @default(0)
+  enabled         Boolean  @default(true)
+
+  orderItems      PrintOrderItem[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([printProductId, enabled])
+  @@map("print_product_variants")
+}
+
+/// Versandmethoden pro Tenant. Bei API-Lab-Providern oft vom Lab
+/// generiert; bei Self-Print vom Fotograf manuell konfiguriert.
+model ShippingMethod {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId      String   @db.Uuid
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  /// Welcher Provider verschickt? Bei Self-Print 'manual_self_print',
+  /// sonst der Lab-Provider-Key. Bestimmt welches Address-Schema fuer
+  /// die Bestellung gilt.
+  providerKey   String
+
+  name          String   // z.B. 'DHL Standard', 'DHL Express', 'Pickup'
+  priceCents    Int
+  estimatedDaysMin Int?
+  estimatedDaysMax Int?
+
+  /// ISO-3166-1 alpha-2 Codes ('DE', 'AT', 'CH'). Leeres Array =
+  /// alle Laender.
+  countries     String[]
+
+  /// Provider-spezifische Referenz (z.B. WhiteWall-Shipping-Method-ID).
+  providerShippingRef String?
+
+  enabled       Boolean  @default(true)
+  displayOrder  Int      @default(0)
+
+  printOrders   PrintOrder[]
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([tenantId, enabled])
+  @@map("shipping_methods")
+}
+
+/// Eine Endkunden-Bestellung. Eine pro Checkout. Items in
+/// PrintOrderItem, Status-Verlauf in PrintOrderEvent.
+model PrintOrder {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+
+  /// Order-Number fuer Endkunden ('LP-2026-000123' o.ae.). Kurz,
+  /// sequentiell, einfach am Telefon vorlesbar. Generiert im
+  /// Service-Layer.
+  orderNumber     String   @unique
+
+  tenantId        String   @db.Uuid
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  /// Aus welcher Galerie stammt die Bestellung — wichtig fuer
+  /// Asset-Lookup + Studio-Reporting ('was hat sich am meisten
+  /// verkauft pro Galerie?').
+  galleryId       String   @db.Uuid
+  gallery         Gallery  @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+
+  /// Endkunden-Daten. Nicht als FK auf eine User-Tabelle — Endkunden
+  /// sind keine User in unserem Sinne. Email ist Pflicht fuer Order-
+  /// Bestaetigung.
+  guestEmail      String
+  guestName       String
+
+  /// Liefer- und Rechnungsadresse als JSON. Schema:
+  ///   { street, street2?, postalCode, city, region?, countryCode,
+  ///     phone? }
+  /// Wir speichern als JSON statt Spalten, weil Adress-Schemas
+  /// laenderspezifisch sind und sich aendern. Plus: Audit-Snapshot —
+  /// wenn der Endkunde spaeter umzieht, soll die Order-Adresse
+  /// historisch bleiben.
+  shippingAddress Json
+  billingAddress  Json?
+
+  /// Bezahlmodus. 'stripe_connect' = online via Stripe Connect,
+  /// 'offline_invoice' = Fotograf rechnet selbst ab.
+  paymentMode     String
+
+  /// Stripe-Referenzen (nur bei stripe_connect).
+  stripePaymentIntentId String?  @unique
+  stripeChargeId        String?
+
+  /// Geld-Beträge. Alle in kleinster Waehrungseinheit.
+  subtotalCents   Int
+  shippingCents   Int      @default(0)
+  taxCents        Int      @default(0)
+  totalCents      Int
+  /// Lumio-Cut bei diesem Order. Schon in totalCents enthalten — wir
+  /// speichern ihn separat fuer Reporting.
+  applicationFeeCents Int  @default(0)
+  currency        String   @default("EUR")
+
+  /// Lebenszyklus. Linear ausser bei Cancel/Refund die alle
+  /// Zwischenzustaende ueberspringen.
+  /// 'draft'      = User im Checkout, noch nicht bezahlt
+  /// 'pending_payment' = Stripe-Payment-Intent erstellt, warten auf Zahlung
+  /// 'paid'       = Zahlung eingegangen (bei stripe_connect) oder
+  ///                vom Fotograf manuell als bezahlt markiert
+  /// 'in_production' = An Lab uebergeben (api) oder Fotograf hat
+  ///                'in Druck'-Status gesetzt
+  /// 'shipped'    = Tracking-Nummer gesetzt
+  /// 'delivered'  = Aus Carrier-Webhook oder manuell vom Fotograf
+  /// 'cancelled'  = Bestellung storniert (vor Production)
+  /// 'refunded'   = Zahlung an Endkunde zurueckgegeben
+  status          String   @default("draft")
+
+  /// Welcher Provider hat die Bestellung gefulfilled?
+  providerKey     String
+
+  /// Lab-Bestell-Nummer (bei API-Labs nach erfolgreichem Submit).
+  providerOrderRef String?
+
+  /// Versand
+  shippingMethodId    String?  @db.Uuid
+  shippingMethod      ShippingMethod? @relation(fields: [shippingMethodId], references: [id])
+  trackingNumber      String?
+  trackingCarrier     String?
+  trackingUrl         String?
+
+  /// Notizen
+  /// guestNote: vom Endkunden im Checkout ('bitte als Geschenk verpacken')
+  guestNote       String?
+  /// studioNote: nur fuer den Fotograf, nicht fuer den Endkunden
+  studioNote      String?
+
+  /// Zeitstempel fuer Lifecycle
+  paidAt          DateTime?
+  productionStartedAt DateTime?
+  shippedAt       DateTime?
+  deliveredAt     DateTime?
+  cancelledAt     DateTime?
+  refundedAt      DateTime?
+
+  items           PrintOrderItem[]
+  events          PrintOrderEvent[]
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+  @@index([galleryId])
+  @@map("print_orders")
+}
+
+model PrintOrderItem {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  printOrderId          String   @db.Uuid
+  printOrder            PrintOrder @relation(fields: [printOrderId], references: [id], onDelete: Cascade)
+
+  printProductVariantId String   @db.Uuid
+  printProductVariant   PrintProductVariant @relation(fields: [printProductVariantId], references: [id])
+
+  /// Welches Galerie-Bild gedruckt wird.
+  fileId                String   @db.Uuid
+  file                  File     @relation(fields: [fileId], references: [id], onDelete: Restrict)
+
+  /// Crop-Region fuer Aspect-Ratio-Anpassung. JSON-Schema:
+  ///   { x, y, width, height } in [0..1] Bild-Koordinaten
+  /// null = ganzes Bild
+  crop                  Json?
+
+  quantity              Int      @default(1)
+  unitPriceCents        Int
+  totalPriceCents       Int
+
+  /// Lab-spezifische Item-Referenz nach Order-Submit
+  providerItemRef       String?
+
+  createdAt             DateTime @default(now())
+
+  @@index([printOrderId])
+  @@map("print_order_items")
+}
+
+/// Lifecycle-Events einer Bestellung. Append-only Timeline fuer
+/// Audit + Studio-UI ('Order-History').
+model PrintOrderEvent {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  printOrderId    String   @db.Uuid
+  printOrder      PrintOrder @relation(fields: [printOrderId], references: [id], onDelete: Cascade)
+
+  /// 'created', 'payment_initiated', 'paid', 'submitted_to_lab',
+  /// 'in_production', 'shipped', 'delivered', 'cancelled', 'refunded',
+  /// 'note_added', 'manual_status_change'
+  eventType       String
+
+  /// Wer hat das Event ausgeloest. 'system' (Stripe-Webhook, Lab-API-Reply),
+  /// 'guest' (Endkunde im Checkout), 'studio' (Fotograf), 'super_admin'.
+  actor           String
+
+  /// Optionaler Verweis auf den ausloesenden User (Studio-User oder
+  /// Super-Admin). Bei guest/system: null.
+  actorUserId     String?  @db.Uuid
+
+  /// Frei-JSON, Event-spezifisch. Z.B. bei 'shipped':
+  /// { carrier, trackingNumber, trackingUrl }. Bei 'note_added':
+  /// { note }.
+  data            Json?
+
+  createdAt       DateTime @default(now())
+
+  @@index([printOrderId, createdAt])
+  @@map("print_order_events")
 }

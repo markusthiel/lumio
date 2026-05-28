@@ -134,6 +134,11 @@ export function SuperShell({ children }: { children: React.ReactNode }) {
             label="Broadcasts"
           />
           <SidebarLink
+            href="/super/print-providers"
+            active={pathname?.startsWith("/super/print-providers") ?? false}
+            label="Print-Provider"
+          />
+          <SidebarLink
             href="/super/audit"
             active={pathname?.startsWith("/super/audit") ?? false}
             label="Audit-Log"
