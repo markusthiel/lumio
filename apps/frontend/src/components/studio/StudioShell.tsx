@@ -51,6 +51,7 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { href: "/studio",            labelKey: "nav.galleries",  fallback: "Galerien",      prefix: "/studio" },
+  { href: "/studio/analytics",  labelKey: "nav.analytics",  fallback: "Analytics",     prefix: "/studio/analytics",  rolesAllowed: ["owner", "admin"], requiresFeature: "advanced_analytics" },
   { href: "/studio/team",       labelKey: "nav.team",       fallback: "Team",          prefix: "/studio/team",       rolesAllowed: ["owner", "admin"] },
   { href: "/studio/brandings",  labelKey: "nav.brandings",  fallback: "Branding",      prefix: "/studio/brandings" },
   { href: "/studio/templates",  labelKey: "nav.templates",  fallback: "Templates",     prefix: "/studio/templates" },

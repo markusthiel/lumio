@@ -2826,6 +2826,39 @@ export const api = {
       shippedAt: string | null;
       deliveredAt: string | null;
     }>(`/g/${slug}/print-shop/order/${orderNumber}`),
+
+  // ===========================================================================
+  // Analytics (Feature-Flag 'advanced_analytics')
+  // ===========================================================================
+  getAnalyticsOverview: (days?: number) =>
+    request<{
+      range: { days: number; since: string };
+      totals: {
+        galleries: number;
+        files: number;
+        visits: number;
+        likes: number;
+        comments: number;
+        finalizedSelections: number;
+        printOrders: number;
+        printRevenueCents: number;
+      };
+      trends: {
+        dailyVisits: Array<{ day: string; count: number }>;
+        dailyLikes: Array<{ day: string; count: number }>;
+        storage: Array<{ day: string; bytesAdded: number; cumulative: number }>;
+      };
+      top: {
+        byVisits: Array<{ galleryId: string; title: string; slug: string; visits: number }>;
+        byLikes: Array<{ galleryId: string; title: string; slug: string; likes: number }>;
+      };
+    }>(`/analytics/overview${days ? "?days=" + days : ""}`),
+
+  getGalleryFunnel: (galleryId: string, days?: number) =>
+    request<{
+      range: { days: number; since: string };
+      steps: Array<{ key: string; label: string; count: number }>;
+    }>(`/analytics/galleries/${galleryId}/funnel${days ? "?days=" + days : ""}`),
 };
 
 // ---------------------------------------------------------------------------

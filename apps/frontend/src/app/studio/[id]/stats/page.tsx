@@ -267,6 +267,10 @@ export default function StatsPage() {
           )}
         </section>
 
+        {/* Engagement-Funnel — nur sichtbar wenn advanced_analytics aktiv.
+            Komponente fragt selbst die API ab und versteckt sich bei 404. */}
+        <FunnelSection galleryId={params.id} />
+
         <div className="text-ui-xs text-ink-tertiary">
           <Link
             href={`/studio/${params.id}`}
@@ -350,4 +354,81 @@ function buildLastNDays(n: number): string[] {
     out.push(d.toISOString().slice(0, 10));
   }
   return out;
+}
+
+/**
+ * Engagement-Funnel — gegated durch das Feature-Flag 'advanced_analytics'.
+ * Komponente fragt die API, bei 404 (Feature nicht aktiv) versteckt sie
+ * sich kommentarlos. So muss die umliegende Seite keinen Feature-Check
+ * machen.
+ */
+function FunnelSection({ galleryId }: { galleryId: string }) {
+  const [funnel, setFunnel] = useState<
+    | {
+        steps: Array<{ key: string; label: string; count: number }>;
+      }
+    | null
+  >(null);
+  const [available, setAvailable] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await api.getGalleryFunnel(galleryId);
+        if (!cancelled) {
+          setFunnel(r);
+          setAvailable(true);
+        }
+      } catch {
+        if (!cancelled) setAvailable(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [galleryId]);
+
+  if (!available || !funnel) return null;
+
+  const max = Math.max(1, ...funnel.steps.map((s) => s.count));
+  return (
+    <section className="px-6 sm:px-8 py-4 border-t border-line-subtle">
+      <h2 className="text-ui-sm uppercase tracking-[0.12em] text-ink-tertiary mb-3">
+        Engagement-Funnel (30 Tage)
+      </h2>
+      <ol className="space-y-2 max-w-2xl">
+        {funnel.steps.map((s, i) => {
+          const widthPct = (s.count / max) * 100;
+          // Conversion-Rate relativ zum vorherigen Schritt
+          const prev = i > 0 ? funnel.steps[i - 1].count : null;
+          const conv =
+            prev !== null && prev > 0
+              ? `${((s.count / prev) * 100).toFixed(0)}%`
+              : null;
+          return (
+            <li key={s.key} className="text-sm">
+              <div className="flex justify-between items-center mb-1">
+                <span>{s.label}</span>
+                <span className="tabular-nums text-ink-secondary">
+                  {s.count.toLocaleString("de-DE")}
+                  {conv && (
+                    <span className="ml-2 text-xs text-ink-tertiary">
+                      ({conv})
+                    </span>
+                  )}
+                </span>
+              </div>
+              <div className="h-2 rounded bg-surface-sunken overflow-hidden">
+                <div
+                  className="h-full bg-accent"
+                  style={{ width: `${widthPct}%` }}
+                />
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
 }

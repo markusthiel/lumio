@@ -48,6 +48,7 @@ import { registerAnnouncementRoutes } from "./routes/announcements.js";
 import { registerBroadcastRoutes } from "./routes/broadcasts.js";
 import { registerPrintShopRoutes } from "./routes/print-shop.js";
 import { registerPrintShopPublicRoutes } from "./routes/print-shop-public.js";
+import { registerAnalyticsRoutes } from "./routes/analytics.js";
 import { registerWsRoutes } from "./routes/ws.js";
 import superAdminPlugin from "./plugins/super-admin.js";
 import { startPeriodicSweeper } from "./services/sweeper.js";
@@ -163,6 +164,8 @@ async function buildServer() {
       await registerPrintShopRoutes(api);
       // Public-Print-Shop-Routes (Endkunden in der Galerie)
       await registerPrintShopPublicRoutes(api);
+      // Analytics-Routes — auch alle Feature-Flag-gated (advanced_analytics)
+      await registerAnalyticsRoutes(api);
       if (config.BILLING_ENABLED) {
         await registerBillingRoutes(api);
         await registerSignupRoutes(api);
