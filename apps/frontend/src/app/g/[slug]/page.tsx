@@ -45,6 +45,14 @@ function PublicGalleryInner() {
   const [canSelect, setCanSelect] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Print-Shop: prueft ob fuer diese Galerie verfuegbar (Feature-Flag,
+  // Tenant-Config, Galerie-Override). Catalog-Call ist der eindeutige
+  // Indikator — er liefert 404 wenn nicht verfuegbar oder 401 wenn
+  // die Galerie noch nicht freigeschaltet ist. Beides: Banner aus.
+  // Effect MUSS hier oben stehen (vor den Early-Returns weiter unten),
+  // sonst Hook-Ordering-Bug: 'Rendered more/fewer hooks than during
+  // the previous render' → Client-Side Crash.
+  const [printShopAvailable, setPrintShopAvailable] = useState(false);
 
   // Files laden, sobald freigeschaltet
   const loadFiles = useCallback(async () => {
@@ -123,6 +131,24 @@ function PublicGalleryInner() {
     };
   }, [slug, urlToken, loadFiles, t]);
 
+  // Print-Shop-Verfuegbarkeits-Check. Eigener Effect (eigene Dependency
+  // [slug]) damit er nicht jedes Mal feuert wenn die Galerie-Meta-Logik
+  // re-runs.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        await api.getGalleryPrintShopCatalog(slug);
+        if (!cancelled) setPrintShopAvailable(true);
+      } catch {
+        if (!cancelled) setPrintShopAvailable(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [slug]);
+
   if (loading) {
     return (
       <GalleryShell branding={null}>
@@ -173,27 +199,6 @@ function PublicGalleryInner() {
       </GalleryShell>
     );
   }
-
-  // Print-Shop: prueft ob fuer diese Galerie verfuegbar (Feature-Flag,
-  // Tenant-Config, Galerie-Override). Catalog-Call ist der eindeutige
-  // Indikator — er liefert 404 wenn nicht verfuegbar. Wenn ja, reichen
-  // wir den Status an GalleryView durch, die einen dezenten Button in
-  // der Toolbar neben Download/Slideshow zeigt.
-  const [printShopAvailable, setPrintShopAvailable] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        await api.getGalleryPrintShopCatalog(slug);
-        if (!cancelled) setPrintShopAvailable(true);
-      } catch {
-        if (!cancelled) setPrintShopAvailable(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [slug]);
 
   return (
     <GalleryShell
