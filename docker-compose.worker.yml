@@ -1,0 +1,45 @@
+# =============================================================================
+# Lumio — Worker-Node (horizontale Skalierung)
+# =============================================================================
+# Standalone-Compose für einen ZUSÄTZLICHEN Server, der NUR Worker fährt und
+# sich mit dem zentralen Redis + Postgres + S3 des Haupt-Servers verbindet.
+# Celery verteilt die Jobs automatisch auf alle verbundenen Worker.
+#
+# Setup siehe docs/SCALING.md. Kurz:
+#   1. Server ins selbe Hetzner Private Network wie der Haupt-Server
+#   2. .env.worker anlegen (DATABASE_URL/REDIS_URL → private IP des Haupt-
+#      Servers, gleiche S3-Credentials wie der Haupt-Server)
+#   3. docker compose -f docker-compose.worker.yml --env-file .env.worker up -d
+#
+# Dieser Node baut den Worker lokal aus apps/worker (kein Registry-Login
+# nötig). Bei jedem Update: git pull && ...up -d --build.
+
+services:
+  worker:
+    build:
+      context: ./apps/worker
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      # WICHTIG: Diese URLs zeigen auf die PRIVATE IP des Haupt-Servers,
+      # nicht auf 'postgres'/'redis' (das wären lokale Container, die es
+      # hier nicht gibt). Werte kommen aus .env.worker.
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      # S3 ist extern (Hetzner Object Storage) — identische Credentials
+      # wie auf dem Haupt-Server.
+      - STORAGE_PROVIDER=${STORAGE_PROVIDER:-s3}
+      - S3_ENDPOINT=${S3_ENDPOINT}
+      - S3_REGION=${S3_REGION:-fsn1}
+      - S3_BUCKET=${S3_BUCKET}
+      - S3_ACCESS_KEY=${S3_ACCESS_KEY}
+      - S3_SECRET_KEY=${S3_SECRET_KEY}
+      - S3_FORCE_PATH_STYLE=${S3_FORCE_PATH_STYLE:-true}
+      # Auf einer 12-vCPU-Maschine ruhig hoch. Faustregel: ~ Anzahl Kerne.
+      - WORKER_CONCURRENCY=${WORKER_CONCURRENCY:-10}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+    deploy:
+      # Mehrere Worker-Prozesse pro Node. concurrency × replicas = parallele
+      # Jobs. Bei 12 Kernen z.B. replicas=1 + concurrency=10, oder
+      # replicas=2 + concurrency=5.
+      replicas: 1

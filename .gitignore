@@ -58,3 +58,6 @@ test-results/
 *.local
 .turbo/
 .cache/
+
+# Worker-Node secrets
+.env.worker
