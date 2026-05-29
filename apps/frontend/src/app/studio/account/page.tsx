@@ -93,11 +93,12 @@ export default function AccountPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto py-8 px-6 space-y-6">
+    <>
       <PageHeader
         title="Mein Konto"
         description="Deine persönlichen Zugangsdaten und Anzeige-Einstellungen."
       />
+      <div className="px-6 sm:px-8 py-6 max-w-3xl space-y-6">
 
       {error && (
         <div className="rounded-md border border-semantic-danger/30 bg-semantic-danger/8 px-4 py-3 text-ui-sm text-semantic-danger">
@@ -166,7 +167,8 @@ export default function AccountPage() {
           userRole={data.user.role}
         />
       )}
-    </div>
+      </div>
+    </>
   );
 }
 

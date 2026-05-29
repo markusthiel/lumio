@@ -116,12 +116,13 @@ export default function StudioAvvPage() {
   const upToDate = status?.upToDate ?? false;
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 space-y-5">
+    <>
       <PageHeader
         breadcrumb={[{ label: "Studio", href: "/studio" }, { label: "AV-Vertrag" }]}
         title="Auftragsverarbeitungsvertrag (AVV)"
         description="Art. 28 DSGVO — elektronisch abschließbar"
       />
+      <div className="px-6 sm:px-8 py-6 max-w-3xl space-y-5">
 
       <p className="text-ui-sm text-ink-secondary leading-relaxed">
         Als Anbieter verarbeitet Lumio in deinem Auftrag personenbezogene Daten (z.&nbsp;B. Fotos
@@ -305,6 +306,7 @@ export default function StudioAvvPage() {
           </section>
         </>
       )}
-    </div>
+      </div>
+    </>
   );
 }

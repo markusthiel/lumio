@@ -117,11 +117,12 @@ export default function ExportsPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-6">
+    <>
       <PageHeader
         title="Datenexport"
         description="Lädt Originaldateien + Metadaten (Tags, Auswahl, Kommentare) als ZIP-Archiv. Pro Galerie ein ZIP. Downloads sind 30 Tage verfügbar."
       />
+      <div className="px-6 sm:px-8 py-6 max-w-4xl">
 
       {error && (
         <div className="mb-4 rounded-md border border-semantic-danger/30 bg-semantic-danger/8 px-4 py-3 text-ui-sm text-semantic-danger">
@@ -227,7 +228,8 @@ export default function ExportsPage() {
           </ul>
         )}
       </section>
-    </div>
+      </div>
+    </>
   );
 }
 

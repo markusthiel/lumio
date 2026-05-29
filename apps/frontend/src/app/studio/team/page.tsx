@@ -92,26 +92,27 @@ export default function TeamPage() {
   ).length;
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-6">
-      <div className="flex items-start justify-between gap-4 mb-2">
-        <PageHeader
-          title="Team"
-          description={
-            isOwner
-              ? "User dieses Studios. Du kannst andere Mitglieder einladen und Rollen verwalten."
-              : "User dieses Studios. Als Admin kannst du Mitglieder einladen und verwalten — Owner-Rollen bleiben dem Owner vorbehalten."
-          }
-        />
-        {canManage && (
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => setInviteOpen(true)}
-          >
-            User einladen
-          </Button>
-        )}
-      </div>
+    <>
+      <PageHeader
+        title="Team"
+        description={
+          isOwner
+            ? "User dieses Studios. Du kannst andere Mitglieder einladen und Rollen verwalten."
+            : "User dieses Studios. Als Admin kannst du Mitglieder einladen und verwalten — Owner-Rollen bleiben dem Owner vorbehalten."
+        }
+        actions={
+          canManage && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setInviteOpen(true)}
+            >
+              User einladen
+            </Button>
+          )
+        }
+      />
+      <div className="px-6 sm:px-8 py-6 max-w-4xl">
 
       {error && (
         <div className="mb-4 rounded-md border border-semantic-danger/30 bg-semantic-danger/8 px-4 py-3 text-ui-sm text-semantic-danger">
@@ -196,7 +197,8 @@ export default function TeamPage() {
           onClose={() => setInviteResult(null)}
         />
       )}
-    </div>
+      </div>
+    </>
   );
 }
 

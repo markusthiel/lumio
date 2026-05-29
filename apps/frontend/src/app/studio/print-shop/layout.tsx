@@ -28,41 +28,45 @@ export default function PrintShopLayout({
 }) {
   const pathname = usePathname() ?? "";
   return (
-    <div className="px-4 sm:px-8 py-6 max-w-5xl">
-      <h1 className="text-2xl font-semibold mb-1">Print-Shop</h1>
-      <p className="text-ui-sm text-ink-tertiary mb-4">
-        Verkaufe Prints, Leinwände und Photobooks direkt aus deinen
-        Galerien. Konfiguriere Anbieter, Produkte und Versand.
-      </p>
+    <>
+      <header className="px-6 sm:px-8 pt-6 pb-5 border-b border-line-subtle">
+        <h1 className="text-display text-ink-primary font-medium tracking-tight">
+          Print-Shop
+        </h1>
+        <p className="text-ui text-ink-tertiary mt-1.5">
+          Verkaufe Prints, Leinwände und Photobooks direkt aus deinen
+          Galerien. Konfiguriere Anbieter, Produkte und Versand.
+        </p>
+      </header>
 
-      <nav
-        className="border-b border-line-subtle mb-6 -mx-4 sm:-mx-8 px-4 sm:px-8 overflow-x-auto"
+      <div
+        className="border-b border-line-subtle overflow-x-auto"
         aria-label="Print-Shop-Navigation"
       >
-        <ul className="flex gap-1 min-w-max">
+        <nav className="flex items-center gap-0.5 px-6 sm:px-8 min-w-max">
           {TABS.map((tab) => {
             const active = tab.exact
               ? pathname === tab.href
               : pathname.startsWith(tab.href);
             return (
-              <li key={tab.href}>
-                <Link
-                  href={tab.href}
-                  className={
-                    active
-                      ? "inline-block px-3 py-2 text-sm font-medium border-b-2 border-accent text-ink-primary -mb-px"
-                      : "inline-block px-3 py-2 text-sm text-ink-secondary hover:text-ink-primary border-b-2 border-transparent -mb-px"
-                  }
-                >
-                  {tab.label}
-                </Link>
-              </li>
+              <Link
+                key={tab.href}
+                href={tab.href}
+                aria-current={active ? "page" : undefined}
+                className={`whitespace-nowrap px-3 py-2.5 text-ui-sm border-b-2 -mb-px transition-colors duration-motion ease-out ${
+                  active
+                    ? "border-accent text-ink-primary font-medium"
+                    : "border-transparent text-ink-secondary hover:text-ink-primary"
+                }`}
+              >
+                {tab.label}
+              </Link>
             );
           })}
-        </ul>
-      </nav>
+        </nav>
+      </div>
 
-      <div>{children}</div>
-    </div>
+      <div className="px-6 sm:px-8 py-6 max-w-5xl">{children}</div>
+    </>
   );
 }
