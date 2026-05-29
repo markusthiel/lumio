@@ -1,7 +1,7 @@
 # Lumio
 
 **Self-hosted Foto- und Video-Galerie für Fotograf:innen und Studios.**
-Open-Source-Alternative zu Picdrop, Pixieset und Pic-Time — Daten bleiben bei dir.
+Self-hostbare Alternative zu Picdrop, Pixieset und Pic-Time — Daten bleiben bei dir.
 
 > ⚠️ **Status: Pre-Alpha.** In aktiver Entwicklung. Noch nicht produktionsreif. Daten sichern.
 
@@ -172,9 +172,18 @@ Alles optional. Das Quick-Start oben reicht für ein einzelnes Studio.
 
 ## Lizenz
 
-[AGPL-3.0](LICENSE) — Self-Hosting frei für jeden Zweck (auch kommerziell für die eigene Geschäftstätigkeit). SaaS-Anbieter, die Lumio für Dritte betreiben, müssen ihre Änderungen veröffentlichen.
+[Functional Source License 1.1 (FSL-1.1-ALv2)](LICENSE) — eine *source-available* Lizenz (nicht OSI-Open-Source).
 
-Kommerzielle Lizenz für proprietäre Forks/Hosted-Services auf Anfrage.
+**Erlaubt für jeden:**
+- Privatpersonen, Profi-Fotograf:innen und Studios: nutzen, self-hosten, anpassen — auch kommerziell für die eigene Geschäftstätigkeit
+- Agenturen: Lumio im Rahmen von Dienstleistungen für die eigenen Kund:innen betreiben
+
+**Nicht erlaubt:**
+- Ein konkurrierendes, gehostetes SaaS-/Cloud-Angebot aufbauen, das dieselbe oder eine im Wesentlichen ähnliche Funktionalität wie Lumio Dritten als Produkt anbietet (*Competing Use*)
+
+**Zeitlich begrenzt:** Jede Version wird zwei Jahre nach ihrer Veröffentlichung automatisch unter der [Apache License 2.0](http://www.apache.org/licenses/LICENSE-2.0) verfügbar — dann ohne Einschränkung.
+
+Für ein gehostetes/konkurrierendes Angebot ist eine kommerzielle Lizenz auf Anfrage möglich.
 
 ---
 
