@@ -13,7 +13,7 @@
 #   forgejo.thiel.tools/thiel/lumio-frontend:tag
 #   forgejo.thiel.tools/thiel/lumio-worker:tag
 
-name: Build Images
+name: Build & Deploy
 
 on:
   push:
@@ -130,3 +130,36 @@ jobs:
             echo "**Tags:**"
             echo "${{ steps.tags.outputs.tags }}" | tr ',' '\n' | sed 's/^/- /'
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  # Deploy — zieht die frisch gebauten Images auf den Server und startet neu
+  # ---------------------------------------------------------------------------
+  # Läuft nur auf main (nicht bei Tag-Pushes) und nur wenn alle Image-Builds
+  # erfolgreich waren. Verbindet sich per SSH zum Server und ruft dort
+  # infra/deploy.sh auf (nach einem git pull, damit Script + Compose-Files
+  # aktuell sind).
+  #
+  # Benötigte Secrets (Forgejo → Repo → Settings → Actions → Secrets):
+  #   DEPLOY_SSH_KEY  — privater SSH-Key (ed25519), passend zum public key
+  #                     in ~/.ssh/authorized_keys auf dem Server
+  #   DEPLOY_HOST     — Server-IP oder Hostname (z.B. 167.233.25.29)
+  #   DEPLOY_USER     — SSH-User (z.B. root)
+  deploy:
+    needs: build
+    runs-on: docker
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Deploy over SSH
+        shell: sh
+        run: |
+          # ssh-client sicherstellen (Runner-Image bringt es meist mit)
+          command -v ssh >/dev/null 2>&1 || {
+            apk add --no-cache openssh-client 2>/dev/null \
+              || (apt-get update && apt-get install -y openssh-client) 2>/dev/null
+          }
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh -i ~/.ssh/id_ed25519 -o StrictHostKeyChecking=accept-new \
+            "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            'cd /opt/docker/lumio/lumio && git pull --ff-only && bash infra/deploy.sh'
