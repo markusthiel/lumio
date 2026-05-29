@@ -184,10 +184,13 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-    # Im Produktiv-Setup hinter Caddy — kein externer Port nötig.
-    # Für lokales Debugging entkommentieren:
-    # ports:
-    #   - "5432:5432"
+    # Standard: nur im Docker-Netz erreichbar (kein Host-Port).
+    # Für Multi-Node-Setups: POSTGRES_BIND_IP auf die PRIVATE Netz-IP
+    # setzen (z.B. 10.0.0.2), damit Worker-Nodes drankommen. NIE auf
+    # 0.0.0.0 — das wäre öffentlich erreichbar. Wenn die Variable leer
+    # ist, wird kein Port gemappt.
+    ports:
+      - "${POSTGRES_BIND_IP:-127.0.0.1}:5432:5432"
     networks:
       - lumio_net
 
@@ -198,7 +201,21 @@ services:
     image: redis:7-alpine
     container_name: lumio_redis
     restart: unless-stopped
-    command: redis-server --save 60 1 --loglevel warning --maxmemory-policy allkeys-lru
+    # requirepass wird nur gesetzt wenn REDIS_PASSWORD in der .env steht.
+    # Single-Node-Self-Hoster brauchen es nicht (Redis bleibt im Docker-
+    # Netz). Multi-Node-Setups MÜSSEN es setzen, da Redis dann übers private
+    # Netz erreichbar ist. Die sh-Expansion fügt das Flag konditional hinzu
+    # ($$ = an die Shell durchgereichtes $, nicht von Compose expandiert).
+    command: >
+      sh -c 'exec redis-server --save 60 1 --loglevel warning
+      --maxmemory-policy allkeys-lru
+      $${REDIS_PASSWORD:+--requirepass "$$REDIS_PASSWORD"}'
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    # Standard 127.0.0.1 = nur lokal. Multi-Node: REDIS_BIND_IP auf die
+    # PRIVATE Netz-IP setzen (z.B. 10.0.0.2). NIE 0.0.0.0.
+    ports:
+      - "${REDIS_BIND_IP:-127.0.0.1}:6379:6379"
     volumes:
       - redis_data:/data
     networks:
