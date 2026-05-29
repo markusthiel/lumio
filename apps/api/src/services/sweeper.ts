@@ -11,6 +11,11 @@
  *     Super-Admins wenn das Datum erreicht ist (manueller Archive-
  *     Schritt erforderlich).
  *
+ *   - storage_recalc: alle 6h. Aggregiert files+renditions pro Tenant
+ *     und schreibt die Summe in BillingSubscription.storageBytesUsed.
+ *     Wird für Super-Admin-Storage-View und Capacity-Planning gebraucht.
+ *     Limit-Checks im Studio gehen weiter live über computeStorageBytes().
+ *
  * Warum hier und nicht im Worker selbst: der Worker hat keinen
  * eingebauten Scheduler (kein Celery-Beat-Container). Die API läuft
  * als langlebiger Prozess und kann das easy übernehmen. Bei
@@ -26,6 +31,7 @@ import { sendMail } from "./mail.js";
 import { logEvent } from "./audit.js";
 import { writeMrrSnapshot } from "./mrr.js";
 import { processBroadcast } from "./broadcast.js";
+import { computeStorageBytes } from "./usage.js";
 import { logger } from "../logger.js";
 
 const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
@@ -52,6 +58,11 @@ async function runOnce() {
     // lastProgressAt haengen geblieben sein. Beide aufgreifen und neu
     // starten — processBroadcast ist idempotent durch Counter-Increment.
     resumeStuckBroadcasts(),
+    // Storage-Verbrauch pro Tenant in BillingSubscription.storageBytesUsed
+    // schreiben — wird für Super-Admin-Storage-View und Capacity-Planning
+    // gebraucht. Studio-UI nutzt computeStorageBytes() live, also für die
+    // Limit-Checks ist Drift unkritisch.
+    recalculateStorageUsage(),
   ]);
 }
 
@@ -95,6 +106,56 @@ async function triggerExpiredExportsCleanup() {
     logger.info("sweeper.enqueued cleanup_expired_exports");
   } catch (err) {
     logger.warn({ err }, "sweeper.cleanup_enqueue_failed");
+  }
+}
+
+/**
+ * Storage-Verbrauch pro Tenant neu berechnen und in
+ * BillingSubscription.storageBytesUsed schreiben.
+ *
+ * Die canonical Wahrheit für Limit-Checks ist computeStorageBytes() live;
+ * dieser Job aktualisiert nur das "gecachte" Feld für Dashboards (Super-
+ * Admin-Storage-View, Capacity-Planning, Up-Selling-Reports). Drift ist
+ * dort tolerierbar — der Wert ist "recent enough".
+ *
+ * Fehler pro Tenant werden geloggt aber nicht propagiert: ein einzelner
+ * Outlier soll nicht alle anderen Tenants blockieren.
+ */
+async function recalculateStorageUsage() {
+  try {
+    const tenants = await prisma.tenant.findMany({
+      where: {
+        status: { not: "archived" },
+        subscription: { isNot: null },
+      },
+      select: { id: true },
+    });
+
+    let updated = 0;
+    let failed = 0;
+    for (const t of tenants) {
+      try {
+        const breakdown = await computeStorageBytes(t.id);
+        const total = breakdown.originalsBytes + breakdown.renditionsBytes;
+        await prisma.billingSubscription.update({
+          where: { tenantId: t.id },
+          data: { storageBytesUsed: total },
+        });
+        updated++;
+      } catch (err) {
+        failed++;
+        logger.warn(
+          { err, tenantId: t.id },
+          "sweeper.storage_recalc.tenant_failed"
+        );
+      }
+    }
+    logger.info(
+      { updated, failed, total: tenants.length },
+      "sweeper.storage_recalc.done"
+    );
+  } catch (err) {
+    logger.warn({ err }, "sweeper.storage_recalc.failed");
   }
 }
 
