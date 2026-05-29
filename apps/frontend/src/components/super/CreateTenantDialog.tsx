@@ -16,6 +16,7 @@ interface Props {
  */
 export function CreateTenantDialog({ onClose, onCreated }: Props) {
   const [slug, setSlug] = useState("");
+  const [slugTouched, setSlugTouched] = useState(false);
   const [name, setName] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [customDomain, setCustomDomain] = useState("");
@@ -117,7 +118,23 @@ export function CreateTenantDialog({ onClose, onCreated }: Props) {
           <input
             type="text"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              const v = e.target.value;
+              setName(v);
+              // Slug aus Name vorschlagen, solange nicht manuell editiert
+              if (!slugTouched) {
+                setSlug(
+                  v
+                    .toLowerCase()
+                    .normalize("NFD")
+                    .replace(/[\u0300-\u036f]/g, "")
+                    .replace(/[^a-z0-9]+/g, "-")
+                    .replace(/-+/g, "-")
+                    .replace(/^-+|-+$/g, "")
+                    .slice(0, 30)
+                );
+              }
+            }}
             required
             maxLength={120}
             placeholder="Studio Müller"
@@ -147,9 +164,10 @@ export function CreateTenantDialog({ onClose, onCreated }: Props) {
           <input
             type="text"
             value={slug}
-            onChange={(e) =>
-              setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))
-            }
+            onChange={(e) => {
+              setSlugTouched(true);
+              setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""));
+            }}
             required
             minLength={2}
             maxLength={40}
