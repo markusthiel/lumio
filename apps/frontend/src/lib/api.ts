@@ -833,6 +833,14 @@ export const api = {
       method: "POST",
     }),
 
+  /** Nimmt eine geplante Kündigung zurück. Die Stripe-Subscription
+   * läuft normal weiter, kein neuer Checkout nötig. Nur möglich
+   * solange das current_period noch läuft. */
+  reactivateSubscription: () =>
+    request<{ reactivated: true }>(`/billing/subscription/reactivate`, {
+      method: "POST",
+    }),
+
   searchGlobal: (q: string, limit = 5) =>
     request<SearchResults>(
       `/search?q=${encodeURIComponent(q)}&limit=${limit}`

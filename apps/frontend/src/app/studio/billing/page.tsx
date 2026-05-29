@@ -128,6 +128,46 @@ export default function BillingPage() {
     <div className="p-6 space-y-6 max-w-4xl">
       <PageHeader title="Plan & Speicher" />
 
+      {/* Banner: geplante Kündigung — User kann hier rückgängig machen */}
+      {sub?.cancelAtPeriodEnd && sub.currentPeriodEnd && (
+        <Card className="p-5 border-amber-300 bg-amber-50">
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <div className="font-medium text-amber-900">
+                Abo endet am{" "}
+                {new Date(sub.currentPeriodEnd).toLocaleDateString("de-DE")}
+              </div>
+              <div className="text-ui-sm text-amber-800 mt-1 max-w-2xl">
+                Du hast dein Abo gekündigt. Bis zum genannten Datum kannst
+                du Lumio weiter im vollen Umfang nutzen. Danach geht dein
+                Studio in den Read-Only-Modus. Die Kündigung kannst du
+                jederzeit zurücknehmen.
+              </div>
+            </div>
+            <button
+              onClick={async () => {
+                setBusyAction("reactivate");
+                setErr(null);
+                try {
+                  await api.reactivateSubscription();
+                  await load();
+                } catch (e) {
+                  setErr(e instanceof Error ? e.message : String(e));
+                } finally {
+                  setBusyAction(null);
+                }
+              }}
+              disabled={busyAction !== null}
+              className="shrink-0 px-4 py-2 rounded-md bg-amber-600 text-white text-ui-sm font-medium hover:bg-amber-700 disabled:opacity-50"
+            >
+              {busyAction === "reactivate"
+                ? "Wird reaktiviert …"
+                : "Abo fortführen"}
+            </button>
+          </div>
+        </Card>
+      )}
+
       {/* Aktueller Plan + Status */}
       <Card className="p-5">
         <div className="flex items-start justify-between gap-4 flex-wrap">

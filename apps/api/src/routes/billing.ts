@@ -13,6 +13,7 @@
  * Sprint 2 ergänzt:
  *   POST   /billing/subscription       — Plan abonnieren → Stripe-Checkout
  *   POST   /billing/subscription/cancel
+ *   POST   /billing/subscription/reactivate — Geplante Kündigung zurücknehmen
  *   POST   /billing/portal             — Stripe-Customer-Portal-Link
  *   POST   /billing/webhook            — Stripe-Webhook-Empfänger
  */
@@ -280,6 +281,48 @@ export async function registerBillingRoutes(app: FastifyInstance) {
     });
 
     return { checkoutUrl: session.url, sessionId: session.id };
+  });
+
+  // -------------------------------------------------------------------------
+  // POST /billing/subscription/reactivate
+  // -------------------------------------------------------------------------
+  // Nimmt eine geplante Kündigung zurück (setzt cancel_at_period_end in
+  // Stripe auf false). Nur möglich solange die Subscription noch im
+  // current_period läuft — nach Ablauf hat Stripe die Subscription
+  // bereits gelöscht und der Tenant braucht einen kompletten Neu-Abo.
+  app.post("/billing/subscription/reactivate", async (req, reply) => {
+    req.requireAuth();
+    if (!req.tenantId) {
+      return reply.status(400).send({ error: "no_tenant" });
+    }
+    if (!isStripeEnabled()) {
+      return reply.status(503).send({ error: "billing_disabled" });
+    }
+
+    const sub = await prisma.billingSubscription.findUnique({
+      where: { tenantId: req.tenantId },
+    });
+    if (!sub?.stripeSubscriptionId) {
+      return reply.status(404).send({ error: "no_stripe_subscription" });
+    }
+    if (!sub.cancelAtPeriodEnd) {
+      return reply.status(400).send({ error: "not_pending_cancel" });
+    }
+
+    const stripe = getStripe();
+    await stripe.subscriptions.update(sub.stripeSubscriptionId, {
+      cancel_at_period_end: false,
+    });
+    await prisma.billingSubscription.update({
+      where: { tenantId: req.tenantId },
+      data: { cancelAtPeriodEnd: false },
+    });
+
+    app.log.info(
+      { tenantId: req.tenantId },
+      "billing.subscription.reactivated"
+    );
+    return { reactivated: true };
   });
 
   // -------------------------------------------------------------------------
