@@ -20,9 +20,8 @@ export const DPA_VERSION = "1.0";
 
 /** Angaben zum Auftragsverarbeiter (Lumio). Bei Bedarf hier pflegen. */
 export const PROCESSOR = {
-  name: "Markus Thiel — Lumio",
-  // TODO: vollständige Firmierung/Anschrift im Impressum-Stand ergänzen
-  address: "[Anschrift gemäß Impressum]",
+  name: "Thiel Media, Inhaber Markus Thiel",
+  address: "Hohenstaufenstraße 24a, 69412 Eberbach",
   platform: "lumio-cloud.de",
 };
 
