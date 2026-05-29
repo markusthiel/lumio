@@ -55,7 +55,7 @@ export default function TemplatesPage() {
         }
       />
 
-      <div className="px-6 sm:px-8 py-6 space-y-6 max-w-5xl">
+      <div className="px-6 sm:px-8 lg:px-12 py-6 space-y-6 max-w-5xl">
         {templates.length === 0 ? (
           <div className="rounded-md border border-dashed border-line-subtle bg-surface-sunken p-12 text-center">
             <div className="text-ink-tertiary text-ui">

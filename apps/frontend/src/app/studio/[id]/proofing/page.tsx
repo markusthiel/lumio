@@ -52,7 +52,7 @@ export default function ProofingPage() {
   }
   if (error || !data) {
     return (
-      <div className="px-6 sm:px-8 py-6">
+      <div className="px-6 sm:px-8 lg:px-12 py-6">
         <div className="text-ui text-semantic-danger bg-semantic-danger/10 border border-semantic-danger/30 rounded-sm px-3 py-2 max-w-3xl">
           {error ?? "Galerie nicht gefunden."}
         </div>
@@ -72,7 +72,7 @@ export default function ProofingPage() {
         description={data.gallery.title}
       />
 
-      <div className="px-6 sm:px-8 py-6 space-y-6 max-w-6xl">
+      <div className="px-6 sm:px-8 lg:px-12 py-6 space-y-6 max-w-6xl">
         {/* KI-Tagging-Toolbar — Re-Tag + Bulk-Accept. Versteckt sich
             kommentarlos wenn das Feature ai_tagging fuer den Tenant aus
             ist. */}

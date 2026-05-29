@@ -98,7 +98,7 @@ export default function CollectionEditPage() {
         ]}
         title="Smart Collection bearbeiten"
       />
-      <div className="px-6 sm:px-8 py-6 max-w-2xl space-y-6">
+      <div className="px-6 sm:px-8 lg:px-12 py-6 max-w-2xl space-y-6">
         <section className="rounded-lg border border-line-subtle bg-surface-raised p-5 space-y-3">
           <h2 className="text-sm font-medium">Name & Icon</h2>
           <div>

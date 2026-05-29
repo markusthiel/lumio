@@ -965,7 +965,7 @@ export default function GalleryDetailPage() {
       />
 
       {/* Meta-Strip unter dem Header */}
-      <div className="px-6 sm:px-8 py-3 border-b border-line-subtle text-ui-xs text-ink-tertiary flex flex-wrap items-center gap-3">
+      <div className="px-6 sm:px-8 lg:px-12 py-3 border-b border-line-subtle text-ui-xs text-ink-tertiary flex flex-wrap items-center gap-3">
         <span className="flex items-center gap-1.5">
           <Dot
             className={
@@ -1015,7 +1015,7 @@ export default function GalleryDetailPage() {
       </div>
 
       {/* Tags */}
-      <div className="px-6 sm:px-8 py-3 border-b border-line-subtle flex items-center gap-3 flex-wrap">
+      <div className="px-6 sm:px-8 lg:px-12 py-3 border-b border-line-subtle flex items-center gap-3 flex-wrap">
         <span className="text-ui-xs uppercase tracking-[0.12em] text-ink-tertiary">
           {t("studio.tagsLabel")}
         </span>
@@ -1051,7 +1051,7 @@ export default function GalleryDetailPage() {
         }}
       />
 
-      <div className="px-6 sm:px-8 py-6 space-y-6 max-w-7xl">
+      <div className="px-6 sm:px-8 lg:px-12 py-6 space-y-6 max-w-7xl">
         {/* KI-Auto-Tagging-Toolbar — versteckt sich selbst wenn Feature
             aus. Bei aktivem Flag: Re-Tag + Bulk-Accept-Threshold. */}
         <AutoTagsToolbar galleryId={gallery.id} />

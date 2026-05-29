@@ -26,6 +26,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { api } from "@/lib/api";
+import { PageHeader } from "@/components/studio/PageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -68,26 +69,29 @@ export default function AnalyticsPage() {
   }, [days]);
 
   return (
-    <div className="space-y-5">
-      <header className="flex items-center justify-between flex-wrap gap-3">
-        <h1 className="text-xl font-semibold">Analytics</h1>
-        <div className="flex gap-1.5">
-          {RANGE_PRESETS.map((p) => (
-            <button
-              key={p.days}
-              type="button"
-              onClick={() => setDays(p.days)}
-              className={
-                days === p.days
-                  ? "px-2.5 py-1 text-xs rounded bg-accent text-white"
-                  : "px-2.5 py-1 text-xs rounded bg-surface-sunken text-ink-secondary hover:bg-surface-raised"
-              }
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-      </header>
+    <>
+      <PageHeader
+        title="Analytics"
+        actions={
+          <div className="flex gap-1.5">
+            {RANGE_PRESETS.map((p) => (
+              <button
+                key={p.days}
+                type="button"
+                onClick={() => setDays(p.days)}
+                className={
+                  days === p.days
+                    ? "px-2.5 py-1 text-xs rounded bg-accent text-white"
+                    : "px-2.5 py-1 text-xs rounded bg-surface-sunken text-ink-secondary hover:bg-surface-raised"
+                }
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        }
+      />
+      <div className="px-6 sm:px-8 lg:px-12 py-6 space-y-5">
 
       {error && (
         <div className="rounded-md border border-semantic-danger/30 bg-semantic-danger/8 px-3 py-2 text-sm text-semantic-danger">
@@ -226,7 +230,8 @@ export default function AnalyticsPage() {
           </div>
         </>
       )}
-    </div>
+      </div>
+    </>
   );
 }
 

@@ -95,23 +95,25 @@ export default function BillingPage() {
 
   if (loading) {
     return (
-      <div className="p-6">
+      <>
         <PageHeader title="Plan & Speicher" />
-        <div className="text-ui-sm text-ink-tertiary">Lädt …</div>
-      </div>
+        <div className="px-6 sm:px-8 lg:px-12 py-6 text-ui-sm text-ink-tertiary">Lädt …</div>
+      </>
     );
   }
 
   if (err || !usage) {
     return (
-      <div className="p-6">
+      <>
         <PageHeader title="Plan & Speicher" />
-        <Card className="p-4 border-semantic-danger/30 bg-semantic-danger/5">
-          <div className="text-semantic-danger text-ui-sm">
-            {err ?? "Keine Abrechnungs-Daten gefunden."}
-          </div>
-        </Card>
-      </div>
+        <div className="px-6 sm:px-8 lg:px-12 py-6">
+          <Card className="p-4 border-semantic-danger/30 bg-semantic-danger/5">
+            <div className="text-semantic-danger text-ui-sm">
+              {err ?? "Keine Abrechnungs-Daten gefunden."}
+            </div>
+          </Card>
+        </div>
+      </>
     );
   }
 
@@ -125,8 +127,9 @@ export default function BillingPage() {
       : (usage.galleries.active / usage.plan.activeGalleries) * 100;
 
   return (
-    <div className="p-6 space-y-6 max-w-4xl">
+    <>
       <PageHeader title="Plan & Speicher" />
+      <div className="px-6 sm:px-8 lg:px-12 py-6 max-w-4xl space-y-6">
 
       {/* Banner: geplante Kündigung — User kann hier rückgängig machen */}
       {sub?.cancelAtPeriodEnd && sub.currentPeriodEnd && (
@@ -439,7 +442,8 @@ export default function BillingPage() {
           </button>
         </Card>
       )}
-    </div>
+      </div>
+    </>
   );
 }
 

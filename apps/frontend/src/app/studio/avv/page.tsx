@@ -122,7 +122,7 @@ export default function StudioAvvPage() {
         title="Auftragsverarbeitungsvertrag (AVV)"
         description="Art. 28 DSGVO — elektronisch abschließbar"
       />
-      <div className="px-6 sm:px-8 py-6 max-w-3xl space-y-5">
+      <div className="px-6 sm:px-8 lg:px-12 py-6 max-w-3xl space-y-5">
 
       <p className="text-ui-sm text-ink-secondary leading-relaxed">
         Als Anbieter verarbeitet Lumio in deinem Auftrag personenbezogene Daten (z.&nbsp;B. Fotos

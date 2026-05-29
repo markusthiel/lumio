@@ -38,7 +38,7 @@ export function PageHeader({
 }: PageHeaderProps) {
   return (
     <>
-      <header className="px-6 sm:px-8 pt-6 pb-5 border-b border-line-subtle">
+      <header className="px-6 sm:px-8 lg:px-12 pt-6 pb-5 border-b border-line-subtle">
         {breadcrumb && breadcrumb.length > 0 && (
           <nav
             aria-label="Breadcrumb"

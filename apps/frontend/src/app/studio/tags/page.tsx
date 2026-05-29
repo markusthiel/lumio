@@ -91,7 +91,7 @@ export default function TagsPage() {
         }
       />
 
-      <div className="px-6 sm:px-8 py-6 max-w-4xl space-y-4">
+      <div className="px-6 sm:px-8 lg:px-12 py-6 max-w-4xl space-y-4">
         {loading ? (
           <div className="text-ui text-ink-tertiary">{t("common.loading")}</div>
         ) : sortedTree.length === 0 && !creating ? (

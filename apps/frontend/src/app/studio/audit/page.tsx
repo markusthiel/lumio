@@ -146,7 +146,7 @@ export default function AuditPage() {
         }
       />
 
-      <div className="px-6 sm:px-8 py-6 space-y-4 max-w-7xl">
+      <div className="px-6 sm:px-8 lg:px-12 py-6 space-y-4 max-w-7xl">
         {/* Filter-Bar */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
           <div>

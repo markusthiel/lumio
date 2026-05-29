@@ -119,7 +119,7 @@ export default function TemplateEditorPage() {
   }
   if (!template) {
     return (
-      <div className="px-6 sm:px-8 py-8">
+      <div className="px-6 sm:px-8 lg:px-12 py-8">
         <div className="text-ui text-semantic-danger">
           {error ?? "Template nicht gefunden."}
         </div>
@@ -148,7 +148,7 @@ export default function TemplateEditorPage() {
         }
       />
 
-      <div className="px-6 sm:px-8 py-6 space-y-6 max-w-4xl">
+      <div className="px-6 sm:px-8 lg:px-12 py-6 space-y-6 max-w-4xl">
         {error && (
           <div className="text-ui-sm text-semantic-danger bg-semantic-danger/10 border border-semantic-danger/30 rounded-sm px-3 py-2">
             {error}

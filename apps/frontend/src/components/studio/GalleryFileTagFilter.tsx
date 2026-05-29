@@ -176,7 +176,7 @@ export function GalleryFileTagFilter({
 
   if (!enabled) {
     return (
-      <div className="px-6 sm:px-8 py-2 border-b border-line-subtle flex items-center justify-between flex-wrap gap-2 text-ui-xs text-ink-tertiary">
+      <div className="px-6 sm:px-8 lg:px-12 py-2 border-b border-line-subtle flex items-center justify-between flex-wrap gap-2 text-ui-xs text-ink-tertiary">
         <span>
           {aggregated.length > 0
             ? `${aggregated.length} Tag${aggregated.length === 1 ? "" : "s"} auf Files in dieser Galerie`
@@ -207,7 +207,7 @@ export function GalleryFileTagFilter({
   }
 
   return (
-    <div className="px-6 sm:px-8 py-3 border-b border-line-subtle">
+    <div className="px-6 sm:px-8 lg:px-12 py-3 border-b border-line-subtle">
       <div className="flex items-start gap-3 flex-wrap">
         <span className="text-ui-xs uppercase tracking-[0.12em] text-ink-tertiary mt-1 shrink-0">
           Tag-Filter

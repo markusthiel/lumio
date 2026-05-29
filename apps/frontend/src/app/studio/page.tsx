@@ -185,7 +185,7 @@ export default function StudioPage() {
         }
       />
 
-      <div className="px-6 sm:px-8 py-6">
+      <div className="px-6 sm:px-8 lg:px-12 py-6">
         {/* Smart-Collections-Leiste — nur wenn welche existieren oder
             der User gerade eine aktive Collection nutzt. */}
         {/* Smart-Collections-Leiste — auch sichtbar wenn noch keine

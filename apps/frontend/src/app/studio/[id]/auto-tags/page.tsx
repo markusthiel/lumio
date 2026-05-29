@@ -156,7 +156,7 @@ export default function AutoTagsReviewPage() {
         }
       />
 
-      <div className="px-6 sm:px-8 py-6 space-y-6 max-w-7xl">
+      <div className="px-6 sm:px-8 lg:px-12 py-6 space-y-6 max-w-7xl">
         {error && (
           <div className="rounded-md border border-semantic-danger/30 bg-semantic-danger/8 px-3 py-2 text-sm text-semantic-danger">
             {error}

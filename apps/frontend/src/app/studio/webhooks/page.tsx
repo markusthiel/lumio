@@ -60,7 +60,7 @@ export default function WebhooksPage() {
         }
       />
 
-      <div className="px-6 sm:px-8 py-6 max-w-5xl space-y-6">
+      <div className="px-6 sm:px-8 lg:px-12 py-6 max-w-5xl space-y-6">
         {loading ? (
           <div className="text-ui text-ink-tertiary">{t("common.loading")}</div>
         ) : webhooks.length === 0 ? (

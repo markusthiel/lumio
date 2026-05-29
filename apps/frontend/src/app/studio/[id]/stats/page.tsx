@@ -65,7 +65,7 @@ export default function StatsPage() {
 
   if (error || !stats) {
     return (
-      <div className="px-6 sm:px-8 py-6">
+      <div className="px-6 sm:px-8 lg:px-12 py-6">
         <div className="text-ui text-semantic-danger bg-semantic-danger/10 border border-semantic-danger/30 rounded-sm px-3 py-2 max-w-3xl">
           {error ?? t("studio.statsNotFound")}
         </div>
@@ -99,7 +99,7 @@ export default function StatsPage() {
         description={t("studio.statsDescription")}
       />
 
-      <div className="px-6 sm:px-8 py-6 max-w-6xl space-y-6">
+      <div className="px-6 sm:px-8 lg:px-12 py-6 max-w-6xl space-y-6">
         {/* === Sektion 1: Visits === */}
         <section className="rounded-md border border-line-subtle bg-surface-raised p-5">
           <div className="flex items-baseline justify-between mb-4">
@@ -393,7 +393,7 @@ function FunnelSection({ galleryId }: { galleryId: string }) {
 
   const max = Math.max(1, ...funnel.steps.map((s) => s.count));
   return (
-    <section className="px-6 sm:px-8 py-4 border-t border-line-subtle">
+    <section className="px-6 sm:px-8 lg:px-12 py-4 border-t border-line-subtle">
       <h2 className="text-ui-sm uppercase tracking-[0.12em] text-ink-tertiary mb-3">
         Engagement-Funnel (30 Tage)
       </h2>

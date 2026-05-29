@@ -160,7 +160,7 @@ export default function BrandingEditorPage() {
   }
   if (!branding) {
     return (
-      <div className="px-6 sm:px-8 py-8">
+      <div className="px-6 sm:px-8 lg:px-12 py-8">
         <div className="text-ui text-semantic-danger">
           {error ?? "Profil nicht gefunden."}
         </div>
@@ -199,7 +199,7 @@ export default function BrandingEditorPage() {
         }
       />
 
-      <div className="px-6 sm:px-8 py-6 space-y-6 max-w-6xl">
+      <div className="px-6 sm:px-8 lg:px-12 py-6 space-y-6 max-w-6xl">
 
         {error && (
           <div className="text-sm text-semantic-danger bg-semantic-danger/10 border border-semantic-danger/30 rounded-md px-3 py-2">

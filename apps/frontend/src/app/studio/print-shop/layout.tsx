@@ -29,7 +29,7 @@ export default function PrintShopLayout({
   const pathname = usePathname() ?? "";
   return (
     <>
-      <header className="px-6 sm:px-8 pt-6 pb-5 border-b border-line-subtle">
+      <header className="px-6 sm:px-8 lg:px-12 pt-6 pb-5 border-b border-line-subtle">
         <h1 className="text-display text-ink-primary font-medium tracking-tight">
           Print-Shop
         </h1>
@@ -43,7 +43,7 @@ export default function PrintShopLayout({
         className="border-b border-line-subtle overflow-x-auto"
         aria-label="Print-Shop-Navigation"
       >
-        <nav className="flex items-center gap-0.5 px-6 sm:px-8 min-w-max">
+        <nav className="flex items-center gap-0.5 px-6 sm:px-8 lg:px-12 min-w-max">
           {TABS.map((tab) => {
             const active = tab.exact
               ? pathname === tab.href
@@ -66,7 +66,7 @@ export default function PrintShopLayout({
         </nav>
       </div>
 
-      <div className="px-6 sm:px-8 py-6 max-w-5xl">{children}</div>
+      <div className="px-6 sm:px-8 lg:px-12 py-6 max-w-5xl">{children}</div>
     </>
   );
 }

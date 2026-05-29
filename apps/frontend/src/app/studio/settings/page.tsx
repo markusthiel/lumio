@@ -306,7 +306,7 @@ export default function StudioSettingsPage() {
   }
   if (!settings) {
     return (
-      <div className="px-6 sm:px-8 py-8">
+      <div className="px-6 sm:px-8 lg:px-12 py-8">
         <div className="text-ui text-semantic-danger">
           {error ?? "Settings konnten nicht geladen werden."}
         </div>
@@ -325,7 +325,7 @@ export default function StudioSettingsPage() {
         description={settings.name}
       />
 
-      <div className="px-6 sm:px-8 py-6 space-y-6 max-w-4xl">
+      <div className="px-6 sm:px-8 lg:px-12 py-6 space-y-6 max-w-4xl">
 
         {error && (
           <div className="text-ui-sm text-semantic-danger bg-semantic-danger/10 border border-semantic-danger/30 rounded-sm px-3 py-2">
