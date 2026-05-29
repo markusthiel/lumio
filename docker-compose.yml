@@ -9,7 +9,9 @@ services:
   # Reverse Proxy — TLS, HTTP/3, Routing
   # ---------------------------------------------------------------------------
   caddy:
-    image: caddy:2-alpine
+    build:
+      context: .
+      dockerfile: infra/caddy/Dockerfile
     container_name: lumio_caddy
     restart: unless-stopped
     environment:
@@ -254,12 +256,46 @@ services:
     networks:
       - lumio_net
 
+  # ---------------------------------------------------------------------------
+  # acme-dns — DNS-Server NUR für ACME-Challenges
+  # ---------------------------------------------------------------------------
+  # Eigener winziger DNS-Server, der ausschließlich _acme-challenge-TXT-
+  # Records bedient. Nötig für Wildcard-Zertifikate (LE verlangt DNS-01,
+  # nicht HTTP-01) wenn der DNS-Provider keinen API-Zugang bietet.
+  #
+  # Setup:
+  #   1. Beim DNS-Provider zwei Records setzen:
+  #        auth.<DOMAIN>   A    <SERVER-IP>
+  #        auth.<DOMAIN>   NS   auth.<DOMAIN>
+  #   2. Account anlegen via:
+  #        curl -X POST https://auth.<DOMAIN>/register
+  #   3. Beim DNS-Provider CNAME setzen:
+  #        _acme-challenge.<DOMAIN>   CNAME   <subdomain-aus-register>.auth.<DOMAIN>
+  #   4. Credentials aus register-Response in caddy.acme-dns.json schreiben.
+  #
+  # Port 53 muss von außen erreichbar sein (DNS-Queries von Let's Encrypt).
+  # Cloud-Firewall: TCP+UDP 53 inbound erlauben.
+  acme_dns:
+    image: joohoi/acme-dns:latest
+    container_name: lumio_acme_dns
+    restart: unless-stopped
+    ports:
+      - "53:53/udp"
+      - "53:53/tcp"
+      - "127.0.0.1:8053:80"  # API nur intern + via Caddy reverse-proxied
+    volumes:
+      - ./infra/acme-dns/config.cfg:/etc/acme-dns/config.cfg:ro
+      - acme_dns_data:/var/lib/acme-dns
+    networks:
+      - lumio_net
+
 volumes:
   postgres_data:
   redis_data:
   minio_data:
   caddy_data:
   caddy_config:
+  acme_dns_data:
 
 networks:
   lumio_net:
