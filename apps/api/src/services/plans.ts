@@ -45,7 +45,7 @@ export const PLANS: Record<PlanSlug, PlanLimits> = {
   trial: {
     name: "Trial",
     description: "14 Tage Vollzugriff zum Testen",
-    storageGib: 50,
+    storageGib: 100,
     activeGalleries: 10,
     brandings: 1,
     customDomains: 1,
@@ -57,7 +57,7 @@ export const PLANS: Record<PlanSlug, PlanLimits> = {
   solo: {
     name: "Solo",
     description: "Für Hobby- und Nebenberufs-Fotografen",
-    storageGib: 50,
+    storageGib: 500,
     activeGalleries: 10,
     brandings: 0,
     customDomains: 0,
@@ -69,7 +69,7 @@ export const PLANS: Record<PlanSlug, PlanLimits> = {
   studio: {
     name: "Studio",
     description: "Für hauptberufliche Fotografen",
-    storageGib: 250,
+    storageGib: 1000,
     activeGalleries: 50,
     brandings: 1,
     customDomains: 1,
@@ -81,7 +81,7 @@ export const PLANS: Record<PlanSlug, PlanLimits> = {
   pro: {
     name: "Pro",
     description: "Für Studios mit Mitarbeitern und mehreren Marken",
-    storageGib: 1000,
+    storageGib: 3000,
     activeGalleries: Number.POSITIVE_INFINITY,
     brandings: 5,
     customDomains: Number.POSITIVE_INFINITY,
