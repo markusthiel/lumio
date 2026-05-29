@@ -21,6 +21,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { LegalFooter } from "@/components/LegalFooter";
 import { useT } from "@/lib/i18n";
 import { api } from "@/lib/api";
 import { GlobalSearchModal } from "@/components/studio/GlobalSearchModal";
@@ -364,6 +365,7 @@ function SidebarFooter({ onNavigate }: { onNavigate: () => void }) {
       >
         {logoutLabel}
       </button>
+      <LegalFooter className="mt-2" />
     </div>
   );
 }

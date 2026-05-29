@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { Branding } from "@/lib/api";
+import { api, type Branding } from "@/lib/api";
 import { useT, useLocale } from "@/lib/i18n";
 import { bunnyFontsCssUrl, resolveFontStack } from "@/lib/fonts";
 
@@ -82,6 +82,25 @@ export function GalleryShell({
     link.href = branding.faviconUrl;
     if (!existing) document.head.appendChild(link);
   }, [branding?.faviconUrl]);
+
+  // Rechtliche Links des Betreibers (Impressum/Datenschutz) aus der
+  // Instanz-Config. Bei Self-Hostern ohne Config bleibt es leer.
+  const [legal, setLegal] = useState<{
+    imprintUrl: string | null;
+    privacyUrl: string | null;
+  } | null>(null);
+  useEffect(() => {
+    let active = true;
+    api
+      .getAppMeta()
+      .then((m) => {
+        if (active) setLegal(m.legal);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Galerie-Overrides haben Vorrang vor Branding-Werten.
   const primary =
@@ -269,6 +288,34 @@ export function GalleryShell({
               ? t("gallery.poweredBy")
               : branding?.footerText ?? t("gallery.poweredBy")}
           </div>
+          {legal && (legal.imprintUrl || legal.privacyUrl) && (
+            <div
+              className="flex items-center gap-3 shrink-0"
+              style={{ color: mutedColor }}
+            >
+              {legal.imprintUrl && (
+                <a
+                  href={legal.imprintUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:underline"
+                >
+                  Impressum
+                </a>
+              )}
+              {legal.imprintUrl && legal.privacyUrl && <span aria-hidden>·</span>}
+              {legal.privacyUrl && (
+                <a
+                  href={legal.privacyUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:underline"
+                >
+                  Datenschutz
+                </a>
+              )}
+            </div>
+          )}
           {supported.length > 1 && (
             <LocaleSwitcher
               locale={locale}

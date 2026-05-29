@@ -468,6 +468,13 @@ export const api = {
    *  Default-Branding (Logo, Farben, Background, Greeting) für
    *  eine markenkonforme Login-Page. tenant: null wenn Apex ohne
    *  erkennbaren Tenant. */
+  /** App-weite öffentliche Config (rechtliche Links des Betreibers).
+   *  Ohne Auth abrufbar — für Footer auf Login/Galerie/Studio. */
+  getAppMeta: () =>
+    request<{
+      legal: { imprintUrl: string | null; privacyUrl: string | null };
+    }>(`/meta`),
+
   getTenantContext: () =>
     request<{
       tenant: {

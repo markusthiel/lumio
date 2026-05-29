@@ -37,6 +37,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { LegalFooter } from "@/components/LegalFooter";
 import { startAuthentication } from "@simplewebauthn/browser";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -538,7 +539,10 @@ export default function LoginPage() {
           greeting={branding.loginGreeting}
         />
         <section className="flex-1 flex items-center justify-center p-6 lg:p-10 min-h-[60vh] lg:min-h-screen">
-          <div className="w-full max-w-sm animate-fade-in">{formCard}</div>
+          <div className="w-full max-w-sm animate-fade-in">
+            {formCard}
+            <LegalFooter className="mt-8" />
+          </div>
         </section>
       </main>
     );
@@ -582,6 +586,7 @@ export default function LoginPage() {
           )}
         </div>
         {formCard}
+        <LegalFooter className="mt-8" />
       </div>
     </main>
   );

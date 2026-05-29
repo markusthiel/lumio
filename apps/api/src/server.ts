@@ -28,6 +28,7 @@ import { registerHlsRoutes } from "./routes/hls.js";
 import { registerZipRoutes } from "./routes/zip.js";
 import { registerSettingsRoutes } from "./routes/settings.js";
 import { registerDpaRoutes } from "./routes/dpa.js";
+import { registerMetaRoutes } from "./routes/meta.js";
 import { registerExportRoutes } from "./routes/export.js";
 import { registerBrandingRoutes } from "./routes/brandings.js";
 import { registerTemplateRoutes } from "./routes/templates.js";
@@ -135,6 +136,7 @@ async function buildServer() {
       await registerZipRoutes(api);
       await registerSettingsRoutes(api);
       await registerDpaRoutes(api);
+      await registerMetaRoutes(api);
       await registerExportRoutes(api);
       await registerBrandingRoutes(api);
       await registerTemplateRoutes(api);

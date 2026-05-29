@@ -116,6 +116,8 @@ services:
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY:-}
       - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET:-}
       - LOG_LEVEL=${LOG_LEVEL:-info}
+      - LUMIO_LEGAL_IMPRINT_URL=${LUMIO_LEGAL_IMPRINT_URL:-}
+      - LUMIO_LEGAL_PRIVACY_URL=${LUMIO_LEGAL_PRIVACY_URL:-}
     # Auch hier: direkter Port ist Debug-Hilfe, regulärer Zugriff geht durch
     # Caddy → /api/*.
     ports:

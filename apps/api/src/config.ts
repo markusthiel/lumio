@@ -25,6 +25,14 @@ const envSchema = z.object({
    * Anzeige ohne Soll/Ist-Abgleich). */
   LUMIO_PUBLIC_IP: z.string().optional(),
 
+  /** Rechtliche Links des Betreibers (Impressum / Datenschutz). Werden
+   *  als Footer-Links auf Login-, Galerie- und Studio-Seiten angezeigt.
+   *  Self-Hoster setzen hier ihre eigenen URLs; bleibt es leer, wird
+   *  kein Link angezeigt. Absolute URL empfohlen (z.B.
+   *  https://example.de/impressum), relative Pfade sind erlaubt. */
+  LUMIO_LEGAL_IMPRINT_URL: z.string().optional(),
+  LUMIO_LEGAL_PRIVACY_URL: z.string().optional(),
+
   DATABASE_URL: z.string().min(1),
   REDIS_URL: z.string().default("redis://redis:6379"),
 
