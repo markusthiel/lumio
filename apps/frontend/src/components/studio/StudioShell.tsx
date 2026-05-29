@@ -22,6 +22,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LegalFooter } from "@/components/LegalFooter";
+import { StudioSubTabs } from "@/components/studio/StudioSubTabs";
 import { useT } from "@/lib/i18n";
 import { api } from "@/lib/api";
 import { GlobalSearchModal } from "@/components/studio/GlobalSearchModal";
@@ -40,6 +41,10 @@ interface NavItem {
   fallback: string;
   // Matcher: aktiv wenn pathname mit prefix anfängt
   prefix: string;
+  /** Sammeleintrag: aktiv, wenn der Pfad mit einem dieser Prefixe
+   *  beginnt (gruppiert mehrere Unterseiten unter einem Menüpunkt;
+   *  die Unterseiten erscheinen als Tab-Leiste via StudioSubTabs). */
+  matchPrefixes?: string[];
   /** Wenn gesetzt: nur User mit einer dieser Rollen sehen den Eintrag.
    *  Member-User sehen z.B. Team gar nicht — sie sind keine Studio-
    *  Verwaltung. Wenn das Feld fehlt: fuer alle eingeloggten User
@@ -53,19 +58,25 @@ interface NavItem {
 const NAV: NavItem[] = [
   { href: "/studio",            labelKey: "nav.galleries",  fallback: "Galerien",      prefix: "/studio" },
   { href: "/studio/analytics",  labelKey: "nav.analytics",  fallback: "Analytics",     prefix: "/studio/analytics",  rolesAllowed: ["owner", "admin"], requiresFeature: "advanced_analytics" },
-  { href: "/studio/team",       labelKey: "nav.team",       fallback: "Team",          prefix: "/studio/team",       rolesAllowed: ["owner", "admin"] },
-  { href: "/studio/brandings",  labelKey: "nav.brandings",  fallback: "Branding",      prefix: "/studio/brandings" },
-  { href: "/studio/templates",  labelKey: "nav.templates",  fallback: "Templates",     prefix: "/studio/templates" },
-  { href: "/studio/tags",       labelKey: "nav.tags",       fallback: "Tags",          prefix: "/studio/tags" },
   { href: "/studio/print-shop", labelKey: "nav.printShop",  fallback: "Print-Shop",    prefix: "/studio/print-shop", rolesAllowed: ["owner", "admin"], requiresFeature: "print_shop" },
-  { href: "/studio/webhooks",   labelKey: "nav.webhooks",   fallback: "Webhooks",      prefix: "/studio/webhooks" },
-  { href: "/studio/audit",      labelKey: "nav.audit",      fallback: "Audit",         prefix: "/studio/audit" },
-  { href: "/studio/exports",    labelKey: "nav.exports",    fallback: "Datenexport",   prefix: "/studio/exports" },
-  { href: "/studio/avv",        labelKey: "nav.dpa",        fallback: "AV-Vertrag",    prefix: "/studio/avv",        rolesAllowed: ["owner", "admin"] },
-  { href: "/studio/billing",    labelKey: "nav.billing",    fallback: "Plan & Speicher", prefix: "/studio/billing" },
-  { href: "/studio/account",    labelKey: "nav.account",    fallback: "Mein Konto",    prefix: "/studio/account" },
-  { href: "/studio/settings",   labelKey: "nav.settings",   fallback: "Einstellungen", prefix: "/studio/settings" },
+  // Sammeleintrag „Gestaltung" → Tabs: Branding · Templates · Tags
+  { href: "/studio/brandings",  labelKey: "nav.design",     fallback: "Gestaltung",    prefix: "/studio/brandings",
+    matchPrefixes: ["/studio/brandings", "/studio/templates", "/studio/tags"] },
+  // Sammeleintrag „Einstellungen" → Tabs: Allgemein · Team · Integrationen · Datenexport · Audit · AV-Vertrag
+  { href: "/studio/settings",   labelKey: "nav.settings",   fallback: "Einstellungen", prefix: "/studio/settings",
+    matchPrefixes: ["/studio/settings", "/studio/team", "/studio/webhooks", "/studio/exports", "/studio/audit", "/studio/avv"] },
+  // Sammeleintrag „Konto" → Tabs: Mein Konto · Plan & Speicher
+  { href: "/studio/account",    labelKey: "nav.accountGroup", fallback: "Konto",       prefix: "/studio/account",
+    matchPrefixes: ["/studio/account", "/studio/billing"] },
 ];
+
+// Top-Level-Segmente, die KEINE Galerie sind — damit der „Galerien"-
+// Eintrag bei /studio/<bekanntes-segment> nicht fälschlich aktiv wird.
+const RESERVED_SEGMENTS = new Set([
+  "analytics", "print-shop", "brandings", "templates", "tags",
+  "settings", "team", "webhooks", "exports", "audit", "avv",
+  "account", "billing",
+]);
 
 export function StudioShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -234,6 +245,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
         <PreArchiveBanner />
         <SubscriptionBanner />
         <StorageBanner />
+        <StudioSubTabs userRole={userRole} features={features} />
         {children}
       </main>
       </div>
@@ -304,16 +316,23 @@ function SidebarLink({
 }) {
   const t = useT();
   const pathname = usePathname();
-  // /studio matched nur exakt UND als /studio/<id>; Subpages (brandings,
-  // templates, …) sind aber separat. Wir machen das simpel: exakter
-  // Match für /studio (sonst würden alle Items als aktiv gelten), und
-  // startsWith für die Subpages.
-  const active =
-    item.prefix === "/studio"
-      ? pathname === "/studio" ||
-        /^\/studio\/[^/]+$/.test(pathname) ||
-        false
-      : pathname.startsWith(item.prefix);
+  // Sammeleintrag (Gestaltung/Einstellungen/Konto): aktiv, sobald der
+  // Pfad zu einer seiner Unterseiten gehört. Galerien: exakt /studio
+  // oder /studio/<galerie-id> — aber nicht bei reservierten Segmenten
+  // (settings, team, …), die zu anderen Menüpunkten gehören.
+  const active = (() => {
+    if (item.matchPrefixes) {
+      return item.matchPrefixes.some(
+        (p) => pathname === p || pathname.startsWith(p + "/")
+      );
+    }
+    if (item.prefix === "/studio") {
+      if (pathname === "/studio") return true;
+      const m = pathname.match(/^\/studio\/([^/]+)/);
+      return Boolean(m && !RESERVED_SEGMENTS.has(m[1]));
+    }
+    return pathname === item.prefix || pathname.startsWith(item.prefix + "/");
+  })();
 
   // i18n-Lookup mit Fallback
   const label = (() => {

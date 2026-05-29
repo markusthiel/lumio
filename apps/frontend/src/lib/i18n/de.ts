@@ -495,7 +495,7 @@ export const de: Dict = {
   },
 
   settings: {
-    title: "Einstellungen",
+    title: "Allgemein",
     branding: "Branding",
     brandingDesc:
       "Logo, Farben, Schrift und Texte für deine Kunden-Galerien.",
