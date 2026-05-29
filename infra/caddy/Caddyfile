@@ -102,6 +102,28 @@
 }
 
 # -----------------------------------------------------------------------------
+# Marketing-Sites (optional, je nach Deployment)
+# -----------------------------------------------------------------------------
+# Statische Astro-Sites neben dem App-Stack. Im selben Docker-Netz wie
+# Lumio (lumio_net via external: true in deren Compose-Files), Caddy
+# proxiert auf die Container-DNS-Namen. Beide Blöcke sind opt-in — falls
+# du nur Lumio fährst, kannst du sie löschen oder ignorieren (Caddy
+# liefert die Domains dann mangels DNS einfach nicht aus).
+#
+# Wenn deine Marketing-Sites unter anderen Domains laufen, hier
+# entsprechend ändern. Cert wird von Caddy automatisch geholt
+# (HTTP-01-Challenge, kein DNS-Setup nötig solange A-Record steht).
+lumio-cloud.de {
+	reverse_proxy lumio-cloud-de-web-1:4321
+	encode zstd gzip
+}
+
+lumio-app.de {
+	reverse_proxy lumio-app-de-web-1:80
+	encode zstd gzip
+}
+
+# -----------------------------------------------------------------------------
 # Custom-Domains — Catch-All
 # -----------------------------------------------------------------------------
 # Greift wenn der Host-Header keiner der spezifischeren Blöcke darüber
