@@ -35,6 +35,11 @@ import {
   planLookupKey,
   type PlanSlug,
 } from "../services/plans.js";
+import {
+  RESERVED_SLUGS,
+  suggestSlug,
+  validateSlugFormat,
+} from "../services/slugs.js";
 
 const signupSchema = z.object({
   email: z.string().email().toLowerCase().max(200),
@@ -42,6 +47,9 @@ const signupSchema = z.object({
   studioName: z.string().min(1).max(120),
   // optional, aber UX-mäßig sinnvoll für die Mailing-Anrede
   name: z.string().max(120).optional(),
+  // Slug optional — wenn der User auf der Marketing-Site einen wählt,
+  // nehmen wir den (nach Validation). Sonst leiten wir aus studioName ab.
+  slug: z.string().min(3).max(30).optional(),
   // Plan + Intervall — Default ist studio/monthly wenn nicht spezifiziert.
   // Trial ist nicht direkt wählbar (entsteht automatisch in der ersten
   // Subscription mit trial_period_days=14).
@@ -57,16 +65,10 @@ const cookieOpts = (maxAgeDays: number) => ({
   maxAge: maxAgeDays * 24 * 60 * 60,
 });
 
-/** Slug aus Studio-Name oder E-Mail ableiten. Max 50 chars, nur
- *  [a-z0-9-]. Bei Kollision: numerischer Suffix. */
+/** Slug aus Studio-Name oder E-Mail ableiten. Bei Kollision: numerischer
+ *  Suffix. Format-Validation kommt via suggestSlug aus services/slugs.ts. */
 async function generateUniqueSlug(input: string): Promise<string> {
-  const base = input
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // diacritics raus
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 50) || "studio";
+  const base = suggestSlug(input);
 
   let slug = base;
   let counter = 1;
@@ -75,7 +77,7 @@ async function generateUniqueSlug(input: string): Promise<string> {
       where: { slug },
       select: { id: true },
     });
-    if (!existing) return slug;
+    if (!existing && !RESERVED_SLUGS.has(slug)) return slug;
     counter++;
     slug = `${base}-${counter}`;
     if (counter > 99) {
@@ -118,6 +120,7 @@ export async function registerSignupRoutes(app: FastifyInstance) {
         email: "Bitte gib eine gültige E-Mail-Adresse ein.",
         password: "Passwort muss mindestens 8 Zeichen lang sein.",
         studioName: "Studio-Name darf nicht leer sein.",
+        slug: "Studio-Name muss 3-30 Zeichen lang sein (Kleinbuchstaben, Zahlen, Bindestrich).",
         name: "Name ist zu lang.",
         plan: "Ungültiger Plan.",
         interval: "Ungültiges Intervall.",
@@ -177,9 +180,37 @@ export async function registerSignupRoutes(app: FastifyInstance) {
       });
     }
 
-    // Slug aus Studio-Name generieren (fallback: E-Mail-Lokalteil)
-    const slugBase = body.studioName || body.email.split("@")[0];
-    const slug = await generateUniqueSlug(slugBase);
+    // Slug auflösen: entweder vom User gewählt (validieren + auf
+    // Verfügbarkeit prüfen) oder automatisch aus dem Studio-Namen
+    // ableiten. Selber-Wählen ist UX-mässig nett ("foto-mueller" statt
+    // "saro-photography-3"), aber kein Pflichtfeld.
+    let slug: string;
+    if (body.slug) {
+      const formatCheck = validateSlugFormat(body.slug);
+      if (!formatCheck.ok) {
+        return reply.status(400).send({
+          error: "invalid_slug",
+          field: "slug",
+          message: formatCheck.message,
+          reason: formatCheck.error,
+        });
+      }
+      const taken = await prisma.tenant.findUnique({
+        where: { slug: body.slug },
+        select: { id: true },
+      });
+      if (taken) {
+        return reply.status(409).send({
+          error: "slug_taken",
+          field: "slug",
+          message: "Dieser Studio-Name ist bereits vergeben.",
+        });
+      }
+      slug = body.slug;
+    } else {
+      const slugBase = body.studioName || body.email.split("@")[0];
+      slug = await generateUniqueSlug(slugBase);
+    }
 
     // Tenant + Owner-User + initiale BillingSubscription-Row in
     // einer Transaktion anlegen. Stripe-Customer erstellen wir
@@ -373,6 +404,54 @@ export async function registerSignupRoutes(app: FastifyInstance) {
         select: { id: true },
       });
       return { available: !taken };
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // POST /signup/check-slug
+  // -------------------------------------------------------------------------
+  // Slug-Live-Check für die Sign-up-Form: Format-Validation +
+  // DB-Verfügbarkeit. Wir geben strukturierte Antwort zurück damit das
+  // Frontend genau anzeigen kann, was kaputt ist (zu kurz, ungültige
+  // Zeichen, reserviert, vergeben). Rate-Limit gegen Brute-Force-
+  // Enumeration aller Slugs.
+  app.post<{ Body: { slug?: string } }>(
+    "/signup/check-slug",
+    {
+      config: {
+        rateLimit: { max: 30, timeWindow: "1 minute" },
+      },
+    },
+    async (req, reply) => {
+      const body = z
+        .object({ slug: z.string().min(1).max(50) })
+        .safeParse(req.body);
+      if (!body.success) {
+        return reply
+          .status(400)
+          .send({ available: false, reason: "invalid_input" });
+      }
+      const slug = body.data.slug.toLowerCase().trim();
+      const format = validateSlugFormat(slug);
+      if (!format.ok) {
+        return {
+          available: false,
+          reason: format.error,
+          message: format.message,
+        };
+      }
+      const taken = await prisma.tenant.findUnique({
+        where: { slug },
+        select: { id: true },
+      });
+      if (taken) {
+        return {
+          available: false,
+          reason: "taken",
+          message: "Dieser Studio-Name ist bereits vergeben.",
+        };
+      }
+      return { available: true };
     }
   );
 }
