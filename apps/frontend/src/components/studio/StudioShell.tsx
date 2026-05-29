@@ -60,6 +60,7 @@ const NAV: NavItem[] = [
   { href: "/studio/webhooks",   labelKey: "nav.webhooks",   fallback: "Webhooks",      prefix: "/studio/webhooks" },
   { href: "/studio/audit",      labelKey: "nav.audit",      fallback: "Audit",         prefix: "/studio/audit" },
   { href: "/studio/exports",    labelKey: "nav.exports",    fallback: "Datenexport",   prefix: "/studio/exports" },
+  { href: "/studio/avv",        labelKey: "nav.dpa",        fallback: "AV-Vertrag",    prefix: "/studio/avv",        rolesAllowed: ["owner", "admin"] },
   { href: "/studio/billing",    labelKey: "nav.billing",    fallback: "Plan & Speicher", prefix: "/studio/billing" },
   { href: "/studio/account",    labelKey: "nav.account",    fallback: "Mein Konto",    prefix: "/studio/account" },
   { href: "/studio/settings",   labelKey: "nav.settings",   fallback: "Einstellungen", prefix: "/studio/settings" },

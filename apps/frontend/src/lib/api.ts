@@ -1782,6 +1782,28 @@ export const api = {
         }
     >(`/settings/custom-domain/status`),
 
+  // --- AVV / Auftragsverarbeitungsvertrag (Art. 28 DSGVO) ---
+
+  /** Status: Stammdaten-Vollständigkeit, aktuelle Version, letzter Abschluss. */
+  getDpaStatus: () => request<DpaStatus>(`/dpa/status`),
+
+  /** Stammdaten des Verantwortlichen speichern (owner/admin). */
+  updateDpaCompany: (patch: Partial<DpaCompany>) =>
+    request<{ company: DpaCompany; companyComplete: boolean }>(`/dpa/company`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+
+  /** Vertrag elektronisch abschließen (owner/admin). */
+  acceptDpa: () =>
+    request<{ acceptance: DpaAcceptanceInfo; upToDate: boolean }>(`/dpa/accept`, {
+      method: "POST",
+    }),
+
+  /** URL des AVV-HTML — per window.open in neuem Tab öffnen; der Session-
+   *  Cookie wird automatisch mitgesendet, daher kein Token-Handling nötig. */
+  dpaDocumentUrl: () => `${API_URL}/api/v1/dpa/document`,
+
   updateTenantSettings: (patch: {
     displayName?: string | null;
     watermarkText?: string | null;
@@ -3416,6 +3438,34 @@ export interface TenantSettings {
 export interface UploadLimits {
   defaultMib: number;
   hardCapMib: number;
+}
+
+/** Stammdaten des Verantwortlichen für den AVV (Art. 28 DSGVO). */
+export interface DpaCompany {
+  legalName: string | null;
+  legalStreet: string | null;
+  legalPostalCode: string | null;
+  legalCity: string | null;
+  legalCountry: string | null;
+  vatId: string | null;
+}
+
+export interface DpaAcceptanceInfo {
+  version: string;
+  acceptedAt: string;
+  acceptedByName: string | null;
+}
+
+export interface DpaStatus {
+  company: DpaCompany;
+  /** Stammdaten ausreichend für einen gültigen AVV (Name + Anschrift)? */
+  companyComplete: boolean;
+  /** Aktuelle Template-Version. */
+  currentVersion: string;
+  /** Letzter dokumentierter Abschluss (oder null). */
+  acceptance: DpaAcceptanceInfo | null;
+  /** True, wenn die zuletzt abgeschlossene Version der aktuellen entspricht. */
+  upToDate: boolean;
 }
 
 // -----------------------------------------------------------------------------
