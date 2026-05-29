@@ -280,8 +280,14 @@ services:
     container_name: lumio_acme_dns
     restart: unless-stopped
     ports:
-      - "53:53/udp"
-      - "53:53/tcp"
+      # Bewusst NICHT 0.0.0.0:53 — das kollidiert auf Ubuntu mit
+      # systemd-resolved, das auf 127.0.0.53:53 lauscht. Linux verbietet
+      # 0.0.0.0:X-Binds wenn schon 127.x:X gebunden ist (selbst loopback-
+      # only Listener machen 0.0.0.0 zum Konflikt). Lösung: an die
+      # öffentliche IP binden. ACME_DNS_BIND_IP muss in der .env
+      # auf die externe Server-IP gesetzt sein.
+      - "${ACME_DNS_BIND_IP}:53:53/udp"
+      - "${ACME_DNS_BIND_IP}:53:53/tcp"
       - "127.0.0.1:8053:80"  # API nur intern + via Caddy reverse-proxied
     volumes:
       - ./infra/acme-dns/config.cfg:/etc/acme-dns/config.cfg:ro
