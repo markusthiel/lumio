@@ -168,7 +168,7 @@ Die Auflösung passiert in der API in dieser Reihenfolge:
 1. **Eingeloggter User** – Session-Cookie verweist auf Tenant
 2. **`X-Lumio-Tenant`-Header** – für Mobile-App und API-Clients
 3. **Custom-Domain** – `kunden-fotos.de` matched gegen `tenants.customDomain`
-4. **Subdomain** – `studio-mueller.deine-domain.de` (braucht Wildcard-Cert, siehe [MULTI_TENANT.md](MULTI_TENANT.md))
+4. **Subdomain** – `studio-mueller.deine-domain.de` (braucht Wildcard-Cert, siehe [WILDCARD.md](WILDCARD.md))
 
 **Empfehlung für den Start:** alle Tenants login per `studio.deine-saas-domain.de`. Die Tenant-Auflösung läuft dann über den eingeloggten User. Custom-Domains und Subdomains kannst du später aktivieren – siehe MULTI_TENANT.md.
 

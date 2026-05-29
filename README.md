@@ -132,7 +132,7 @@ Alles optional. Das Quick-Start oben reicht für ein einzelnes Studio.
 | SaaS-Modus mit Stripe-Billing | [docs/SAAS_MODE.md](docs/SAAS_MODE.md) |
 | GPU-Beschleunigung (NVENC + KI-Tags) | [docs/GPU.md](docs/GPU.md) |
 | KI-Auto-Tagging (CLIP) | [docs/ML.md](docs/ML.md) |
-| Tenant-Subdomains via Wildcard-Cert | [docs/MULTI_TENANT.md#wildcards](docs/MULTI_TENANT.md#wildcards) |
+| Tenant-Subdomains via Wildcard-Cert | [docs/WILDCARD.md](docs/WILDCARD.md) |
 | Externes S3 statt MinIO (R2, B2, Hetzner, Wasabi) | [docs/STORAGE.md](docs/STORAGE.md) |
 | Backups, Migrationen, Re-Queue | [docs/OPERATIONS.md](docs/OPERATIONS.md) |
 | Mitwirken / Entwicklung | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) |
