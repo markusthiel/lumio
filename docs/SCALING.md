@@ -230,6 +230,24 @@ docker compose -f docker-compose.worker.yml --env-file .env.worker up -d --build
 
 Wichtig: Worker-Nodes nach dem Haupt-Server aktualisieren (erst Migrationen auf dem Haupt-Server via API, dann Worker), damit das DB-Schema passt.
 
+### Welche Änderung braucht welchen Server?
+
+| Geändert | Haupt-Server | Worker-Node(s) |
+|---|---|---|
+| `apps/frontend` (Studio-/Kunden-UI) | ✅ `up -d --build frontend` | — |
+| `apps/api` (Backend, Endpoints) | ✅ `up -d --build api` | — |
+| `apps/worker` (Bild/Video/RAW/ZIP-Verarbeitung) | ✅ `up -d --build worker` | ✅ `up -d --build` |
+| Compose-/Infra-Dateien | je nach betroffenem Service | nur wenn worker-relevant |
+| Doku, Marketing-Sites | — (bzw. eigener Marketing-Deploy) | — |
+
+Faustregel: Das Frontend und die API laufen **nur** auf dem Haupt-Server. Nur Änderungen an `apps/worker` (der Konvertierungs-Logik) müssen zusätzlich auf jeden Worker-Node ausgerollt werden. Der Haupt-Server-Standard-Deploy bleibt:
+
+```bash
+cd /opt/docker/lumio/lumio && git pull && docker compose \
+  -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.ml.yml \
+  up -d --build
+```
+
 ---
 
 ## Sicherheit — Zusammenfassung
