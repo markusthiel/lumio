@@ -5,6 +5,8 @@ Open-Source-Alternative zu Picdrop, Pixieset und Pic-Time — Daten bleiben bei 
 
 > ⚠️ **Status: Pre-Alpha.** In aktiver Entwicklung. Noch nicht produktionsreif. Daten sichern.
 
+![Lumio Galerie aus Kundensicht](docs/images/01-gallery.jpg)
+
 ---
 
 ## Für wen ist Lumio?
@@ -31,6 +33,10 @@ Im **Single-Mode** wird der Tenant beim ersten Start automatisch angelegt – du
 - 🔐 **Sicher** — Signed URLs, Argon2-Passwörter, Audit-Log
 - ☁️ **Storage-flexibel** — MinIO, S3, R2, B2, Wasabi, Hetzner Object Storage
 - 🐳 **Docker-First** — `docker compose up` und es läuft
+
+Das Studio — Galerien verwalten, Smart Collections, Tag-Filter, Team-Proofing:
+
+![Lumio Studio-Dashboard](docs/images/02-studio-dashboard.png)
 
 ---
 
