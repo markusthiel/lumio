@@ -17,6 +17,10 @@ export default function StudioSettingsPage() {
   const { locale, setLocale } = useLocale();
   const [settings, setSettings] = useState<TenantSettings | null>(null);
   const [uploadLimits, setUploadLimits] = useState<UploadLimits | null>(null);
+  const [deployment, setDeployment] = useState<{
+    mode: "single" | "multi";
+    domainBase: string | null;
+  } | null>(null);
   const [usage, setUsage] = useState<BillingUsage | null>(null);
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState("");
@@ -38,6 +42,7 @@ export default function StudioSettingsPage() {
       const res = await api.getTenantSettings();
       setSettings(res.tenant);
       setUploadLimits(res.uploadLimits);
+      setDeployment(res.deployment);
       setDisplayName(res.tenant.displayName ?? "");
       setText(res.tenant.watermarkText ?? "");
       setDomain(res.tenant.customDomain ?? "");
@@ -339,6 +344,63 @@ export default function StudioSettingsPage() {
             {t("settings.manage")}
           </Link>
         </section>
+
+        {/* Studio-URL — nur im Multi-Mode mit echter Tenant-Subdomain.
+            Single-Mode-Self-Hoster sehen das nicht (slug ist 'default'
+            und Subdomain ist bei ihnen kein Konzept — sie nutzen ihre
+            eigene Domain direkt). Wenn LUMIO_DOMAIN_BASE nicht gesetzt
+            ist, koennen wir keine sinnvolle URL bauen, daher auch hidden. */}
+        {deployment?.mode === "multi" &&
+          settings.slug !== "default" &&
+          deployment.domainBase && (
+            <section className="rounded-lg border border-line-subtle bg-surface-raised p-5 space-y-3">
+              <h2 className="text-sm font-medium">Studio-URL</h2>
+              <p className="text-xs text-ink-tertiary">
+                Dein Studio ist erreichbar unter folgender Adresse. Du
+                kannst sie zum Anmelden nutzen oder an Mitarbeiter:innen
+                weitergeben.
+              </p>
+              <div className="flex items-center gap-2 flex-wrap">
+                <code className="text-sm font-mono bg-surface-sunken px-3 py-2 rounded-md flex-1 min-w-0 truncate">
+                  https://{settings.slug}.{deployment.domainBase}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard?.writeText(
+                      `https://${settings.slug}.${deployment.domainBase}`
+                    );
+                  }}
+                  className="text-sm px-3 py-2 rounded-md border border-line-subtle hover:bg-surface-sunken"
+                >
+                  Kopieren
+                </button>
+              </div>
+              {settings.customDomain && (
+                <div className="pt-2 border-t border-line-subtle">
+                  <p className="text-xs text-ink-tertiary mb-2">
+                    Du hast außerdem eine eigene Domain konfiguriert:
+                  </p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <code className="text-sm font-mono bg-surface-sunken px-3 py-2 rounded-md flex-1 min-w-0 truncate">
+                      https://{settings.customDomain}
+                    </code>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard?.writeText(
+                          `https://${settings.customDomain}`
+                        );
+                      }}
+                      className="text-sm px-3 py-2 rounded-md border border-line-subtle hover:bg-surface-sunken"
+                    >
+                      Kopieren
+                    </button>
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
 
         {/* Custom Domain — Feature-Gate: nur ab Studio-Plan. Wir lassen
             die Section sichtbar (damit der User weiß dass das Feature

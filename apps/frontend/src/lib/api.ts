@@ -1746,9 +1746,14 @@ export const api = {
 
   // Tenant Settings
   getTenantSettings: () =>
-    request<{ tenant: TenantSettings; uploadLimits: UploadLimits }>(
-      `/settings`
-    ),
+    request<{
+      tenant: TenantSettings;
+      uploadLimits: UploadLimits;
+      deployment: {
+        mode: "single" | "multi";
+        domainBase: string | null;
+      };
+    }>(`/settings`),
 
   updateTenantSettings: (patch: {
     displayName?: string | null;

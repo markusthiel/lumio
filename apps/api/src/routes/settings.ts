@@ -84,6 +84,14 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
         defaultMib: config.MAX_FILE_SIZE_MIB,
         hardCapMib: config.MAX_UPLOAD_HARD_CAP_MIB,
       },
+      // Deployment-Kontext fuer Mode-spezifische UI-Entscheidungen.
+      // Single-Mode-Self-Hoster sollen z.B. die "Studio-URL"-Sektion
+      // gar nicht sehen, weil bei ihnen Slug-Subdomains keine Rolle
+      // spielen — sie nutzen ihre eigene Domain direkt.
+      deployment: {
+        mode: config.DEPLOYMENT_MODE,
+        domainBase: process.env.LUMIO_DOMAIN_BASE ?? null,
+      },
     };
   });
 
