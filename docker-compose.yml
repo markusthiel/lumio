@@ -36,11 +36,13 @@ services:
       - "${CADDY_HTTPS_PORT:-443}:443/udp"
     volumes:
       - ./infra/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./infra/caddy/secrets:/etc/caddy/secrets:ro
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
       - frontend
       - api
+      - acme_dns
     networks:
       - lumio_net
 

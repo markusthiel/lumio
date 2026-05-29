@@ -82,13 +82,22 @@
 # Tenant-Subdomains — <slug>.lumio-cloud.de (opt-in)
 # -----------------------------------------------------------------------------
 # Konfiguration über LUMIO_WILDCARD_HOST, z.B.:
-#   LUMIO_WILDCARD_HOST=*.lumio-cloud.de:80
+#   LUMIO_WILDCARD_HOST=*.lumio-cloud.de
 #
 # Wenn die Wildcard nicht aktiv sein soll, LUMIO_WILDCARD_HOST einfach
 # unverändert auf dem Default lassen — der Block fällt dann auf einen
 # unerreichbaren Loopback-Port (127.0.0.1:9), Caddy startet ohne Fehler
-# und der Block matcht nichts.
+# und der Block matcht nichts (und holt kein Cert).
+#
+# Bei aktiver Wildcard: Let's Encrypt verlangt für *.<DOMAIN> eine DNS-01-
+# Challenge (HTTP-01 funktioniert nicht für Wildcards). Wir nutzen acme-dns
+# als Vermittler — die Credentials liegen in infra/caddy/secrets/acmedns.json
+# (NIE in git committen!), CNAME _acme-challenge.<DOMAIN> zeigt auf den
+# acme-dns-Server. Setup siehe docs/MULTI_TENANT.md.
 {$LUMIO_WILDCARD_HOST:127.0.0.1:9} {
+	tls {
+		dns acmedns /etc/caddy/secrets/acmedns.json
+	}
 	import lumio_app
 }
 

@@ -19,6 +19,12 @@ build/
 .env.local
 .env.*.local
 !.env.example
+!.env.example.full
+
+# Caddy secrets (acme-dns credentials etc.)
+/infra/caddy/secrets/
+!/infra/caddy/secrets/.gitkeep
+!/infra/caddy/secrets/acmedns.json.example
 
 # Logs
 logs/
