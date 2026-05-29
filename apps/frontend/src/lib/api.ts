@@ -1752,8 +1752,31 @@ export const api = {
       deployment: {
         mode: "single" | "multi";
         domainBase: string | null;
+        publicIp: string | null;
       };
     }>(`/settings`),
+
+  /** Diagnose der Custom-Domain: DNS-Auflösung + TLS-Handshake. Polling-
+   *  freundlich; Caddy + DNS-Propagation kann mehrere Minuten brauchen. */
+  getCustomDomainStatus: () =>
+    request<
+      | { configured: false }
+      | {
+          configured: true;
+          domain: string;
+          expectedIp: string | null;
+          dns: {
+            resolved: string[];
+            cname: string | null;
+            correct: boolean;
+            error: string | null;
+          };
+          tls: {
+            status: "valid" | "pending" | "invalid" | "no_dns";
+            detail: string | null;
+          };
+        }
+    >(`/settings/custom-domain/status`),
 
   updateTenantSettings: (patch: {
     displayName?: string | null;

@@ -11,6 +11,41 @@ import { MotionSection } from "@/components/studio/MotionSection";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { useT, useLocale } from "@/lib/i18n";
 
+/** Kleine Status-Zeile mit farbigem Punkt + Label + Detail-Text.
+ *  Für Custom-Domain DNS- und TLS-Status. */
+function StatusRow({
+  label,
+  state,
+  message,
+}: {
+  label: string;
+  state: "ok" | "pending" | "warn";
+  message: string;
+}) {
+  const colors = {
+    ok: { dot: "bg-emerald-500", label: "text-emerald-700" },
+    pending: { dot: "bg-amber-500 animate-pulse", label: "text-amber-700" },
+    warn: { dot: "bg-red-500", label: "text-red-700" },
+  }[state];
+  const icon = state === "ok" ? "✓" : state === "pending" ? "⏳" : "⚠";
+  return (
+    <div className="flex items-start gap-2.5 text-xs">
+      <span
+        className={`shrink-0 w-2 h-2 rounded-full mt-1.5 ${colors.dot}`}
+        aria-hidden
+      />
+      <div className="flex-1 min-w-0">
+        <div className={`font-medium ${colors.label}`}>
+          {icon} {label}
+        </div>
+        <div className="text-ink-secondary mt-0.5 leading-relaxed">
+          {message}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function StudioSettingsPage() {
   const router = useRouter();
   const t = useT();
@@ -20,7 +55,11 @@ export default function StudioSettingsPage() {
   const [deployment, setDeployment] = useState<{
     mode: "single" | "multi";
     domainBase: string | null;
+    publicIp: string | null;
   } | null>(null);
+  const [customDomainStatus, setCustomDomainStatus] = useState<
+    Awaited<ReturnType<typeof api.getCustomDomainStatus>> | null
+  >(null);
   const [usage, setUsage] = useState<BillingUsage | null>(null);
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState("");
@@ -76,6 +115,43 @@ export default function StudioSettingsPage() {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Custom-Domain-Status pollen — beim ersten Speichern weiß man nicht
+  // ob DNS schon stimmt und Caddy ein Cert hat. Wir pollen alle 8s
+  // solange Status nicht "fertig" ist (= DNS korrekt + TLS valid).
+  // Sobald beides ok, stoppen. Bei configured=false (keine Domain
+  // eingetragen) gar nicht erst pollen.
+  useEffect(() => {
+    if (!settings?.customDomain) {
+      setCustomDomainStatus(null);
+      return;
+    }
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    async function tick() {
+      try {
+        const s = await api.getCustomDomainStatus();
+        if (cancelled) return;
+        setCustomDomainStatus(s);
+        // Weiter pollen wenn noch nicht alles gut ist
+        const done =
+          s.configured === false ||
+          (s.configured === true && s.dns.correct && s.tls.status === "valid");
+        if (!done) {
+          timer = setTimeout(tick, 8000);
+        }
+      } catch {
+        // Bei Fehler nicht weiter pollen — User sieht stale-Status oder
+        // null und kann manuell auf Speichern klicken um neu zu triggern
+      }
+    }
+    void tick();
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [settings?.customDomain]);
 
   async function saveDisplayName() {
     setDisplayNameSaving(true);
@@ -432,13 +508,35 @@ export default function StudioSettingsPage() {
               <p className="text-xs text-ink-tertiary">
                 Eigene Domain für deine Galerien — z.B.{" "}
                 <code className="bg-surface-sunken px-1 rounded">bilder.mein-studio.de</code>.
-                Richte einen CNAME oder A-Record auf die Lumio-Instanz, dann
-                trage die Domain hier ein. Galerien sind unter
+                Setze einen DNS-Eintrag, der auf deinen Lumio-Server zeigt,
+                dann trage die Domain hier ein. Galerien sind danach unter
                 <code className="bg-surface-sunken px-1 mx-1 rounded">
                   https://deine-domain/g/&lt;slug&gt;
                 </code>
                 erreichbar.
               </p>
+
+              {/* Konkrete DNS-Setup-Anweisungen mit echter Server-IP */}
+              {deployment?.publicIp && (
+                <div className="text-xs bg-surface-sunken rounded p-3 space-y-1.5">
+                  <div className="font-medium text-ink-secondary">
+                    DNS-Eintrag bei deinem Domain-Provider:
+                  </div>
+                  <div className="font-mono">
+                    <span className="text-ink-tertiary">Type:</span>{" "}
+                    <span className="text-ink-primary">A</span>
+                    {"  "}
+                    <span className="text-ink-tertiary">Wert:</span>{" "}
+                    <span className="text-ink-primary">
+                      {deployment.publicIp}
+                    </span>
+                  </div>
+                  <div className="text-ink-tertiary">
+                    Alternativ ein CNAME auf deine Lumio-Hauptdomain.
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-2">
                 <input
                   value={domain}
@@ -455,15 +553,51 @@ export default function StudioSettingsPage() {
                   {domainSaving ? "Speichert…" : "Speichern"}
                 </button>
               </div>
-              {settings.customDomain && (
-                <div className="text-xs text-ink-tertiary bg-semantic-warning/10 border border-semantic-warning/30 rounded p-2">
-                  <strong>Hinweis:</strong> DNS-Änderungen können bis zu 48h
-                  dauern, bis sie überall propagiert sind. Stelle sicher, dass
-                  ein TLS-Zertifikat für diese Domain bereitsteht (Caddy
-                  regelt das automatisch, wenn die Domain auf den Server
-                  zeigt).
-                </div>
-              )}
+
+              {/* Status-Anzeige nach dem Speichern: DNS + TLS-Cert */}
+              {settings.customDomain &&
+                customDomainStatus?.configured === true && (
+                  <div className="space-y-2 pt-1">
+                    <StatusRow
+                      label="DNS-Auflösung"
+                      state={
+                        customDomainStatus.dns.correct
+                          ? "ok"
+                          : customDomainStatus.dns.resolved.length === 0
+                          ? "pending"
+                          : "warn"
+                      }
+                      message={
+                        customDomainStatus.dns.correct
+                          ? `${customDomainStatus.domain} zeigt korrekt auf ${customDomainStatus.expectedIp}.`
+                          : customDomainStatus.dns.resolved.length === 0
+                          ? customDomainStatus.dns.error
+                            ? `Domain ist (noch) nicht auflösbar (${customDomainStatus.dns.error}). Propagation kann bis zu 1h dauern.`
+                            : "Domain ist (noch) nicht auflösbar."
+                          : `Domain zeigt aktuell auf ${customDomainStatus.dns.resolved.join(", ")} — erwartet wäre ${customDomainStatus.expectedIp}. Bitte DNS-Eintrag korrigieren.`
+                      }
+                    />
+                    <StatusRow
+                      label="TLS-Zertifikat"
+                      state={
+                        customDomainStatus.tls.status === "valid"
+                          ? "ok"
+                          : customDomainStatus.tls.status === "invalid"
+                          ? "warn"
+                          : "pending"
+                      }
+                      message={
+                        customDomainStatus.tls.status === "valid"
+                          ? "Aktiv und gültig."
+                          : customDomainStatus.tls.status === "no_dns"
+                          ? "Wartet auf DNS — sobald die Domain auflöst, holt Caddy ein Zertifikat."
+                          : customDomainStatus.tls.status === "pending"
+                          ? "Caddy holt gerade ein Zertifikat (kann 1–2 Minuten dauern)."
+                          : `Zertifikat noch nicht gültig (${customDomainStatus.tls.detail ?? "unbekannter Fehler"}).`
+                      }
+                    />
+                  </div>
+                )}
             </section>
           );
         })()}

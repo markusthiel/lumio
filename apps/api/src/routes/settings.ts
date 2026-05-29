@@ -9,6 +9,7 @@
  */
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { promises as dns } from "node:dns";
 
 import { prisma } from "../db.js";
 import { config } from "../config.js";
@@ -91,6 +92,11 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
       deployment: {
         mode: config.DEPLOYMENT_MODE,
         domainBase: process.env.LUMIO_DOMAIN_BASE ?? null,
+        // Öffentliche IP des Lumio-Servers — wird im Studio in den
+        // Custom-Domain-Setup-Anweisungen angezeigt, damit der Kunde
+        // weiß, worauf er seinen A-Record richten muss. Wenn nicht
+        // gesetzt, zeigt das UI generische Hinweise.
+        publicIp: process.env.LUMIO_PUBLIC_IP ?? null,
       },
     };
   });
@@ -180,6 +186,108 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
       },
     });
     return { tenant };
+  });
+
+  // -------------------------------------------------------------------------
+  // GET /settings/custom-domain/status
+  // -------------------------------------------------------------------------
+  // Diagnose für die Custom-Domain-Sektion im Studio. Pruefe ob die vom
+  // Tenant eingetragene Domain (a) per DNS auf unsere Server-IP zeigt
+  // und (b) ein gueltiges TLS-Zertifikat hat (Caddy laesst sich von
+  // ausserhalb nicht direkt abfragen, also TLS-Handshake-Probe).
+  //
+  // Beide Checks koennen "pending" sein — DNS propagiert evtl. noch,
+  // Caddy holt vielleicht gerade ein Cert. Das Frontend pollt diese
+  // Route in kurzen Abstaenden, bis beides "ok" ist.
+  app.get("/settings/custom-domain/status", async (req, reply) => {
+    req.requireAuth();
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: req.tenantId },
+      select: { customDomain: true },
+    });
+    if (!tenant?.customDomain) {
+      return { configured: false };
+    }
+
+    const domain = tenant.customDomain;
+    const expectedIp = process.env.LUMIO_PUBLIC_IP ?? null;
+
+    // DNS-Lookup mit kurzem Timeout. dns.lookup folgt CNAMEs automatisch
+    // und liefert die finale IP. resolveCname separat nur fuer die UI-
+    // Anzeige ("die Domain ist ein CNAME auf ...").
+    let dnsResolved: string[] = [];
+    let dnsCname: string | null = null;
+    let dnsError: string | null = null;
+    try {
+      const results = await Promise.race([
+        dns.resolve4(domain),
+        new Promise<never>((_, rej) =>
+          setTimeout(() => rej(new Error("dns_timeout")), 5000)
+        ),
+      ]);
+      dnsResolved = results;
+    } catch (err) {
+      dnsError = err instanceof Error ? err.message : String(err);
+    }
+    try {
+      const cnames = await dns.resolveCname(domain);
+      if (cnames.length > 0) dnsCname = cnames[0];
+    } catch {
+      // Kein CNAME → kein Fehler, ist normal bei A-Records
+    }
+
+    const dnsCorrect =
+      expectedIp !== null && dnsResolved.includes(expectedIp);
+
+    // TLS-Probe: HEAD-Request gegen https://<domain>/health (existierender
+    // unauthentifizierter Endpoint). Wenn TLS-Handshake durchlaeuft, ist
+    // das Cert gueltig. Bei Fehlern unterscheiden wir grobe Klassen.
+    let tlsStatus: "valid" | "pending" | "invalid" | "no_dns" = "no_dns";
+    let tlsDetail: string | null = null;
+    if (dnsResolved.length > 0) {
+      try {
+        const res = await fetch(`https://${domain}/health`, {
+          method: "HEAD",
+          redirect: "manual",
+          signal: AbortSignal.timeout(5000),
+        });
+        // Beliebige Antwort heisst: TLS hat funktioniert
+        tlsStatus = "valid";
+        void res;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        // Caddy ist noch dabei, ein Cert zu holen → ECONNREFUSED ist
+        // unwahrscheinlich (Lumio-Caddy laeuft ja), eher Cert-Fehler
+        // oder Connection-Reset.
+        tlsDetail = msg;
+        if (
+          msg.includes("CERT_") ||
+          msg.includes("certificate") ||
+          msg.includes("self-signed") ||
+          msg.includes("UNABLE_TO_VERIFY")
+        ) {
+          tlsStatus = "invalid";
+        } else {
+          tlsStatus = "pending";
+        }
+      }
+    }
+
+    return {
+      configured: true,
+      domain,
+      expectedIp,
+      dns: {
+        resolved: dnsResolved,
+        cname: dnsCname,
+        correct: dnsCorrect,
+        error: dnsError,
+      },
+      tls: {
+        status: tlsStatus,
+        detail: tlsDetail,
+      },
+    };
   });
 
   // -------------------------------------------------------------------------
