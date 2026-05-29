@@ -18,6 +18,8 @@
  * fuer jedes Tenant das den Print-Shop nutzt.
  */
 import { ManualSelfPrintAdapter } from "./adapters/manual-self-print.js";
+import { ProdigiAdapter } from "./adapters/prodigi.js";
+import { GelatoAdapter } from "./adapters/gelato.js";
 import {
   NotImplementedAdapter,
   type PrintAdapter,
@@ -84,8 +86,74 @@ const SELF_PRINT: PrintProviderDef = {
 };
 
 // =============================================================================
-// Externe Lab-Provider (Stubs fuer Phase 2+)
+// Externe Lab-Provider
 // =============================================================================
+
+// --- Implementiert (Self-Service-APIs, Stage beta bis live getestet) -------
+
+const PRODIGI: PrintProviderDef = {
+  key: "prodigi",
+  label: "Prodigi",
+  tagline:
+    "Self-Service-Print-Netz mit Fine-Art-Fokus und EU-Produktion. Kostenloser Account, sofort API-Key, Sandbox zum Testen.",
+  market: "EU,UK,US",
+  websiteUrl: "https://dashboard.prodigi.com",
+  apiKeyHelpUrl:
+    "https://www.prodigi.com/print-api/docs/reference/#authentication",
+  stage: "beta",
+  categories: ["print", "canvas", "frame", "metal_print", "poster"],
+  credentialFields: [
+    {
+      key: "apiKey",
+      label: "API-Key",
+      kind: "password",
+      required: true,
+      helpText:
+        "Im Prodigi-Dashboard unter Settings → 'Show API keys'. Für erste Tests den SANDBOX-Key nehmen (separater Key, getrennt vom Live-Key).",
+    },
+    {
+      key: "sandbox",
+      label: "Sandbox-Modus",
+      kind: "text",
+      required: false,
+      helpText:
+        "'true' eintragen für gefahrloses Testen (keine echten Drucke/Kosten). Für den Live-Betrieb leer lassen oder 'false' und den Live-API-Key verwenden.",
+    },
+  ],
+  adapter: new ProdigiAdapter(),
+};
+
+const GELATO: PrintProviderDef = {
+  key: "gelato",
+  label: "Gelato",
+  tagline:
+    "Globales Print-Netz mit sehr dichter EU-Produktion (u.a. Deutschland) — kurze Lieferwege. Kostenloser Account, API-Key über das API-Portal.",
+  market: "DE,EU,US",
+  websiteUrl: "https://dashboard.gelato.com",
+  apiKeyHelpUrl: "https://dashboard.gelato.com/docs/",
+  stage: "beta",
+  categories: ["print", "canvas", "frame", "metal_print", "poster", "photobook"],
+  credentialFields: [
+    {
+      key: "apiKey",
+      label: "API-Key",
+      kind: "password",
+      required: true,
+      helpText:
+        "Im Gelato-Dashboard über das API-Portal erstellen. Gelato hat keine separate Sandbox-URL — Tests laufen über das API-Portal bzw. den Live-Key.",
+    },
+    {
+      key: "currency",
+      label: "Währung",
+      kind: "text",
+      required: false,
+      helpText: "ISO-Währungscode für Bestellungen, z.B. EUR (Standard) oder USD.",
+    },
+  ],
+  adapter: new GelatoAdapter(),
+};
+
+// --- Stubs (Premium-Labs, API nur für verifizierte Partner) ----------------
 
 const WHITEWALL: PrintProviderDef = {
   key: "whitewall",
@@ -324,6 +392,8 @@ const BONUSPRINT: PrintProviderDef = {
  */
 export const PRINT_PROVIDERS: PrintProviderDef[] = [
   SELF_PRINT,
+  PRODIGI,
+  GELATO,
   WHITEWALL,
   SAAL_DIGITAL,
   CEWE_PRO,
