@@ -104,16 +104,46 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const body = loginSchema.parse(req.body);
 
-      if (!req.tenantId) {
-        return reply.status(400).send({
-          error: "tenant_unresolved",
-          message: "Tenant could not be resolved",
+      // Tenant-Resolution: primär aus req.tenantId (Cookie / X-Lumio-Tenant /
+      // Custom-Domain / Subdomain — siehe plugins/auth.ts). Fallback: wenn
+      // keine Auflösung möglich (typischer Fall: Multi-Mode auf der Apex-
+      // Domain ohne Wildcard-DNS), versuchen wir den Tenant aus dem
+      // Email-Lookup abzuleiten. Im SaaS-Standardfall ist eine Email genau
+      // einem User in einem Tenant zugeordnet — wir nehmen den ältesten
+      // aktiven User mit dieser Email; gibt es mehrere Treffer, gewinnt
+      // der zuerst angelegte Account. (Ein Tenant-Picker für mehrdeutige
+      // Fälle ist optional als Folge-Feature.)
+      let tenantId = req.tenantId;
+      if (!tenantId) {
+        const candidate = await prisma.user.findFirst({
+          where: {
+            email: body.email,
+            status: "active",
+            tenant: { status: { in: ["active", "pending_deletion"] } },
+          },
+          select: { tenantId: true },
+          orderBy: { createdAt: "asc" },
+        });
+        if (candidate) {
+          tenantId = candidate.tenantId;
+        }
+      }
+
+      // Constant-Time-Defense gegen Email-Enumeration: wenn weiterhin kein
+      // Tenant aufgelöst werden konnte, lassen wir trotzdem verifyPassword
+      // gegen den DUMMY_HASH laufen, damit die Antwortzeit identisch zur
+      // "User existiert, falsches Passwort"-Antwort bleibt.
+      if (!tenantId) {
+        await verifyPassword(DUMMY_HASH, body.password);
+        return reply.status(401).send({
+          error: "invalid_credentials",
+          message: "Invalid email or password",
         });
       }
 
       const user = await prisma.user.findUnique({
         where: {
-          tenantId_email: { tenantId: req.tenantId, email: body.email },
+          tenantId_email: { tenantId, email: body.email },
         },
         include: { tenant: { select: { status: true } } },
       });
@@ -137,7 +167,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         user?.tenant?.status === "pending_deletion";
       if (!user || user.status !== "active" || !validPwd || !tenantLoginAllowed) {
         await logEvent({
-          tenantId: req.tenantId,
+          tenantId,
           actorType: "user",
           actorId: user?.id ?? null,
           action: "auth.login.failed",
@@ -188,7 +218,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       reply.setCookie(SESSION_COOKIE, token, cookieOpts(30));
 
       await logEvent({
-        tenantId: req.tenantId,
+        tenantId,
         actorType: "user",
         actorId: user.id,
         action: "auth.login",
