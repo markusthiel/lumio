@@ -22,7 +22,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LegalFooter } from "@/components/LegalFooter";
-import { StudioSubTabs } from "@/components/studio/StudioSubTabs";
 import { useT } from "@/lib/i18n";
 import { api } from "@/lib/api";
 import { GlobalSearchModal } from "@/components/studio/GlobalSearchModal";
@@ -245,7 +244,6 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
         <PreArchiveBanner />
         <SubscriptionBanner />
         <StorageBanner />
-        <StudioSubTabs userRole={userRole} features={features} />
         {children}
       </main>
       </div>

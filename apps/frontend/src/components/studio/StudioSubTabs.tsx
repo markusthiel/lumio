@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { api } from "@/lib/api";
 
 type Role = "owner" | "admin" | "member";
 
@@ -71,14 +73,27 @@ function isOn(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(href + "/");
 }
 
-export function StudioSubTabs({
-  userRole,
-  features,
-}: {
-  userRole: Role | null;
-  features: string[];
-}) {
+export function StudioSubTabs() {
   const pathname = usePathname();
+  const [userRole, setUserRole] = useState<Role | null>(null);
+  const [features, setFeatures] = useState<string[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await api.me();
+        if (cancelled) return;
+        setUserRole(r.user.role);
+        setFeatures(r.features ?? []);
+      } catch {
+        if (!cancelled) setUserRole("member");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const group = SUB_GROUPS.find((g) =>
     g.match.some((p) => isOn(pathname, p))
