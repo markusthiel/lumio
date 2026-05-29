@@ -14,6 +14,17 @@ const envSchema = z.object({
   DEPLOYMENT_MODE: z.enum(["single", "multi"]).default("single"),
   PUBLIC_URL: z.string().url().default("http://localhost:3000"),
 
+  /** Basis-Domain für Subdomain-Tenant-Resolution (<slug>.<base>).
+   * Nur im Multi-Mode relevant. Wird auch für die Studio-URL-Anzeige
+   * und Custom-Domain-DNS-Hinweise verwendet. */
+  LUMIO_DOMAIN_BASE: z.string().optional(),
+  /** Öffentliche IP(v4) des Servers — für Custom-Domain-DNS-Checks.
+   * Wir zeigen dem User "setze einen A-Record auf <IP>" und können
+   * prüfen ob die DNS-Auflösung der Custom-Domain darauf zeigt. Wenn
+   * nicht gesetzt, wird der DNS-Vergleich übersprungen (nur Resolve-
+   * Anzeige ohne Soll/Ist-Abgleich). */
+  LUMIO_PUBLIC_IP: z.string().optional(),
+
   DATABASE_URL: z.string().min(1),
   REDIS_URL: z.string().default("redis://redis:6379"),
 

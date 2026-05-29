@@ -91,12 +91,12 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
       // spielen — sie nutzen ihre eigene Domain direkt.
       deployment: {
         mode: config.DEPLOYMENT_MODE,
-        domainBase: process.env.LUMIO_DOMAIN_BASE ?? null,
+        domainBase: config.LUMIO_DOMAIN_BASE ?? null,
         // Öffentliche IP des Lumio-Servers — wird im Studio in den
         // Custom-Domain-Setup-Anweisungen angezeigt, damit der Kunde
         // weiß, worauf er seinen A-Record richten muss. Wenn nicht
         // gesetzt, zeigt das UI generische Hinweise.
-        publicIp: process.env.LUMIO_PUBLIC_IP ?? null,
+        publicIp: config.LUMIO_PUBLIC_IP ?? null,
       },
     };
   });
@@ -210,7 +210,7 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
     }
 
     const domain = tenant.customDomain;
-    const expectedIp = process.env.LUMIO_PUBLIC_IP ?? null;
+    const expectedIp = config.LUMIO_PUBLIC_IP ?? null;
 
     // DNS-Lookup mit kurzem Timeout. dns.lookup folgt CNAMEs automatisch
     // und liefert die finale IP. resolveCname separat nur fuer die UI-
