@@ -40,6 +40,30 @@ Das Studio — Galerien verwalten, Smart Collections, Tag-Filter, Team-Proofing:
 
 ---
 
+## Einblicke
+
+**Proofing & Annotation** — Kunden liken, vergeben Color-Tags und zeichnen Markierungen direkt aufs Bild, mit Kommentaren pro Foto.
+
+![Proofing mit Markierungen und Color-Tags](docs/images/03-proofing.jpg)
+
+**KI-Auto-Tagging** — Bilder werden automatisch verschlagwortet (CLIP-Modell), Vorschläge lassen sich per Confidence-Schwelle filtern und übernehmen. Kunden können optional nach Tags filtern.
+
+![KI-Auto-Tagging mit Bilder-Grid](docs/images/04-ai-tagging.jpg)
+
+**Galerie-Gestaltung** — Pro Galerie: Layout, Bilder-Anordnung, Slideshow-Übergänge, Hero-Bild, Event-Logo, Farben. Whitelabel bis ins Detail.
+
+![Galerie-Gestaltung und Layouts](docs/images/05-gallery-design.png)
+
+**Analytics** — Aufrufe, beliebteste Bilder, Downloads und ein Engagement-Funnel von Besuch bis Bestellung.
+
+![Statistiken und Engagement-Funnel](docs/images/06-analytics.png)
+
+**Print-Shop** — Verkaufe Prints, Leinwände und Fotobücher direkt aus der Galerie. Eigene Anbieter, Produkte, Versand, optional mit Stripe-Bezahlung.
+
+![Print-Shop Setup](docs/images/07-print-shop.png)
+
+---
+
 ## Quick Start
 
 **5 Minuten von Null zu erster Galerie.** Voraussetzungen: Docker + Docker Compose v2.
