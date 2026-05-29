@@ -34,10 +34,81 @@ import {
   useDeletionStatus,
 } from "@/components/studio/DangerZone";
 
+type NavIconName =
+  | "galleries"
+  | "analytics"
+  | "print"
+  | "design"
+  | "settings"
+  | "account";
+
+/** Schlichte Linien-Icons für die Sidebar — gleicher Stil wie das
+ *  Such-Icon (24er viewBox, currentColor, stroke). */
+function NavIcon({ name }: { name: NavIconName }) {
+  const common = {
+    className: "w-[18px] h-[18px] shrink-0",
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.75,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+  switch (name) {
+    case "galleries":
+      return (
+        <svg {...common}>
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <circle cx="8.5" cy="8.5" r="1.5" />
+          <path d="m21 15-4.5-4.5L6 21" />
+        </svg>
+      );
+    case "analytics":
+      return (
+        <svg {...common}>
+          <path d="M3 3v18h18" />
+          <rect x="7" y="12" width="3" height="5" />
+          <rect x="13" y="8" width="3" height="9" />
+        </svg>
+      );
+    case "print":
+      return (
+        <svg {...common}>
+          <path d="M6 9V3h12v6" />
+          <path d="M6 18H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2" />
+          <rect x="6" y="14" width="12" height="7" rx="1" />
+        </svg>
+      );
+    case "design":
+      return (
+        <svg {...common}>
+          <path d="m14.5 3.5 6 6L8 22l-5 1 1-5z" />
+          <path d="m12.5 5.5 6 6" />
+        </svg>
+      );
+    case "settings":
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-2.81.66 1.65 1.65 0 0 0-1 1.51V22a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 8 20.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 3.6 15a1.65 1.65 0 0 0-1.51-1H2a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 3.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 8 4.6h.09A1.65 1.65 0 0 0 9 3.09V3a2 2 0 0 1 4 0v.09A1.65 1.65 0 0 0 14 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 20.4 9v.09A1.65 1.65 0 0 0 22 10a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+        </svg>
+      );
+    case "account":
+      return (
+        <svg {...common}>
+          <circle cx="12" cy="8" r="4" />
+          <path d="M4 21a8 8 0 0 1 16 0" />
+        </svg>
+      );
+  }
+}
+
 interface NavItem {
   href: string;
   labelKey: string;
   fallback: string;
+  /** Icon-Key für die Sidebar (siehe NavIcon). */
+  icon: NavIconName;
   // Matcher: aktiv wenn pathname mit prefix anfängt
   prefix: string;
   /** Sammeleintrag: aktiv, wenn der Pfad mit einem dieser Prefixe
@@ -55,17 +126,17 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { href: "/studio",            labelKey: "nav.galleries",  fallback: "Galerien",      prefix: "/studio" },
-  { href: "/studio/analytics",  labelKey: "nav.analytics",  fallback: "Analytics",     prefix: "/studio/analytics",  rolesAllowed: ["owner", "admin"], requiresFeature: "advanced_analytics" },
-  { href: "/studio/print-shop", labelKey: "nav.printShop",  fallback: "Print-Shop",    prefix: "/studio/print-shop", rolesAllowed: ["owner", "admin"], requiresFeature: "print_shop" },
+  { href: "/studio",            labelKey: "nav.galleries",  fallback: "Galerien",      icon: "galleries",  prefix: "/studio" },
+  { href: "/studio/analytics",  labelKey: "nav.analytics",  fallback: "Analytics",     icon: "analytics",  prefix: "/studio/analytics",  rolesAllowed: ["owner", "admin"], requiresFeature: "advanced_analytics" },
+  { href: "/studio/print-shop", labelKey: "nav.printShop",  fallback: "Print-Shop",    icon: "print",      prefix: "/studio/print-shop", rolesAllowed: ["owner", "admin"], requiresFeature: "print_shop" },
   // Sammeleintrag „Gestaltung" → Tabs: Branding · Templates · Tags
-  { href: "/studio/brandings",  labelKey: "nav.design",     fallback: "Gestaltung",    prefix: "/studio/brandings",
+  { href: "/studio/brandings",  labelKey: "nav.design",     fallback: "Gestaltung",    icon: "design",     prefix: "/studio/brandings",
     matchPrefixes: ["/studio/brandings", "/studio/templates", "/studio/tags"] },
   // Sammeleintrag „Einstellungen" → Tabs: Allgemein · Team · Integrationen · Datenexport · Audit · AV-Vertrag
-  { href: "/studio/settings",   labelKey: "nav.settings",   fallback: "Einstellungen", prefix: "/studio/settings",
+  { href: "/studio/settings",   labelKey: "nav.settings",   fallback: "Einstellungen", icon: "settings",   prefix: "/studio/settings",
     matchPrefixes: ["/studio/settings", "/studio/team", "/studio/webhooks", "/studio/exports", "/studio/audit", "/studio/avv"] },
   // Sammeleintrag „Konto" → Tabs: Mein Konto · Plan & Speicher
-  { href: "/studio/account",    labelKey: "nav.accountGroup", fallback: "Konto",       prefix: "/studio/account",
+  { href: "/studio/account",    labelKey: "nav.accountGroup", fallback: "Konto",       icon: "account",    prefix: "/studio/account",
     matchPrefixes: ["/studio/account", "/studio/billing"] },
 ];
 
@@ -343,13 +414,30 @@ function SidebarLink({
       <Link
         href={item.href}
         onClick={onNavigate}
-        className={`flex items-center h-8 px-2.5 rounded text-ui transition-colors duration-motion ease-out ${
+        aria-current={active ? "page" : undefined}
+        className={`group relative flex items-center gap-2.5 h-9 pl-3 pr-2.5 rounded-md text-ui transition-colors duration-motion ease-out ${
           active
-            ? "bg-accent/12 text-ink-primary"
+            ? "bg-accent/10 text-accent font-medium"
             : "text-ink-secondary hover:text-ink-primary hover:bg-surface-raised"
         }`}
       >
-        {label}
+        {/* Vertikale Akzent-Leiste — das Pendant zur Tab-Unterlinie */}
+        {active && (
+          <span
+            aria-hidden
+            className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-accent"
+          />
+        )}
+        <span
+          className={
+            active
+              ? "text-accent"
+              : "text-ink-tertiary group-hover:text-ink-secondary"
+          }
+        >
+          <NavIcon name={item.icon} />
+        </span>
+        <span className="truncate">{label}</span>
       </Link>
     </li>
   );
