@@ -544,6 +544,31 @@ export default function GalleryDetailPage() {
     if (!files || files.length === 0) return;
     const arr = Array.from(files);
 
+    // iCloud-Falle: Wenn Fotos nur als Thumbnail lokal liegen und das
+    // Original noch in iCloud ist, liefert Safari/iOS teils ein File mit
+    // size 0. Das Backend würde das mit 413/400 ablehnen — wir fangen es
+    // hier ab und sagen dem User konkret was zu tun ist, statt einen
+    // stillen Fehlschlag zu produzieren.
+    const zeroSize = arr.filter((f) => f.size === 0);
+    const usable = arr.filter((f) => f.size > 0);
+
+    if (zeroSize.length > 0) {
+      setLimitDialog({
+        title:
+          zeroSize.length === arr.length
+            ? "Dateien konnten nicht gelesen werden"
+            : `${zeroSize.length} von ${arr.length} Dateien übersprungen`,
+        message:
+          "Diese Dateien hatten keine Daten — das passiert auf iPhone/iPad, " +
+          "wenn die Fotos noch in iCloud liegen und nicht lokal geladen sind. " +
+          'Tipp: Lade sie über "Dateien durchsuchen" statt "Fotomediathek" hoch, ' +
+          "oder öffne die Fotos kurz in der Fotos-App (damit iOS das Original " +
+          "herunterlädt) und versuche es erneut.",
+      });
+    }
+
+    if (usable.length === 0) return;
+
     // Dup-Erkennung: Filenames vergleichen mit denen die schon in der
     // Galerie existieren ODER aktuell in der Upload-Pipeline sind
     // (noch nicht in gallery.files weil load() erst nach Init kommt).
@@ -564,15 +589,15 @@ export default function GalleryDetailPage() {
         .filter((u) => u.status !== "failed")
         .map((u) => u.filename),
     ]);
-    const duplicates = arr.filter((f) => existingNames.has(f.name));
-    const newFiles = arr.filter((f) => !existingNames.has(f.name));
+    const duplicates = usable.filter((f) => existingNames.has(f.name));
+    const newFiles = usable.filter((f) => !existingNames.has(f.name));
 
     if (duplicates.length > 0) {
       setDupDialog({ duplicates, newFiles });
       return;
     }
 
-    await startUpload(arr);
+    await startUpload(usable);
   }
 
   // Eigentlicher Upload-Code, ausgelagert damit der Dup-Dialog ihn
@@ -614,7 +639,19 @@ export default function GalleryDetailPage() {
             "Dein Plan erlaubt keinen weiteren Upload. Upgrade auf einen größeren Plan oder kaufe ein Storage-Pack.",
         });
       } else {
+        // Bisher still verschluckt (nur Konsole) — der User sah einen
+        // toten Button. Gerade bei mobiler Nutzung ist ein Verbindungs-
+        // abbruch während des Init-Requests häufig. Jetzt sichtbar.
         console.error("upload failed", err);
+        setLimitDialog({
+          title: "Upload fehlgeschlagen",
+          message:
+            "Die Dateien konnten nicht hochgeladen werden. Häufigste Ursache " +
+            "ist eine unterbrochene Verbindung — gerade auf dem Handy/Tablet. " +
+            "Bitte prüfe deine Internetverbindung und versuche es erneut. " +
+            "Bei iPhone/iPad-Fotos kann es zudem helfen, sie über " +
+            '"Dateien durchsuchen" statt der Fotomediathek auszuwählen.',
+        });
       }
     } finally {
       // Defensiv: falls Init-Chunks teilweise gefailed sind und uns
