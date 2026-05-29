@@ -61,6 +61,11 @@ import { resolveTenantBranding } from "../services/branding.js";
 const loginSchema = z.object({
   email: z.string().email().toLowerCase(),
   password: z.string().min(1).max(1000),
+  // Optionale explizite Tenant-Wahl (Slug) — kommt aus dem Tenant-Picker
+  // wenn eine Email in mehreren Studios existiert. Beim ersten Login-
+  // Versuch leer; nach Picker-Auswahl schickt das Frontend den gewählten
+  // Slug mit.
+  tenant: z.string().max(40).optional(),
 });
 
 const loginTotpSchema = z.object({
@@ -105,27 +110,71 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       const body = loginSchema.parse(req.body);
 
       // Tenant-Resolution: primär aus req.tenantId (Cookie / X-Lumio-Tenant /
-      // Custom-Domain / Subdomain — siehe plugins/auth.ts). Fallback: wenn
-      // keine Auflösung möglich (typischer Fall: Multi-Mode auf der Apex-
-      // Domain ohne Wildcard-DNS), versuchen wir den Tenant aus dem
-      // Email-Lookup abzuleiten. Im SaaS-Standardfall ist eine Email genau
-      // einem User in einem Tenant zugeordnet — wir nehmen den ältesten
-      // aktiven User mit dieser Email; gibt es mehrere Treffer, gewinnt
-      // der zuerst angelegte Account. (Ein Tenant-Picker für mehrdeutige
-      // Fälle ist optional als Folge-Feature.)
+      // Custom-Domain / Subdomain — siehe plugins/auth.ts). Fallback-Kette
+      // für den Apex-Login (Multi-Mode ohne Wildcard/Subdomain):
+      //   a) Explizite Tenant-Wahl aus dem Picker (body.tenant = Slug)
+      //   b) Email-Lookup: eindeutig → nehmen, mehrdeutig → Picker zeigen
       let tenantId = req.tenantId;
+
+      // (a) Explizite Wahl aus dem Picker-Flow
+      if (!tenantId && body.tenant) {
+        const chosen = await prisma.tenant.findUnique({
+          where: { slug: body.tenant },
+          select: { id: true, status: true },
+        });
+        if (
+          chosen &&
+          (chosen.status === "active" || chosen.status === "pending_deletion")
+        ) {
+          tenantId = chosen.id;
+        }
+      }
+
+      // (b) Email-basierter Lookup
       if (!tenantId) {
-        const candidate = await prisma.user.findFirst({
+        const candidates = await prisma.user.findMany({
           where: {
             email: body.email,
             status: "active",
             tenant: { status: { in: ["active", "pending_deletion"] } },
           },
-          select: { tenantId: true },
+          select: {
+            tenantId: true,
+            passwordHash: true,
+            tenant: { select: { slug: true, name: true, displayName: true } },
+          },
           orderBy: { createdAt: "asc" },
         });
-        if (candidate) {
-          tenantId = candidate.tenantId;
+
+        if (candidates.length === 1) {
+          tenantId = candidates[0].tenantId;
+        } else if (candidates.length > 1) {
+          // Mehrdeutig: dieselbe Email existiert in mehreren Studios.
+          // Wir zeigen NICHT einfach die Tenant-Liste (Enumeration +
+          // Privacy) — stattdessen prüfen wir das Passwort gegen jeden
+          // Kandidaten und zeigen nur die, in denen das Passwort wirklich
+          // stimmt. Der User muss also schon ein gültiges Login haben,
+          // um die Liste zu sehen.
+          const valid: typeof candidates = [];
+          for (const c of candidates) {
+            if (await verifyPassword(c.passwordHash, body.password)) {
+              valid.push(c);
+            }
+          }
+          if (valid.length === 1) {
+            tenantId = valid[0].tenantId;
+          } else if (valid.length > 1) {
+            // Echter Picker nötig. 2FA-Flow kommt erst NACH der Auswahl
+            // (zweiter Login-Request mit body.tenant gesetzt).
+            return reply.status(200).send({
+              requiresTenantSelection: true,
+              tenants: valid.map((c) => ({
+                slug: c.tenant.slug,
+                name: c.tenant.displayName ?? c.tenant.name,
+              })),
+            });
+          }
+          // valid.length === 0 → fällt unten in den constant-time-Fail
         }
       }
 

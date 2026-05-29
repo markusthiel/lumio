@@ -54,6 +54,10 @@ type Stage =
       challenge: string;
       hasTotp: boolean;
       hasWebauthn: boolean;
+    }
+  | {
+      kind: "tenant-select";
+      tenants: { slug: string; name: string }[];
     };
 
 type TenantContext = {
@@ -157,7 +161,36 @@ export default function LoginPage() {
     setPending(true);
     try {
       const res = await api.login(email, password);
-      if ("requiresTotp" in res) {
+      if ("requiresTenantSelection" in res) {
+        setStage({ kind: "tenant-select", tenants: res.tenants });
+      } else if ("requiresTotp" in res) {
+        setStage({
+          kind: "2fa",
+          challenge: res.challenge,
+          hasTotp: res.requiresTotp,
+          hasWebauthn: res.requiresWebauthn,
+        });
+      } else {
+        router.push("/studio");
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Anmeldung fehlgeschlagen");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  // Tenant aus dem Picker gewählt — erneuter Login mit explizitem Slug.
+  // Das kann wieder in 2FA münden (wenn der gewählte Account 2FA hat).
+  async function selectTenant(slug: string) {
+    setError(null);
+    setPending(true);
+    try {
+      const res = await api.login(email, password, slug);
+      if ("requiresTenantSelection" in res) {
+        // sollte nicht passieren (Slug ist eindeutig), aber defensiv:
+        setStage({ kind: "tenant-select", tenants: res.tenants });
+      } else if ("requiresTotp" in res) {
         setStage({
           kind: "2fa",
           challenge: res.challenge,
@@ -336,6 +369,57 @@ export default function LoginPage() {
             </p>
           )}
         </form>
+      ) : stage.kind === "tenant-select" ? (
+        <div className="space-y-5 bg-surface-raised border border-line-subtle rounded-md p-7 shadow-elev-2">
+          <header className="space-y-1.5">
+            <h1 className="text-display-sm text-ink-primary font-medium">
+              Studio wählen
+            </h1>
+            <p className="text-ui-sm text-ink-tertiary">
+              Deine E-Mail-Adresse ist mit mehreren Studios verknüpft.
+              Wähle aus, in welches du dich anmelden möchtest.
+            </p>
+          </header>
+
+          <div className="space-y-2">
+            {stage.tenants.map((tn) => (
+              <button
+                key={tn.slug}
+                type="button"
+                onClick={() => selectTenant(tn.slug)}
+                disabled={pending}
+                className="w-full text-left px-4 py-3 rounded-md border border-line-subtle hover:border-accent hover:bg-surface-sunken transition-colors duration-motion disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="text-ui-sm font-medium text-ink-primary">
+                  {tn.name}
+                </div>
+                <div className="text-ui-xs text-ink-tertiary font-mono">
+                  {tn.slug}
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {error && (
+            <div
+              role="alert"
+              className="text-ui-sm text-semantic-danger bg-semantic-danger/10 border border-semantic-danger/30 rounded-sm px-3 py-2"
+            >
+              {error}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => {
+              setStage({ kind: "credentials" });
+              setError(null);
+            }}
+            className="text-ui-xs text-ink-tertiary hover:text-ink-primary transition-colors duration-motion"
+          >
+            ← Zurück
+          </button>
+        </div>
       ) : (
         <div className="space-y-5 bg-surface-raised border border-line-subtle rounded-md p-7 shadow-elev-2">
           <header className="space-y-1.5">

@@ -416,7 +416,7 @@ export interface Comment {
 export const api = {
   // Auth
   health: () => fetch(`${API_URL}/health`).then((r) => r.json()),
-  login: (email: string, password: string) =>
+  login: (email: string, password: string, tenant?: string) =>
     request<
       | { user: ApiUser }
       | {
@@ -424,9 +424,13 @@ export const api = {
           requiresWebauthn: boolean;
           challenge: string;
         }
+      | {
+          requiresTenantSelection: true;
+          tenants: { slug: string; name: string }[];
+        }
     >("/auth/login", {
       method: "POST",
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, ...(tenant ? { tenant } : {}) }),
     }),
   loginTotp: (challenge: string, token: string) =>
     request<{ user: ApiUser }>("/auth/login/totp", {
