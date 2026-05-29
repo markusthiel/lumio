@@ -71,6 +71,7 @@ export default function StudioSettingsPage() {
   const [displayNameSaved, setDisplayNameSaved] = useState(false);
   const [textSaving, setTextSaving] = useState(false);
   const [domainSaving, setDomainSaving] = useState(false);
+  const [domainChecking, setDomainChecking] = useState(false);
   const [imageSaving, setImageSaving] = useState(false);
   const [maxUploadSaving, setMaxUploadSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -197,6 +198,12 @@ export default function StudioSettingsPage() {
         customDomain: domain.trim() || null,
       });
       setSettings(res.tenant);
+      // Nach dem Speichern direkt einen Status-Check anstossen
+      if (domain.trim()) {
+        void checkDomain();
+      } else {
+        setCustomDomainStatus(null);
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Fehler";
       setError(
@@ -206,6 +213,18 @@ export default function StudioSettingsPage() {
       );
     } finally {
       setDomainSaving(false);
+    }
+  }
+
+  async function checkDomain() {
+    setDomainChecking(true);
+    try {
+      const status = await api.getCustomDomainStatus();
+      setCustomDomainStatus(status);
+    } catch {
+      setCustomDomainStatus(null);
+    } finally {
+      setDomainChecking(false);
     }
   }
 
@@ -552,6 +571,15 @@ export default function StudioSettingsPage() {
                 >
                   {domainSaving ? "Speichert…" : "Speichern"}
                 </button>
+                {settings.customDomain && (
+                  <button
+                    onClick={checkDomain}
+                    disabled={domainChecking}
+                    className="text-sm px-3 py-2 rounded-md border border-line-subtle hover:bg-surface-sunken disabled:opacity-50"
+                  >
+                    {domainChecking ? "Prüft…" : "Jetzt prüfen"}
+                  </button>
+                )}
               </div>
 
               {/* Status-Anzeige nach dem Speichern: DNS + TLS-Cert */}
