@@ -53,7 +53,7 @@ const signupSchema = z.object({
   // Plan + Intervall — Default ist studio/monthly wenn nicht spezifiziert.
   // Trial ist nicht direkt wählbar (entsteht automatisch in der ersten
   // Subscription mit trial_period_days=14).
-  plan: z.enum(["solo", "studio", "pro"]).default("studio"),
+  plan: z.enum(["start", "solo", "studio", "pro"]).default("solo"),
   interval: z.enum(["monthly", "yearly"]).default("monthly"),
 });
 

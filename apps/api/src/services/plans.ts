@@ -15,7 +15,7 @@
  * brauchen.
  */
 
-export type PlanSlug = "trial" | "solo" | "studio" | "pro";
+export type PlanSlug = "trial" | "start" | "solo" | "studio" | "pro";
 
 export interface PlanLimits {
   /** Wie heißt der Plan in der UI */
@@ -53,6 +53,18 @@ export const PLANS: Record<PlanSlug, PlanLimits> = {
     watermarkAllowed: true,
     priceMonthlyCents: 0,
     priceYearlyCents: 0,
+  },
+  start: {
+    name: "Start",
+    description: "Für den Einstieg und gelegentliche Shootings",
+    storageGib: 150,
+    activeGalleries: 5,
+    brandings: 0,
+    customDomains: 0,
+    teamMembers: 1,
+    watermarkAllowed: false,
+    priceMonthlyCents: 900,
+    priceYearlyCents: 9000, // 10 Monate * 900
   },
   solo: {
     name: "Solo",

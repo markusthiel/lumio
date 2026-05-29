@@ -46,7 +46,7 @@ interface PlanDef {
   priceYearlyCents: number;
 }
 
-const PLAN_DEFS: PlanDef[] = (["solo", "studio", "pro"] as const).map(
+const PLAN_DEFS: PlanDef[] = (["start", "solo", "studio", "pro"] as const).map(
   (slug) => ({
     slug,
     name: `Lumio ${PLANS[slug].name}`,

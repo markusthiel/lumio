@@ -36,7 +36,7 @@ export async function registerBillingRoutes(app: FastifyInstance) {
   // Listet die buchbaren Pläne — wird für die Pricing-Seite und den
   // Sign-Up-Flow genutzt. Öffentlich, keine Auth nötig.
   app.get("/billing/plans", async () => {
-    const slugs: PlanSlug[] = ["solo", "studio", "pro"];
+    const slugs: PlanSlug[] = ["start", "solo", "studio", "pro"];
     return {
       plans: slugs.map((slug) => ({
         slug,
@@ -178,7 +178,7 @@ export async function registerBillingRoutes(app: FastifyInstance) {
 
     const body = z
       .object({
-        plan: z.enum(["solo", "studio", "pro"]),
+        plan: z.enum(["start", "solo", "studio", "pro"]),
         interval: z.enum(["monthly", "yearly"]).default("monthly"),
       })
       .safeParse(req.body);

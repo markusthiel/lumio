@@ -74,14 +74,16 @@ async function seedDefaultPlans(): Promise<void> {
   // die kommen pro Umgebung aus dem Stripe-Bootstrap-Script.
   const sortOrder: Record<PlanSlug, number> = {
     trial: 0,
+    start: 5,
     solo: 10,
     studio: 20,
     pro: 30,
   };
   // plans.ts kennt kein analytics-Flag — wir leiten es ab: ab Studio
-  // aufwärts (und im Vollzugriffs-Trial) verfügbar, im Solo-Plan nicht.
+  // aufwärts (und im Vollzugriffs-Trial) verfügbar, in Start/Solo nicht.
   const analyticsAllowed: Record<PlanSlug, boolean> = {
     trial: true,
+    start: false,
     solo: false,
     studio: true,
     pro: true,
