@@ -112,6 +112,22 @@ model Tenant {
   stripeCustomerId String?  @unique
 
   // ---------------------------------------------------------------------------
+  // AVV / Auftragsverarbeitungsvertrag (Art. 28 DSGVO)
+  //
+  // Stammdaten des Verantwortlichen (= dieses Tenants als Studio-Kunde).
+  // Werden im Studio erfasst und in den generierten AVV eingesetzt.
+  // Pflichtfelder fuer einen vollstaendigen AVV: legalName + Anschrift.
+  // ---------------------------------------------------------------------------
+  legalName       String?  // vollstaendige Firmierung / Name des Verantwortlichen
+  legalStreet     String?  // Strasse + Hausnummer
+  legalPostalCode String?
+  legalCity       String?
+  legalCountry    String?  // Default-Anzeige "Deutschland", wenn null
+  vatId           String?  // USt-IdNr. (optional)
+
+  dpaAcceptances  DpaAcceptance[]
+
+  // ---------------------------------------------------------------------------
   // Self-Service-Tenant-Loeschung (DSGVO Art. 17)
   //
   // Owner kann sein Studio selbst loeschen — Flow:
@@ -2161,4 +2177,26 @@ model FileAutoTag {
   @@index([fileId, status])
   @@index([tagName])
   @@map("file_auto_tags")
+}
+
+/// Dokumentierter elektronischer Abschluss des Auftragsverarbeitungs-
+/// vertrags (AVV). Art. 28 Abs. 9 DSGVO erlaubt das elektronische
+/// Format ausdruecklich. Jede Zustimmung ist ein eigener Eintrag, sodass
+/// bei neuen AVV-Versionen die Historie erhalten bleibt.
+model DpaAcceptance {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId         String   @db.Uuid
+  tenant           Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  /// Version des AVV-Templates, der zugestimmt wurde (z.B. "1.0").
+  version          String
+  /// Wer zugestimmt hat — User-ID plus Namens-Snapshot, falls der User
+  /// spaeter geloescht wird, bleibt der Nachweis lesbar.
+  acceptedByUserId String?  @db.Uuid
+  acceptedByName   String?
+  /// IP-Adresse zum Zeitpunkt der Zustimmung (Nachweiszweck).
+  ipAddress        String?
+  acceptedAt       DateTime @default(now())
+
+  @@index([tenantId])
+  @@map("dpa_acceptances")
 }
