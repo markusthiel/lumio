@@ -7,6 +7,7 @@
 import { prisma } from "./db.js";
 import { config } from "./config.js";
 import { logger } from "./logger.js";
+import { PLANS, type PlanSlug } from "./services/plans.js";
 
 export async function bootstrap(): Promise<void> {
   await ensureTenant();
@@ -66,73 +67,49 @@ async function seedDefaultPlans(): Promise<void> {
   const existing = await prisma.billingPlan.count();
   if (existing > 0) return;
 
-  await prisma.billingPlan.createMany({
-    data: [
-      {
-        slug: "free",
-        name: "Free",
-        description: "For trying things out.",
-        storageGib: 5,
-        galleriesMax: 3,
-        usersMax: 1,
-        customDomain: false,
-        whiteLabel: false,
-        watermarking: true,
-        analytics: false,
-        priceMonthlyCents: 0,
-        priceYearlyCents: 0,
-        currency: "EUR",
-        sortOrder: 0,
-      },
-      {
-        slug: "starter",
-        name: "Starter",
-        description: "For solo photographers getting started.",
-        storageGib: 100,
-        galleriesMax: 50,
-        usersMax: 1,
-        customDomain: false,
-        whiteLabel: false,
-        watermarking: true,
-        analytics: false,
-        priceMonthlyCents: 900,
-        priceYearlyCents: 9000,
-        currency: "EUR",
-        sortOrder: 10,
-      },
-      {
-        slug: "pro",
-        name: "Pro",
-        description: "Custom domain and full whitelabel.",
-        storageGib: 500,
-        galleriesMax: null,
-        usersMax: 3,
-        customDomain: true,
-        whiteLabel: true,
-        watermarking: true,
-        analytics: true,
-        priceMonthlyCents: 1900,
-        priceYearlyCents: 19000,
-        currency: "EUR",
-        sortOrder: 20,
-      },
-      {
-        slug: "studio",
-        name: "Studio",
-        description: "For teams and high-volume shoots.",
-        storageGib: 2048,
-        galleriesMax: null,
-        usersMax: 10,
-        customDomain: true,
-        whiteLabel: true,
-        watermarking: true,
-        analytics: true,
-        priceMonthlyCents: 4900,
-        priceYearlyCents: 49000,
-        currency: "EUR",
-        sortOrder: 30,
-      },
-    ],
+  // Die Plan-Limits + Preise sind in services/plans.ts die kanonische
+  // Quelle (wird auch von Stripe-Bootstrap, Billing, Signup und Usage
+  // genutzt). Wir leiten den Seed daraus ab, damit bootstrap nie wieder
+  // davon abweichen kann. Stripe-Price-IDs werden hier NICHT gesetzt —
+  // die kommen pro Umgebung aus dem Stripe-Bootstrap-Script.
+  const sortOrder: Record<PlanSlug, number> = {
+    trial: 0,
+    solo: 10,
+    studio: 20,
+    pro: 30,
+  };
+  // plans.ts kennt kein analytics-Flag — wir leiten es ab: ab Studio
+  // aufwärts (und im Vollzugriffs-Trial) verfügbar, im Solo-Plan nicht.
+  const analyticsAllowed: Record<PlanSlug, boolean> = {
+    trial: true,
+    solo: false,
+    studio: true,
+    pro: true,
+  };
+
+  const data = (Object.keys(PLANS) as PlanSlug[]).map((slug) => {
+    const p = PLANS[slug];
+    return {
+      slug,
+      name: p.name,
+      description: p.description,
+      storageGib: p.storageGib,
+      // Infinity (unbegrenzte Galerien) → null im DB-Modell.
+      galleriesMax: Number.isFinite(p.activeGalleries)
+        ? p.activeGalleries
+        : null,
+      usersMax: p.teamMembers,
+      customDomain: p.customDomains > 0,
+      whiteLabel: p.brandings > 0,
+      watermarking: p.watermarkAllowed,
+      analytics: analyticsAllowed[slug],
+      priceMonthlyCents: p.priceMonthlyCents,
+      priceYearlyCents: p.priceYearlyCents,
+      currency: "EUR",
+      sortOrder: sortOrder[slug],
+    };
   });
-  logger.info("bootstrap: seeded 4 default billing plans");
+
+  await prisma.billingPlan.createMany({ data });
+  logger.info(`bootstrap: seeded ${data.length} default billing plans`);
 }
