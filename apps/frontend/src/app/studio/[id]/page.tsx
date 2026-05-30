@@ -117,7 +117,15 @@ export default function GalleryDetailPage() {
   }, []);
 
   // Bulk-Selection
-  const [selectionMode, setSelectionMode] = useState(false);
+  // Grid-Modus: Ansehen (Klick öffnet Lightbox), Auswählen (Checkboxen +
+  // Bulk), Sortieren (Drag-and-Drop). Trennt die drei Aktionen klar, damit
+  // das Sortieren nicht mehr dauernd "im Weg" ist.
+  const [gridMode, setGridMode] = useState<"view" | "select" | "sort">(
+    "view"
+  );
+  const selectionMode = gridMode === "select";
+  // Lightbox: ID des aktuell groß angezeigten Files (null = geschlossen).
+  const [lightboxId, setLightboxId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkPending, setBulkPending] = useState(false);
   // Eigener Confirm-Dialog statt window.confirm. iPhone Safari kann
@@ -171,6 +179,8 @@ export default function GalleryDetailPage() {
     })
   );
 
+  const openLightbox = useCallback((id: string) => setLightboxId(id), []);
+
   const toggleSelected = useCallback((fileId: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -184,7 +194,7 @@ export default function GalleryDetailPage() {
   }, []);
 
   const exitSelectionMode = useCallback(() => {
-    setSelectionMode(false);
+    setGridMode("view");
     setSelected(new Set());
   }, []);
 
@@ -1397,7 +1407,7 @@ export default function GalleryDetailPage() {
           onChange={setTagFilter}
           filteredCount={visibleFiles.length}
           onSelectFiltered={() => {
-            setSelectionMode(true);
+            setGridMode("select");
             setSelected(new Set(visibleFiles.map((f) => f.id)));
           }}
         />
@@ -1534,6 +1544,19 @@ export default function GalleryDetailPage() {
                       ✕
                     </Button>
                   </>
+                ) : gridMode === "sort" ? (
+                  <>
+                    <span className="text-ui-sm text-ink-tertiary mr-1">
+                      Ziehen zum Sortieren — wird automatisch gespeichert.
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      onClick={() => setGridMode("view")}
+                    >
+                      Fertig
+                    </Button>
+                  </>
                 ) : (
                   <>
                     {/* Quickaction: alle wartenden freigeben — sichtbar
@@ -1559,9 +1582,22 @@ export default function GalleryDetailPage() {
                     <Button
                       size="sm"
                       variant="secondary"
-                      onClick={() => setSelectionMode(true)}
+                      onClick={() => setGridMode("select")}
                     >
                       {t("studio.selectFiles")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => setGridMode("sort")}
+                      disabled={fileFilter !== "all"}
+                      title={
+                        fileFilter !== "all"
+                          ? "Sortieren ist nur ohne aktiven Filter möglich"
+                          : undefined
+                      }
+                    >
+                      Sortieren
                     </Button>
                   </>
                 )}
@@ -1639,7 +1675,7 @@ export default function GalleryDetailPage() {
               <SortableContext
                 items={visibleFiles.map((f) => f.id)}
                 strategy={rectSortingStrategy}
-                disabled={selectionMode || fileFilter !== "all"}
+                disabled={gridMode !== "sort" || fileFilter !== "all"}
               >
                 <ul className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5">
                   {visibleFiles.map((f, i) => (
@@ -1647,9 +1683,10 @@ export default function GalleryDetailPage() {
                       key={f.id}
                       file={f}
                       index={i}
-                      selectionMode={selectionMode}
+                      mode={gridMode}
                       selected={selected.has(f.id)}
                       onToggle={toggleSelected}
+                      onOpen={openLightbox}
                     />
                   ))}
                 </ul>
@@ -1702,6 +1739,15 @@ export default function GalleryDetailPage() {
           </div>
         )}
       </div>
+
+      {/* Lightbox-Großansicht (Ansehen-Modus, Klick auf eine Kachel) */}
+      {lightboxId && (
+        <Lightbox
+          files={visibleFiles}
+          currentId={lightboxId}
+          onClose={() => setLightboxId(null)}
+        />
+      )}
 
       {/* Dup-Dialog: zeigt sich wenn der User Files gedropped hat,
           deren Dateinamen schon in der Galerie existieren. Drei
@@ -2140,6 +2186,115 @@ function SelectionLimitInput({
   );
 }
 
+/** Lightbox — Großansicht eines Files als Vollbild-Overlay, mit
+ *  Vor/Zurück (Pfeiltasten + Buttons) und Schließen (✕ / Escape / Klick
+ *  auf den Hintergrund). Erwartet dieselbe Liste, die das Grid zeigt. */
+function Lightbox({
+  files,
+  currentId,
+  onClose,
+}: {
+  files: GalleryFile[];
+  currentId: string;
+  onClose: () => void;
+}) {
+  const start = files.findIndex((f) => f.id === currentId);
+  const [i, setI] = useState(start >= 0 ? start : 0);
+
+  useEffect(() => {
+    const n = files.findIndex((f) => f.id === currentId);
+    if (n >= 0) setI(n);
+  }, [currentId, files]);
+
+  const prev = useCallback(() => setI((x) => (x > 0 ? x - 1 : x)), []);
+  const next = useCallback(
+    () => setI((x) => (x < files.length - 1 ? x + 1 : x)),
+    [files.length]
+  );
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+      else if (e.key === "ArrowLeft") prev();
+      else if (e.key === "ArrowRight") next();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose, prev, next]);
+
+  const file = files[i];
+  if (!file) return null;
+  const url = file.webUrl ?? file.thumbUrl;
+
+  return (
+    <div
+      className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center"
+      onClick={onClose}
+    >
+      <div className="absolute top-4 left-4 text-white/60 text-ui-sm tabular-nums">
+        {i + 1} / {files.length}
+      </div>
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Schließen"
+        className="absolute top-3 right-3 h-10 w-10 flex items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors text-2xl leading-none"
+      >
+        ✕
+      </button>
+
+      {i > 0 && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            prev();
+          }}
+          aria-label="Vorheriges"
+          className="absolute left-2 sm:left-4 h-12 w-12 flex items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors text-3xl leading-none"
+        >
+          ‹
+        </button>
+      )}
+
+      <div
+        className="flex flex-col items-center"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={url}
+            alt={file.originalFilename}
+            className="max-w-[92vw] max-h-[84vh] object-contain rounded-sm"
+          />
+        ) : (
+          <div className="text-white/50 text-ui px-12 py-24">
+            Keine Vorschau verfügbar
+          </div>
+        )}
+        <div className="mt-3 text-center text-white/60 text-ui-sm max-w-[80vw] truncate">
+          {file.originalFilename}
+        </div>
+      </div>
+
+      {i < files.length - 1 && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            next();
+          }}
+          aria-label="Nächstes"
+          className="absolute right-2 sm:right-4 h-12 w-12 flex items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors text-3xl leading-none"
+        >
+          ›
+        </button>
+      )}
+    </div>
+  );
+}
+
 /** FileTile — eine Kachel in der Studio-Gallery-Grid.
  *
  *  WICHTIG: memoized. Bei grossen Galerien (1000+ Files) wuerde
@@ -2161,20 +2316,25 @@ const FileTile = memo(_FileTile);
 function _FileTile({
   file,
   index,
-  selectionMode,
+  mode,
   selected,
   onToggle,
+  onOpen,
 }: {
   file: GalleryFile;
   index: number;
-  selectionMode: boolean;
+  mode: "view" | "select" | "sort";
   selected: boolean;
   /** Bekommt die file.id als Argument, damit der Caller keinen
    *  Arrow-Wrapper () => onToggle(file.id) bauen muss — der wuerde
    *  bei jedem Render eine neue Funktion erzeugen und memo brechen. */
   onToggle: (fileId: string) => void;
+  /** Öffnet die Großansicht (Lightbox) im Ansehen-Modus. */
+  onOpen: (fileId: string) => void;
 }) {
   const t = useT();
+  const selectionMode = mode === "select";
+  const sortMode = mode === "sort";
   const isHidden = file.status === "hidden";
   const isFailed = file.status === "failed";
   // Pending-Approval: File kam via UploadLink und ist noch nicht
@@ -2196,7 +2356,7 @@ function _FileTile({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: file.id, disabled: selectionMode });
+  } = useSortable({ id: file.id, disabled: !sortMode });
 
   // Reveal-Animation nur für die ersten 24 Tiles staffeln. Bei großen
   // Galerien wäre der totale Delay sonst > 1s, was sich schleppend anfühlt.
@@ -2223,11 +2383,17 @@ function _FileTile({
           ? "border-semantic-danger/30 hover:border-semantic-danger/50"
           : "border-line-subtle hover:border-line-strong"
       } ${
-        selectionMode
-          ? "cursor-pointer"
-          : "cursor-grab active:cursor-grabbing touch-none"
+        sortMode
+          ? "cursor-grab active:cursor-grabbing touch-none"
+          : "cursor-pointer"
       } transition-colors duration-motion`}
-      onClick={selectionMode ? () => onToggle(file.id) : undefined}
+      onClick={
+        selectionMode
+          ? () => onToggle(file.id)
+          : mode === "view"
+          ? () => onOpen(file.id)
+          : undefined
+      }
       title={
         isRejected
           ? file.rejectedReason
@@ -2237,8 +2403,8 @@ function _FileTile({
           ? file.errorMessage ?? "Verarbeitung fehlgeschlagen"
           : undefined
       }
-      {...(selectionMode ? {} : attributes)}
-      {...(selectionMode ? {} : listeners)}
+      {...(sortMode ? attributes : {})}
+      {...(sortMode ? listeners : {})}
     >
       {isRejected ? (
         // Rejected: S3-Objekte sind weg, kein Thumbnail mehr verfügbar.
