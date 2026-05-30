@@ -611,9 +611,38 @@ function RgbaPicker({
 }) {
   const t = useT();
 
-  // Aufsplitten Hex8 → Hex6 + Alpha (0-100%)
-  const hex6 = value && value.length >= 7 ? value.slice(0, 7) : "#000000";
-  const alphaHex = value && value.length === 9 ? value.slice(7, 9) : "00";
+  // Lokaler Draft, damit Color-Picker und Slider flüssig reagieren, ohne
+  // bei jedem Tick einen Server-Patch auszulösen. Ein Slider-Drag würde
+  // sonst dutzende Requests feuern (Auto-Save) und ins Rate-Limit laufen.
+  // Der Patch wird daher debounced; nur der finale Wert geht an die API.
+  const [draft, setDraft] = useState<string | null>(value);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Externe Änderungen (Server-Reload, Reset) in den Draft übernehmen.
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    []
+  );
+
+  function commit(next: string | null, immediate = false) {
+    setDraft(next);
+    if (timer.current) clearTimeout(timer.current);
+    if (immediate) {
+      void onChange(next);
+      return;
+    }
+    timer.current = setTimeout(() => void onChange(next), 400);
+  }
+
+  // Aufsplitten Hex8 → Hex6 + Alpha (0-100%) — aus dem Draft.
+  const hex6 = draft && draft.length >= 7 ? draft.slice(0, 7) : "#000000";
+  const alphaHex = draft && draft.length === 9 ? draft.slice(7, 9) : "00";
   const alphaPercent = Math.round((parseInt(alphaHex, 16) / 255) * 100);
 
   function rebuild(h6: string, percent: number) {
@@ -629,7 +658,7 @@ function RgbaPicker({
       <input
         type="color"
         value={hex6}
-        onChange={(e) => onChange(rebuild(e.target.value, alphaPercent || 40))}
+        onChange={(e) => commit(rebuild(e.target.value, alphaPercent || 40))}
         className="h-8 w-12 rounded border border-line-subtle bg-transparent cursor-pointer"
       />
       <label className="text-ui-xs text-ink-tertiary flex items-center gap-1.5">
@@ -639,17 +668,17 @@ function RgbaPicker({
           min={0}
           max={100}
           value={alphaPercent}
-          onChange={(e) => onChange(rebuild(hex6, Number(e.target.value)))}
+          onChange={(e) => commit(rebuild(hex6, Number(e.target.value)))}
           className="w-24"
         />
         <span className="text-ui-xs text-ink-secondary w-8 text-right tabular-nums">
           {alphaPercent}%
         </span>
       </label>
-      {value && (
+      {draft && (
         <button
           type="button"
-          onClick={() => onChange(null)}
+          onClick={() => commit(null, true)}
           className="text-ui-xs text-ink-tertiary hover:text-ink-secondary"
         >
           {t("studio.clear")}
