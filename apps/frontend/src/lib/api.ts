@@ -1988,6 +1988,7 @@ export const api = {
     kind: AppearanceAssetKind;
     contentType: string;
     sizeBytes: number;
+    filename?: string;
   }) =>
     request<{
       key: string;

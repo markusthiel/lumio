@@ -14,7 +14,15 @@ import {
   applyStudioTheme,
 } from "@/lib/studio-appearance";
 
-const IMAGE_ACCEPT = "image/png,image/jpeg,image/webp,image/svg+xml";
+// Logos: gängige Web-Bildformate inkl. Vektor (SVG). Der Worker
+// konvertiert Bitmaps zu WebP, SVG bleibt unverändert.
+const LOGO_ACCEPT =
+  "image/png,image/jpeg,image/webp,image/svg+xml,image/gif,image/avif,image/heic,image/heif,.jfif";
+// Login-Hintergrund: zusätzlich TIFF/BMP und Kamera-RAW. RAW wird
+// serverseitig demosaict und zu WebP eingedampft.
+const PHOTO_ACCEPT =
+  LOGO_ACCEPT +
+  ",image/tiff,.tif,.tiff,.bmp,.cr2,.cr3,.nef,.nrw,.arw,.sr2,.srf,.dng,.raf,.orf,.rw2,.pef,.srw,.raw,.3fr,.erf,.kdc,.mos,.mrw,.x3f";
 const hexRe = /^#[0-9a-fA-F]{6}$/;
 
 function Section({
@@ -230,6 +238,7 @@ export default function AppearancePage() {
         kind,
         contentType: file.type,
         sizeBytes: file.size,
+        filename: file.name,
       });
       const put = await fetch(init.uploadUrl, {
         method: "PUT",
@@ -384,7 +393,7 @@ export default function AppearancePage() {
                 <AssetField
                   label="Logo (dunkler Modus)"
                   imageUrl={appearance.studioLogoUrl}
-                  accept={IMAGE_ACCEPT}
+                  accept={LOGO_ACCEPT}
                   hint="Erscheint oben in der Seitenleiste. Helle/weiße Variante empfohlen."
                   uploading={uploadingKind === "studioLogo"}
                   inputRef={studioLogoRef}
@@ -396,7 +405,7 @@ export default function AppearancePage() {
                 <AssetField
                   label="Logo (heller Modus)"
                   imageUrl={appearance.studioLogoLightUrl}
-                  accept={IMAGE_ACCEPT}
+                  accept={LOGO_ACCEPT}
                   hint="Optional. Dunkle Variante für den hellen Grundton. Leer = das normale Logo."
                   uploading={uploadingKind === "studioLogoLight"}
                   inputRef={studioLogoLightRef}
@@ -424,7 +433,7 @@ export default function AppearancePage() {
                 <AssetField
                   label="Logo"
                   imageUrl={appearance.loginLogoUrl}
-                  accept={IMAGE_ACCEPT}
+                  accept={LOGO_ACCEPT}
                   hint="Erscheint über dem Login-Formular."
                   uploading={uploadingKind === "loginLogo"}
                   inputRef={loginLogoRef}
@@ -447,7 +456,7 @@ export default function AppearancePage() {
               <AssetField
                 label="Hintergrundbild"
                 imageUrl={appearance.loginBackgroundUrl}
-                accept={IMAGE_ACCEPT}
+                accept={PHOTO_ACCEPT}
                 hint="Großflächiges Bild hinter dem Login. PNG/JPEG/WEBP, max. 10 MB."
                 uploading={uploadingKind === "loginBackground"}
                 inputRef={loginBgRef}
@@ -479,7 +488,7 @@ export default function AppearancePage() {
               <AssetField
                 label="E-Mail-Logo"
                 imageUrl={appearance.emailLogoUrl}
-                accept={IMAGE_ACCEPT}
+                accept={LOGO_ACCEPT}
                 hint="Erscheint im Kopf der E-Mails. Dunkle Variante empfohlen (heller Mail-Hintergrund)."
                 uploading={uploadingKind === "emailLogo"}
                 inputRef={emailLogoRef}

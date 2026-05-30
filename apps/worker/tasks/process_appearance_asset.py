@@ -60,6 +60,15 @@ MAX_EDGE_BY_KIND = {
     "loginBackground": 2400,
 }
 
+# Kamera-RAW-Formate: libvips kann die nicht direkt öffnen, deshalb
+# demosaicen wir sie vorab über rawpy (gleiche Logik wie process_raw)
+# zu einem JPEG und konvertieren das dann zu WebP.
+RAW_EXTENSIONS = {
+    ".cr2", ".cr3", ".nef", ".nrw", ".arw", ".sr2", ".srf",
+    ".dng", ".raf", ".orf", ".rw2", ".pef", ".srw", ".raw",
+    ".3fr", ".erf", ".kdc", ".mos", ".mrw", ".x3f",
+}
+
 
 @app.task(name="tasks.process_appearance_asset.optimize", bind=True)
 def optimize(self, tenant_id: str, kind: str) -> dict:
@@ -113,8 +122,29 @@ def optimize(self, tenant_id: str, kind: str) -> dict:
             )
             return {"ok": False, "reason": "download_failed"}
 
+        # RAW vorab via rawpy zu JPEG demosaicen (libvips öffnet RAW
+        # nicht direkt). Wir nehmen das eingebettete Preview, sonst volles
+        # Demosaicing — danach läuft der normale WebP-Pfad.
+        work_path = src_path
+        if any(src_key.lower().endswith(ext) for ext in RAW_EXTENSIONS):
+            jpeg_path = os.path.join(tmpdir, "demosaiced.jpg")
+            try:
+                from tasks.process_raw import _extract_or_demosaic
+
+                _extract_or_demosaic(src_path, jpeg_path)
+                work_path = jpeg_path
+                already_webp = False
+            except Exception as err:  # noqa: BLE001
+                log.warning(
+                    "appearance.raw_demosaic_failed",
+                    tenantId=tenant_id,
+                    key=src_key,
+                    err=str(err),
+                )
+                return {"ok": False, "reason": "raw_failed"}
+
         try:
-            width, height = probe_dimensions(src_path, autorotate=True)
+            width, height = probe_dimensions(work_path, autorotate=True)
         except Exception as err:  # noqa: BLE001
             log.warning(
                 "appearance.probe_failed", tenantId=tenant_id, err=str(err)
@@ -136,7 +166,7 @@ def optimize(self, tenant_id: str, kind: str) -> dict:
         # 3) WebP rendern
         import pyvips  # type: ignore
 
-        img = pyvips.Image.new_from_file(src_path, access="sequential")
+        img = pyvips.Image.new_from_file(work_path, access="sequential")
         img = img.autorot()
         if needs_resize:
             scale = max_edge / long_edge

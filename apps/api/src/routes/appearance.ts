@@ -42,26 +42,56 @@ const updateSchema = z.object({
     .optional(),
 });
 
-const initAssetSchema = z.object({
-  kind: z.enum([
-    "studioLogo",
-    "studioLogoLight",
-    "loginLogo",
-    "loginBackground",
-    "emailLogo",
-  ]),
-  contentType: z
-    .string()
-    .refine(
-      (v) =>
-        v === "image/png" ||
-        v === "image/jpeg" ||
-        v === "image/webp" ||
-        v === "image/svg+xml",
-      "Only PNG, JPEG, WEBP or SVG allowed"
-    ),
-  sizeBytes: z.number().int().positive().max(10 * 1024 * 1024),
-});
+// Größenlimit je Asset-Typ. Logos sind klein; der Login-Hintergrund
+// darf groß sein, weil dort auch RAW-Dateien (20–50 MB) ankommen, die
+// der Worker erst demosaict und dann zu WebP eindampft.
+const MAX_BYTES_BY_KIND: Record<string, number> = {
+  studioLogo: 15 * 1024 * 1024,
+  studioLogoLight: 15 * 1024 * 1024,
+  loginLogo: 15 * 1024 * 1024,
+  emailLogo: 15 * 1024 * 1024,
+  loginBackground: 60 * 1024 * 1024,
+};
+
+const initAssetSchema = z
+  .object({
+    kind: z.enum([
+      "studioLogo",
+      "studioLogoLight",
+      "loginLogo",
+      "loginBackground",
+      "emailLogo",
+    ]),
+    // Grober Vorfilter — die echte Format-Erkennung macht der Worker
+    // (libvips für gängige Bilder inkl. JFIF/HEIC/TIFF/AVIF, rawpy für
+    // Kamera-RAW). RAW kommt vom Browser oft als application/octet-stream
+    // oder ganz ohne Typ, daher lassen wir das bewusst durch.
+    contentType: z
+      .string()
+      .refine(
+        (v) =>
+          v === "" ||
+          v.startsWith("image/") ||
+          v === "application/octet-stream",
+        "Nur Bilddateien erlaubt"
+      ),
+    sizeBytes: z.number().int().positive(),
+    // Optionaler Original-Dateiname, damit wir die echte Endung in den
+    // Storage-Key übernehmen können (RAW-Erkennung im Worker).
+    filename: z.string().max(255).optional(),
+  })
+  .superRefine((val, ctx) => {
+    const cap = MAX_BYTES_BY_KIND[val.kind] ?? 15 * 1024 * 1024;
+    if (val.sizeBytes > cap) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.too_big,
+        maximum: cap,
+        type: "number",
+        inclusive: true,
+        message: `Datei zu groß (max. ${Math.round(cap / 1024 / 1024)} MB)`,
+      });
+    }
+  });
 
 const completeAssetSchema = z.object({
   kind: z.enum([
@@ -74,7 +104,27 @@ const completeAssetSchema = z.object({
   key: z.string().min(1),
 });
 
-function extensionFor(contentType: string): string {
+// Erlaubte Datei-Endungen für den Storage-Key. Bestimmt v.a., dass der
+// Worker RAW-Dateien später an der Endung erkennt. libvips/rawpy lesen
+// den echten Inhalt — die Endung ist nur für die Key-Benennung relevant.
+const ALLOWED_EXTENSIONS = new Set([
+  "jpg", "jpeg", "jfif", "png", "webp", "svg", "gif", "bmp",
+  "tif", "tiff", "heic", "heif", "avif",
+  // Kamera-RAW
+  "cr2", "cr3", "nef", "nrw", "arw", "sr2", "srf", "dng", "raf",
+  "orf", "rw2", "pef", "srw", "raw", "3fr", "erf", "kdc", "mos",
+  "mrw", "x3f",
+]);
+
+function extensionFor(contentType: string, filename?: string): string {
+  // Echte Endung aus dem Dateinamen bevorzugen — wichtig für RAW und
+  // für Formate, die der Browser als application/octet-stream schickt.
+  if (filename) {
+    const m = filename.toLowerCase().match(/\.([a-z0-9]{2,5})$/);
+    if (m && ALLOWED_EXTENSIONS.has(m[1])) {
+      return m[1] === "jpeg" ? "jpg" : m[1];
+    }
+  }
   if (contentType === "image/jpeg") return "jpg";
   if (contentType === "image/svg+xml") return "svg";
   if (contentType === "image/webp") return "webp";
@@ -195,14 +245,22 @@ export async function registerAppearanceRoutes(app: FastifyInstance) {
   app.post("/studio/appearance/assets", async (req) => {
     req.requireAuth();
     const body = initAssetSchema.parse(req.body);
-    const ext = extensionFor(body.contentType);
+    const ext = extensionFor(body.contentType, body.filename);
     const key = `t/${req.tenantId}/appearance/${body.kind}.${ext}`;
+    // Leerer Content-Type (kommt bei RAW häufig vor) würde die Presign-
+    // Signatur und den späteren PUT auseinanderlaufen lassen — daher
+    // einen stabilen Default verwenden.
+    const uploadContentType = body.contentType || "application/octet-stream";
     const uploadUrl = await presignPut({
       key,
-      contentType: body.contentType,
+      contentType: uploadContentType,
       contentLength: body.sizeBytes,
     });
-    return { key, uploadUrl, headers: { "Content-Type": body.contentType } };
+    return {
+      key,
+      uploadUrl,
+      headers: { "Content-Type": uploadContentType },
+    };
   });
 
   // POST /studio/appearance/assets/complete
