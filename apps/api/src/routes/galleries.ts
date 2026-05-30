@@ -148,6 +148,29 @@ export async function loadVisitor(
   if (!claims || claims.gid !== gallery.id) return null;
   if (gallery.passwordHash && !claims.pw) return null;
 
+  // Ablauf des Freigabe-Links prüfen: Kam der Besucher über einen
+  // personalisierten Access-Link (claims.aid) und ist dieser abgelaufen
+  // (oder gelöscht), gilt der Zugang nicht mehr — auch wenn das
+  // Visitor-Cookie noch gültig wäre. Sonst liefe der Link nie wirklich ab.
+  if (claims.aid) {
+    const access = await prisma.galleryAccess.findUnique({
+      where: { id: claims.aid },
+      select: { expiresAt: true, galleryId: true },
+    });
+    const expired =
+      !access ||
+      access.galleryId !== gallery.id ||
+      (access.expiresAt !== null && access.expiresAt < new Date());
+    if (expired) {
+      // Wie ein ungültiges Cookie behandeln: passwortlose Galerien
+      // erlauben weiterhin anonymes Browsen, geschützte sperren.
+      if (!gallery.passwordHash) {
+        return { galleryId: gallery.id, accessId: null };
+      }
+      return null;
+    }
+  }
+
   return { galleryId: gallery.id, accessId: claims.aid };
 }
 

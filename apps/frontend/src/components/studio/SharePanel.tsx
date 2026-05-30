@@ -273,6 +273,27 @@ export function SharePanel({
                       {a.accessCount} Aufrufe
                     </span>
                   </div>
+                  {a.expiresAt && (
+                    <div className="text-[10px]">
+                      {new Date(a.expiresAt) < new Date() ? (
+                        <span className="text-red-600">
+                          Abgelaufen —{" "}
+                          {new Date(a.expiresAt).toLocaleString("de-DE", {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          })}
+                        </span>
+                      ) : (
+                        <span className="text-ink-tertiary">
+                          Läuft ab:{" "}
+                          {new Date(a.expiresAt).toLocaleString("de-DE", {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          })}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </li>
               );
             })}
@@ -449,6 +470,9 @@ function CreateAccessDialog({
   const [canComment, setCanComment] = useState(true);
   const [canSelect, setCanSelect] = useState(true);
   const [canSeeOthers, setCanSeeOthers] = useState(false);
+  /** Ablauf des Links als datetime-local-Wert ("2026-07-15T14:30"),
+   *  leer = kein Ablauf. */
+  const [expiresAt, setExpiresAt] = useState("");
   /** Wenn keine Adressen drin: Option unwirksam, wird nicht angezeigt. */
   const [sendInvitation, setSendInvitation] = useState(true);
   const [personalMessage, setPersonalMessage] = useState("");
@@ -469,6 +493,9 @@ function CreateAccessDialog({
         canComment,
         canSelect,
         canSeeOthers,
+        expiresAt: expiresAt
+          ? new Date(expiresAt).toISOString()
+          : undefined,
         sendInvitation: wantsInvitation,
         personalMessage:
           wantsInvitation && personalMessage ? personalMessage : undefined,
@@ -555,6 +582,34 @@ function CreateAccessDialog({
             />
             Sieht Auswahl/Kommentare anderer Teams
           </label>
+        </div>
+
+        <div className="space-y-1">
+          <label htmlFor="expiresAt" className="text-sm font-medium">
+            Läuft ab <span className="text-ink-tertiary">(optional)</span>
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              id="expiresAt"
+              type="datetime-local"
+              value={expiresAt}
+              onChange={(e) => setExpiresAt(e.target.value)}
+              className="flex-1 rounded-md border border-line-subtle px-3 py-2 text-sm"
+            />
+            {expiresAt && (
+              <button
+                type="button"
+                onClick={() => setExpiresAt("")}
+                className="text-xs text-ink-tertiary hover:text-ink-secondary px-2"
+              >
+                Zurücksetzen
+              </button>
+            )}
+          </div>
+          <p className="text-xs text-ink-tertiary">
+            Nach diesem Zeitpunkt kann der Kunde die Galerie nicht mehr
+            öffnen. Leer = kein Ablauf.
+          </p>
         </div>
 
         {/* Einladungs-Optionen — nur sichtbar wenn mindestens eine Adresse
