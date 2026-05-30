@@ -418,19 +418,31 @@ function ColorField({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const valid = /^#[0-9a-fA-F]{6}$/.test(value.trim());
   return (
     <div className="flex items-center gap-2">
-      <input
-        type="color"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-12 h-9 rounded border border-line-subtle cursor-pointer"
-      />
+      {/* Sichtbares Farb-Swatch. Das native <input type="color"> liegt
+          unsichtbar darüber und öffnet beim Klick den OS-Picker — so
+          umgehen wir das kollabierende Default-Rendering des color-
+          Inputs (zeigte sich nur als dünner Strich). */}
+      <label
+        className="relative w-10 h-9 rounded border border-line-subtle cursor-pointer overflow-hidden shrink-0"
+        style={{ backgroundColor: valid ? value : "transparent" }}
+        title="Farbe wählen"
+      >
+        <input
+          type="color"
+          value={valid ? value : "#000000"}
+          onChange={(e) => onChange(e.target.value)}
+          className="absolute -inset-1 w-[calc(100%+8px)] h-[calc(100%+8px)] opacity-0 cursor-pointer"
+        />
+      </label>
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="flex-1 rounded-md border border-line-subtle px-3 py-2 text-sm font-mono"
         pattern="^#[0-9a-fA-F]{6}$"
+        spellCheck={false}
       />
     </div>
   );
