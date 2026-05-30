@@ -190,6 +190,25 @@ def _ensure_loaded() -> bool:
             os.environ.setdefault("XDG_CACHE_HOME", _MODEL_CACHE)
 
             _device = "cuda" if torch.cuda.is_available() else "cpu"
+
+            # CPU-Thread-Contention vermeiden: laufen N Tagging-Tasks
+            # parallel (Celery-Concurrency) und nutzt jede CLIP-Inference
+            # per Default ALLE Kerne, kaempfen N×Kerne Threads um die CPU
+            # → viel Context-Switching, wenig Durchsatz. Wir geben jeder
+            # Inference nur ihren fairen Anteil. Auf GPU irrelevant.
+            if _device == "cpu":
+                try:
+                    cores = os.cpu_count() or 4
+                    concurrency = max(1, int(os.environ.get("WORKER_CONCURRENCY", "4")))
+                    default_threads = max(1, cores // concurrency)
+                    threads = int(os.environ.get(
+                        "LUMIO_CLIP_TORCH_THREADS", str(default_threads)
+                    ))
+                    torch.set_num_threads(threads)
+                    log.info("clip_tagger.torch_threads", threads=threads,
+                             cores=cores, concurrency=concurrency)
+                except Exception as err:
+                    log.warning("clip_tagger.thread_tuning_failed", err=str(err))
             log.info("clip_tagger.loading", model=_CLIP_MODEL_NAME,
                      pretrained=_CLIP_PRETRAINED, device=_device)
 
