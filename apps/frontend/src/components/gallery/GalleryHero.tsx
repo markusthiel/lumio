@@ -40,6 +40,25 @@ interface Props {
  * Liefert die Inline-Style-Properties für die Hero-Text-Farbe, plus
  * den Side-by-Side-Spezialfall, der den Galerie-Surface-Text erbt.
  */
+/**
+ * Style für die Hero-Overlay-Fläche: Farbe + optionaler Weichzeichner
+ * (Glas-Effekt). overlayBlur in px, 0/null = kein Blur. Das Overlay-div
+ * liegt über dem Hero-<img>, daher zeichnet backdrop-filter das Bild
+ * dahinter weich.
+ */
+function overlayStyle(
+  h: PublicGalleryMeta["header"]
+): React.CSSProperties {
+  const s: React.CSSProperties = {
+    backgroundColor: h.overlayColor ?? undefined,
+  };
+  if (h.overlayBlur && h.overlayBlur > 0) {
+    s.backdropFilter = `blur(${h.overlayBlur}px)`;
+    s.WebkitBackdropFilter = `blur(${h.overlayBlur}px)`;
+  }
+  return s;
+}
+
 function heroTextStyle(meta: PublicGalleryMeta, sideBySide = false): React.CSSProperties {
   if (sideBySide) {
     // Side-by-Side hat keinen eigenen Backdrop — der Text steht auf der
@@ -108,7 +127,7 @@ function MinimalHero({ meta, children }: Props) {
           {hasOverlay && (
             <div
               className="absolute inset-0 -z-10"
-              style={{ backgroundColor: h.overlayColor! }}
+              style={overlayStyle(h)}
             />
           )}
         </>
@@ -155,7 +174,7 @@ function SplashHero({ meta, children }: Props) {
           {hasOverlay && (
             <div
               className="absolute inset-0 -z-10"
-              style={{ backgroundColor: h.overlayColor! }}
+              style={overlayStyle(h)}
             />
           )}
         </>
@@ -280,7 +299,7 @@ function CenteredHero({ meta, children }: Props) {
           {h.overlayColor && (
             <div
               className="absolute inset-0"
-              style={{ backgroundColor: h.overlayColor }}
+              style={overlayStyle(h)}
             />
           )}
         </div>

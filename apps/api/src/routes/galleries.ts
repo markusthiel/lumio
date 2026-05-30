@@ -66,6 +66,7 @@ const updateGallerySchema = createGallerySchema.partial().extend({
     .regex(HEX_RGBA, "must be #RRGGBBAA")
     .nullable()
     .optional(),
+  heroOverlayBlur: z.number().int().min(0).max(40).nullable().optional(),
   heroBackgroundColor: z
     .string()
     .regex(HEX_RGB, "must be #RRGGBB")
@@ -651,6 +652,9 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           ...(body.heroUrl !== undefined ? { heroUrl: body.heroUrl } : {}),
           ...(body.heroOverlayColor !== undefined
             ? { heroOverlayColor: body.heroOverlayColor }
+            : {}),
+          ...(body.heroOverlayBlur !== undefined
+            ? { heroOverlayBlur: body.heroOverlayBlur }
             : {}),
           ...(body.heroBackgroundColor !== undefined
             ? { heroBackgroundColor: body.heroBackgroundColor }
@@ -1399,6 +1403,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         heroFileId: true,
         heroUrl: true,
         heroOverlayColor: true,
+        heroOverlayBlur: true,
         heroBackgroundColor: true,
         eventLogoUrl: true,
         welcomeMarkdown: true,
@@ -1577,6 +1582,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           // oder Upload-Asset) — Frontend baut mit api-base zusammen.
           heroImageUrl: heroFileUrl ?? heroUploadUrl,
           overlayColor: gallery.heroOverlayColor,
+          overlayBlur: gallery.heroOverlayBlur,
           backgroundColor: gallery.heroBackgroundColor,
           eventLogoUrl: eventLogoPublicUrl,
           welcomeMarkdown: gallery.welcomeMarkdown,

@@ -429,6 +429,9 @@ model Gallery {
   // (alpha = 0x66 ~ 40%). Wenn null, kein Overlay. Wird im Frontend als
   // CSS background-color über das Hero-Bild gelegt.
   heroOverlayColor String?  @db.VarChar(9)
+  // Optionaler Weichzeichner (Glas-Effekt) hinter dem Hero-Overlay, in px.
+  // Null/0 = kein Blur. Analog zum Login-Overlay (loginOverlayBlur).
+  heroOverlayBlur  Int?
   
   // Hintergrund-Farbe wenn KEIN Hero-Bild gesetzt ist. Hex-String wie
   // "#0f172a". Default null → Frontend nutzt globale Surface-Farbe.

@@ -215,6 +215,9 @@ export const de: Dict = {
     heroOverlay: "Overlay-Farbe",
     heroOverlayHint:
       "Halbtransparente Farbe über dem Hero-Bild — verbessert die Lesbarkeit des Titels.",
+    heroBlur: "Weichzeichnen (Glas-Effekt)",
+    heroBlurHint:
+      "Zeichnet das Hero-Bild hinter der Overlay-Farbe weich — wie der Glas-Effekt bei Menüs und Dialogen.",
     heroBackground: "Hintergrund-Farbe",
     heroBackgroundHint:
       "Wenn kein Hero-Bild gesetzt ist: Solid-Hintergrund für den Header.",

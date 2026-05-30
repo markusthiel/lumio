@@ -22,6 +22,7 @@ import remarkGfm from "remark-gfm";
 import { api, type Gallery } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 import { FONT_OPTIONS } from "@/lib/fonts";
+import { BlurLevelPicker } from "@/components/studio/BlurLevelPicker";
 
 interface GalleryFile {
   id: string;
@@ -196,11 +197,17 @@ export function GalleryHeaderEditor({ gallery, files, onChanged }: Props) {
                     alt=""
                     className="w-full h-full object-cover"
                   />
-                  {gallery.heroOverlayColor && (
+                  {(gallery.heroOverlayColor || gallery.heroOverlayBlur) && (
                     <div
                       className="absolute inset-0 pointer-events-none"
                       style={{
-                        backgroundColor: gallery.heroOverlayColor,
+                        backgroundColor: gallery.heroOverlayColor ?? undefined,
+                        backdropFilter: gallery.heroOverlayBlur
+                          ? `blur(${gallery.heroOverlayBlur}px)`
+                          : undefined,
+                        WebkitBackdropFilter: gallery.heroOverlayBlur
+                          ? `blur(${gallery.heroOverlayBlur}px)`
+                          : undefined,
                       }}
                     />
                   )}
@@ -245,6 +252,16 @@ export function GalleryHeaderEditor({ gallery, files, onChanged }: Props) {
               <RgbaPicker
                 value={gallery.heroOverlayColor}
                 onChange={(v) => patch({ heroOverlayColor: v })}
+              />
+            </Field>
+          )}
+
+          {/* Weichzeichner (Glas-Effekt) — nur sinnvoll mit Hero-Bild */}
+          {(gallery.heroFileId || gallery.heroUrl) && (
+            <Field label={t("studio.heroBlur")} hint={t("studio.heroBlurHint")}>
+              <BlurLevelPicker
+                value={gallery.heroOverlayBlur ?? 0}
+                onChange={(px) => patch({ heroOverlayBlur: px || null })}
               />
             </Field>
           )}

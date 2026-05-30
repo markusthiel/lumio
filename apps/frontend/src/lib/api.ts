@@ -61,6 +61,7 @@ export interface Gallery {
   heroFileId: string | null;
   heroUrl: string | null;
   heroOverlayColor: string | null;
+  heroOverlayBlur: number | null;
   heroBackgroundColor: string | null;
   eventLogoUrl: string | null;
   welcomeMarkdown: string | null;
@@ -269,6 +270,8 @@ export interface PublicGalleryMeta {
     heroImageUrl: string | null;
     /** Hex #RRGGBBAA für Overlay über dem Hero-Bild */
     overlayColor: string | null;
+    /** Weichzeichner (px) hinter dem Overlay — Glas-Effekt */
+    overlayBlur: number | null;
     /** Hex #RRGGBB für Background wenn kein Hero gesetzt */
     backgroundColor: string | null;
     /** Relativer Pfad /g/<slug>/assets/logo, wenn ein Event-Logo

@@ -215,6 +215,9 @@ export const en: Dict = {
     heroOverlay: "Overlay color",
     heroOverlayHint:
       "Semi-transparent color over the hero image — improves title readability.",
+    heroBlur: "Blur (frosted glass)",
+    heroBlurHint:
+      "Blurs the hero image behind the overlay color — like the frosted-glass effect on menus and dialogs.",
     heroBackground: "Background color",
     heroBackgroundHint:
       "If no hero image is set: solid color background for the header.",
