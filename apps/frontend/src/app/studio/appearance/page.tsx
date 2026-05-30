@@ -50,7 +50,9 @@ function Field({
 }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-sm font-medium text-ink-secondary">{label}</label>
+      <label className="text-sm font-medium text-ink-secondary block">
+        {label}
+      </label>
       {children}
       {hint && <p className="text-xs text-ink-tertiary">{hint}</p>}
     </div>
@@ -296,7 +298,7 @@ export default function AppearancePage() {
         }
       />
 
-      <div className="max-w-3xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+      <div className="px-6 sm:px-8 lg:px-12 py-6 space-y-6 max-w-5xl">
         {error && (
           <div className="rounded-md border border-semantic-danger/40 bg-semantic-danger/10 px-4 py-3 text-sm text-semantic-danger">
             {error}

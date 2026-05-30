@@ -33,9 +33,10 @@ interface SubGroup {
 const SUB_GROUPS: SubGroup[] = [
   {
     // Gestaltung
-    match: ["/studio/brandings", "/studio/templates", "/studio/tags"],
+    match: ["/studio/brandings", "/studio/templates", "/studio/tags", "/studio/appearance"],
     tabs: [
       { href: "/studio/brandings", label: "Branding" },
+      { href: "/studio/appearance", label: "Studio & Login" },
       { href: "/studio/templates", label: "Templates" },
       { href: "/studio/tags", label: "Tags" },
     ],
