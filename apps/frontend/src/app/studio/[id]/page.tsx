@@ -1012,7 +1012,7 @@ export default function GalleryDetailPage() {
         <nav className="flex gap-1 -mb-px overflow-x-auto">
           {(
             [
-              ["images", "Bilder"],
+              ["images", "Medien"],
               ["share", "Teilen"],
               ["insights", "Auswahl & Statistik"],
               ["settings", "Einstellungen"],
@@ -1255,7 +1255,7 @@ export default function GalleryDetailPage() {
               >
                 <div className="text-ui-sm font-medium">Auswahl / Proofing</div>
                 <div className="text-ui-xs text-ink-tertiary mt-0.5">
-                  Kunde kann Bilder auswählen, kommentieren und markieren.
+                  Kunde kann Medien auswählen, kommentieren und markieren.
                 </div>
               </button>
               <button
@@ -1301,7 +1301,7 @@ export default function GalleryDetailPage() {
             <div className="rounded-xs bg-surface-sunken px-3 py-2 text-ui-xs text-ink-secondary">
               Diese Galerie ist im{" "}
               <span className="font-medium">Präsentations-Modus</span>. Der
-              Kunde kann Bilder ansehen, aber keine Auswahl treffen, Bilder
+              Kunde kann Medien ansehen, aber keine Auswahl treffen, Medien
               markieren oder kommentieren. Einstellungen unten, die nur im
               Auswahl/Proofing-Modus wirken, sind ausgegraut.
             </div>
@@ -1552,7 +1552,7 @@ export default function GalleryDetailPage() {
                       size="sm"
                       variant="ghost"
                       onClick={() => setShowDuplicatesDialog(true)}
-                      title="Bilder mit identischem Inhalt finden und aufräumen"
+                      title="Medien mit identischem Inhalt finden und aufräumen"
                     >
                       Duplikate finden
                     </Button>
@@ -1693,7 +1693,7 @@ export default function GalleryDetailPage() {
                 Statistik
               </h2>
               <p className="text-ui-sm text-ink-tertiary mt-1.5 leading-relaxed">
-                Besuche, Aktivität im Zeitverlauf und die beliebtesten Bilder.
+                Besuche, Aktivität im Zeitverlauf und die beliebtesten Medien.
               </p>
               <span className="inline-block text-ui-sm text-accent mt-3">
                 Öffnen →

@@ -80,7 +80,7 @@ export const en: Dict = {
     statsAccessComments: "Comments",
     statsAccessFinalized: "Finalized",
     statsAnonymous: "Anonymous (no token)",
-    statsTopFiles: "Most liked files",
+    statsTopFiles: "Most liked media",
     statsNoLikesYet: "No likes yet.",
     statsDownloads: "Downloads",
     statsDownloadsTotal: "Total downloads",
