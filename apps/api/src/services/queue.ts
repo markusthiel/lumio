@@ -73,6 +73,19 @@ export type FileProcessingJob =
       /** Welches Asset wird optimiert: "loginBackground" (aktuell der
        *  einzige Kind, der einen Worker-Roundtrip braucht). */
       kind: "loginBackground";
+    }
+  | {
+      /** Optimierung eines tenant-weiten Appearance-Assets (Studio-/
+       *  Login-/Mail-Logo oder Login-Hintergrund). Tenant-scoped, keine
+       *  fileId/galleryId. */
+      type: "process_appearance_asset";
+      tenantId: string;
+      kind:
+        | "studioLogo"
+        | "studioLogoLight"
+        | "loginLogo"
+        | "loginBackground"
+        | "emailLogo";
     };
 
 export interface VideoProcessingJob {

@@ -190,6 +190,15 @@ def _dispatch(stream: str, payload: dict) -> None:
             "tasks.process_branding_asset.optimize",
             args=[payload.get("brandingId"), payload.get("kind")],
         )
+    elif job_type == "process_appearance_asset":
+        # Lade-Optimierung fuer ein Studio-/Login-/Mail-Asset (Logo oder
+        # Login-Background): WebP-Konvertierung + Resize (Logos 512px,
+        # Hintergrund 2400px, SVG bleibt). Getriggert vom API-Endpoint
+        # /studio/appearance/assets/complete.
+        app.send_task(
+            "tasks.process_appearance_asset.optimize",
+            args=[payload.get("tenantId"), payload.get("kind")],
+        )
     else:
         log.warning("consumer.unknown_job_type",
                     stream=stream, type=job_type)

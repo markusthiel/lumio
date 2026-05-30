@@ -58,6 +58,8 @@ app = Celery(
         "tasks.billing",
         "tasks.webhook_delivery",
         "tasks.auto_tag",
+        "tasks.process_branding_asset",
+        "tasks.process_appearance_asset",
     ],
 )
 

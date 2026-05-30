@@ -17,6 +17,7 @@ import { z } from "zod";
 import { prisma } from "../db.js";
 import { presignPut, presignGet, deleteObject } from "../services/storage.js";
 import { logEvent } from "../services/audit.js";
+import { enqueue, Queues } from "../services/queue.js";
 
 const colorRegex = /^#[0-9a-fA-F]{6}$/;
 const ASSET_TTL_SECONDS = 3600;
@@ -231,6 +232,16 @@ export async function registerAppearanceRoutes(app: FastifyInstance) {
       data: { [field]: body.key },
       select: APPEARANCE_SELECT,
     });
+
+    // Asynchrone Lade-Optimierung: WebP + Resize (Logos klein,
+    // Hintergrund groß; SVG bleibt). Hält den Upload schlank — niemand
+    // soll ein 5-MB-PNG ausliefern, das mit 28px dargestellt wird.
+    await enqueue(Queues.FILE_PROCESSING, {
+      type: "process_appearance_asset",
+      tenantId: req.tenantId,
+      kind: body.kind,
+    }).catch(() => {});
+
     return { appearance: await serializeAppearance(t) };
   });
 
