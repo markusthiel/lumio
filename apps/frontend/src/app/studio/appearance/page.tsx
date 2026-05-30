@@ -25,6 +25,31 @@ const PHOTO_ACCEPT =
   ",image/tiff,.tif,.tiff,.bmp,.jpf,.jpx,.cr2,.cr3,.nef,.nrw,.arw,.sr2,.srf,.dng,.raf,.orf,.rw2,.pef,.srw,.raw,.3fr,.erf,.kdc,.mos,.mrw,.x3f";
 const hexRe = /^#[0-9a-fA-F]{6}$/;
 
+// Aktuelle (signierte) URL eines Asset-Typs aus der Appearance ziehen.
+function assetUrlForKind(
+  a: Appearance,
+  kind: AppearanceAssetKind
+): string | null {
+  switch (kind) {
+    case "studioLogo":
+      return a.studioLogoUrl;
+    case "studioLogoLight":
+      return a.studioLogoLightUrl;
+    case "loginLogo":
+      return a.loginLogoUrl;
+    case "loginBackground":
+      return a.loginBackgroundUrl;
+    case "emailLogo":
+      return a.emailLogoUrl;
+  }
+}
+
+// Bereits direkt anzeigbar? WebP (nach Worker-Konvertierung) oder ein
+// unverändertes SVG. Andernfalls läuft die Optimierung noch.
+function isOptimized(url: string | null): boolean {
+  return !url || /\.(webp|svg)(\?|$)/i.test(url);
+}
+
 function Section({
   title,
   description,
@@ -251,6 +276,27 @@ export default function AppearancePage() {
         key: init.key,
       });
       setAppearance(appearance);
+
+      // Der Worker konvertiert das Original asynchron zu WebP. Bei
+      // Formaten, die der Browser nicht direkt anzeigt (JP2/RAW/TIFF/
+      // HEIC), würde sonst kurz ein "Bild fehlt"-Platzhalter erscheinen.
+      // Wir warten daher auf die optimierte Variante und lassen so lange
+      // den Lade-Zustand stehen (uploadingKind wird erst im finally
+      // zurückgesetzt).
+      if (!isOptimized(assetUrlForKind(appearance, kind))) {
+        let current = appearance;
+        for (let i = 0; i < 8; i++) {
+          await new Promise((r) => setTimeout(r, 1500));
+          try {
+            const fresh = (await api.getAppearance()).appearance;
+            current = fresh;
+            if (isOptimized(assetUrlForKind(fresh, kind))) break;
+          } catch {
+            // transienter Fehler — weiter versuchen
+          }
+        }
+        setAppearance(current);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload fehlgeschlagen");
     } finally {
