@@ -56,7 +56,7 @@ export function AssetField({
   onFile,
   onRemove,
   previewHeight = "small",
-  darkPreview = false,
+  previewTone = "neutral",
 }: {
   label: string;
   imageUrl: string | null;
@@ -69,9 +69,12 @@ export function AssetField({
   onRemove: () => void;
   /** "small" für Logo/Favicon, "large" für Hero-Background. */
   previewHeight?: "small" | "large";
-  /** Wenn true, wird der Preview-Container dunkler — damit weiße Logos
-   *  und helle Varianten sichtbar bleiben. */
-  darkPreview?: boolean;
+  /** Hintergrund des Vorschau-Containers — zeigt schon vor dem Upload,
+   *  auf welchem Grund das Logo landet:
+   *    "dark"    fast schwarz  → helle/weiße Logos
+   *    "light"   weiß          → dunkle Logos
+   *    "neutral" Standard-Fläche */
+  previewTone?: "dark" | "light" | "neutral";
 }) {
   const previewCls =
     previewHeight === "large" ? "min-h-[180px] max-h-[260px]" : "min-h-[64px]";
@@ -79,9 +82,14 @@ export function AssetField({
     previewHeight === "large"
       ? "max-h-[240px] max-w-full object-cover w-full rounded"
       : "max-h-12 max-w-full object-contain";
-  const previewBg = darkPreview
-    ? "bg-[#0a0a0c] border-[#1a1a1f]"
-    : "bg-surface-raised border-line-subtle";
+  const previewBg =
+    previewTone === "dark"
+      ? "bg-[#0a0a0c] border-[#1a1a1f]"
+      : previewTone === "light"
+      ? "bg-white border-[#e2e2e6]"
+      : "bg-surface-raised border-line-subtle";
+  const emptyTextCls =
+    previewTone === "light" ? "text-neutral-400" : "text-ink-tertiary";
   return (
     <div className="space-y-1">
       <label className="text-xs font-medium text-ink-secondary">{label}</label>
@@ -106,9 +114,9 @@ export function AssetField({
           </div>
         ) : (
           <div
-            className={`text-xs text-ink-tertiary text-center py-3 flex items-center justify-center ${previewCls}`}
+            className={`border rounded text-xs text-center flex items-center justify-center ${previewBg} ${previewCls}`}
           >
-            Noch nichts hochgeladen.
+            <span className={emptyTextCls}>Noch nichts hochgeladen.</span>
           </div>
         )}
         <div className="flex justify-between items-center gap-2">

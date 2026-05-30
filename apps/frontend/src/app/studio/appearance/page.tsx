@@ -380,7 +380,7 @@ export default function AppearancePage() {
                   onPick={() => studioLogoRef.current?.click()}
                   onFile={(f) => uploadAsset("studioLogo", f)}
                   onRemove={() => removeAsset("studioLogo")}
-                  darkPreview
+                  previewTone="dark"
                 />
                 <AssetField
                   label="Logo (heller Modus)"
@@ -392,6 +392,7 @@ export default function AppearancePage() {
                   onPick={() => studioLogoLightRef.current?.click()}
                   onFile={(f) => uploadAsset("studioLogoLight", f)}
                   onRemove={() => removeAsset("studioLogoLight")}
+                  previewTone="light"
                 />
               </div>
             </Section>
@@ -419,7 +420,7 @@ export default function AppearancePage() {
                   onPick={() => loginLogoRef.current?.click()}
                   onFile={(f) => uploadAsset("loginLogo", f)}
                   onRemove={() => removeAsset("loginLogo")}
-                  darkPreview
+                  previewTone="dark"
                 />
                 <Field
                   label="Akzentfarbe"
@@ -474,6 +475,7 @@ export default function AppearancePage() {
                 onPick={() => emailLogoRef.current?.click()}
                 onFile={(f) => uploadAsset("emailLogo", f)}
                 onRemove={() => removeAsset("emailLogo")}
+                previewTone="light"
               />
             </Section>
 
