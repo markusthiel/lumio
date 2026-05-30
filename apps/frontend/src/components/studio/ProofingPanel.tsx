@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, type ProofingSummary, type GalleryFile } from "@/lib/api";
@@ -23,6 +23,28 @@ export function ProofingPanel({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [detailFile, setDetailFile] = useState<GalleryFile | null>(null);
+  // Filter (clientseitig) für die Auswahl-Übersicht.
+  const [colorFilter, setColorFilter] = useState<Set<string>>(new Set());
+  const [onlyLikes, setOnlyLikes] = useState(false);
+  const [onlyComments, setOnlyComments] = useState(false);
+
+  const statsByFileId = useMemo(
+    () => new Map((data?.files ?? []).map((s) => [s.fileId, s])),
+    [data]
+  );
+  const filterActive =
+    colorFilter.size > 0 || onlyLikes || onlyComments;
+  const displayedFiles = useMemo(() => {
+    if (!filterActive) return files;
+    return files.filter((f) => {
+      const st = statsByFileId.get(f.id);
+      if (colorFilter.size > 0 && !(st?.label && colorFilter.has(st.label)))
+        return false;
+      if (onlyLikes && !st?.liked) return false;
+      if (onlyComments && !(st && st.commentCount > 0)) return false;
+      return true;
+    });
+  }, [files, statsByFileId, colorFilter, onlyLikes, onlyComments, filterActive]);
 
   useEffect(() => {
     (async () => {
@@ -94,12 +116,97 @@ export function ProofingPanel({
         {files.length > 0 && (
           <section>
             <h2 className="text-ui-md font-medium mb-3">
-              {t("annotation.studioDetail.imagesCount")} ({files.length})
+              {t("annotation.studioDetail.imagesCount")}{" "}
+              (
+              {filterActive
+                ? `${displayedFiles.length} / ${files.length}`
+                : files.length}
+              )
             </h2>
+            {/* Filter nach Farb-Tag, Favorit, Kommentar (clientseitig) */}
+            <div className="flex flex-wrap items-center gap-1.5 mb-3">
+              {Object.keys(data.totals.byLabel).map((label) => {
+                const on = colorFilter.has(label);
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() =>
+                      setColorFilter((prev) => {
+                        const n = new Set(prev);
+                        if (n.has(label)) n.delete(label);
+                        else n.add(label);
+                        return n;
+                      })
+                    }
+                    className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-ui-xs border transition-colors duration-motion ${
+                      on
+                        ? "border-accent bg-accent/10 text-ink-primary"
+                        : "border-line-subtle bg-surface-sunken text-ink-secondary hover:text-ink-primary"
+                    }`}
+                  >
+                    <span
+                      className={`w-2.5 h-2.5 rounded-full ${colorBg(label)}`}
+                    />
+                    <span className="capitalize">{label}</span>
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => setOnlyLikes((v) => !v)}
+                className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-ui-xs border transition-colors duration-motion ${
+                  onlyLikes
+                    ? "border-accent bg-accent/10 text-ink-primary"
+                    : "border-line-subtle bg-surface-sunken text-ink-secondary hover:text-ink-primary"
+                }`}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 21s-7-4.6-9.5-8.3C.9 10.2 1.5 7 4.3 6c1.9-.7 3.7.2 4.7 1.6C10 6.2 11.8 5.3 13.7 6c2.8 1 3.4 4.2 1.8 6.7C19 16.4 12 21 12 21z" />
+                </svg>
+                Favoriten
+              </button>
+              <button
+                type="button"
+                onClick={() => setOnlyComments((v) => !v)}
+                className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-ui-xs border transition-colors duration-motion ${
+                  onlyComments
+                    ? "border-accent bg-accent/10 text-ink-primary"
+                    : "border-line-subtle bg-surface-sunken text-ink-secondary hover:text-ink-primary"
+                }`}
+              >
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                </svg>
+                Kommentare
+              </button>
+              {filterActive && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setColorFilter(new Set());
+                    setOnlyLikes(false);
+                    setOnlyComments(false);
+                  }}
+                  className="text-ui-xs text-ink-tertiary hover:text-ink-secondary ml-1"
+                >
+                  Zurücksetzen
+                </button>
+              )}
+            </div>
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
-              {files.map((f) => {
+              {displayedFiles.map((f) => {
                 // Aggregierte Customer-Info aus dem Summary (falls vorhanden)
-                const fileStats = data.files.find((s) => s.fileId === f.id);
+                const fileStats = statsByFileId.get(f.id);
                 const hasLike = fileStats?.liked;
                 const colorTag = fileStats?.label;
                 const commentCount = fileStats?.commentCount ?? 0;
