@@ -23,8 +23,9 @@ Nutzungsstatistik nach außen sendet.
 ## Erst-Setup
 
 1. **A-Record** `stats.lumio-cloud.de` → Server-IP setzen.
-2. Caddy-Block für `stats.lumio-cloud.de` ist im App-Caddyfile aktiv; nach
-   Änderung dort den App-Stack neu deployen (Caddy lädt neu).
+2. In der App-Stack-`.env` `LUMIO_UMAMI_HOST=stats.lumio-cloud.de` setzen
+   und den App-Stack neu deployen (Caddy lädt den stats-Block und holt das
+   Cert; ohne diese Variable bleibt der Block inaktiv).
 3. Secrets anlegen und Stack starten:
    ```
    cd /opt/docker/lumio/lumio/infra/umami

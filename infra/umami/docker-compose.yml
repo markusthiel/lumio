@@ -18,7 +18,8 @@
 # Voraussetzungen:
 #   1. App-Stack läuft (Netz lumio_lumio_net existiert).
 #   2. A-Record stats.lumio-cloud.de -> Server-IP (für Cert + DNS).
-#   3. Caddy-Block für stats.lumio-cloud.de ist aktiv (App-Caddyfile).
+#   3. LUMIO_UMAMI_HOST in der App-Stack-.env gesetzt (aktiviert den
+#      stats-Block im App-Caddyfile).
 
 services:
   umami:
