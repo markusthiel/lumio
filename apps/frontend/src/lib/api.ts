@@ -341,7 +341,8 @@ export interface Appearance {
   loginOverlayColor: string | null;
   loginOverlayBlur: number | null;
   emailLogoUrl: string | null;
-  mailLayout: "classic" | "logo_right" | "centered" | "banner";
+  mailLogoPosition: "left" | "right" | "center" | "footer";
+  mailHeaderStyle: "line" | "banner";
 }
 
 export interface SpriteSheet {
@@ -1988,7 +1989,8 @@ export const api = {
       loginLayout: "minimal" | "splash" | "side_by_side" | "centered";
       loginOverlayColor: string | null;
       loginOverlayBlur: number | null;
-      mailLayout: "classic" | "logo_right" | "centered" | "banner";
+      mailLogoPosition: "left" | "right" | "center" | "footer";
+      mailHeaderStyle: "line" | "banner";
     }>
   ) =>
     request<{ appearance: Appearance }>(`/studio/appearance`, {

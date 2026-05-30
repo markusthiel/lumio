@@ -91,9 +91,11 @@ model Tenant {
   // Null/0 = kein Blur. Wirkt nur mit Hintergrundbild.
   loginOverlayBlur   Int?
   emailLogoKey       String?
-  // Layout-Variante für Studio-gebrandete Mails (an Endkunden):
-  // classic | logo_right | centered | banner. Default classic.
-  mailLayout         String?  @default("classic")
+  // Layout für Studio-gebrandete Mails (an Endkunden), zwei Achsen:
+  //   mailLogoPosition: left | right | center | footer (Logo-Platzierung)
+  //   mailHeaderStyle:  line  | banner               (Kopf-Optik)
+  mailLogoPosition   String?  @default("left")
+  mailHeaderStyle    String?  @default("line")
   
   // Watermark-Konfiguration (siehe docs/KONZEPT.md §9)
   // Wenn watermarkImageKey gesetzt: PNG aus S3 wird als Overlay verwendet.

@@ -198,140 +198,143 @@ function LoginLayoutPicker({
   );
 }
 
-type MailLayout = "classic" | "logo_right" | "centered" | "banner";
+type MailLogoPosition = "left" | "right" | "center" | "footer";
+type MailHeaderStyle = "line" | "banner";
 
-/** Auswahl der Mail-Layout-Variante (Studio-gebrandete Mails). Zeigt
- *  eine Mini-Mail-Vorschau pro Variante in der echten Akzentfarbe. */
-function MailLayoutPicker({
-  value,
-  onChange,
+/** Mail-Layout: zwei Regler (Logo-Position + Kopf-Stil) mit einer
+ *  kombinierten Live-Vorschau in der echten Akzentfarbe. Die Mini-Mail
+ *  ist immer weiß (echte Mails haben hellen Hintergrund), daher feste
+ *  Grautöne statt Theme-Tokens. */
+function MailLayoutControls({
+  logoPosition,
+  onLogoPosition,
+  headerStyle,
+  onHeaderStyle,
   accent,
 }: {
-  value: MailLayout;
-  onChange: (v: MailLayout) => void;
+  logoPosition: MailLogoPosition;
+  onLogoPosition: (v: MailLogoPosition) => void;
+  headerStyle: MailHeaderStyle;
+  onHeaderStyle: (v: MailHeaderStyle) => void;
   accent: string;
 }) {
   const ac = accent || "#d97706";
-  // Feste Grautöne statt Theme-Tokens: die Mini-Mail ist immer weiß
-  // (echte Mails haben hellen Hintergrund), Theme-Farben wie ink-primary
-  // sind im dunklen Studio-Theme hell und auf Weiß unsichtbar.
-  const LOGO_GRAY = "#4b5563"; // gut sichtbarer Logo-Platzhalter
-  const TEXT_GRAY = "#d1d5db"; // hellere Textzeilen
-  const Logo = ({ align }: { align: "left" | "right" | "center" }) => (
+  const LOGO_GRAY = "#4b5563";
+  const TEXT_GRAY = "#d1d5db";
+  const inFooter = logoPosition === "footer";
+  const isBanner = headerStyle === "banner";
+  const justify =
+    logoPosition === "right"
+      ? "flex-end"
+      : logoPosition === "center"
+        ? "center"
+        : "flex-start";
+
+  const LogoBar = ({ light }: { light?: boolean }) => (
     <div
-      className="flex"
-      style={{
-        justifyContent:
-          align === "right"
-            ? "flex-end"
-            : align === "center"
-              ? "center"
-              : "flex-start",
-      }}
+      className="h-2.5 w-2/5 rounded-sm"
+      style={{ backgroundColor: light ? "rgba(255,255,255,0.92)" : LOGO_GRAY }}
+    />
+  );
+
+  // Kopfzeile der Vorschau
+  let header: React.ReactNode;
+  if (!inFooter) {
+    header = isBanner ? (
+      <div className="px-3 py-2.5 flex" style={{ backgroundColor: ac, justifyContent: justify }}>
+        <LogoBar light />
+      </div>
+    ) : (
+      <div className="px-3 py-2.5 flex" style={{ borderBottom: `2px solid ${ac}`, justifyContent: justify }}>
+        <LogoBar />
+      </div>
+    );
+  } else {
+    header = isBanner ? (
+      <div style={{ backgroundColor: ac, height: 10 }} />
+    ) : (
+      <div style={{ borderTop: `3px solid ${ac}` }} />
+    );
+  }
+
+  const Pill = ({
+    active,
+    onClick,
+    children,
+  }: {
+    active: boolean;
+    onClick: () => void;
+    children: React.ReactNode;
+  }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+        active
+          ? "border-accent bg-accent/10 text-ink-primary"
+          : "border-line-subtle bg-surface-sunken text-ink-secondary hover:border-line-strong"
+      }`}
     >
-      <div
-        className="h-2 w-2/5 rounded-sm"
-        style={{ backgroundColor: LOGO_GRAY }}
-      />
-    </div>
+      {children}
+    </button>
   );
-  const Body = () => (
-    <div className="p-1.5 flex flex-col gap-1">
-      <div
-        className="h-0.5 w-full rounded-sm"
-        style={{ backgroundColor: TEXT_GRAY }}
-      />
-      <div
-        className="h-0.5 w-4/5 rounded-sm"
-        style={{ backgroundColor: TEXT_GRAY }}
-      />
-      <div
-        className="h-1 w-1/3 rounded-sm mt-0.5"
-        style={{ backgroundColor: ac }}
-      />
-    </div>
-  );
-  const options: { id: MailLayout; label: string; sketch: React.ReactNode }[] =
-    [
-      {
-        id: "classic",
-        label: "Klassisch",
-        sketch: (
-          <div className="w-full h-full bg-white flex flex-col">
-            <div className="p-1.5" style={{ borderBottom: `2px solid ${ac}` }}>
-              <Logo align="left" />
-            </div>
-            <Body />
-          </div>
-        ),
-      },
-      {
-        id: "logo_right",
-        label: "Logo rechts",
-        sketch: (
-          <div className="w-full h-full bg-white flex flex-col">
-            <div className="p-1.5" style={{ borderBottom: `2px solid ${ac}` }}>
-              <Logo align="right" />
-            </div>
-            <Body />
-          </div>
-        ),
-      },
-      {
-        id: "centered",
-        label: "Zentriert",
-        sketch: (
-          <div className="w-full h-full bg-white flex flex-col">
-            <div className="p-1.5" style={{ borderBottom: `2px solid ${ac}` }}>
-              <Logo align="center" />
-            </div>
-            <Body />
-          </div>
-        ),
-      },
-      {
-        id: "banner",
-        label: "Akzent-Banner",
-        sketch: (
-          <div className="w-full h-full bg-white flex flex-col">
-            <div
-              className="p-1.5 flex justify-center"
-              style={{ backgroundColor: ac }}
-            >
-              <div className="h-2 w-2/5 rounded-sm bg-white/90" />
-            </div>
-            <Body />
-          </div>
-        ),
-      },
-    ];
+
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-      {options.map((opt) => {
-        const active = value === opt.id;
-        return (
-          <button
-            key={opt.id}
-            type="button"
-            onClick={() => onChange(opt.id)}
-            className={`rounded border p-2 text-left transition-colors ${
-              active
-                ? "border-accent bg-accent/10"
-                : "border-line-subtle bg-surface-sunken hover:border-line-strong"
-            }`}
+    <div className="flex flex-col gap-4">
+      {/* Live-Vorschau */}
+      <div className="max-w-[280px]">
+        <div className="rounded-md overflow-hidden bg-white border border-line-subtle shadow-sm">
+          {header}
+          <div className="px-3 py-3 flex flex-col gap-1.5">
+            <div className="h-1 w-full rounded-sm" style={{ backgroundColor: TEXT_GRAY }} />
+            <div className="h-1 w-4/5 rounded-sm" style={{ backgroundColor: TEXT_GRAY }} />
+            <div className="h-2 w-1/3 rounded-sm mt-1" style={{ backgroundColor: ac }} />
+          </div>
+          <div
+            className="px-3 py-2.5 flex flex-col items-center gap-1"
+            style={{ backgroundColor: "#fafafa", borderTop: "1px solid #e5e7eb" }}
           >
-            <div className="aspect-[4/3] w-full rounded-sm bg-surface-overlay/40 overflow-hidden">
-              {opt.sketch}
-            </div>
-            <div className="mt-2 text-xs font-medium text-ink-primary">
-              {opt.label}
-            </div>
-          </button>
-        );
-      })}
+            {inFooter && <LogoBar />}
+            <div className="h-0.5 w-1/2 rounded-sm" style={{ backgroundColor: "#e5e7eb" }} />
+          </div>
+        </div>
+      </div>
+
+      {/* Regler 1: Logo-Position */}
+      <div>
+        <div className="text-xs font-medium text-ink-secondary mb-1.5">Logo-Position</div>
+        <div className="flex flex-wrap gap-1.5">
+          <Pill active={logoPosition === "left"} onClick={() => onLogoPosition("left")}>
+            Links
+          </Pill>
+          <Pill active={logoPosition === "right"} onClick={() => onLogoPosition("right")}>
+            Rechts
+          </Pill>
+          <Pill active={logoPosition === "center"} onClick={() => onLogoPosition("center")}>
+            Mittig
+          </Pill>
+          <Pill active={logoPosition === "footer"} onClick={() => onLogoPosition("footer")}>
+            Footer
+          </Pill>
+        </div>
+      </div>
+
+      {/* Regler 2: Kopf-Stil */}
+      <div>
+        <div className="text-xs font-medium text-ink-secondary mb-1.5">Kopf-Stil</div>
+        <div className="flex flex-wrap gap-1.5">
+          <Pill active={headerStyle === "line"} onClick={() => onHeaderStyle("line")}>
+            Schlichte Linie
+          </Pill>
+          <Pill active={headerStyle === "banner"} onClick={() => onHeaderStyle("banner")}>
+            Akzent-Banner
+          </Pill>
+        </div>
+      </div>
     </div>
   );
 }
+
 
 export default function AppearancePage() {
   const [appearance, setAppearance] = useState<Appearance | null>(null);
@@ -347,7 +350,10 @@ export default function AppearancePage() {
   const [loginAccent, setLoginAccent] = useState("");
   const [loginGreeting, setLoginGreeting] = useState("");
   const [loginLayout, setLoginLayout] = useState<LoginLayout>("centered");
-  const [mailLayout, setMailLayout] = useState<MailLayout>("classic");
+  const [mailLogoPosition, setMailLogoPosition] =
+    useState<MailLogoPosition>("left");
+  const [mailHeaderStyle, setMailHeaderStyle] =
+    useState<MailHeaderStyle>("line");
   const [loginOverlay, setLoginOverlay] = useState<string | null>(null);
   const [loginOverlayBlur, setLoginOverlayBlur] = useState(0);
 
@@ -367,7 +373,8 @@ export default function AppearancePage() {
         setLoginAccent(appearance.loginAccentColor ?? "");
         setLoginGreeting(appearance.loginGreeting ?? "");
         setLoginLayout(appearance.loginLayout);
-        setMailLayout(appearance.mailLayout);
+        setMailLogoPosition(appearance.mailLogoPosition);
+        setMailHeaderStyle(appearance.mailHeaderStyle);
         setLoginOverlay(appearance.loginOverlayColor);
         setLoginOverlayBlur(appearance.loginOverlayBlur ?? 0);
       } catch (e) {
@@ -484,7 +491,8 @@ export default function AppearancePage() {
         loginLayout,
         loginOverlayColor: loginOverlay,
         loginOverlayBlur: loginOverlayBlur || null,
-        mailLayout,
+        mailLogoPosition,
+        mailHeaderStyle,
       });
       setAppearance(appearance);
       applyStudioAccent(appearance.studioAccentColor);
@@ -734,7 +742,12 @@ export default function AppearancePage() {
                 label="E-Mail-Logo"
                 imageUrl={appearance.emailLogoUrl}
                 accept={LOGO_ACCEPT}
-                hint="Erscheint im Kopf der E-Mails. Dunkle Variante empfohlen (heller Mail-Hintergrund)."
+                hint={
+                  mailHeaderStyle === "banner" &&
+                  mailLogoPosition !== "footer"
+                    ? "Liegt auf dem farbigen Banner — helle/weiße Variante empfohlen."
+                    : "Erscheint im Kopf bzw. Footer der E-Mails. Dunkle Variante empfohlen (heller Hintergrund)."
+                }
                 uploading={uploadingKind === "emailLogo"}
                 inputRef={emailLogoRef}
                 onPick={() => emailLogoRef.current?.click()}
@@ -746,9 +759,11 @@ export default function AppearancePage() {
                 label="Layout"
                 hint="Aufbau der E-Mails an deine Kunden. Deine Akzentfarbe wird für Linie/Banner, Buttons und Zitate übernommen. Kein Dark-Mode — die Mail-Programme dunkeln selbst ab."
               >
-                <MailLayoutPicker
-                  value={mailLayout}
-                  onChange={setMailLayout}
+                <MailLayoutControls
+                  logoPosition={mailLogoPosition}
+                  onLogoPosition={setMailLogoPosition}
+                  headerStyle={mailHeaderStyle}
+                  onHeaderStyle={setMailHeaderStyle}
                   accent={studioAccent || loginAccent}
                 />
               </Field>

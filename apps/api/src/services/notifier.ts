@@ -46,7 +46,8 @@ async function tenantMailBranding(
         studioAccentColor: true,
         loginAccentColor: true,
         loginLayout: true,
-        mailLayout: true,
+        mailLogoPosition: true,
+        mailHeaderStyle: true,
       },
     });
     if (!t) return undefined;
@@ -56,13 +57,14 @@ async function tenantMailBranding(
         : null,
       accentColor: t.studioAccentColor ?? t.loginAccentColor ?? null,
       brandName: t.displayName ?? t.name ?? null,
-      layout:
-        (t.mailLayout as
-          | "classic"
-          | "logo_right"
-          | "centered"
-          | "banner"
-          | null) ?? "classic",
+      logoPosition:
+        (t.mailLogoPosition as
+          | "left"
+          | "right"
+          | "center"
+          | "footer"
+          | null) ?? "left",
+      headerStyle: (t.mailHeaderStyle as "line" | "banner" | null) ?? "line",
     };
   } catch {
     return undefined;

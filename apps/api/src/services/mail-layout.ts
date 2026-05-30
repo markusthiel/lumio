@@ -57,15 +57,18 @@ export interface MailBranding {
   footerNote?: string | null;
   /** Logo-Ausrichtung im Header — grob an die Login-Layout-Variante
    *  gekoppelt (zentriert vs. links). Default: links.
-   *  @deprecated zugunsten von `layout`; wird nur als Fallback genutzt. */
+   *  @deprecated zugunsten von `logoPosition`/`headerStyle`. */
   logoAlign?: "center" | "left" | null;
-  /** Layout-Variante für den Mail-Header/Rahmen:
-   *   - classic:    Logo links, Akzentlinie unter dem Header
-   *   - logo_right: Logo rechts, Akzentlinie unter dem Header
-   *   - centered:   Logo mittig, Akzentlinie unter dem Header
-   *   - banner:     Header als farbiger Balken (Akzentfarbe), Logo darauf
-   *  Default: classic. Greift nur für Studio-gebrandete Mails. */
-  layout?: "classic" | "logo_right" | "centered" | "banner" | null;
+  /** Wo das Logo erscheint:
+   *   - left/right/center: im Kopf, an der jeweiligen Position
+   *   - footer:            unter dem Text, im Footer-Bereich
+   *  Default: left. Greift nur für Studio-gebrandete Mails. */
+  logoPosition?: "left" | "right" | "center" | "footer" | null;
+  /** Optik des Kopfbereichs:
+   *   - line:   weißer Kopf mit Akzentlinie als Trenner
+   *   - banner: farbiger Balken in der Akzentfarbe
+   *  Default: line. */
+  headerStyle?: "line" | "banner" | null;
 }
 
 export interface RenderMailOpts {
@@ -90,32 +93,48 @@ export function renderMailLayout(opts: RenderMailOpts): string {
   const footerNote = opts.branding?.footerNote;
   const preheader = opts.preheader ?? "";
 
-  // Layout-Variante. Fallback-Kette: explizites layout → (deprecated)
-  // logoAlign → classic.
-  const layout: "classic" | "logo_right" | "centered" | "banner" =
-    opts.branding?.layout ||
-    (opts.branding?.logoAlign === "center" ? "centered" : "classic");
-  const isBanner = layout === "banner";
-  const logoAlign =
-    layout === "centered" || isBanner
+  // Zwei Achsen mit Fallback-Kette auf den (deprecated) logoAlign.
+  const logoPosition: "left" | "right" | "center" | "footer" =
+    opts.branding?.logoPosition ||
+    (opts.branding?.logoAlign === "center" ? "center" : "left");
+  const headerStyle: "line" | "banner" = opts.branding?.headerStyle || "line";
+  const isBanner = headerStyle === "banner";
+  const logoInFooter = logoPosition === "footer";
+  // Header-Ausrichtung nur relevant, wenn das Logo im Kopf sitzt.
+  const headerAlign =
+    logoPosition === "center"
       ? "center"
-      : layout === "logo_right"
+      : logoPosition === "right"
         ? "right"
         : "left";
 
-  // Header: Studio-Logo oder Wortmarke. Im Banner liegt alles auf der
-  // Akzentfläche → Wortmarke in Weiß (Logos sind meist PNG mit
-  // Transparenz und sitzen auch auf Farbe sauber).
+  // Logo-Tag (für Kopf ODER Footer wiederverwendet). Im Banner liegt es
+  // auf der Akzentfläche; sonst auf Weiß. Ohne Logo: Wortmarke.
   const wordmarkColor = isBanner ? "#ffffff" : accent;
-  const headerInner = logoUrl
+  const logoImg = logoUrl
     ? `<img src="${escapeAttr(logoUrl)}" alt="${escapeAttr(brandName)}" style="max-height:48px;max-width:200px;display:inline-block;border:0;" />`
     : `<div style="font-size:22px;font-weight:600;color:${wordmarkColor};letter-spacing:-0.02em;">${escapeHtml(brandName)}</div>`;
 
-  // Header-Zellen-Style je nach Variante: Banner = Akzent-Hintergrund,
-  // sonst weiße Zelle mit Akzentlinie als Trenner.
-  const headerCellStyle = isBanner
-    ? `padding:28px 32px;background-color:${accent};`
-    : `padding:24px 32px;border-bottom:2px solid ${accent};`;
+  // Kopfzeile. Sitzt das Logo im Footer, zeigt der Kopf kein Logo —
+  // bei 'line' nur einen schmalen Akzentstreifen, bei 'banner' den
+  // farbigen Balken (als Markenakzent ohne Inhalt).
+  let headerRow = "";
+  if (!logoInFooter) {
+    const headerCellStyle = isBanner
+      ? `padding:28px 32px;background-color:${accent};`
+      : `padding:24px 32px;border-bottom:2px solid ${accent};`;
+    headerRow = `<tr><td align="${headerAlign}" style="${headerCellStyle}">${logoImg}</td></tr>`;
+  } else {
+    headerRow = isBanner
+      ? `<tr><td style="padding:14px 32px;background-color:${accent};font-size:1px;line-height:1px;">&nbsp;</td></tr>`
+      : `<tr><td style="padding:0;border-top:3px solid ${accent};font-size:1px;line-height:1px;">&nbsp;</td></tr>`;
+  }
+
+  // Footer-Logo: nur wenn Logo-Position = footer. Zentriert über dem
+  // Standard-Footer-Text.
+  const footerLogoHtml = logoInFooter
+    ? `<div style="text-align:center;padding:0 0 12px;">${logoImg}</div>`
+    : "";
 
   const footerHtml = footerNote
     ? `<p style="margin:0 0 8px;color:${LUMIO_MUTED_COLOR};font-size:12px;line-height:1.5;">${escapeHtml(footerNote)}</p>`
@@ -138,11 +157,7 @@ ${escapeHtml(preheader)}
     <td align="center" style="padding:32px 16px;">
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;width:100%;background-color:#ffffff;border:1px solid ${LUMIO_BORDER_COLOR};border-radius:12px;overflow:hidden;">
         <!-- Header -->
-        <tr>
-          <td align="${logoAlign}" style="${headerCellStyle}">
-            ${headerInner}
-          </td>
-        </tr>
+        ${headerRow}
         <!-- Body -->
         <tr>
           <td style="padding:32px;font-size:15px;line-height:1.6;color:${LUMIO_TEXT_COLOR};">
@@ -152,6 +167,7 @@ ${escapeHtml(preheader)}
         <!-- Footer -->
         <tr>
           <td style="padding:20px 32px;background-color:#fafafa;border-top:1px solid ${LUMIO_BORDER_COLOR};">
+            ${footerLogoHtml}
             ${footerHtml}
             <p style="margin:0;color:${LUMIO_MUTED_COLOR};font-size:12px;line-height:1.5;">
               Verschickt von <a href="https://lumio-cloud.de" style="color:${LUMIO_MUTED_COLOR};text-decoration:underline;">Lumio</a> — Foto-Galerien für Profis, gehostet in Deutschland.
