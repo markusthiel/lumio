@@ -23,7 +23,9 @@ import { useT } from "@/lib/i18n";
 import { useGalleryEvents } from "@/lib/useGalleryEvents";
 import {
   DndContext,
+  DragOverlay,
   type DragEndEvent,
+  type DragStartEvent,
   PointerSensor,
   TouchSensor,
   KeyboardSensor,
@@ -126,6 +128,9 @@ export default function GalleryDetailPage() {
   const selectionMode = gridMode === "select";
   // Lightbox: ID des aktuell groß angezeigten Files (null = geschlossen).
   const [lightboxId, setLightboxId] = useState<string | null>(null);
+  // Aktuell gezogenes File im Sortier-Modus — für die schwebende
+  // DragOverlay-Vorschau, die dem Finger/Cursor folgt.
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkPending, setBulkPending] = useState(false);
   // Eigener Confirm-Dialog statt window.confirm. iPhone Safari kann
@@ -200,6 +205,7 @@ export default function GalleryDetailPage() {
 
   const handleDragEnd = useCallback(
     async (e: DragEndEvent) => {
+      setActiveDragId(null);
       if (!gallery || !e.over || e.active.id === e.over.id) return;
       const files = gallery.files;
       const fromIdx = files.findIndex((f) => f.id === e.active.id);
@@ -1671,7 +1677,14 @@ export default function GalleryDetailPage() {
               </div>
             )}
 
-            <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+            <DndContext
+              sensors={sensors}
+              onDragStart={(e: DragStartEvent) =>
+                setActiveDragId(e.active.id as string)
+              }
+              onDragEnd={handleDragEnd}
+              onDragCancel={() => setActiveDragId(null)}
+            >
               <SortableContext
                 items={visibleFiles.map((f) => f.id)}
                 strategy={rectSortingStrategy}
@@ -1696,6 +1709,30 @@ export default function GalleryDetailPage() {
                   </div>
                 )}
               </SortableContext>
+              {/* Schwebende Vorschau des gezogenen Bildes — folgt dem
+                  Finger/Cursor, hebt sich per Rahmen + Schatten ab. */}
+              <DragOverlay dropAnimation={null}>
+                {(() => {
+                  const af = activeDragId
+                    ? gallery.files.find((f) => f.id === activeDragId)
+                    : null;
+                  if (!af) return null;
+                  return (
+                    <div className="w-full h-full rounded-md overflow-hidden ring-2 ring-accent shadow-2xl shadow-black/60 rotate-3 cursor-grabbing">
+                      {af.thumbUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={af.thumbUrl}
+                          alt=""
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-surface-sunken" />
+                      )}
+                    </div>
+                  );
+                })()}
+              </DragOverlay>
             </DndContext>
           </section>
         )}
