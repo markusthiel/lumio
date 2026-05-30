@@ -124,6 +124,22 @@ lumio-app.de {
 }
 
 # -----------------------------------------------------------------------------
+# Umami — Web-Analytics (stats.lumio-cloud.de)
+# -----------------------------------------------------------------------------
+# Eigenständiger Stack unter infra/umami (s. dort). Hängt am selben
+# lumio_net, daher per Container-DNS 'lumio_umami' erreichbar. Dieser
+# spezifische Block greift VOR dem *.lumio-cloud.de-Wildcard-Block (der
+# sonst per import lumio_app an die App weiterleiten würde).
+#
+# Cert via HTTP-01 (wie die Marketing-Blöcke) — A-Record
+# stats.lumio-cloud.de muss auf die Server-IP zeigen. Opt-in: läuft kein
+# Umami-Stack, liefert Caddy die Domain mangels Container-DNS nicht aus.
+stats.lumio-cloud.de {
+	reverse_proxy lumio_umami:3000
+	encode zstd gzip
+}
+
+# -----------------------------------------------------------------------------
 # Custom-Domains — Catch-All
 # -----------------------------------------------------------------------------
 # Greift wenn der Host-Header keiner der spezifischeren Blöcke darüber

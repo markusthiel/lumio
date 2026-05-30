@@ -1,0 +1,77 @@
+# =============================================================================
+# Umami — cookieloses, self-hosted Web-Analytics für die Marketing-Sites
+# =============================================================================
+# Trackt lumio-cloud.de + lumio-app.de ohne Cookies und ohne persistente
+# Identifier — daher DSGVO-freundlich (Rechtsgrundlage berechtigtes
+# Interesse, kein Consent-Banner nötig; siehe README.md).
+#
+# Läuft als eigenständiger Stack NEBEN dem App-Stack. Hängt sich an das
+# gemeinsame Docker-Netz 'lumio_lumio_net' (vom App-Stack, external),
+# damit der App-Caddy stats.lumio-cloud.de auf 'lumio_umami:3000'
+# proxien kann (Caddy-Block im App-Caddyfile).
+#
+# Deployen (auf dem Haupt-Server):
+#   cd /opt/docker/lumio/lumio/infra/umami
+#   cp .env.example .env   # einmalig, dann Secrets eintragen
+#   docker compose up -d
+#
+# Voraussetzungen:
+#   1. App-Stack läuft (Netz lumio_lumio_net existiert).
+#   2. A-Record stats.lumio-cloud.de -> Server-IP (für Cert + DNS).
+#   3. Caddy-Block für stats.lumio-cloud.de ist aktiv (App-Caddyfile).
+
+services:
+  umami:
+    image: ghcr.io/umami-software/umami:postgresql-latest
+    container_name: lumio_umami
+    restart: unless-stopped
+    environment:
+      DATABASE_TYPE: postgresql
+      DATABASE_URL: postgresql://umami:${UMAMI_DB_PASSWORD}@umami-db:5432/umami
+      # Pflicht: zufälliges Secret zum Signieren der Login-Sessions des
+      # Umami-Dashboards. Einmalig erzeugen (openssl rand -base64 32).
+      APP_SECRET: ${UMAMI_APP_SECRET}
+      # Keine anonyme Nutzungs-Telemetrie an umami.is senden — hält den
+      # Stack datenschutzseitig sauber.
+      DISABLE_TELEMETRY: "1"
+    depends_on:
+      umami-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/heartbeat >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    networks:
+      - default          # privates Netz mit der eigenen DB
+      - lumio_lumio_net  # gemeinsames Netz, damit Caddy uns erreicht
+
+  umami-db:
+    image: postgres:16-alpine
+    container_name: lumio_umami_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: umami
+      POSTGRES_USER: umami
+      POSTGRES_PASSWORD: ${UMAMI_DB_PASSWORD}
+    volumes:
+      - umami_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U umami -d umami"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - default          # NUR intern erreichbar, nicht im App-Netz
+
+volumes:
+  umami_db_data:
+
+# Das Netz des Lumio-App-Stacks als external einbinden — gleiches Muster
+# wie bei den Marketing-Sites. Name folgt '<projekt>_<network-name>':
+# Projekt 'lumio' (Verzeichnis /opt/docker/lumio/lumio) + Netz 'lumio_net'.
+# Prüfen mit: docker network ls | grep lumio
+networks:
+  lumio_lumio_net:
+    external: true
