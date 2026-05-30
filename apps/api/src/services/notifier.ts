@@ -16,6 +16,7 @@ import {
   tmplGalleryInvite,
   tmplWelcome,
 } from "./mail.js";
+import type { MailBranding } from "./mail-layout.js";
 
 function studioUrl(galleryId: string): string {
   return `${config.PUBLIC_URL}/studio/${galleryId}`;
@@ -23,6 +24,42 @@ function studioUrl(galleryId: string): string {
 
 function publicUrl(slug: string): string {
   return `${config.PUBLIC_URL}/g/${slug}`;
+}
+
+/**
+ * Baut das tenant-weite Mail-Branding (E-Mail-Logo, Akzent, Name,
+ * Logo-Position) für die HTML-Mails. Das Logo wird über den stabilen
+ * Public-Redirect ausgeliefert (verfällt nicht wie eine signierte URL).
+ * Die Logo-Position ist grob an die Login-Layout-Variante gekoppelt.
+ */
+async function tenantMailBranding(
+  tenantId: string | null | undefined
+): Promise<MailBranding | undefined> {
+  if (!tenantId) return undefined;
+  try {
+    const t = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: {
+        displayName: true,
+        name: true,
+        emailLogoKey: true,
+        studioAccentColor: true,
+        loginAccentColor: true,
+        loginLayout: true,
+      },
+    });
+    if (!t) return undefined;
+    return {
+      logoUrl: t.emailLogoKey
+        ? `${config.PUBLIC_URL}/api/v1/public/email-logo/${tenantId}`
+        : null,
+      accentColor: t.studioAccentColor ?? t.loginAccentColor ?? null,
+      brandName: t.displayName ?? t.name ?? null,
+      logoAlign: t.loginLayout === "side_by_side" ? "left" : "center",
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -48,6 +85,7 @@ export async function notifyNewComment(opts: {
       galleryUrl: studioUrl(gallery.id),
       authorLabel: opts.authorLabel,
       body: opts.body.slice(0, 500),
+      branding: await tenantMailBranding(gallery.tenantId),
     });
     await sendMail({ to: gallery.owner.email, ...tpl });
   } catch (err) {
@@ -93,6 +131,7 @@ export async function notifySelectionFinished(opts: {
       galleryUrl: studioUrl(gallery.id),
       accessLabel: access.label,
       count,
+      branding: await tenantMailBranding(gallery.tenantId),
     });
     await sendMail({ to: gallery.owner.email, ...tpl });
   } catch (err) {
@@ -130,7 +169,7 @@ export async function notifyZipReadyOnce(opts: {
         id: true,
         fileCount: true,
         accessId: true,
-        gallery: { select: { slug: true, title: true } },
+        gallery: { select: { slug: true, title: true, tenantId: true } },
       },
     });
     if (!zip || !zip.accessId) return true; // ohne Access = keine Email-Adresse
@@ -147,6 +186,7 @@ export async function notifyZipReadyOnce(opts: {
       galleryTitle: zip.gallery.title,
       downloadUrl,
       fileCount: zip.fileCount,
+      branding: await tenantMailBranding(zip.gallery.tenantId),
     });
     // ZIP-Ready geht an alle hinterlegten Adressen — wer den Download
     // angestoßen hat, ist im aktuellen Datenmodell nicht trennbar von
@@ -210,16 +250,11 @@ export async function sendGalleryInvitation(opts: {
           select: {
             slug: true,
             title: true,
+            tenantId: true,
             tenant: {
               select: {
                 name: true,
                 displayName: true,
-                branding: {
-                  select: {
-                    logoUrl: true,
-                    accentColor: true,
-                  },
-                },
               },
             },
           },
@@ -257,9 +292,7 @@ export async function sendGalleryInvitation(opts: {
       canSelect: access.canSelect,
       canDownload: access.canDownload,
       expiresAt: access.expiresAt,
-      branding: {
-        logoUrl: tenant.branding?.logoUrl ?? null,
-        accentColor: tenant.branding?.accentColor ?? null,
+      branding: (await tenantMailBranding(access.gallery.tenantId)) ?? {
         brandName: studioDisplayName,
       },
     });

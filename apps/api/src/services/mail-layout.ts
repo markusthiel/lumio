@@ -55,6 +55,9 @@ export interface MailBranding {
   /** Footer-Hinweis am Ende, z.B. "Diese Mail kam von Lumio im Auftrag
    *  von {studioName}". Optional. */
   footerNote?: string | null;
+  /** Logo-Ausrichtung im Header — grob an die Login-Layout-Variante
+   *  gekoppelt (zentriert vs. links). Default: links. */
+  logoAlign?: "center" | "left" | null;
 }
 
 export interface RenderMailOpts {
@@ -80,9 +83,14 @@ export function renderMailLayout(opts: RenderMailOpts): string {
   const preheader = opts.preheader ?? "";
 
   // Header: entweder Studio-Logo oder Wortmarke "Lumio"
+  const logoAlign = opts.branding?.logoAlign === "center" ? "center" : "left";
   const headerInner = logoUrl
-    ? `<img src="${escapeAttr(logoUrl)}" alt="${escapeAttr(brandName)}" style="max-height:48px;max-width:200px;display:block;border:0;" />`
-    : `<div style="font-size:22px;font-weight:600;color:${accent};letter-spacing:-0.02em;">Lumio</div>`;
+    ? `<img src="${escapeAttr(logoUrl)}" alt="${escapeAttr(brandName)}" style="max-height:48px;max-width:200px;display:block;border:0;${
+        logoAlign === "center" ? "margin:0 auto;" : ""
+      }" />`
+    : `<div style="font-size:22px;font-weight:600;color:${accent};letter-spacing:-0.02em;${
+        logoAlign === "center" ? "text-align:center;" : ""
+      }">Lumio</div>`;
 
   const footerHtml = footerNote
     ? `<p style="margin:0 0 8px;color:${LUMIO_MUTED_COLOR};font-size:12px;line-height:1.5;">${escapeHtml(footerNote)}</p>`
@@ -106,7 +114,7 @@ ${escapeHtml(preheader)}
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;width:100%;background-color:#ffffff;border:1px solid ${LUMIO_BORDER_COLOR};border-radius:12px;overflow:hidden;">
         <!-- Header -->
         <tr>
-          <td style="padding:24px 32px;border-bottom:1px solid ${LUMIO_BORDER_COLOR};">
+          <td align="${logoAlign}" style="padding:24px 32px;border-bottom:1px solid ${LUMIO_BORDER_COLOR};">
             ${headerInner}
           </td>
         </tr>

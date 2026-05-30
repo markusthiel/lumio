@@ -104,6 +104,7 @@ export function tmplNewComment(opts: {
   galleryUrl: string;
   authorLabel: string;
   body: string;
+  branding?: MailBranding;
 }): { subject: string; text: string; html: string } {
   return {
     subject: `Neuer Kommentar in "${opts.galleryTitle}"`,
@@ -113,12 +114,13 @@ export function tmplNewComment(opts: {
       `Galerie ansehen: ${opts.galleryUrl}\n\n` +
       `— Lumio`,
     html: renderMailLayout({
+      branding: opts.branding,
       preheader: `${opts.authorLabel} hat in "${opts.galleryTitle}" kommentiert`,
       bodyHtml:
         mailHeading(`Neuer Kommentar in „${opts.galleryTitle}"`) +
         mailParagraph(`${opts.authorLabel} hat einen Kommentar hinterlassen:`) +
-        mailQuoteBlock(opts.body) +
-        mailButton(opts.galleryUrl, "Galerie öffnen"),
+        mailQuoteBlock(opts.body, opts.branding?.accentColor) +
+        mailButton(opts.galleryUrl, "Galerie öffnen", opts.branding?.accentColor),
     }),
   };
 }
@@ -128,6 +130,7 @@ export function tmplSelectionFinished(opts: {
   galleryUrl: string;
   accessLabel: string;
   count: number;
+  branding?: MailBranding;
 }): { subject: string; text: string; html: string } {
   const fileWord = opts.count === 1 ? "Datei" : "Dateien";
   return {
@@ -138,13 +141,14 @@ export function tmplSelectionFinished(opts: {
       `Galerie ansehen: ${opts.galleryUrl}\n\n` +
       `— Lumio`,
     html: renderMailLayout({
+      branding: opts.branding,
       preheader: `${opts.accessLabel} hat ${opts.count} ${fileWord} ausgewählt`,
       bodyHtml:
         mailHeading(`Auswahl abgeschlossen`) +
         mailParagraph(
           `${opts.accessLabel} hat die Auswahl in „${opts.galleryTitle}" abgeschlossen — ${opts.count} ${fileWord} markiert.`
         ) +
-        mailButton(opts.galleryUrl, "Auswahl ansehen"),
+        mailButton(opts.galleryUrl, "Auswahl ansehen", opts.branding?.accentColor),
     }),
   };
 }
@@ -153,6 +157,7 @@ export function tmplZipReady(opts: {
   galleryTitle: string;
   downloadUrl: string;
   fileCount: number;
+  branding?: MailBranding;
 }): { subject: string; text: string; html: string } {
   const fileWord = opts.fileCount === 1 ? "Datei" : "Dateien";
   return {
@@ -163,13 +168,14 @@ export function tmplZipReady(opts: {
       `Der Link ist 7 Tage gültig.\n\n` +
       `— Lumio`,
     html: renderMailLayout({
+      branding: opts.branding,
       preheader: `Dein ZIP-Download (${opts.fileCount} ${fileWord}) ist fertig`,
       bodyHtml:
         mailHeading(`Download bereit`) +
         mailParagraph(
           `Dein ZIP-Download mit ${opts.fileCount} ${fileWord} aus „${opts.galleryTitle}" ist fertig.`
         ) +
-        mailButton(opts.downloadUrl, "ZIP herunterladen") +
+        mailButton(opts.downloadUrl, "ZIP herunterladen", opts.branding?.accentColor) +
         mailNoticeBox("Der Link ist 7 Tage gültig."),
     }),
   };

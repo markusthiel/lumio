@@ -259,4 +259,42 @@ export async function registerAppearanceRoutes(app: FastifyInstance) {
       return { appearance: await serializeAppearance(t) };
     }
   );
+
+  // GET /public/email-logo/:tenantId — OEFFENTLICH (kein Auth).
+  // Liefert das E-Mail-Logo des Tenants als 302-Redirect auf eine frisch
+  // signierte URL. So bleibt der Link im Mail-Header stabil, auch wenn
+  // die Mail erst Tage spaeter geoeffnet wird (signierte S3-URLs allein
+  // wuerden verfallen). Das Logo ist ohnehin fuer Empfaenger gedacht.
+  app.get<{ Params: { tenantId: string } }>(
+    "/public/email-logo/:tenantId",
+    async (req, reply) => {
+      const id = req.params.tenantId;
+      if (!/^[0-9a-fA-F-]{36}$/.test(id)) {
+        return reply.status(404).send({ error: "not_found" });
+      }
+      let t: { emailLogoKey: string | null } | null = null;
+      try {
+        t = await prisma.tenant.findUnique({
+          where: { id },
+          select: { emailLogoKey: true },
+        });
+      } catch {
+        return reply.status(404).send({ error: "not_found" });
+      }
+      if (!t?.emailLogoKey) {
+        return reply.status(404).send({ error: "not_found" });
+      }
+      if (
+        t.emailLogoKey.startsWith("http://") ||
+        t.emailLogoKey.startsWith("https://")
+      ) {
+        return reply.redirect(t.emailLogoKey, 302);
+      }
+      const url = await presignGet({
+        key: t.emailLogoKey,
+        ttlSeconds: 3600,
+      });
+      return reply.redirect(url, 302);
+    }
+  );
 }
