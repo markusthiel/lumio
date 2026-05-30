@@ -5,6 +5,7 @@ import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { api, ApiError, type GalleryDetail, type GalleryFile } from "@/lib/api";
 import { uploadFiles, type UploadProgress } from "@/lib/upload";
+import { useImageZoom } from "@/lib/useImageZoom";
 import { SharePanel } from "@/components/studio/SharePanel";
 import { GalleryHeaderEditor } from "@/components/studio/GalleryHeaderEditor";
 import { SectionsEditor } from "@/components/studio/SectionsEditor";
@@ -2253,15 +2254,34 @@ function Lightbox({
     [files.length]
   );
 
+  // Zoom + Pan (Mausrad, Pinch, Doppelklick) — identischer Hook wie in
+  // der Kundengalerie. Bei jedem Bildwechsel zurücksetzen, sonst landet
+  // man nach "Weiter" auf einem zufällig herangezoomten Bild.
+  const zoom = useImageZoom();
+  useEffect(() => {
+    zoom.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [i]);
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
       else if (e.key === "ArrowLeft") prev();
       else if (e.key === "ArrowRight") next();
+      else if (e.key === "+" || e.key === "=") {
+        e.preventDefault();
+        zoom.zoomIn();
+      } else if (e.key === "-" || e.key === "_") {
+        e.preventDefault();
+        zoom.zoomOut();
+      } else if (e.key === "0") {
+        e.preventDefault();
+        zoom.reset();
+      }
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose, prev, next]);
+  }, [onClose, prev, next, zoom]);
 
   const file = files[i];
   if (!file) return null;
@@ -2303,12 +2323,21 @@ function Lightbox({
         onClick={(e) => e.stopPropagation()}
       >
         {url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={url}
-            alt={file.originalFilename}
-            className="max-w-[92vw] max-h-[84vh] object-contain rounded-sm"
-          />
+          <div
+            ref={zoom.containerRef}
+            {...zoom.containerProps}
+            className="relative overflow-hidden flex items-center justify-center max-w-[92vw] max-h-[84vh] rounded-sm"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={url}
+              alt={file.originalFilename}
+              draggable={false}
+              key={file.id}
+              className="max-w-[92vw] max-h-[84vh] object-contain block select-none"
+              style={zoom.style}
+            />
+          </div>
         ) : (
           <div className="text-white/50 text-ui px-12 py-24">
             Keine Vorschau verfügbar
@@ -2331,6 +2360,52 @@ function Lightbox({
         >
           ›
         </button>
+      )}
+
+      {/* Zoom-Bedienung (unten rechts). stopPropagation, damit ein Klick
+          nicht die Lightbox schließt. Gesten (Mausrad/Pinch/Doppelklick)
+          laufen zusätzlich direkt über den Bild-Container. */}
+      {url && (
+        <div
+          className="absolute bottom-4 right-4 flex items-center gap-1.5"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {zoom.zoomed && (
+            <span className="text-white/60 text-ui-xs tabular-nums mr-1">
+              {Math.round(zoom.scale * 100)}%
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => zoom.zoomOut()}
+            disabled={!zoom.zoomed}
+            aria-label="Verkleinern"
+            title="Verkleinern (−)"
+            className="h-10 w-10 flex items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent transition-colors text-2xl leading-none"
+          >
+            −
+          </button>
+          <button
+            type="button"
+            onClick={() => zoom.zoomIn()}
+            aria-label="Vergrößern"
+            title="Vergrößern (+)"
+            className="h-10 w-10 flex items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors text-2xl leading-none"
+          >
+            +
+          </button>
+          {zoom.zoomed && (
+            <button
+              type="button"
+              onClick={() => zoom.reset()}
+              aria-label="Zoom zurücksetzen"
+              title="Zurücksetzen (0)"
+              className="h-10 px-3 flex items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors text-ui-sm"
+            >
+              Reset
+            </button>
+          )}
+        </div>
       )}
     </div>
   );
