@@ -154,13 +154,15 @@ export default function LoginPage() {
           });
           setLayout(r.login.layout);
         } else if (r.branding) {
-          // Fallback (z.B. ältere API ohne login-Objekt)
+          // Fallback (z.B. ältere API ohne login-Objekt). Hintergrund/
+          // Begrüßung gibt es am Galerie-Branding nicht mehr — die
+          // wohnen jetzt tenant-weit im login-Objekt.
           setBranding({
             logoUrl: r.branding.logoUrl,
             logoLightUrl: r.branding.logoLightUrl,
             accentColor: r.branding.accentColor,
-            loginBackgroundUrl: r.branding.loginBackgroundUrl,
-            loginGreeting: r.branding.loginGreeting,
+            loginBackgroundUrl: null,
+            loginGreeting: null,
           });
         }
       } catch {

@@ -528,8 +528,6 @@ export const api = {
         introText: string | null;
         footerText: string | null;
         customCss: string | null;
-        loginBackgroundUrl: string | null;
-        loginGreeting: string | null;
       } | null;
       login: {
         logoUrl: string | null;
@@ -1917,7 +1915,6 @@ export const api = {
       introText: string | null;
       footerText: string | null;
       customCss: string | null;
-      loginGreeting: string | null;
     }>
   ) =>
     request<{ branding: BrandingDetail }>(`/brandings/${id}`, {
@@ -1934,7 +1931,7 @@ export const api = {
   initBrandingAssetUpload: (
     id: string,
     input: {
-      kind: "logo" | "logoLight" | "favicon" | "loginBackground";
+      kind: "logo" | "logoLight" | "favicon";
       contentType: string;
       sizeBytes: number;
     }
@@ -1951,7 +1948,7 @@ export const api = {
   completeBrandingAssetUpload: (
     id: string,
     input: {
-      kind: "logo" | "logoLight" | "favicon" | "loginBackground";
+      kind: "logo" | "logoLight" | "favicon";
       key: string;
     }
   ) =>
@@ -1962,7 +1959,7 @@ export const api = {
 
   deleteBrandingAsset: (
     id: string,
-    kind: "logo" | "logoLight" | "favicon" | "loginBackground"
+    kind: "logo" | "logoLight" | "favicon"
   ) =>
     request<{ branding: BrandingDetail }>(
       `/brandings/${id}/assets/${kind}`,
@@ -3506,8 +3503,6 @@ export interface BrandingDetail {
   introText: string | null;
   footerText: string | null;
   customCss: string | null;
-  loginBackgroundUrl: string | null;
-  loginGreeting: string | null;
   createdAt: string;
   updatedAt: string;
 }

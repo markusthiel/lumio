@@ -65,16 +65,6 @@ export type FileProcessingJob =
       galleryId: string;
     }
   | {
-      /** Branding-Asset-Optimierung (z.B. WebP-Konvertierung von
-       *  Login-Background-Bildern). Hat keine fileId/galleryId — das
-       *  Asset gehoert direkt zum Branding. */
-      type: "process_branding_asset";
-      brandingId: string;
-      /** Welches Asset wird optimiert: "loginBackground" (aktuell der
-       *  einzige Kind, der einen Worker-Roundtrip braucht). */
-      kind: "loginBackground";
-    }
-  | {
       /** Optimierung eines tenant-weiten Appearance-Assets (Studio-/
        *  Login-/Mail-Logo oder Login-Hintergrund). Tenant-scoped, keine
        *  fileId/galleryId. */

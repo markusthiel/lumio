@@ -32,8 +32,6 @@ export interface ResolvedBranding {
   introText: string | null;
   footerText: string | null;
   customCss: string | null;
-  loginBackgroundUrl: string | null;
-  loginGreeting: string | null;
 }
 
 const ASSET_TTL_SECONDS = 24 * 3600;
@@ -88,8 +86,6 @@ export async function resolveGalleryBranding(opts: {
     introText: branding.introText,
     footerText: branding.footerText,
     customCss: branding.customCss,
-    loginBackgroundUrl: await maybePresign(branding.loginBackgroundUrl),
-    loginGreeting: branding.loginGreeting,
   };
 }
 
@@ -125,7 +121,5 @@ export async function resolveTenantBranding(
     introText: branding.introText,
     footerText: branding.footerText,
     customCss: branding.customCss,
-    loginBackgroundUrl: await maybePresign(branding.loginBackgroundUrl),
-    loginGreeting: branding.loginGreeting,
   };
 }

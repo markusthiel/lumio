@@ -181,15 +181,6 @@ def _dispatch(stream: str, payload: dict) -> None:
                 payload.get("galleryId"),
             ],
         )
-    elif job_type == "process_branding_asset":
-        # Lade-Optimierung fuer ein Branding-Asset (Login-Background):
-        # WebP-Konvertierung + Resize auf max. 2400px Kante. Wird vom
-        # API-Endpoint /brandings/:id/assets/complete getriggert
-        # sobald der Browser den Upload abgeschlossen hat.
-        app.send_task(
-            "tasks.process_branding_asset.optimize",
-            args=[payload.get("brandingId"), payload.get("kind")],
-        )
     elif job_type == "process_appearance_asset":
         # Lade-Optimierung fuer ein Studio-/Login-/Mail-Asset (Logo oder
         # Login-Background): WebP-Konvertierung + Resize (Logos 512px,

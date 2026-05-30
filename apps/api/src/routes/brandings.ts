@@ -21,7 +21,6 @@ import { config } from "../config.js";
 import { checkFeatureAvailable } from "../services/usage.js";
 import { presignPut, presignGet, deleteObject } from "../services/storage.js";
 import { logEvent } from "../services/audit.js";
-import { enqueue, Queues } from "../services/queue.js";
 
 const colorRegex = /^#[0-9a-fA-F]{6}$/;
 
@@ -33,13 +32,12 @@ const createBrandingSchema = z.object({
   introText: z.string().max(2000).nullable().optional(),
   footerText: z.string().max(500).nullable().optional(),
   customCss: z.string().max(20_000).nullable().optional(),
-  loginGreeting: z.string().max(2000).nullable().optional(),
 });
 
 const updateBrandingSchema = createBrandingSchema.partial();
 
 const initAssetSchema = z.object({
-  kind: z.enum(["logo", "logoLight", "favicon", "loginBackground"]),
+  kind: z.enum(["logo", "logoLight", "favicon"]),
   contentType: z
     .string()
     .refine(
@@ -52,13 +50,12 @@ const initAssetSchema = z.object({
         v === "image/vnd.microsoft.icon",
       "Only PNG, JPEG, WEBP, SVG or ICO allowed"
     ),
-  // Login-Background darf groesser sein als Logo/Favicon (Hero-Bild).
-  // Wir cappen aber bei 10 MiB damit niemand 50-MB-RAWs hochladen kann.
+  // 10 MiB Cap (Logos/Favicons sind klein; verhindert 50-MB-RAWs).
   sizeBytes: z.number().int().positive().max(10 * 1024 * 1024),
 });
 
 const completeAssetSchema = z.object({
-  kind: z.enum(["logo", "logoLight", "favicon", "loginBackground"]),
+  kind: z.enum(["logo", "logoLight", "favicon"]),
   key: z.string().min(1),
 });
 
@@ -80,10 +77,9 @@ function extensionFor(contentType: string): string {
   return "png";
 }
 
-// Branding-Datensatz mit aufgelösten Asset-URLs anreichern. logoUrl/faviconUrl/
-// loginBackgroundUrl in der DB sind Storage-Keys (z.B. t/<tenant>/brand/<id>/
-// logo.png) — der Browser braucht aber echte, signierte URLs, um die Bilder
-// zu laden.
+// Branding-Datensatz mit aufgelösten Asset-URLs anreichern. logoUrl/
+// logoLightUrl/faviconUrl in der DB sind Storage-Keys — der Browser
+// braucht echte, signierte URLs, um die Bilder zu laden.
 //
 // 24h TTL ist großzügig, weil Studio-Sessions länger laufen können.
 async function serializeBranding<
@@ -91,30 +87,24 @@ async function serializeBranding<
     logoUrl: string | null;
     logoLightUrl: string | null;
     faviconUrl: string | null;
-    loginBackgroundUrl: string | null;
   }
 >(branding: T): Promise<T> {
-  const [logoUrl, logoLightUrl, faviconUrl, loginBackgroundUrl] =
-    await Promise.all([
-      branding.logoUrl
-        ? presignGet({ key: branding.logoUrl, ttlSeconds: 24 * 3600 })
-        : Promise.resolve(null),
-      branding.logoLightUrl
-        ? presignGet({ key: branding.logoLightUrl, ttlSeconds: 24 * 3600 })
-        : Promise.resolve(null),
-      branding.faviconUrl
-        ? presignGet({ key: branding.faviconUrl, ttlSeconds: 24 * 3600 })
-        : Promise.resolve(null),
-      branding.loginBackgroundUrl
-        ? presignGet({ key: branding.loginBackgroundUrl, ttlSeconds: 24 * 3600 })
-        : Promise.resolve(null),
-    ]);
+  const [logoUrl, logoLightUrl, faviconUrl] = await Promise.all([
+    branding.logoUrl
+      ? presignGet({ key: branding.logoUrl, ttlSeconds: 24 * 3600 })
+      : Promise.resolve(null),
+    branding.logoLightUrl
+      ? presignGet({ key: branding.logoLightUrl, ttlSeconds: 24 * 3600 })
+      : Promise.resolve(null),
+    branding.faviconUrl
+      ? presignGet({ key: branding.faviconUrl, ttlSeconds: 24 * 3600 })
+      : Promise.resolve(null),
+  ]);
   return {
     ...branding,
     logoUrl,
     logoLightUrl,
     faviconUrl,
-    loginBackgroundUrl,
   };
 }
 
@@ -271,10 +261,6 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
       if (existing.faviconUrl) {
         await deleteObject(existing.faviconUrl).catch(() => {});
       }
-      if (existing.loginBackgroundUrl) {
-        await deleteObject(existing.loginBackgroundUrl).catch(() => {});
-      }
-
       await prisma.branding.delete({ where: { id: existing.id } });
       await logEvent({
         tenantId: req.tenantId,
@@ -371,7 +357,6 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
         logo: "logoUrl",
         logoLight: "logoLightUrl",
         favicon: "faviconUrl",
-        loginBackground: "loginBackgroundUrl",
       } as const;
       const field = fieldMap[body.kind];
       const oldKey =
@@ -379,9 +364,7 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
           ? existing.logoUrl
           : body.kind === "logoLight"
           ? existing.logoLightUrl
-          : body.kind === "favicon"
-          ? existing.faviconUrl
-          : existing.loginBackgroundUrl;
+          : existing.faviconUrl;
 
       // Altes File aufräumen, falls anderer Key
       if (oldKey && oldKey !== body.key) {
@@ -392,24 +375,6 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
         where: { id: existing.id },
         data: { [field]: body.key },
       });
-
-      // WebP-Optimierung im Worker fuer Login-Background (Hero-Bild).
-      // Logos/Favicons sind typisch klein (Logo ist oft schon SVG/PNG),
-      // da lohnt sich kein Worker-Roundtrip. Wenn das Original schon
-      // optimal ist (WebP + <=2400px) erkennt der Task das und macht
-      // nichts — idempotent.
-      if (body.kind === "loginBackground") {
-        await enqueue(Queues.FILE_PROCESSING, {
-          type: "process_branding_asset",
-          brandingId: existing.id,
-          kind: "loginBackground",
-        }).catch((err) => {
-          app.log.warn(
-            { err, brandingId: existing.id },
-            "branding.optimize_enqueue_failed"
-          );
-        });
-      }
 
       return { branding: await serializeBranding(branding) };
     }
@@ -429,8 +394,7 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
       if (
         kind !== "logo" &&
         kind !== "logoLight" &&
-        kind !== "favicon" &&
-        kind !== "loginBackground"
+        kind !== "favicon"
       ) {
         return reply.status(400).send({ error: "bad_kind" });
       }
@@ -439,7 +403,6 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
         logo: "logoUrl",
         logoLight: "logoLightUrl",
         favicon: "faviconUrl",
-        loginBackground: "loginBackgroundUrl",
       } as const;
       const field = fieldMap[kind];
       const oldKey =
@@ -447,9 +410,7 @@ export async function registerBrandingRoutes(app: FastifyInstance) {
           ? existing.logoUrl
           : kind === "logoLight"
           ? existing.logoLightUrl
-          : kind === "favicon"
-          ? existing.faviconUrl
-          : existing.loginBackgroundUrl;
+          : existing.faviconUrl;
       if (oldKey) {
         await deleteObject(oldKey).catch(() => {});
       }
