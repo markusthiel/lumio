@@ -459,6 +459,10 @@ export const api = {
         bySuperAdminName: string | null;
         expiresAt: string;
       } | null;
+      /** Akzentfarbe (#hex) des Tenant-Default-Brandings. Das Studio
+       *  überschreibt damit die CSS-Variable --accent. null => das
+       *  Studio bleibt beim Standard-Amber. */
+      studioAccent: string | null;
       /** Aktive Feature-Flag-Keys fuer diesen Tenant. Frontend prueft
        *  z.B. features.includes('print_shop') bevor es Print-Shop-
        *  Eintraege rendert. */

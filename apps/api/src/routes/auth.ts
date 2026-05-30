@@ -676,7 +676,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     const remainingBackup = user.totpEnabled
       ? await backupCodeCount(user.id)
       : 0;
-    const tenant = await prisma.tenant.findUnique({
+    const tenantRow = await prisma.tenant.findUnique({
       where: { id: user.tenantId },
       select: {
         id: true,
@@ -684,8 +684,22 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         slug: true,
         status: true,
         archiveScheduledAt: true,
+        // Akzentfarbe des Default-Brandings — faerbt das Studio-Backend
+        // ein (CSS-Variable --accent im Frontend). null => das Studio
+        // bleibt beim Standard-Amber.
+        branding: { select: { accentColor: true } },
       },
     });
+    const tenant = tenantRow
+      ? {
+          id: tenantRow.id,
+          name: tenantRow.name,
+          slug: tenantRow.slug,
+          status: tenantRow.status,
+          archiveScheduledAt: tenantRow.archiveScheduledAt,
+        }
+      : null;
+    const studioAccent = tenantRow?.branding?.accentColor ?? null;
 
     // Bei Impersonate-Sessions auch die Identitaet des Super-Admins
     // mitliefern fuer den Banner.
@@ -729,6 +743,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         backupCodesRemaining: remainingBackup,
       },
       tenant,
+      studioAccent,
       impersonation,
       features: activeFeatures,
     };

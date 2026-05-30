@@ -232,7 +232,9 @@ export default function BrandingEditorPage() {
               passende Textfarbe (hell-auf-dunkel oder umgekehrt).
               Akzent = „Slideshow starten" und „Auswahl fertig"-Buttons,
               Like-Icon, Fokus-Indikatoren, Komment-Submit. Bei leeren
-              Galerien sind viele dieser Elemente noch nicht sichtbar.
+              Galerien sind viele dieser Elemente noch nicht sichtbar.{" "}
+              Ist dies dein Standard-Branding, färbt die Akzentfarbe
+              zusätzlich dein Studio-Backend ein.
             </p>
 
             <Field label="Schrift">
