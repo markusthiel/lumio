@@ -102,6 +102,7 @@ export function ProofingPanel({
                 const fileStats = data.files.find((s) => s.fileId === f.id);
                 const hasLike = fileStats?.liked;
                 const colorTag = fileStats?.label;
+                const commentCount = fileStats?.commentCount ?? 0;
                 return (
                   <button
                     key={f.id}
@@ -125,23 +126,61 @@ export function ProofingPanel({
                     ) : (
                       <div className="w-full h-full" />
                     )}
-                    {/* Customer-Auswahl-Indikatoren oben rechts */}
+                    {/* Kunden-Auswahl-Indikatoren: Farbe + Favorit oben
+                        rechts, Kommentare unten links. Dunkler Halbton-
+                        Hintergrund hält die Icons auf jedem Bild lesbar. */}
                     <div className="absolute top-1.5 right-1.5 flex items-center gap-1">
                       {colorTag && (
                         <span
-                          className={`w-3 h-3 rounded-full border border-white/40 ${colorBg(colorTag)}`}
+                          className={`w-3.5 h-3.5 rounded-full border border-white/60 shadow-sm ${colorBg(
+                            colorTag
+                          )}`}
                           aria-label={`Farbe: ${colorTag}`}
+                          title={`Farbe: ${colorTag}`}
                         />
                       )}
                       {hasLike && (
                         <span
-                          className="w-4 h-4 rounded-full bg-amber-400 text-neutral-900 text-[10px] inline-flex items-center justify-center"
-                          aria-label="In Auswahl"
+                          className="w-5 h-5 rounded-full bg-black/55 text-white inline-flex items-center justify-center shadow-sm"
+                          aria-label="Favorit"
+                          title="Favorit"
                         >
-                          ★
+                          <svg
+                            width="11"
+                            height="11"
+                            viewBox="0 0 24 24"
+                            fill="currentColor"
+                          >
+                            <path d="M12 21s-7-4.6-9.5-8.3C.9 10.2 1.5 7 4.3 6c1.9-.7 3.7.2 4.7 1.6C10 6.2 11.8 5.3 13.7 6c2.8 1 3.4 4.2 1.8 6.7C19 16.4 12 21 12 21z" />
+                          </svg>
                         </span>
                       )}
                     </div>
+                    {commentCount > 0 && (
+                      <span
+                        className="absolute bottom-1.5 left-1.5 inline-flex items-center gap-0.5 h-5 px-1.5 rounded-full bg-black/55 text-white text-[10px] font-medium shadow-sm"
+                        aria-label={`${commentCount} Kommentar${
+                          commentCount === 1 ? "" : "e"
+                        }`}
+                        title={`${commentCount} Kommentar${
+                          commentCount === 1 ? "" : "e"
+                        }`}
+                      >
+                        <svg
+                          width="11"
+                          height="11"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                        </svg>
+                        {commentCount}
+                      </span>
+                    )}
                   </button>
                 );
               })}

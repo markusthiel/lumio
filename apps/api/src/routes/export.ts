@@ -88,6 +88,17 @@ export async function registerExportRoutes(app: FastifyInstance) {
         accessSummary.set(access.label, cur);
       }
 
+      // Kommentar-Anzahl pro File — für die Indikatoren in der Studio-
+      // Auswahl-Übersicht (Kachel zeigt eine Sprechblase mit Anzahl).
+      const commentByFile = await prisma.comment.groupBy({
+        by: ["fileId"],
+        where: { file: { galleryId: gallery.id } },
+        _count: { _all: true },
+      });
+      const commentCountByFile = new Map<string, number>(
+        commentByFile.map((c) => [c.fileId, c._count._all])
+      );
+
       return {
         gallery: {
           id: gallery.id,
@@ -112,6 +123,7 @@ export async function registerExportRoutes(app: FastifyInstance) {
           rating: r.rating,
           label: r.label,
           liked: r.liked,
+          commentCount: commentCountByFile.get(r.fileId) ?? 0,
           perAccess: r.perAccess,
         })),
         fileCountTotal: rows.length,

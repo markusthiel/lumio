@@ -3502,6 +3502,7 @@ export interface ProofingSummary {
     rating: number | null;
     label: string | null;
     liked: boolean;
+    commentCount: number;
     perAccess: Array<{
       accessLabel: string;
       color: string | null;
