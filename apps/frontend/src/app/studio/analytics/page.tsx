@@ -91,7 +91,7 @@ export default function AnalyticsPage() {
           </div>
         }
       />
-      <div className="px-6 sm:px-8 lg:px-12 py-6 space-y-5">
+      <div className="px-6 sm:px-8 lg:px-12 py-6 space-y-5 max-w-5xl">
 
       {error && (
         <div className="rounded-md border border-semantic-danger/30 bg-semantic-danger/8 px-3 py-2 text-sm text-semantic-danger">

@@ -121,8 +121,8 @@ export function DangerZone({
     }
 
     return (
-      <section className="rounded-md border border-red-300 bg-red-50/40 p-5 space-y-3">
-        <h2 className="text-ui font-medium text-red-700">
+      <section className="rounded-md border border-semantic-danger/30 bg-semantic-danger/[0.06] p-5 space-y-3">
+        <h2 className="text-ui font-medium text-semantic-danger">
           Studio-Löschung läuft
         </h2>
         <dl className="grid grid-cols-[200px_1fr] gap-y-2 gap-x-3 text-ui-sm">
@@ -175,25 +175,47 @@ export function DangerZone({
   // Normaler Zustand: Delete-Button
   return (
     <>
-      <section className="rounded-md border border-red-200 bg-red-50/30 p-5 space-y-3">
-        <h2 className="text-ui font-medium text-red-700">Studio löschen</h2>
-        <p className="text-ui-sm text-ink-secondary leading-relaxed">
-          Dies markiert dein Studio zur endgültigen Löschung. Du hast eine
-          60-tägige Karenzphase, in der du die Löschung jederzeit
-          zurücknehmen kannst. Nach Ablauf werden alle Bilder, Galerien
-          und Account-Daten unwiderruflich entfernt.
-        </p>
-        <p className="text-ui-sm text-ink-secondary leading-relaxed">
-          Deine Stripe-Subscription wird sofort gekündigt — keine weitere
-          Abrechnung.
-        </p>
-        <Button
-          variant="danger"
-          onClick={() => setShowModal(true)}
-          className="mt-2"
-        >
-          Studio löschen…
-        </Button>
+      <section className="rounded-lg border border-semantic-danger/25 bg-semantic-danger/[0.04] p-5">
+        <div className="flex items-start gap-3">
+          <span className="shrink-0 mt-0.5 text-semantic-danger" aria-hidden>
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+          </span>
+          <div className="space-y-3 min-w-0">
+            <h2 className="text-ui font-medium text-ink-primary">
+              Studio löschen
+            </h2>
+            <p className="text-ui-sm text-ink-secondary leading-relaxed">
+              Dies markiert dein Studio zur endgültigen Löschung. Du hast eine
+              60-tägige Karenzphase, in der du die Löschung jederzeit
+              zurücknehmen kannst. Nach Ablauf werden alle Bilder, Galerien
+              und Account-Daten unwiderruflich entfernt.
+            </p>
+            <p className="text-ui-sm text-ink-tertiary leading-relaxed">
+              Deine Stripe-Subscription wird sofort gekündigt — keine weitere
+              Abrechnung.
+            </p>
+            <Button
+              variant="danger"
+              onClick={() => setShowModal(true)}
+              className="mt-1"
+            >
+              Studio löschen…
+            </Button>
+          </div>
+        </div>
       </section>
 
       {showModal && (
@@ -277,7 +299,7 @@ function DeletionModal({
         className="w-full max-w-lg bg-surface-raised border border-line-subtle shadow-2xl rounded-lg p-6 space-y-4"
       >
         <div>
-          <h2 className="text-lg font-semibold text-red-700">
+          <h2 className="text-lg font-semibold text-ink-primary">
             Studio „{studioName}" löschen
           </h2>
           <p className="text-ui-sm text-ink-secondary mt-2 leading-relaxed">
@@ -321,7 +343,7 @@ function DeletionModal({
         </div>
 
         {error && (
-          <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+          <div className="text-sm text-semantic-danger bg-semantic-danger/10 border border-semantic-danger/30 rounded-md px-3 py-2">
             {error}
           </div>
         )}
@@ -377,9 +399,9 @@ export function PendingDeletionBanner({
   }
 
   return (
-    <div className="bg-red-50 border-b border-red-200 px-4 py-3">
+    <div className="bg-semantic-danger/10 border-b border-semantic-danger/25 px-4 py-3">
       <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
-        <div className="text-ui-sm text-red-700">
+        <div className="text-ui-sm text-semantic-danger">
           <strong>Dein Studio wird gelöscht.</strong>{" "}
           {daysLeft > 0 ? (
             <>
@@ -399,7 +421,7 @@ export function PendingDeletionBanner({
         <button
           onClick={onCancelClick}
           disabled={pending || daysLeft === 0}
-          className="text-ui-sm font-medium text-red-700 underline hover:text-red-900 disabled:opacity-50"
+          className="text-ui-sm font-medium text-semantic-danger underline hover:opacity-80 disabled:opacity-50"
         >
           {pending ? "Wird zurückgenommen…" : "Löschung zurücknehmen"}
         </button>

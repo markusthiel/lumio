@@ -87,7 +87,7 @@ export default function BrandingsPage() {
         }
       />
 
-      <div className="px-6 sm:px-8 lg:px-12 py-6 space-y-6 max-w-6xl">
+      <div className="px-6 sm:px-8 lg:px-12 py-6 space-y-6 max-w-5xl">
 
         {/* Empty-State Variante anpassen: wenn der Plan kein Branding
             erlaubt, ist die "noch keine erstellt"-Hint irreführend. */}

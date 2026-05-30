@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -35,6 +35,12 @@ export default function StudioPage() {
   const [collections, setCollections] = useState<SmartCollection[]>([]);
   const [activeCollection, setActiveCollection] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // Live-Suche (clientseitig, nach Galerie-Name) + Sortierung. Beides
+  // wirkt auf die bereits geladene Liste, ohne Server-Roundtrip.
+  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<
+    "newest" | "oldest" | "name_asc" | "name_desc"
+  >("newest");
   const [showCreate, setShowCreate] = useState(false);
   const [showSaveCollection, setShowSaveCollection] = useState(false);
 
@@ -48,6 +54,27 @@ export default function StudioPage() {
   };
   const hasActiveFilter =
     tagFilter.size > 0 || modeFilter !== "" || statusFilter !== "";
+
+  // Live-Suche (nach Name) + Sortierung auf die geladene Liste angewendet.
+  const displayedGalleries = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    const filtered = q
+      ? galleries.filter((g) => (g.title ?? "").toLowerCase().includes(q))
+      : galleries;
+    return [...filtered].sort((a, b) => {
+      switch (sortBy) {
+        case "name_asc":
+          return (a.title ?? "").localeCompare(b.title ?? "", "de");
+        case "name_desc":
+          return (b.title ?? "").localeCompare(a.title ?? "", "de");
+        case "oldest":
+          return a.createdAt.localeCompare(b.createdAt);
+        case "newest":
+        default:
+          return b.createdAt.localeCompare(a.createdAt);
+      }
+    });
+  }, [galleries, searchQuery, sortBy]);
 
   const refresh = useCallback(async () => {
     // Wenn eine Collection aktiv ist, laden wir über den Collection-
@@ -185,7 +212,47 @@ export default function StudioPage() {
         }
       />
 
-      <div className="px-6 sm:px-8 lg:px-12 py-6">
+      <div className="px-6 sm:px-8 lg:px-12 py-6 max-w-5xl">
+        {/* Suche (live, nach Name) + Sortierung */}
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[180px] max-w-xs">
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-tertiary pointer-events-none">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="11" cy="11" r="7" />
+                <path d="m21 21-4.3-4.3" />
+              </svg>
+            </span>
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Galerien durchsuchen…"
+              aria-label="Galerien durchsuchen"
+              className="w-full h-8 pl-8 pr-2.5 rounded-md text-ui-sm bg-surface-sunken border border-line-subtle focus:border-accent focus:outline-none transition-colors duration-motion"
+            />
+          </div>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+            aria-label="Sortierung"
+            className="h-8 px-2 rounded-md text-ui-xs bg-surface-sunken border border-line-subtle ml-auto"
+          >
+            <option value="newest">Neueste zuerst</option>
+            <option value="oldest">Älteste zuerst</option>
+            <option value="name_asc">Name A–Z</option>
+            <option value="name_desc">Name Z–A</option>
+          </select>
+        </div>
+
         {/* Smart-Collections-Leiste — nur wenn welche existieren oder
             der User gerade eine aktive Collection nutzt. */}
         {/* Smart-Collections-Leiste — auch sichtbar wenn noch keine
@@ -336,14 +403,16 @@ export default function StudioPage() {
             )}
           </div>
         )}
-        {galleries.length === 0 ? (
+        {displayedGalleries.length === 0 ? (
           <div className="rounded-md border border-dashed border-line-subtle bg-surface-sunken p-12 text-center">
             <p className="text-ink-tertiary text-ui">
-              {tagFilter.size > 0
-                ? t("studio.noGalleriesForFilter")
-                : t("studio.noGalleries")}
+              {searchQuery.trim()
+                ? `Keine Galerie gefunden für „${searchQuery.trim()}".`
+                : hasActiveFilter
+                  ? t("studio.noGalleriesForFilter")
+                  : t("studio.noGalleries")}
             </p>
-            {tagFilter.size === 0 && (
+            {!searchQuery.trim() && !hasActiveFilter && (
               <button
                 type="button"
                 onClick={() => setShowCreate(true)}
@@ -355,7 +424,7 @@ export default function StudioPage() {
           </div>
         ) : (
           <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {galleries.map((g, i) => (
+            {displayedGalleries.map((g, i) => (
               <li
                 key={g.id}
                 className="animate-reveal"

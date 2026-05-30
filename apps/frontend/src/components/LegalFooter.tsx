@@ -12,7 +12,13 @@ import { api } from "@/lib/api";
  * Sind keine URLs gesetzt (z.B. frische Self-Host-Instanz), rendert die
  * Komponente nichts — so wird kein toter Link angezeigt.
  */
-export function LegalFooter({ className = "" }: { className?: string }) {
+export function LegalFooter({
+  className = "",
+  align = "center",
+}: {
+  className?: string;
+  align?: "center" | "start";
+}) {
   const [legal, setLegal] = useState<{
     imprintUrl: string | null;
     privacyUrl: string | null;
@@ -37,7 +43,9 @@ export function LegalFooter({ className = "" }: { className?: string }) {
 
   return (
     <footer
-      className={`flex items-center justify-center gap-3 text-xs text-ink-secondary ${className}`}
+      className={`flex items-center ${
+        align === "start" ? "justify-start" : "justify-center"
+      } gap-3 text-xs text-ink-secondary ${className}`}
     >
       {legal.imprintUrl && (
         <a

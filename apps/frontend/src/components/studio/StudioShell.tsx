@@ -462,15 +462,30 @@ function SidebarFooter({ onNavigate }: { onNavigate: () => void }) {
   })();
 
   return (
-    <div className="p-2 border-t border-line-subtle">
+    <div className="p-2 border-t border-line-subtle space-y-1.5">
       <button
         type="button"
         onClick={handleLogout}
-        className="w-full flex items-center h-8 px-2.5 rounded text-ui text-ink-tertiary hover:text-ink-primary hover:bg-surface-raised transition-colors duration-motion ease-out"
+        className="group w-full flex items-center gap-2.5 h-9 px-3 rounded-md text-ui text-ink-tertiary hover:text-ink-primary hover:bg-surface-raised transition-colors duration-motion ease-out"
       >
-        {logoutLabel}
+        <span className="text-ink-tertiary group-hover:text-ink-secondary">
+          <svg
+            className="w-[18px] h-[18px] shrink-0"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={1.75}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+            <polyline points="16 17 21 12 16 7" />
+            <line x1="21" y1="12" x2="9" y2="12" />
+          </svg>
+        </span>
+        <span>{logoutLabel}</span>
       </button>
-      <LegalFooter className="mt-2" />
+      <LegalFooter align="start" className="px-3 pb-0.5" />
     </div>
   );
 }

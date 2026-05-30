@@ -112,7 +112,7 @@ export default function TeamPage() {
           )
         }
       />
-      <div className="px-6 sm:px-8 lg:px-12 py-6 max-w-4xl">
+      <div className="px-6 sm:px-8 lg:px-12 py-6 max-w-5xl">
 
       {error && (
         <div className="mb-4 rounded-md border border-semantic-danger/30 bg-semantic-danger/8 px-4 py-3 text-ui-sm text-semantic-danger">

@@ -129,7 +129,7 @@ export default function BillingPage() {
   return (
     <>
       <PageHeader title="Plan & Speicher" />
-      <div className="px-6 sm:px-8 lg:px-12 py-6 max-w-4xl space-y-6">
+      <div className="px-6 sm:px-8 lg:px-12 py-6 max-w-5xl space-y-6">
 
       {/* Banner: geplante Kündigung — User kann hier rückgängig machen */}
       {sub?.cancelAtPeriodEnd && sub.currentPeriodEnd && (
