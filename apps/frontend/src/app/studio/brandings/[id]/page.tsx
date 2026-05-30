@@ -27,14 +27,12 @@ export default function BrandingEditorPage() {
   const [introText, setIntroText] = useState("");
   const [footerText, setFooterText] = useState("");
   const [customCss, setCustomCss] = useState("");
-  const [loginGreeting, setLoginGreeting] = useState("");
 
   const logoInputRef = useRef<HTMLInputElement | null>(null);
   const logoLightInputRef = useRef<HTMLInputElement | null>(null);
   const faviconInputRef = useRef<HTMLInputElement | null>(null);
-  const loginBgInputRef = useRef<HTMLInputElement | null>(null);
   const [uploadingKind, setUploadingKind] = useState<
-    "logo" | "logoLight" | "favicon" | "loginBackground" | null
+    "logo" | "logoLight" | "favicon" | null
   >(null);
 
   const load = useCallback(async () => {
@@ -48,7 +46,6 @@ export default function BrandingEditorPage() {
       setIntroText(res.branding.introText ?? "");
       setFooterText(res.branding.footerText ?? "");
       setCustomCss(res.branding.customCss ?? "");
-      setLoginGreeting(res.branding.loginGreeting ?? "");
       // Default-Status nachladen
       const list = await api.listBrandings();
       setDefaultId(list.defaultBrandingId);
@@ -79,7 +76,6 @@ export default function BrandingEditorPage() {
         introText: introText.trim() || null,
         footerText: footerText.trim() || null,
         customCss: customCss.trim() || null,
-        loginGreeting: loginGreeting.trim() || null,
       });
       setBranding(updated);
     } catch (err) {
@@ -106,7 +102,7 @@ export default function BrandingEditorPage() {
   }
 
   async function uploadAsset(
-    kind: "logo" | "logoLight" | "favicon" | "loginBackground",
+    kind: "logo" | "logoLight" | "favicon",
     file: File
   ) {
     setUploadingKind(kind);
@@ -138,13 +134,12 @@ export default function BrandingEditorPage() {
   }
 
   async function removeAsset(
-    kind: "logo" | "logoLight" | "favicon" | "loginBackground"
+    kind: "logo" | "logoLight" | "favicon"
   ) {
     const labels = {
       logo: "Logo",
       logoLight: "Helles Logo",
       favicon: "Favicon",
-      loginBackground: "Login-Hintergrund",
     } as const;
     if (!confirm(`${labels[kind]} entfernen?`)) return;
     const { branding: updated } = await api.deleteBrandingAsset(id, kind);
@@ -232,9 +227,7 @@ export default function BrandingEditorPage() {
               passende Textfarbe (hell-auf-dunkel oder umgekehrt).
               Akzent = „Slideshow starten" und „Auswahl fertig"-Buttons,
               Like-Icon, Fokus-Indikatoren, Komment-Submit. Bei leeren
-              Galerien sind viele dieser Elemente noch nicht sichtbar.{" "}
-              Ist dies dein Standard-Branding, färbt die Akzentfarbe
-              zusätzlich dein Studio-Backend ein.
+              Galerien sind viele dieser Elemente noch nicht sichtbar.
             </p>
 
             <Field label="Schrift">
@@ -294,7 +287,7 @@ export default function BrandingEditorPage() {
                   label="Logo (hell)"
                   imageUrl={branding.logoLightUrl}
                   accept="image/png,image/jpeg,image/svg+xml"
-                  hint="Helle/weiße Variante für dunkle Hintergründe (Studio-UI, Login-Hero). Optional — wenn leer, wird das Standard-Logo verwendet."
+                  hint="Helle/weiße Variante für dunkle Galerie-Hintergründe. Optional — wenn leer, wird das Standard-Logo verwendet."
                   uploading={uploadingKind === "logoLight"}
                   inputRef={logoLightInputRef}
                   onPick={() => logoLightInputRef.current?.click()}
@@ -313,50 +306,6 @@ export default function BrandingEditorPage() {
                 onPick={() => faviconInputRef.current?.click()}
                 onFile={(f) => uploadAsset("favicon", f)}
                 onRemove={() => removeAsset("favicon")}
-              />
-            </div>
-
-            {/* Login-Branding (eigene Sektion, klar abgegrenzt). Wirkt nur
-                fuer das Tenant-Default-Branding auf der Studio-Login-Seite
-                — bei anderen Brandings ist es trotzdem konfigurierbar
-                damit man Setups vorbereiten kann. */}
-            <div className="rounded-md border border-line-subtle bg-surface-sunken/40 p-4 space-y-3">
-              <div>
-                <div className="text-sm font-medium text-ink-primary">
-                  Login-Seite
-                </div>
-                <div className="text-ui-xs text-ink-tertiary mt-0.5 leading-relaxed">
-                  Hintergrundbild und Begrüßungstext für die Studio-Login-
-                  Seite. Wirkt sobald dieses Branding als{" "}
-                  <strong className="text-ink-secondary">Tenant-Default</strong>{" "}
-                  gesetzt ist und der Tenant über seine Subdomain angesteuert
-                  wird.
-                </div>
-              </div>
-
-              <AssetField
-                label="Hintergrundbild"
-                imageUrl={branding.loginBackgroundUrl}
-                accept="image/jpeg,image/png,image/webp"
-                hint="JPEG/PNG/WebP, idealerweise 2400×1600px oder größer, max. 10 MB. Wird links vom Login-Formular als Hero-Bild gerendert."
-                uploading={uploadingKind === "loginBackground"}
-                inputRef={loginBgInputRef}
-                onPick={() => loginBgInputRef.current?.click()}
-                onFile={(f) => uploadAsset("loginBackground", f)}
-                onRemove={() => removeAsset("loginBackground")}
-                previewHeight="large"
-              />
-
-              <MarkdownField
-                label="Begrüßungstext"
-                value={loginGreeting}
-                onChange={setLoginGreeting}
-                rows={4}
-                maxLength={2000}
-                placeholder={
-                  "z.B.\n# Willkommen, Team Müller\nLogge dich ein, um deine Galerien zu verwalten."
-                }
-                hint="Markdown möglich: # Überschrift, **fett**, leere Zeile für Absatz."
               />
             </div>
 
