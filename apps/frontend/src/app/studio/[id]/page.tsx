@@ -1007,24 +1007,6 @@ export default function GalleryDetailPage() {
         )}
       </div>
 
-      {/* Tags */}
-      <div className="px-6 sm:px-8 lg:px-12 py-3 border-b border-line-subtle flex items-center gap-3 flex-wrap">
-        <span className="text-ui-xs uppercase tracking-[0.12em] text-ink-tertiary">
-          {t("studio.tagsLabel")}
-        </span>
-        <TagPicker
-          current={gallery.tags ?? []}
-          onAssign={async (tagId) => {
-            await api.assignTagToGallery(gallery.id, tagId);
-            void load();
-          }}
-          onRemove={async (tagId) => {
-            await api.removeTagFromGallery(gallery.id, tagId);
-            void load();
-          }}
-        />
-      </div>
-
       {/* Detailseiten-Tab-Navigation — gruppiert die volle Seite. */}
       <div className="px-6 sm:px-8 lg:px-12 border-b border-line-subtle">
         <nav className="flex gap-1 -mb-px overflow-x-auto">
@@ -1057,29 +1039,6 @@ export default function GalleryDetailPage() {
           })}
         </nav>
       </div>
-
-      {tab === "images" && (
-        <>
-      {/* File-Tag-Filter — pro-Galerie ein-/ausschaltbar via localStorage.
-          Default eingeklappt damit Galerien ohne Tag-Workflow keinen
-          visuellen Lärm haben. */}
-      <GalleryFileTagFilter
-        galleryId={gallery.id}
-        files={gallery.files}
-        selected={tagFilter}
-        onChange={setTagFilter}
-        filteredCount={visibleFiles.length}
-        onSelectFiltered={() => {
-          // Aktiviert den Auswahl-Modus und uebernimmt die gefilterten
-          // Files direkt als initiale Auswahl. So muss der User nicht
-          // erst 'Auswahl'-Modus + 'Alle' klicken — One-Click von
-          // Filter zu Bulk-aktion.
-          setSelectionMode(true);
-          setSelected(new Set(visibleFiles.map((f) => f.id)));
-        }}
-      />
-        </>
-      )}
 
       <div className="px-6 sm:px-8 lg:px-12 py-6 space-y-6 max-w-7xl">
         {tab === "images" && (
@@ -1215,6 +1174,28 @@ export default function GalleryDetailPage() {
 
         {tab === "settings" && (
           <>
+        {/* Galerie-Tags — zur Organisation/Filterung in der Übersicht. */}
+        <section className="rounded-md border border-line-subtle bg-surface-raised p-5 space-y-3">
+          <h2 className="text-ui-md font-medium text-ink-primary">
+            Galerie-Tags
+          </h2>
+          <p className="text-ui-sm text-ink-tertiary -mt-1">
+            Ordnen die ganze Galerie in der Übersicht ein (nicht zu verwechseln
+            mit Tags auf einzelnen Bildern).
+          </p>
+          <TagPicker
+            current={gallery.tags ?? []}
+            onAssign={async (tagId) => {
+              await api.assignTagToGallery(gallery.id, tagId);
+              void load();
+            }}
+            onRemove={async (tagId) => {
+              await api.removeTagFromGallery(gallery.id, tagId);
+              void load();
+            }}
+          />
+        </section>
+
         {/* Header-Customization — Hero, Logo, Welcome-Text */}
         <GalleryHeaderEditor
           gallery={gallery}
@@ -1407,6 +1388,20 @@ export default function GalleryDetailPage() {
 
         {tab === "images" && (
           <>
+        {/* File-Tag-Filter — direkt bei den Dateien, damit der Bezug
+            zwischen Filter und gezeigten Bildern klar ist. */}
+        <GalleryFileTagFilter
+          galleryId={gallery.id}
+          files={gallery.files}
+          selected={tagFilter}
+          onChange={setTagFilter}
+          filteredCount={visibleFiles.length}
+          onSelectFiltered={() => {
+            setSelectionMode(true);
+            setSelected(new Set(visibleFiles.map((f) => f.id)));
+          }}
+        />
+
         {/* Files-Toolbar */}
         {gallery.files.length > 0 && (
           <section>
