@@ -75,6 +75,23 @@ export const AUTO_TAG_VOCABULARY: Record<string, { label: string; group: string;
   laughter:          { label: "Lachen",            group: "emotion", color: "#f59e0b" },
   tears:             { label: "Tränen der Freude", group: "emotion", color: "#3b82f6" },
   dancing:           { label: "Tanzen",            group: "emotion", color: "#d946ef" },
+
+  // -------- CLIP (Business / Corporate) --------
+  business_portrait: { label: "Business-Porträt",  group: "business", color: "#0ea5e9" },
+  team_photo:        { label: "Team",              group: "business", color: "#0284c7" },
+  meeting:           { label: "Meeting",           group: "business", color: "#0891b2" },
+  presentation:      { label: "Vortrag",           group: "business", color: "#6366f1" },
+  office:            { label: "Büro",              group: "business", color: "#64748b" },
+  handshake:         { label: "Handschlag",        group: "business", color: "#14b8a6" },
+  conference:        { label: "Konferenz",         group: "business", color: "#4f46e5" },
+
+  // -------- CLIP (generisch, album-übergreifend) --------
+  person_portrait:   { label: "Porträt",           group: "motiv",   color: "#8b5cf6" },
+  product_shot:      { label: "Produkt",           group: "motiv",   color: "#f59e0b" },
+  food:              { label: "Essen",             group: "motiv",   color: "#f97316" },
+  architecture:      { label: "Architektur",       group: "ort",     color: "#78716c" },
+  nature_scenery:    { label: "Natur",             group: "ort",     color: "#16a34a" },
+  cityscape:         { label: "Stadt",             group: "ort",     color: "#475569" },
 };
 
 export async function registerAutoTagRoutes(app: FastifyInstance) {
@@ -498,6 +515,19 @@ export async function registerAutoTagRoutes(app: FastifyInstance) {
         },
         select: { id: true },
       });
+
+      // Noch offene (suggested) Vorschläge der betroffenen Files vorab
+      // entfernen, damit ein Re-Tag wirklich neu bewertet. Sonst blieben
+      // alte Vorschläge stehen, die die aktuelle Logik gar nicht mehr
+      // erzeugt (z.B. fälschlich getaggte Hochzeits-Tags auf Business-
+      // Fotos). 'accepted'/'rejected' bleiben unangetastet — das sind
+      // bewusste Entscheidungen des Fotografen.
+      const fileIds = files.map((f) => f.id);
+      if (fileIds.length > 0) {
+        await prisma.fileAutoTag.deleteMany({
+          where: { fileId: { in: fileIds }, status: "suggested" },
+        });
+      }
 
       const { enqueue, Queues } = await import("../services/queue.js");
       let enqueued = 0;

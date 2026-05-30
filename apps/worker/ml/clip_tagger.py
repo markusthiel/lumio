@@ -6,7 +6,11 @@ Nutzt OpenAI CLIP via open_clip_torch fuer Zero-Shot-Klassifikation.
 Workflow:
   1. Tag-Vokabular wird einmalig in Text-Embeddings encodiert.
   2. Pro Bild: Image-Embedding berechnen, Cosine-Similarity zu allen
-     Tag-Embeddings, Top-N ueber Threshold zurueckgeben.
+     Tag-Embeddings. Ein Tag wird nur vorgeschlagen, wenn er sowohl den
+     relativen Softmax-Threshold als auch einen absoluten Cosine-Gate
+     erreicht (_MIN_SIMILARITY) — Letzterer verhindert, dass bei
+     fremdem Bildinhalt das 'am wenigsten unpassende' Label durchrutscht.
+     Vokabular deckt Hochzeit, Business/Corporate und generische Motive ab.
 
 Performance (ViT-B/32):
   - CPU: ~1-3s pro Bild (Inference) + Tokenizer-Aufwand
@@ -65,6 +69,17 @@ _CLIP_PRETRAINED = os.environ.get("LUMIO_CLIP_PRETRAINED", "openai")
 # nicht geschrieben (CLIP gibt Wahrscheinlichkeiten zwischen 0..1 nach
 # Softmax ueber das gesamte Vokabular; Threshold um 0.05-0.15 ist ueblich)
 _CONFIDENCE_THRESHOLD = float(os.environ.get("LUMIO_CLIP_THRESHOLD", "0.08"))
+# Absoluter Mindest-Cosine (−1..1) zwischen Bild und bestem Label. Anders
+# als die Softmax (die ueber das geschlossene Vokabular immer auf 1.0
+# normiert und darum auch bei voellig anderem Bildinhalt das 'am wenigsten
+# unpassende' Label hochzieht) misst der rohe Cosine die ABSOLUTE Passung.
+# Liegt selbst das beste Label darunter, passt nichts → kein Tag. Damit
+# bekommen z.B. Business-Fotos keine Hochzeits-Tags mehr. Empirisch:
+# CLIP-ViT-B-32-Treffer liegen ~0.24-0.35, Fehltreffer < 0.20.
+_MIN_SIMILARITY = float(os.environ.get("LUMIO_CLIP_MIN_SIMILARITY", "0.21"))
+# Maximale Anzahl CLIP-Tags pro Bild (Top-N nach Confidence) — verhindert
+# Tag-Spam bei breitem Vokabular.
+_MAX_TAGS = int(os.environ.get("LUMIO_CLIP_MAX_TAGS", "5"))
 
 
 # ----------------------------------------------------------------------------
@@ -84,7 +99,7 @@ _CONFIDENCE_THRESHOLD = float(os.environ.get("LUMIO_CLIP_THRESHOLD", "0.08"))
 # (apps/api/src/routes/auto-tags.ts) — Worker und API teilen sich
 # die Tag-Keys.
 CLIP_TAG_VOCABULARY: dict[str, str] = {
-    # Inhalt / Motive
+    # -- Hochzeit: Inhalt / Motive --
     "bride_and_groom":   "a wedding photo of a bride and groom together",
     "couple_kiss":       "a photo of a couple kissing at their wedding",
     "wedding_rings":     "a close-up photo of wedding rings",
@@ -99,21 +114,36 @@ CLIP_TAG_VOCABULARY: dict[str, str] = {
     "toast":             "a photo of people raising glasses for a toast",
     "details":           "a close-up detail photo of wedding decorations",
 
-    # Setting
+    # -- Hochzeit: Setting --
     "church":            "a photo taken inside a church",
     "outdoor_ceremony":  "an outdoor wedding ceremony",
     "garden":            "a photo taken in a garden",
     "beach":             "a wedding photo at the beach",
     "vineyard":          "a wedding at a vineyard",
 
-    # Stil
+    # -- Hochzeit: Stil / Emotion --
     "candid":            "a candid unposed wedding photo",
     "posed_portrait":    "a posed formal wedding portrait",
-
-    # Emotion
     "laughter":          "a photo of people laughing joyfully",
     "tears":             "a photo of someone with tears of joy at a wedding",
     "dancing":           "a photo of people dancing at a wedding party",
+
+    # -- Business / Corporate --
+    "business_portrait": "a professional corporate headshot of a person in business attire",
+    "team_photo":        "a group photo of business colleagues or a company team",
+    "meeting":           "people in a business meeting around a conference table",
+    "presentation":      "a person giving a presentation or speech on a stage",
+    "office":            "an interior photo of a modern office workspace",
+    "handshake":         "two people shaking hands in a business setting",
+    "conference":        "an audience at a conference or corporate event",
+
+    # -- Generisch (album-uebergreifend) --
+    "person_portrait":   "a portrait photograph of a single person",
+    "product_shot":      "a product photograph on a clean background",
+    "food":              "a photograph of plated food or drinks",
+    "architecture":      "an architectural photograph of a building",
+    "nature_scenery":    "a scenic landscape photograph of nature",
+    "cityscape":         "an urban cityscape photograph of a city",
 }
 
 
@@ -224,22 +254,31 @@ def classify_image(filepath: str) -> list[dict]:
             image_features = image_features / image_features.norm(
                 dim=-1, keepdim=True
             )
-            # Cosine-Similarity = dot product nach Normalisierung
-            # Skaliert mit 100 wie im Original-CLIP-Paper, dann softmax
-            logits = (100.0 * image_features @ _text_features.T).softmax(dim=-1)
-            scores = logits.squeeze(0).cpu().tolist()
+            # Rohe Cosine-Similarity (−1..1): absolute Passung je Label.
+            raw = (image_features @ _text_features.T).squeeze(0)
+            # Softmax (×100 wie im CLIP-Paper): relative Verteilung fuers
+            # Ranking unter den Labels.
+            probs = (100.0 * raw).softmax(dim=-1)
+            raw_scores = raw.cpu().tolist()
+            prob_scores = probs.cpu().tolist()
 
-        # Threshold filtern + sortieren
+        # Zwei Gates pro Label:
+        #   1. raw_sim >= _MIN_SIMILARITY — passt das Label ueberhaupt
+        #      absolut? Faengt den Closed-Set-Effekt ab (siehe Kommentar
+        #      bei _MIN_SIMILARITY): ohne diesen Gate bekaeme jedes Bild
+        #      das relativ aehnlichste Label, auch wenn keines wirklich
+        #      passt (Business-Foto → Hochzeits-Tag).
+        #   2. prob >= _CONFIDENCE_THRESHOLD — relativer Mindestanteil.
         results = []
-        for tag_key, score in zip(_tag_order, scores):
-            if score >= _CONFIDENCE_THRESHOLD:
+        for tag_key, raw_sim, prob in zip(_tag_order, raw_scores, prob_scores):
+            if raw_sim >= _MIN_SIMILARITY and prob >= _CONFIDENCE_THRESHOLD:
                 results.append({
                     "tagName": tag_key,
-                    "confidence": float(score),
+                    "confidence": float(prob),
                     "source": "clip",
                 })
         results.sort(key=lambda r: r["confidence"], reverse=True)
-        return results
+        return results[:_MAX_TAGS]
     except Exception as err:
         log.exception("clip_tagger.classify_failed", filepath=filepath, err=str(err))
         return []
@@ -262,4 +301,6 @@ def get_status() -> dict:
         "pretrained": _CLIP_PRETRAINED,
         "vocabulary_size": len(_tag_order) if _tag_order else len(CLIP_TAG_VOCABULARY),
         "threshold": _CONFIDENCE_THRESHOLD,
+        "min_similarity": _MIN_SIMILARITY,
+        "max_tags": _MAX_TAGS,
     }
