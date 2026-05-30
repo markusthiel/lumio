@@ -56,8 +56,16 @@ export interface MailBranding {
    *  von {studioName}". Optional. */
   footerNote?: string | null;
   /** Logo-Ausrichtung im Header — grob an die Login-Layout-Variante
-   *  gekoppelt (zentriert vs. links). Default: links. */
+   *  gekoppelt (zentriert vs. links). Default: links.
+   *  @deprecated zugunsten von `layout`; wird nur als Fallback genutzt. */
   logoAlign?: "center" | "left" | null;
+  /** Layout-Variante für den Mail-Header/Rahmen:
+   *   - classic:    Logo links, Akzentlinie unter dem Header
+   *   - logo_right: Logo rechts, Akzentlinie unter dem Header
+   *   - centered:   Logo mittig, Akzentlinie unter dem Header
+   *   - banner:     Header als farbiger Balken (Akzentfarbe), Logo darauf
+   *  Default: classic. Greift nur für Studio-gebrandete Mails. */
+  layout?: "classic" | "logo_right" | "centered" | "banner" | null;
 }
 
 export interface RenderMailOpts {
@@ -82,15 +90,32 @@ export function renderMailLayout(opts: RenderMailOpts): string {
   const footerNote = opts.branding?.footerNote;
   const preheader = opts.preheader ?? "";
 
-  // Header: entweder Studio-Logo oder Wortmarke "Lumio"
-  const logoAlign = opts.branding?.logoAlign === "center" ? "center" : "left";
+  // Layout-Variante. Fallback-Kette: explizites layout → (deprecated)
+  // logoAlign → classic.
+  const layout: "classic" | "logo_right" | "centered" | "banner" =
+    opts.branding?.layout ||
+    (opts.branding?.logoAlign === "center" ? "centered" : "classic");
+  const isBanner = layout === "banner";
+  const logoAlign =
+    layout === "centered" || isBanner
+      ? "center"
+      : layout === "logo_right"
+        ? "right"
+        : "left";
+
+  // Header: Studio-Logo oder Wortmarke. Im Banner liegt alles auf der
+  // Akzentfläche → Wortmarke in Weiß (Logos sind meist PNG mit
+  // Transparenz und sitzen auch auf Farbe sauber).
+  const wordmarkColor = isBanner ? "#ffffff" : accent;
   const headerInner = logoUrl
-    ? `<img src="${escapeAttr(logoUrl)}" alt="${escapeAttr(brandName)}" style="max-height:48px;max-width:200px;display:block;border:0;${
-        logoAlign === "center" ? "margin:0 auto;" : ""
-      }" />`
-    : `<div style="font-size:22px;font-weight:600;color:${accent};letter-spacing:-0.02em;${
-        logoAlign === "center" ? "text-align:center;" : ""
-      }">Lumio</div>`;
+    ? `<img src="${escapeAttr(logoUrl)}" alt="${escapeAttr(brandName)}" style="max-height:48px;max-width:200px;display:inline-block;border:0;" />`
+    : `<div style="font-size:22px;font-weight:600;color:${wordmarkColor};letter-spacing:-0.02em;">${escapeHtml(brandName)}</div>`;
+
+  // Header-Zellen-Style je nach Variante: Banner = Akzent-Hintergrund,
+  // sonst weiße Zelle mit Akzentlinie als Trenner.
+  const headerCellStyle = isBanner
+    ? `padding:28px 32px;background-color:${accent};`
+    : `padding:24px 32px;border-bottom:2px solid ${accent};`;
 
   const footerHtml = footerNote
     ? `<p style="margin:0 0 8px;color:${LUMIO_MUTED_COLOR};font-size:12px;line-height:1.5;">${escapeHtml(footerNote)}</p>`
@@ -114,7 +139,7 @@ ${escapeHtml(preheader)}
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="600" style="max-width:600px;width:100%;background-color:#ffffff;border:1px solid ${LUMIO_BORDER_COLOR};border-radius:12px;overflow:hidden;">
         <!-- Header -->
         <tr>
-          <td align="${logoAlign}" style="padding:24px 32px;border-bottom:1px solid ${LUMIO_BORDER_COLOR};">
+          <td align="${logoAlign}" style="${headerCellStyle}">
             ${headerInner}
           </td>
         </tr>

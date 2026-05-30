@@ -48,6 +48,10 @@ const updateSchema = z.object({
     .optional(),
   // Weichzeichner hinter der Farbfläche (px), 0–40. Null = aus.
   loginOverlayBlur: z.number().int().min(0).max(40).nullable().optional(),
+  // Layout-Variante für Studio-gebrandete Mails.
+  mailLayout: z
+    .enum(["classic", "logo_right", "centered", "banner"])
+    .optional(),
 });
 
 // Größenlimit je Asset-Typ. Logos sind klein; der Login-Hintergrund
@@ -162,6 +166,7 @@ type TenantAppearanceRow = {
   loginOverlayColor: string | null;
   loginOverlayBlur: number | null;
   emailLogoKey: string | null;
+  mailLayout: string | null;
 };
 
 async function serializeAppearance(t: TenantAppearanceRow) {
@@ -192,6 +197,13 @@ async function serializeAppearance(t: TenantAppearanceRow) {
     loginOverlayColor: t.loginOverlayColor,
     loginOverlayBlur: t.loginOverlayBlur,
     emailLogoUrl,
+    mailLayout:
+      (t.mailLayout as
+        | "classic"
+        | "logo_right"
+        | "centered"
+        | "banner"
+        | null) ?? "classic",
   };
 }
 
@@ -208,6 +220,7 @@ const APPEARANCE_SELECT = {
   loginOverlayColor: true,
   loginOverlayBlur: true,
   emailLogoKey: true,
+  mailLayout: true,
 } as const;
 
 export async function registerAppearanceRoutes(app: FastifyInstance) {
@@ -247,6 +260,9 @@ export async function registerAppearanceRoutes(app: FastifyInstance) {
         }),
         ...(body.loginOverlayBlur !== undefined && {
           loginOverlayBlur: body.loginOverlayBlur,
+        }),
+        ...(body.mailLayout !== undefined && {
+          mailLayout: body.mailLayout,
         }),
       },
       select: APPEARANCE_SELECT,

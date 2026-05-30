@@ -46,6 +46,7 @@ async function tenantMailBranding(
         studioAccentColor: true,
         loginAccentColor: true,
         loginLayout: true,
+        mailLayout: true,
       },
     });
     if (!t) return undefined;
@@ -55,7 +56,13 @@ async function tenantMailBranding(
         : null,
       accentColor: t.studioAccentColor ?? t.loginAccentColor ?? null,
       brandName: t.displayName ?? t.name ?? null,
-      logoAlign: t.loginLayout === "side_by_side" ? "left" : "center",
+      layout:
+        (t.mailLayout as
+          | "classic"
+          | "logo_right"
+          | "centered"
+          | "banner"
+          | null) ?? "classic",
     };
   } catch {
     return undefined;

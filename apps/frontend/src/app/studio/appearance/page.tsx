@@ -198,6 +198,119 @@ function LoginLayoutPicker({
   );
 }
 
+type MailLayout = "classic" | "logo_right" | "centered" | "banner";
+
+/** Auswahl der Mail-Layout-Variante (Studio-gebrandete Mails). Zeigt
+ *  eine Mini-Mail-Vorschau pro Variante in der echten Akzentfarbe. */
+function MailLayoutPicker({
+  value,
+  onChange,
+  accent,
+}: {
+  value: MailLayout;
+  onChange: (v: MailLayout) => void;
+  accent: string;
+}) {
+  const ac = accent || "#d97706";
+  const Logo = ({ align }: { align: "left" | "right" | "center" }) => (
+    <div
+      className={`h-1.5 w-1/3 rounded-sm bg-ink-primary/50 ${
+        align === "right" ? "ml-auto" : align === "center" ? "mx-auto" : ""
+      }`}
+    />
+  );
+  const Body = () => (
+    <div className="p-1.5 flex flex-col gap-1">
+      <div className="h-0.5 w-full rounded-sm bg-ink-primary/25" />
+      <div className="h-0.5 w-4/5 rounded-sm bg-ink-primary/25" />
+      <div
+        className="h-1 w-1/3 rounded-sm mt-0.5"
+        style={{ backgroundColor: ac }}
+      />
+    </div>
+  );
+  const options: { id: MailLayout; label: string; sketch: React.ReactNode }[] =
+    [
+      {
+        id: "classic",
+        label: "Klassisch",
+        sketch: (
+          <div className="w-full h-full bg-white flex flex-col">
+            <div className="p-1.5" style={{ borderBottom: `2px solid ${ac}` }}>
+              <Logo align="left" />
+            </div>
+            <Body />
+          </div>
+        ),
+      },
+      {
+        id: "logo_right",
+        label: "Logo rechts",
+        sketch: (
+          <div className="w-full h-full bg-white flex flex-col">
+            <div className="p-1.5" style={{ borderBottom: `2px solid ${ac}` }}>
+              <Logo align="right" />
+            </div>
+            <Body />
+          </div>
+        ),
+      },
+      {
+        id: "centered",
+        label: "Zentriert",
+        sketch: (
+          <div className="w-full h-full bg-white flex flex-col">
+            <div className="p-1.5" style={{ borderBottom: `2px solid ${ac}` }}>
+              <Logo align="center" />
+            </div>
+            <Body />
+          </div>
+        ),
+      },
+      {
+        id: "banner",
+        label: "Akzent-Banner",
+        sketch: (
+          <div className="w-full h-full bg-white flex flex-col">
+            <div
+              className="p-1.5 flex justify-center"
+              style={{ backgroundColor: ac }}
+            >
+              <div className="h-1.5 w-1/3 rounded-sm bg-white/90" />
+            </div>
+            <Body />
+          </div>
+        ),
+      },
+    ];
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      {options.map((opt) => {
+        const active = value === opt.id;
+        return (
+          <button
+            key={opt.id}
+            type="button"
+            onClick={() => onChange(opt.id)}
+            className={`rounded border p-2 text-left transition-colors ${
+              active
+                ? "border-accent bg-accent/10"
+                : "border-line-subtle bg-surface-sunken hover:border-line-strong"
+            }`}
+          >
+            <div className="aspect-[4/3] w-full rounded-sm bg-surface-overlay/40 overflow-hidden">
+              {opt.sketch}
+            </div>
+            <div className="mt-2 text-xs font-medium text-ink-primary">
+              {opt.label}
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function AppearancePage() {
   const [appearance, setAppearance] = useState<Appearance | null>(null);
   const [loading, setLoading] = useState(true);
@@ -212,6 +325,7 @@ export default function AppearancePage() {
   const [loginAccent, setLoginAccent] = useState("");
   const [loginGreeting, setLoginGreeting] = useState("");
   const [loginLayout, setLoginLayout] = useState<LoginLayout>("centered");
+  const [mailLayout, setMailLayout] = useState<MailLayout>("classic");
   const [loginOverlay, setLoginOverlay] = useState<string | null>(null);
   const [loginOverlayBlur, setLoginOverlayBlur] = useState(0);
 
@@ -231,6 +345,7 @@ export default function AppearancePage() {
         setLoginAccent(appearance.loginAccentColor ?? "");
         setLoginGreeting(appearance.loginGreeting ?? "");
         setLoginLayout(appearance.loginLayout);
+        setMailLayout(appearance.mailLayout);
         setLoginOverlay(appearance.loginOverlayColor);
         setLoginOverlayBlur(appearance.loginOverlayBlur ?? 0);
       } catch (e) {
@@ -347,6 +462,7 @@ export default function AppearancePage() {
         loginLayout,
         loginOverlayColor: loginOverlay,
         loginOverlayBlur: loginOverlayBlur || null,
+        mailLayout,
       });
       setAppearance(appearance);
       applyStudioAccent(appearance.studioAccentColor);
@@ -604,6 +720,16 @@ export default function AppearancePage() {
                 onRemove={() => removeAsset("emailLogo")}
                 previewTone="light"
               />
+              <Field
+                label="Layout"
+                hint="Aufbau der E-Mails an deine Kunden. Deine Akzentfarbe wird für Linie/Banner, Buttons und Zitate übernommen. Kein Dark-Mode — die Mail-Programme dunkeln selbst ab."
+              >
+                <MailLayoutPicker
+                  value={mailLayout}
+                  onChange={setMailLayout}
+                  accent={studioAccent || loginAccent}
+                />
+              </Field>
             </Section>
 
             <div className="flex justify-end">
