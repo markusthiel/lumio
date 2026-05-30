@@ -212,17 +212,39 @@ function MailLayoutPicker({
   accent: string;
 }) {
   const ac = accent || "#d97706";
+  // Feste Grautöne statt Theme-Tokens: die Mini-Mail ist immer weiß
+  // (echte Mails haben hellen Hintergrund), Theme-Farben wie ink-primary
+  // sind im dunklen Studio-Theme hell und auf Weiß unsichtbar.
+  const LOGO_GRAY = "#4b5563"; // gut sichtbarer Logo-Platzhalter
+  const TEXT_GRAY = "#d1d5db"; // hellere Textzeilen
   const Logo = ({ align }: { align: "left" | "right" | "center" }) => (
     <div
-      className={`h-1.5 w-1/3 rounded-sm bg-ink-primary/50 ${
-        align === "right" ? "ml-auto" : align === "center" ? "mx-auto" : ""
-      }`}
-    />
+      className="flex"
+      style={{
+        justifyContent:
+          align === "right"
+            ? "flex-end"
+            : align === "center"
+              ? "center"
+              : "flex-start",
+      }}
+    >
+      <div
+        className="h-2 w-2/5 rounded-sm"
+        style={{ backgroundColor: LOGO_GRAY }}
+      />
+    </div>
   );
   const Body = () => (
     <div className="p-1.5 flex flex-col gap-1">
-      <div className="h-0.5 w-full rounded-sm bg-ink-primary/25" />
-      <div className="h-0.5 w-4/5 rounded-sm bg-ink-primary/25" />
+      <div
+        className="h-0.5 w-full rounded-sm"
+        style={{ backgroundColor: TEXT_GRAY }}
+      />
+      <div
+        className="h-0.5 w-4/5 rounded-sm"
+        style={{ backgroundColor: TEXT_GRAY }}
+      />
       <div
         className="h-1 w-1/3 rounded-sm mt-0.5"
         style={{ backgroundColor: ac }}
@@ -276,7 +298,7 @@ function MailLayoutPicker({
               className="p-1.5 flex justify-center"
               style={{ backgroundColor: ac }}
             >
-              <div className="h-1.5 w-1/3 rounded-sm bg-white/90" />
+              <div className="h-2 w-2/5 rounded-sm bg-white/90" />
             </div>
             <Body />
           </div>
