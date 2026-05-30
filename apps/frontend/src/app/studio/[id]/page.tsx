@@ -15,6 +15,8 @@ import { SlowConnectionToggle } from "@/components/upload/SlowConnectionToggle";
 import { useSlowConnection } from "@/lib/useSlowConnection";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { AutoTagsToolbar } from "@/components/studio/AutoTagsToolbar";
+import { ProofingPanel } from "@/components/studio/ProofingPanel";
+import { StatsPanel } from "@/components/studio/StatsPanel";
 import { GalleryFileTagFilter } from "@/components/studio/GalleryFileTagFilter";
 import { BulkSelectionActions } from "@/components/studio/BulkSelectionActions";
 import { TagPicker } from "@/components/studio/TagPicker";
@@ -128,6 +130,10 @@ export default function GalleryDetailPage() {
   const selectionMode = gridMode === "select";
   // Lightbox: ID des aktuell groß angezeigten Files (null = geschlossen).
   const [lightboxId, setLightboxId] = useState<string | null>(null);
+  // Sub-Umschaltung im "Auswahl & Statistik"-Tab.
+  const [insightsView, setInsightsView] = useState<"selection" | "stats">(
+    "selection"
+  );
   // Aktuell gezogenes File im Sortier-Modus — für die schwebende
   // DragOverlay-Vorschau, die dem Finger/Cursor folgt.
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -1744,35 +1750,33 @@ export default function GalleryDetailPage() {
         )}
 
         {tab === "insights" && (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Link
-              href={`/studio/${gallery.id}/proofing`}
-              className="block rounded-md border border-line-subtle bg-surface-raised hover:border-line-strong hover:bg-surface-overlay transition-all duration-motion ease-out p-5"
-            >
-              <h2 className="text-ui-md font-medium text-ink-primary">
-                Auswahl-Übersicht
-              </h2>
-              <p className="text-ui-sm text-ink-tertiary mt-1.5 leading-relaxed">
-                Was deine Kunden ausgewählt, favorisiert und kommentiert haben.
-              </p>
-              <span className="inline-block text-ui-sm text-accent mt-3">
-                Öffnen →
-              </span>
-            </Link>
-            <Link
-              href={`/studio/${gallery.id}/stats`}
-              className="block rounded-md border border-line-subtle bg-surface-raised hover:border-line-strong hover:bg-surface-overlay transition-all duration-motion ease-out p-5"
-            >
-              <h2 className="text-ui-md font-medium text-ink-primary">
-                Statistik
-              </h2>
-              <p className="text-ui-sm text-ink-tertiary mt-1.5 leading-relaxed">
-                Besuche, Aktivität im Zeitverlauf und die beliebtesten Medien.
-              </p>
-              <span className="inline-block text-ui-sm text-accent mt-3">
-                Öffnen →
-              </span>
-            </Link>
+          <div className="space-y-5">
+            <div className="inline-flex rounded-md border border-line-subtle overflow-hidden">
+              {(
+                [
+                  ["selection", "Auswahl"],
+                  ["stats", "Statistik"],
+                ] as const
+              ).map(([k, label]) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setInsightsView(k)}
+                  className={`h-8 px-4 text-ui-sm transition-colors duration-motion ${
+                    insightsView === k
+                      ? "bg-accent/10 text-accent font-medium"
+                      : "bg-surface-sunken text-ink-tertiary hover:text-ink-secondary"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {insightsView === "selection" ? (
+              <ProofingPanel galleryId={gallery.id} embedded />
+            ) : (
+              <StatsPanel galleryId={gallery.id} embedded />
+            )}
           </div>
         )}
       </div>
