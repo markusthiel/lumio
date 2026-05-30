@@ -2292,17 +2292,17 @@ function Lightbox({
       className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center"
       onClick={onClose}
     >
-      <div className="absolute top-4 left-4 text-white/60 text-ui-sm tabular-nums">
-        {i + 1} / {files.length}
-      </div>
       <button
         type="button"
         onClick={onClose}
         aria-label="Schließen"
-        className="absolute top-3 right-3 h-10 w-10 flex items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors text-2xl leading-none"
+        className="absolute top-3 left-4 z-30 flex items-center gap-2 text-white/80 hover:text-white transition-colors text-ui-sm leading-none"
       >
-        ✕
+        <span className="text-xl leading-none">✕</span> Schließen
       </button>
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 text-white/60 text-ui-sm tabular-nums">
+        {i + 1} / {files.length}
+      </div>
 
       {i > 0 && (
         <button
@@ -2362,47 +2362,65 @@ function Lightbox({
         </button>
       )}
 
-      {/* Zoom-Bedienung (unten rechts). stopPropagation, damit ein Klick
-          nicht die Lightbox schließt. Gesten (Mausrad/Pinch/Doppelklick)
-          laufen zusätzlich direkt über den Bild-Container. */}
+      {/* Zoom-Controls oben rechts — identische Optik und Funktion wie
+          in der Kundengalerie-Lightbox. */}
       {url && (
         <div
-          className="absolute bottom-4 right-4 flex items-center gap-1.5"
+          className="absolute top-3 right-3 z-30 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full p-1"
           onClick={(e) => e.stopPropagation()}
         >
           {zoom.zoomed && (
-            <span className="text-white/60 text-ui-xs tabular-nums mr-1">
+            <span className="text-ui-xs text-white/80 px-2 tabular-nums select-none">
               {Math.round(zoom.scale * 100)}%
             </span>
           )}
           <button
-            type="button"
             onClick={() => zoom.zoomOut()}
             disabled={!zoom.zoomed}
+            className="w-8 h-8 rounded-full hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white/90 flex items-center justify-center transition-colors duration-motion"
             aria-label="Verkleinern"
             title="Verkleinern (−)"
-            className="h-10 w-10 flex items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-transparent transition-colors text-2xl leading-none"
           >
-            −
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+            >
+              <circle cx="7" cy="7" r="5" />
+              <path d="M4.5 7h5M11 11l3 3" />
+            </svg>
           </button>
           <button
-            type="button"
             onClick={() => zoom.zoomIn()}
+            className="w-8 h-8 rounded-full hover:bg-white/10 text-white/90 flex items-center justify-center transition-colors duration-motion"
             aria-label="Vergrößern"
             title="Vergrößern (+)"
-            className="h-10 w-10 flex items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors text-2xl leading-none"
           >
-            +
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+            >
+              <circle cx="7" cy="7" r="5" />
+              <path d="M4.5 7h5M7 4.5v5M11 11l3 3" />
+            </svg>
           </button>
           {zoom.zoomed && (
             <button
-              type="button"
               onClick={() => zoom.reset()}
-              aria-label="Zoom zurücksetzen"
-              title="Zurücksetzen (0)"
-              className="h-10 px-3 flex items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors text-ui-sm"
+              className="h-8 px-2.5 rounded-full hover:bg-white/10 text-ui-xs text-white/90 transition-colors duration-motion"
+              aria-label="Originalgröße"
+              title="Originalgröße (0)"
             >
-              Reset
+              1:1
             </button>
           )}
         </div>
