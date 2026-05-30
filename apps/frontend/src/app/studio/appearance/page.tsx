@@ -526,6 +526,33 @@ export default function AppearancePage() {
               {appearance.loginBackgroundUrl && (
                 <>
                   <Field
+                    label="Vorschau"
+                    hint="So wirken Farbüberlagerung und Glas-Effekt über dem Hintergrundbild."
+                  >
+                    <div className="relative w-full aspect-[16/9] rounded-md overflow-hidden bg-surface-sunken">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={appearance.loginBackgroundUrl}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                      {(loginOverlay || loginOverlayBlur > 0) && (
+                        <div
+                          className="absolute inset-0 pointer-events-none"
+                          style={{
+                            backgroundColor: loginOverlay ?? undefined,
+                            backdropFilter: loginOverlayBlur
+                              ? `blur(${loginOverlayBlur}px)`
+                              : undefined,
+                            WebkitBackdropFilter: loginOverlayBlur
+                              ? `blur(${loginOverlayBlur}px)`
+                              : undefined,
+                          }}
+                        />
+                      )}
+                    </div>
+                  </Field>
+                  <Field
                     label="Farbüberlagerung"
                     hint="Farbfläche über dem Hintergrundbild — hebt das Login-Formular hervor und verbessert die Lesbarkeit. Farbe und Transparenz frei wählbar."
                   >
