@@ -147,6 +147,29 @@ export function SharePanel({
             >
               {copied === "public" ? "Kopiert!" : "Kopieren"}
             </button>
+            <a
+              href={buildShareUrl()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs px-2 py-1 rounded border border-line-subtle hover:bg-surface-sunken inline-flex items-center gap-1"
+              title="In neuem Tab öffnen"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M15 3h6v6" />
+                <path d="M10 14 21 3" />
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              </svg>
+              Öffnen
+            </a>
           </div>
         </div>
 
@@ -217,6 +240,29 @@ export function SharePanel({
                     >
                       {copied === a.id ? "Kopiert!" : "Kopieren"}
                     </button>
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs px-2 py-1 rounded border border-line-subtle hover:bg-surface-sunken inline-flex items-center gap-1"
+                      title="In neuem Tab öffnen"
+                    >
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M15 3h6v6" />
+                        <path d="M10 14 21 3" />
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                      </svg>
+                      Öffnen
+                    </a>
                   </div>
                   <div className="text-[10px] text-ink-tertiary flex gap-2">
                     {a.canDownload && <span>↓ Download</span>}
