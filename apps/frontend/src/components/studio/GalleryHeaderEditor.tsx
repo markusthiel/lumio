@@ -509,7 +509,7 @@ function HeroFromGalleryDropdown({
         {t("studio.heroFromGallery")}
       </button>
       {open && (
-        <div className="absolute z-10 mt-1 right-0 w-80 max-h-80 overflow-y-auto rounded-md border border-line-strong bg-surface-raised shadow-elev-3 p-2 grid grid-cols-3 gap-1.5">
+        <div className="absolute z-10 mt-1 left-0 w-80 max-w-[calc(100vw-3rem)] max-h-80 overflow-y-auto rounded-md border border-line-strong bg-surface-raised shadow-elev-3 p-2 grid grid-cols-3 gap-1.5">
           {files
             .filter((f) => f.thumbUrl)
             .map((f) => (
@@ -520,16 +520,22 @@ function HeroFromGalleryDropdown({
                   await onChoose(f.id);
                   setOpen(false);
                 }}
-                className={`relative aspect-square rounded overflow-hidden hover:ring-2 hover:ring-accent transition-shadow duration-motion ${
+                className={`relative rounded overflow-hidden hover:ring-2 hover:ring-accent transition-shadow duration-motion ${
                   f.id === currentFileId ? "ring-2 ring-accent" : ""
                 }`}
                 title={f.filename}
               >
-                <img
-                  src={f.thumbUrl!}
-                  alt=""
-                  className="w-full h-full object-cover"
-                />
+                {/* aspect-ratio auf einem inneren div statt auf dem
+                    <button> — Safari/iOS rendert aspect-ratio auf
+                    Form-Elementen nicht zuverlässig (Tiles kollabierten,
+                    Bilder ueberlappten). */}
+                <div className="aspect-square w-full">
+                  <img
+                    src={f.thumbUrl!}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                </div>
               </button>
             ))}
         </div>
