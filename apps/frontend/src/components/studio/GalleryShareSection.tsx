@@ -78,7 +78,7 @@ export function GalleryShareSection({ galleryId }: { galleryId: string }) {
           </h2>
           <p className="text-ui-xs text-ink-tertiary mt-0.5">
             Wer diese Galerie sehen und bearbeiten darf
-            {sharedCount > 0 ? ` \u00b7 ${sharedCount} freigegeben` : ""}
+            {sharedCount > 0 ? ` · ${sharedCount} freigegeben` : ""}
           </p>
         </div>
         <span
@@ -86,7 +86,7 @@ export function GalleryShareSection({ galleryId }: { galleryId: string }) {
             expanded ? "rotate-90" : ""
           }`}
         >
-          \u25b6
+          ▶
         </span>
       </button>
 
@@ -94,17 +94,17 @@ export function GalleryShareSection({ galleryId }: { galleryId: string }) {
         <div className="px-5 pb-5 space-y-3">
           <p className="text-xs text-ink-tertiary">
             Freigegebene Mitglieder haben volle Rechte (sehen, bearbeiten,
-            l\u00f6schen). Wer nicht freigegeben ist, sieht die Galerie nicht.
+            löschen). Wer nicht freigegeben ist, sieht die Galerie nicht.
           </p>
           {error && (
             <div className="text-xs text-semantic-danger">{error}</div>
           )}
           {members === null ? (
-            <div className="text-xs text-ink-tertiary">L\u00e4dt \u2026</div>
+            <div className="text-xs text-ink-tertiary">Lädt …</div>
           ) : members.length <= 1 ? (
             <div className="text-xs text-ink-tertiary">
               Noch keine weiteren Team-Mitglieder. Lade unter Einstellungen
-              \u2192 Team Kolleg:innen ein.
+              → Team Kolleg:innen ein.
             </div>
           ) : (
             <ul className="divide-y divide-line-subtle rounded-md border border-line-subtle overflow-hidden">
@@ -123,7 +123,7 @@ export function GalleryShareSection({ galleryId }: { galleryId: string }) {
                   </div>
                   {m.alwaysHasAccess ? (
                     <span className="text-xs text-ink-tertiary whitespace-nowrap">
-                      {m.isCreator ? "Ersteller" : "Inhaber"} \u00b7 Zugriff
+                      {m.isCreator ? "Ersteller" : "Inhaber"} · Zugriff
                     </span>
                   ) : (
                     <button
