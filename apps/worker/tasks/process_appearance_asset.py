@@ -106,7 +106,13 @@ def optimize(self, tenant_id: str, kind: str) -> dict:
         log.info("appearance.svg_skip", tenantId=tenant_id, kind=kind)
         return {"ok": True, "skipped": True, "reason": "svg"}
 
-    already_webp = src_key.lower().endswith(".webp")
+    # Zielformat: E-Mail-Logos müssen mail-kompatibel sein → PNG. WebP
+    # zeigen viele Mail-Clients (u.a. Outlook) nicht an, das Logo wäre
+    # dort unsichtbar. PNG behält Transparenz und wird überall gerendert.
+    # Alle anderen Assets (nur Web-Anzeige) bleiben WebP.
+    is_email_logo = kind == "emailLogo"
+    target_ext = "png" if is_email_logo else "webp"
+    already_target = src_key.lower().endswith("." + target_ext)
 
     # 2) Original temporär ziehen
     with tempfile.TemporaryDirectory(prefix="lumio-appearance-") as tmpdir:
@@ -133,7 +139,7 @@ def optimize(self, tenant_id: str, kind: str) -> dict:
 
                 _extract_or_demosaic(src_path, jpeg_path)
                 work_path = jpeg_path
-                already_webp = False
+                already_target = False
             except Exception as err:  # noqa: BLE001
                 log.warning(
                     "appearance.raw_demosaic_failed",
@@ -162,7 +168,7 @@ def optimize(self, tenant_id: str, kind: str) -> dict:
                 )
                 return {"ok": False, "reason": "probe_failed"}
             work_path = transcoded
-            already_webp = False
+            already_target = False
             try:
                 width, height = probe_dimensions(work_path, autorotate=True)
             except Exception as err2:  # noqa: BLE001
@@ -175,7 +181,7 @@ def optimize(self, tenant_id: str, kind: str) -> dict:
 
         long_edge = max(width, height)
         needs_resize = long_edge > max_edge
-        if already_webp and not needs_resize:
+        if already_target and not needs_resize:
             log.info(
                 "appearance.already_optimal",
                 tenantId=tenant_id,
@@ -185,7 +191,7 @@ def optimize(self, tenant_id: str, kind: str) -> dict:
             )
             return {"ok": True, "skipped": True}
 
-        # 3) WebP rendern
+        # 3) Zielformat rendern (PNG für E-Mail-Logo, sonst WebP)
         import pyvips  # type: ignore
 
         img = pyvips.Image.new_from_file(work_path, access="sequential")
@@ -194,16 +200,22 @@ def optimize(self, tenant_id: str, kind: str) -> dict:
             scale = max_edge / long_edge
             img = img.resize(scale, kernel="lanczos3")
 
-        out_path = os.path.join(tmpdir, "out.webp")
-        # strip=True entfernt EXIF (Privacy + kleinere Files). Logos mit
-        # Transparenz behalten ihren Alpha-Kanal (WebP unterstützt das).
-        img.webpsave(out_path, Q=WEBP_QUALITY, strip=True)
+        # strip=True entfernt EXIF (Privacy + kleinere Files). Beide
+        # Formate behalten den Alpha-Kanal transparenter Logos.
+        if is_email_logo:
+            out_path = os.path.join(tmpdir, "out.png")
+            img.pngsave(out_path, strip=True)
+            content_type = "image/png"
+        else:
+            out_path = os.path.join(tmpdir, "out.webp")
+            img.webpsave(out_path, Q=WEBP_QUALITY, strip=True)
+            content_type = "image/webp"
 
-        # 4) Neuer Key — gleicher Pfad, Extension .webp. So bleiben die
-        #    Cleanup-Pfade in appearance.ts vorhersagbar.
-        new_key = src_key.rsplit(".", 1)[0] + ".webp"
+        # 4) Neuer Key — gleicher Pfad, Extension je Zielformat. So
+        #    bleiben die Cleanup-Pfade in appearance.ts vorhersagbar.
+        new_key = src_key.rsplit(".", 1)[0] + "." + target_ext
         try:
-            storage.upload_file(out_path, new_key, "image/webp")
+            storage.upload_file(out_path, new_key, content_type)
         except Exception as err:  # noqa: BLE001
             log.warning(
                 "appearance.upload_failed",
@@ -252,13 +264,13 @@ def optimize(self, tenant_id: str, kind: str) -> dict:
             old_key=src_key,
             new_key=new_key,
             resized=needs_resize,
-            converted=not already_webp,
+            converted=not already_target,
         )
         return {
             "ok": True,
             "newKey": new_key,
             "resized": needs_resize,
-            "converted": not already_webp,
+            "converted": not already_target,
         }
 
 

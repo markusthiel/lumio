@@ -754,6 +754,12 @@ export default function AppearancePage() {
                 onFile={(f) => uploadAsset("emailLogo", f)}
                 onRemove={() => removeAsset("emailLogo")}
                 previewTone="light"
+                previewBgColor={
+                  mailHeaderStyle === "banner" &&
+                  mailLogoPosition !== "footer"
+                    ? studioAccent || loginAccent
+                    : null
+                }
               />
               <Field
                 label="Layout"

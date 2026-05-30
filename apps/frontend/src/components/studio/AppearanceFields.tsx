@@ -125,6 +125,7 @@ export function AssetField({
   onRemove,
   previewHeight = "small",
   previewTone = "neutral",
+  previewBgColor = null,
 }: {
   label: string;
   imageUrl: string | null;
@@ -143,6 +144,10 @@ export function AssetField({
    *    "light"   weiß          → dunkle Logos
    *    "neutral" Standard-Fläche */
   previewTone?: "dark" | "light" | "neutral";
+  /** Überschreibt previewTone mit einer konkreten Hintergrundfarbe
+   *  (z.B. der Akzentfarbe), um zu zeigen wie ein Logo z.B. auf einem
+   *  farbigen Mail-Banner wirkt. */
+  previewBgColor?: string | null;
 }) {
   const previewCls =
     previewHeight === "large" ? "min-h-[180px] max-h-[260px]" : "min-h-[64px]";
@@ -150,14 +155,21 @@ export function AssetField({
     previewHeight === "large"
       ? "max-h-[240px] max-w-full object-cover w-full rounded"
       : "max-h-12 max-w-full object-contain";
-  const previewBg =
-    previewTone === "dark"
+  const previewBg = previewBgColor
+    ? "border-black/10"
+    : previewTone === "dark"
       ? "bg-[#0a0a0c] border-[#1a1a1f]"
       : previewTone === "light"
       ? "bg-white border-[#e2e2e6]"
       : "bg-surface-raised border-line-subtle";
-  const emptyTextCls =
-    previewTone === "light" ? "text-neutral-400" : "text-ink-tertiary";
+  const emptyTextCls = previewBgColor
+    ? "text-white/80"
+    : previewTone === "light"
+      ? "text-neutral-400"
+      : "text-ink-tertiary";
+  const previewStyle = previewBgColor
+    ? { backgroundColor: previewBgColor }
+    : undefined;
   return (
     <div className="space-y-1">
       <label className="text-xs font-medium text-ink-secondary">{label}</label>
@@ -176,6 +188,7 @@ export function AssetField({
         {imageUrl ? (
           <div
             className={`border rounded p-2 flex items-center justify-center ${previewBg} ${previewCls}`}
+            style={previewStyle}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={imageUrl} alt="" className={imageCls} />
@@ -183,6 +196,7 @@ export function AssetField({
         ) : (
           <div
             className={`border rounded text-xs text-center flex items-center justify-center ${previewBg} ${previewCls}`}
+            style={previewStyle}
           >
             <span className={emptyTextCls}>Noch nichts hochgeladen.</span>
           </div>
