@@ -240,6 +240,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           status: true,
           downloadEnabled: true,
           watermarkEnabled: true,
+          heroFileId: true,
           createdAt: true,
           updatedAt: true,
           _count: { select: { files: true } },
@@ -252,6 +253,86 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           },
         },
       });
+
+      const ids = galleries.map((g) => g.id);
+
+      // --- Cover-Thumbnails (Batch) -----------------------------------------
+      // Pro Galerie ein Thumbnail: bevorzugt das gesetzte Hero-File, sonst
+      // das erste Bild (nach sortIndex). Wir holen die thumb-Renditions in
+      // einer Query und signieren die URLs parallel.
+      const coverKeyByGallery = new Map<string, string>();
+      if (ids.length > 0) {
+        // 1) Erstes Bild je Galerie (Fallback-Cover)
+        const firstThumbs = await prisma.$queryRaw<
+          Array<{ gid: string; key: string }>
+        >`
+          SELECT DISTINCT ON (f."galleryId") f."galleryId" AS gid, r."storageKey" AS key
+          FROM files f
+          JOIN renditions r ON r."fileId" = f.id AND r.kind = 'thumb'
+          WHERE f."galleryId" = ANY(${ids}::uuid[]) AND f.kind = 'image'
+          ORDER BY f."galleryId", f."sortIndex" ASC, f."createdAt" ASC
+        `;
+        for (const row of firstThumbs) coverKeyByGallery.set(row.gid, row.key);
+
+        // 2) Hero-File-Override, wo gesetzt
+        const heroIds = galleries
+          .filter((g) => g.heroFileId)
+          .map((g) => g.heroFileId as string);
+        if (heroIds.length > 0) {
+          const heroThumbs = await prisma.rendition.findMany({
+            where: { fileId: { in: heroIds }, kind: "thumb" },
+            select: { storageKey: true, file: { select: { id: true, galleryId: true } } },
+          });
+          for (const r of heroThumbs) {
+            coverKeyByGallery.set(r.file.galleryId, r.storageKey);
+          }
+        }
+      }
+      const coverUrlByGallery = new Map<string, string>();
+      await Promise.all(
+        Array.from(coverKeyByGallery.entries()).map(async ([gid, key]) => {
+          coverUrlByGallery.set(gid, await presignGet({ key }));
+        })
+      );
+
+      // --- Stats (Batch) ----------------------------------------------------
+      // Besuche = share.unlock-Events pro Galerie. Auswahl/Likes = Selections
+      // über die Gallery-Accesses. Beides in je einer Query, ohne N+1.
+      const visitsByGallery = new Map<string, number>();
+      const selectedByGallery = new Map<string, number>();
+      const likesByGallery = new Map<string, number>();
+      if (ids.length > 0) {
+        const visitRows = await prisma.event.groupBy({
+          by: ["targetId"],
+          where: {
+            tenantId: req.tenantId,
+            action: "share.unlock",
+            targetType: "gallery",
+            targetId: { in: ids },
+          },
+          _count: { _all: true },
+        });
+        for (const v of visitRows) {
+          if (v.targetId) visitsByGallery.set(v.targetId, v._count._all);
+        }
+
+        const selRows = await prisma.$queryRaw<
+          Array<{ gid: string; selected: number; liked: number }>
+        >`
+          SELECT ga."galleryId" AS gid,
+                 COUNT(s.id)::int AS selected,
+                 COUNT(s.id) FILTER (WHERE s.liked)::int AS liked
+          FROM selections s
+          JOIN gallery_access ga ON ga.id = s."accessId"
+          WHERE ga."galleryId" = ANY(${ids}::uuid[])
+          GROUP BY ga."galleryId"
+        `;
+        for (const row of selRows) {
+          selectedByGallery.set(row.gid, Number(row.selected));
+          likesByGallery.set(row.gid, Number(row.liked));
+        }
+      }
+
       return {
         galleries: galleries.map((g) => ({
           id: g.id,
@@ -266,6 +347,12 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           updatedAt: g.updatedAt,
           fileCount: g._count.files,
           tags: g.tags.map((gt) => gt.tag),
+          coverThumbUrl: coverUrlByGallery.get(g.id) ?? null,
+          stats: {
+            visits: visitsByGallery.get(g.id) ?? 0,
+            likes: likesByGallery.get(g.id) ?? 0,
+            selected: selectedByGallery.get(g.id) ?? 0,
+          },
         })),
       };
     }

@@ -83,6 +83,10 @@ export interface Gallery {
   printShopEnabled: boolean | null;
   fileCount?: number;
   tags?: Tag[];
+  /** Signiertes Thumbnail (Hero-File oder erstes Bild), für die Übersicht. */
+  coverThumbUrl?: string | null;
+  /** Aggregierte Kennzahlen für die Übersichtskarte. */
+  stats?: { visits: number; likes: number; selected: number };
   createdAt: string;
   updatedAt: string;
 }
