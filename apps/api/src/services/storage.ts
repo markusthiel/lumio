@@ -52,6 +52,14 @@ function makeClient(endpoint: string): S3Client {
     endpoint,
     region: config.S3_REGION,
     forcePathStyle: config.S3_FORCE_PATH_STYLE,
+    // AWS SDK v3 (>= 3.729) berechnet bei PutObject standardmäßig eine
+    // CRC32-Checksum und nimmt die zugehörigen Header in die Signatur
+    // einer presigned URL auf. Browser-Uploads (fetch PUT) senden diese
+    // Header nicht mit → Signatur-Mismatch, im Browser als "Load failed"
+    // / "Failed to fetch" sichtbar. Bei S3-kompatiblen Stores wie Hetzner
+    // Object Storage daher nur dann berechnen, wenn es wirklich nötig ist.
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED",
     credentials: {
       accessKeyId: config.S3_ACCESS_KEY,
       secretAccessKey: config.S3_SECRET_KEY,
