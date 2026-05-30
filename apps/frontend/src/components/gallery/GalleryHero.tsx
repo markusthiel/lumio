@@ -266,7 +266,21 @@ function SideBySideHero({ meta, children }: Props) {
 function CenteredHero({ meta, children }: Props) {
   const h = meta.header;
   const hasHeroImage = !!h.heroImageUrl;
-  const hasBgColor = !hasHeroImage && !!h.backgroundColor;
+  // Bei centered steht der Textblock ÜBER dem optionalen Banner-Bild,
+  // nicht darauf. Der Kontrast richtet sich daher nach der Hintergrund-
+  // farbe (auch wenn ein Banner-Bild gesetzt ist), nicht nach dem Bild.
+  // Ohne eigene Hintergrundfarbe erbt der Block die Shell-Textfarbe.
+  const hasBgColor = !!h.backgroundColor;
+  const bgTone = hasBgColor
+    ? heroTextColor({
+        hasHeroImage: false,
+        backgroundColor: h.backgroundColor,
+        overlayColor: null,
+      })
+    : null;
+  const textStyle: React.CSSProperties = bgTone
+    ? { color: bgTone === "dark" ? "#0a0a0a" : "#ffffff" }
+    : {};
 
   return (
     <section
@@ -275,13 +289,18 @@ function CenteredHero({ meta, children }: Props) {
       {/* Top-Block: ruhig, zentriert */}
       <div
         className="px-4 sm:px-6 md:px-12 pt-16 pb-12 sm:pt-24 sm:pb-16 max-w-3xl mx-auto text-center animate-fade-in flex flex-col items-center"
-        style={heroTextStyle(meta)}
+        style={textStyle}
       >
         <EventLogo url={h.eventLogoUrl} size="md" align="center" />
         <h1 className="text-display-lg sm:text-display-xl font-medium tracking-tight">
           {meta.title}
         </h1>
-        <WelcomeBlock meta={meta} maxWidth="2xl" align="center" />
+        <WelcomeBlock
+          meta={meta}
+          maxWidth="2xl"
+          align="center"
+          toneOverride={bgTone ?? undefined}
+        />
         {children}
       </div>
 
@@ -340,12 +359,16 @@ function WelcomeBlock({
   maxWidth,
   align,
   sideBySide = false,
+  toneOverride,
 }: {
   meta: PublicGalleryMeta;
   maxWidth: "md" | "2xl";
   align: "start" | "center";
   /** Side-by-Side hat keinen Backdrop → Tone wird vom Shell vererbt. */
   sideBySide?: boolean;
+  /** Erzwingt den Prose-Tone (z.B. centered: richtet sich nach der
+   *  Hintergrundfarbe, nicht nach dem Banner-Bild). */
+  toneOverride?: "light" | "dark";
 }) {
   const h = meta.header;
   const widthClass = maxWidth === "md" ? "max-w-md" : "max-w-2xl";
@@ -355,7 +378,9 @@ function WelcomeBlock({
   // prose, sonst prose-invert für hellen Text. Side-by-side hat keinen
   // eigenen Backdrop, dort vererben wir vom Shell.
   let proseTone = "prose-invert";
-  if (!sideBySide) {
+  if (toneOverride) {
+    proseTone = toneOverride === "dark" ? "" : "prose-invert";
+  } else if (!sideBySide) {
     const tone = heroTextColor({
       hasHeroImage: !!h.heroImageUrl,
       backgroundColor: h.backgroundColor,
