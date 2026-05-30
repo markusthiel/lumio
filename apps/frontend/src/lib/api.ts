@@ -1336,7 +1336,7 @@ export const api = {
       canComment?: boolean;
       canSelect?: boolean;
       canSeeOthers?: boolean;
-      expiresAt?: string;
+      expiresAt?: string | null;
     }
   ) =>
     request<{ access: GalleryAccess }>(

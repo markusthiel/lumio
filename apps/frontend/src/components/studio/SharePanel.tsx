@@ -27,6 +27,38 @@ export function SharePanel({
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(
     null
   );
+  // Inline-Bearbeitung des Ablaufdatums eines bestehenden Links.
+  const [editingExpiryId, setEditingExpiryId] = useState<string | null>(null);
+  const [expiryDraft, setExpiryDraft] = useState("");
+  const [savingExpiry, setSavingExpiry] = useState(false);
+
+  /** ISO-UTC-String → datetime-local-Wert ("YYYY-MM-DDTHH:mm") in lokaler
+   *  Zeit, damit der native Picker den richtigen Moment anzeigt. */
+  function isoToLocalInput(iso: string): string {
+    const d = new Date(iso);
+    const p = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(
+      d.getHours()
+    )}:${p(d.getMinutes())}`;
+  }
+
+  function startEditExpiry(a: GalleryAccess) {
+    setEditingExpiryId(a.id);
+    setExpiryDraft(a.expiresAt ? isoToLocalInput(a.expiresAt) : "");
+  }
+
+  async function saveExpiry(accessId: string) {
+    setSavingExpiry(true);
+    try {
+      await api.updateAccess(galleryId, accessId, {
+        expiresAt: expiryDraft ? new Date(expiryDraft).toISOString() : null,
+      });
+      setEditingExpiryId(null);
+      await load();
+    } finally {
+      setSavingExpiry(false);
+    }
+  }
 
   async function load() {
     try {
@@ -273,27 +305,69 @@ export function SharePanel({
                       {a.accessCount} Aufrufe
                     </span>
                   </div>
-                  {a.expiresAt && (
-                    <div className="text-[10px]">
-                      {new Date(a.expiresAt) < new Date() ? (
-                        <span className="text-red-600">
-                          Abgelaufen —{" "}
-                          {new Date(a.expiresAt).toLocaleString("de-DE", {
-                            dateStyle: "medium",
-                            timeStyle: "short",
-                          })}
-                        </span>
-                      ) : (
-                        <span className="text-ink-tertiary">
-                          Läuft ab:{" "}
-                          {new Date(a.expiresAt).toLocaleString("de-DE", {
-                            dateStyle: "medium",
-                            timeStyle: "short",
-                          })}
-                        </span>
-                      )}
-                    </div>
-                  )}
+                  <div className="text-[11px] flex items-center gap-2 flex-wrap pt-0.5">
+                    {editingExpiryId === a.id ? (
+                      <>
+                        <input
+                          type="datetime-local"
+                          value={expiryDraft}
+                          onChange={(e) => setExpiryDraft(e.target.value)}
+                          className="rounded border border-line-subtle px-2 py-1 text-xs"
+                        />
+                        <button
+                          onClick={() => void saveExpiry(a.id)}
+                          disabled={savingExpiry}
+                          className="text-accent hover:underline disabled:opacity-50"
+                        >
+                          {savingExpiry ? "Speichern…" : "Speichern"}
+                        </button>
+                        {expiryDraft && (
+                          <button
+                            onClick={() => setExpiryDraft("")}
+                            className="text-ink-tertiary hover:text-ink-secondary"
+                          >
+                            Kein Ablauf
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setEditingExpiryId(null)}
+                          className="text-ink-tertiary hover:text-ink-secondary"
+                        >
+                          Abbrechen
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        {a.expiresAt ? (
+                          new Date(a.expiresAt) < new Date() ? (
+                            <span className="text-red-600">
+                              Abgelaufen —{" "}
+                              {new Date(a.expiresAt).toLocaleString("de-DE", {
+                                dateStyle: "medium",
+                                timeStyle: "short",
+                              })}
+                            </span>
+                          ) : (
+                            <span className="text-ink-tertiary">
+                              Läuft ab:{" "}
+                              {new Date(a.expiresAt).toLocaleString("de-DE", {
+                                dateStyle: "medium",
+                                timeStyle: "short",
+                              })}
+                            </span>
+                          )
+                        ) : (
+                          <span className="text-ink-tertiary">Kein Ablauf</span>
+                        )}
+                        <button
+                          onClick={() => startEditExpiry(a)}
+                          className="text-accent hover:underline"
+                        >
+                          {a.expiresAt ? "Ändern" : "Ablauf setzen"}
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </li>
               );
             })}

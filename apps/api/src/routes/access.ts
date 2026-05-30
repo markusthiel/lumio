@@ -55,7 +55,9 @@ const updateAccessSchema = z
     canComment: z.boolean(),
     canSelect: z.boolean(),
     canSeeOthers: z.boolean(),
-    expiresAt: z.string().datetime(),
+    // nullable, damit ein gesetztes Ablaufdatum auch wieder entfernt
+    // werden kann (null = kein Ablauf).
+    expiresAt: z.string().datetime().nullable(),
   })
   .partial();
 
