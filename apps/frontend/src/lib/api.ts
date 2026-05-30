@@ -1851,6 +1851,7 @@ export const api = {
 
   updateTenantSettings: (patch: {
     displayName?: string | null;
+    slug?: string;
     watermarkText?: string | null;
     customDomain?: string | null;
     maxUploadMib?: number | null;

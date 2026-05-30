@@ -63,6 +63,9 @@ export default function StudioSettingsPage() {
   const [usage, setUsage] = useState<BillingUsage | null>(null);
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState("");
+  const [slug, setSlug] = useState("");
+  const [slugSaving, setSlugSaving] = useState(false);
+  const [role, setRole] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [domain, setDomain] = useState("");
   // Per-File Upload-Limit in MiB. Leer = ENV-Default verwenden.
@@ -84,6 +87,7 @@ export default function StudioSettingsPage() {
       setUploadLimits(res.uploadLimits);
       setDeployment(res.deployment);
       setDisplayName(res.tenant.displayName ?? "");
+      setSlug(res.tenant.slug);
       setText(res.tenant.watermarkText ?? "");
       setDomain(res.tenant.customDomain ?? "");
       setMaxUpload(
@@ -91,6 +95,12 @@ export default function StudioSettingsPage() {
           ? String(res.tenant.maxUploadMib)
           : ""
       );
+      try {
+        const me = await api.me();
+        setRole(me?.user?.role ?? null);
+      } catch {
+        // Rolle nicht ermittelbar — Slug-Sektion bleibt dann verborgen.
+      }
       // Billing-Usage parallel — wenn Billing nicht aktiv ist
       // (Self-Hosted ohne BILLING_ENABLED) liefert das einen 404.
       // Wir setzen usage dann auf null und der Feature-Gate-Code
@@ -172,6 +182,34 @@ export default function StudioSettingsPage() {
       setError(err instanceof Error ? err.message : "Fehler");
     } finally {
       setDisplayNameSaving(false);
+    }
+  }
+
+  async function saveSlug() {
+    const cleaned = slug.trim().toLowerCase();
+    if (!cleaned || cleaned === settings?.slug) return;
+    setSlugSaving(true);
+    setError(null);
+    try {
+      const res = await api.updateTenantSettings({ slug: cleaned });
+      // Die bisherige Subdomain ist jetzt ungültig — auf die neue umziehen.
+      // Dort muss neu eingeloggt werden (Session-Cookie ist host-gebunden).
+      const base = deployment?.domainBase;
+      if (base) {
+        const proto =
+          typeof window !== "undefined" ? window.location.protocol : "https:";
+        window.location.href = `${proto}//${res.tenant.slug}.${base}/login`;
+        return;
+      }
+      setSettings(res.tenant);
+      setSlug(res.tenant.slug);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Studio-Adresse konnte nicht geändert werden"
+      );
+      setSlugSaving(false);
     }
   }
 
@@ -377,6 +415,60 @@ export default function StudioSettingsPage() {
             </button>
           </div>
         </section>
+
+        {/* Studio-Adresse (Subdomain) — nur Multi-Mode + Owner. */}
+        {deployment?.mode === "multi" &&
+          role === "owner" &&
+          deployment.domainBase && (
+            <section className="rounded-lg border border-line-subtle bg-surface-raised p-5 space-y-3">
+              <div>
+                <h2 className="text-sm font-medium">Studio-Adresse</h2>
+                <p className="text-xs text-ink-tertiary mt-0.5 leading-relaxed">
+                  Die Web-Adresse, unter der du dich einloggst. Geteilte
+                  Galerie-Links an deine Kunden laufen separat und bleiben
+                  bei einer Änderung unverändert.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={slug}
+                  onChange={(e) =>
+                    setSlug(e.target.value.toLowerCase().replace(/\s/g, ""))
+                  }
+                  maxLength={30}
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  className="flex-1 h-9 px-2.5 rounded bg-surface-sunken border border-line-subtle hover:border-line-strong focus:border-accent text-ui text-ink-primary focus:outline-none transition-colors duration-motion disabled:opacity-50"
+                />
+                <span className="text-ui-sm text-ink-tertiary font-mono whitespace-nowrap">
+                  .{deployment.domainBase}
+                </span>
+              </div>
+              <div className="rounded-sm bg-semantic-warning/10 border border-semantic-warning/30 px-3 py-2 text-xs text-ink-secondary leading-relaxed">
+                Nach dem Ändern ist die bisherige Adresse{" "}
+                <span className="font-mono">
+                  {settings.slug}.{deployment.domainBase}
+                </span>{" "}
+                nicht mehr erreichbar. Du wirst auf die neue Adresse
+                weitergeleitet und musst dich dort neu anmelden.
+              </div>
+              <div className="flex justify-end">
+                <button
+                  onClick={saveSlug}
+                  disabled={
+                    slugSaving ||
+                    !slug.trim() ||
+                    slug.trim().toLowerCase() === settings.slug
+                  }
+                  className="text-sm px-3 py-1.5 rounded-md border border-line-subtle hover:bg-surface-sunken disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {slugSaving ? "Wird geändert…" : "Adresse ändern"}
+                </button>
+              </div>
+            </section>
+          )}
 
         {/* Locale */}
         <section className="rounded-md border border-line-subtle bg-surface-raised p-5 flex items-center justify-between">

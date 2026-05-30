@@ -14,6 +14,7 @@ import { promises as dns } from "node:dns";
 import { prisma } from "../db.js";
 import { config } from "../config.js";
 import { checkFeatureAvailable } from "../services/usage.js";
+import { validateSlugFormat } from "../services/slugs.js";
 import {
   presignPut,
   deleteObject,
@@ -35,6 +36,11 @@ const updateSettingsSchema = z.object({
       const trimmed = v.trim();
       return trimmed ? trimmed : null;
     }),
+  /** Tenant-Slug = Login-Subdomain (<slug>.lumio-cloud.de). Nur der
+   *  Owner darf ihn ändern (Berechtigung wird in der Route geprüft).
+   *  Roh entgegennehmen; Format/Reserviert/Verfügbarkeit prüft die
+   *  Route via validateSlugFormat + DB-Lookup. */
+  slug: z.string().max(40).optional(),
   watermarkText: z.string().max(200).nullable().optional(),
   customDomain: z
     .string()
@@ -158,9 +164,45 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
       });
     }
 
+    // Slug-Änderung: nur Owner, Format + Reserviert + Verfügbarkeit prüfen.
+    // Unkritisch für bestehende Galerie-/Mail-Links (die laufen über
+    // PUBLIC_URL, nicht über die Tenant-Subdomain) — betrifft nur die
+    // Login-Subdomain.
+    let slugUpdate: { slug?: string } = {};
+    if (body.slug !== undefined) {
+      if (s.user.role !== "owner") {
+        return reply.status(403).send({
+          error: "owner_only",
+          message: "Nur der Owner kann den Studio-Namen ändern.",
+        });
+      }
+      const newSlug = body.slug.trim().toLowerCase();
+      const fmt = validateSlugFormat(newSlug);
+      if (!fmt.ok) {
+        return reply.status(400).send({
+          error: "invalid_slug",
+          message:
+            fmt.message ??
+            "Ungültiger Studio-Name (3–30 Zeichen, nur Kleinbuchstaben, Ziffern, Bindestriche).",
+        });
+      }
+      const taken = await prisma.tenant.findFirst({
+        where: { slug: newSlug, NOT: { id: req.tenantId } },
+        select: { id: true },
+      });
+      if (taken) {
+        return reply.status(409).send({
+          error: "slug_taken",
+          message: "Dieser Studio-Name ist bereits vergeben.",
+        });
+      }
+      slugUpdate = { slug: newSlug };
+    }
+
     const tenant = await prisma.tenant.update({
       where: { id: req.tenantId },
       data: {
+        ...slugUpdate,
         ...(body.displayName !== undefined
           ? { displayName: body.displayName }
           : {}),
