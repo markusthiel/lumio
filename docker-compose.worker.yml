@@ -38,6 +38,11 @@ services:
       # Auf einer 12-vCPU-Maschine ruhig hoch. Faustregel: ~ Anzahl Kerne.
       - WORKER_CONCURRENCY=${WORKER_CONCURRENCY:-10}
       - LOG_LEVEL=${LOG_LEVEL:-info}
+      # Diese Node ist ein reiner Celery-Worker OHNE CLIP — daher KEINE
+      # 'ml'-Queue. Auto-Tagging-Tasks landen so ausschliesslich auf dem
+      # CLIP-faehigen Haupt-Server. Wuerde die Node 'ml' ziehen, bekaemen
+      # hier verarbeitete Bilder nur rule-based-Tags.
+      - WORKER_QUEUES=${WORKER_QUEUES:-default,heavy,io}
     deploy:
       # Mehrere Worker-Prozesse pro Node. concurrency × replicas = parallele
       # Jobs. Bei 12 Kernen z.B. replicas=1 + concurrency=10, oder

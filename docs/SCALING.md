@@ -216,7 +216,9 @@ Sobald ein Job reinkommt, siehst du `Task … received` / `… succeeded`.
 
 Mehr Nodes: Schritt 5 auf weiteren Servern wiederholen (10.0.0.4, .5, …). Nichts am Haupt-Server zu ändern — neue Worker melden sich automatisch über `mingle` an.
 
-**Queues:** Celery nutzt `default`, `heavy` (Video/große Jobs) und `io`. Standardmäßig nimmt jeder Worker alle drei. Willst du einen Node nur für Video reservieren, kann man ihn auf die `heavy`-Queue beschränken (Celery `-Q heavy`) — bei Bedarf erweitern.
+**Queues:** Celery nutzt `default`, `heavy` (Video/große Jobs), `io` und `ml` (Auto-Tagging/CLIP). Welche Queues ein Worker bedient, steuert die Env-Variable `WORKER_QUEUES` (Default `default,heavy,io,ml`). Willst du einen Node nur für Video reservieren, kannst du ihn auf `WORKER_QUEUES=heavy` beschränken — bei Bedarf erweitern.
+
+**Wichtig — CLIP/Auto-Tagging:** Der CLIP-Tagger läuft nur in Workern mit ML-Image (`docker-compose.ml.yml`, meist der Haupt-Server). Reine Celery-Nodes ohne CLIP dürfen die `ml`-Queue daher **nicht** ziehen — sonst bekämen dort verarbeitete Bilder nur die regelbasierten Tags (Format/Helligkeit), aber keine inhaltlichen CLIP-Tags. `docker-compose.worker.yml` setzt deshalb `WORKER_QUEUES=default,heavy,io` (ohne `ml`); Auto-Tagging-Tasks landen so ausschließlich auf dem CLIP-fähigen Haupt-Server. Hat dein Haupt-Server kein ML-Image, läuft Auto-Tagging trotzdem (der Default zieht `ml`), liefert dann aber nur rule-based-Tags.
 
 ---
 

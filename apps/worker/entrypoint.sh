@@ -16,14 +16,20 @@ set -e
 
 LOG_LEVEL="${LOG_LEVEL:-info}"
 CONCURRENCY="${WORKER_CONCURRENCY:-4}"
+# Welche Celery-Queues dieser Worker bedient. Default enthaelt 'ml'
+# (Auto-Tagging), damit Single-Node- und Self-Host-Setups out-of-the-box
+# taggen. In Multi-Node-Setups setzen reine Celery-Nodes OHNE CLIP dies
+# auf "default,heavy,io" (ohne 'ml'), damit Tagging-Tasks nur auf dem
+# CLIP-faehigen Worker landen.
+QUEUES="${WORKER_QUEUES:-default,heavy,io,ml}"
 
-echo "[lumio-worker] starting celery (concurrency=$CONCURRENCY) and stream consumer"
+echo "[lumio-worker] starting celery (concurrency=$CONCURRENCY, queues=$QUEUES) and stream consumer"
 
 # Celery im Hintergrund
 celery -A app worker \
     -l "$LOG_LEVEL" \
     -c "$CONCURRENCY" \
-    -Q default,heavy,io &
+    -Q "$QUEUES" &
 CELERY_PID=$!
 
 # Stream-Consumer im Hintergrund

@@ -78,6 +78,13 @@ app.conf.update(
         "tasks.build_zip.*": {"queue": "io"},
         "tasks.billing.*": {"queue": "default"},
         "tasks.webhook_delivery.*": {"queue": "io"},
+        # Auto-Tagging laeuft nur auf CLIP-faehigen Workern. Eigene Queue
+        # 'ml', damit in Multi-Node-Setups reine Celery-Nodes (ohne CLIP)
+        # diese Tasks NICHT ziehen — sonst bekaemen dort verarbeitete
+        # Bilder nur rule-based-Tags. Welche Queues ein Worker bedient,
+        # steuert WORKER_QUEUES (entrypoint.sh); der Default enthaelt 'ml',
+        # damit Single-Node- und Self-Host-Setups unveraendert funktionieren.
+        "tasks.auto_tag.*": {"queue": "ml"},
     },
     task_default_queue="default",
 )
