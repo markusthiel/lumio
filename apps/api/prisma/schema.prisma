@@ -87,6 +87,9 @@ model Tenant {
   // Optionale Farbfläche über dem Login-Hintergrundbild (RGBA-Hex wie
   // "#00000066", alpha = Transparenz). Null = layout-abhängiger Default.
   loginOverlayColor  String?  @db.VarChar(9)
+  // Optionaler Weichzeichner (Glas-Effekt) hinter der Farbfläche, in px.
+  // Null/0 = kein Blur. Wirkt nur mit Hintergrundbild.
+  loginOverlayBlur   Int?
   emailLogoKey       String?
   
   // Watermark-Konfiguration (siehe docs/KONZEPT.md §9)

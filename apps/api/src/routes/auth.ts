@@ -653,6 +653,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         loginAccentColor: true,
         loginLayout: true,
         loginOverlayColor: true,
+        loginOverlayBlur: true,
       },
     });
     if (!row) {
@@ -692,6 +693,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           | "centered"
           | null) ?? "centered",
       overlayColor: row.loginOverlayColor,
+      overlayBlur: row.loginOverlayBlur,
     };
     return { tenant, branding, login };
   });

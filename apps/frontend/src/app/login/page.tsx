@@ -88,6 +88,7 @@ type LoginBranding = {
   loginBackgroundUrl: string | null;
   loginGreeting: string | null;
   loginOverlayColor: string | null;
+  loginOverlayBlur: number | null;
 };
 
 export default function LoginPage() {
@@ -179,6 +180,7 @@ export default function LoginPage() {
             loginBackgroundUrl: r.login.backgroundUrl,
             loginGreeting: r.login.greeting,
             loginOverlayColor: r.login.overlayColor,
+            loginOverlayBlur: r.login.overlayBlur,
           });
           setLayout(r.login.layout);
         } else if (r.branding) {
@@ -192,6 +194,7 @@ export default function LoginPage() {
             loginBackgroundUrl: null,
             loginGreeting: null,
             loginOverlayColor: null,
+            loginOverlayBlur: null,
           });
         }
       } catch {
@@ -651,6 +654,7 @@ export default function LoginPage() {
         <BrandedHero
           imageUrl={branding.loginBackgroundUrl!}
           overlayColor={branding.loginOverlayColor}
+          blur={branding.loginOverlayBlur}
           logoUrl={branding.logoUrl}
           logoLightUrl={branding.logoLightUrl}
           tenantName={tenantContext?.name}
@@ -673,18 +677,11 @@ export default function LoginPage() {
         className="min-h-screen flex items-center justify-center p-6 bg-surface-canvas relative"
         style={accentStyle}
       >
-        <div
-          aria-hidden
-          className="fixed inset-0 pointer-events-none"
-          style={{
-            backgroundImage: heroBg(
-              branding.loginOverlayColor,
-              "linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.6))",
-              branding.loginBackgroundUrl!
-            ),
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }}
+        <LoginBackdrop
+          imageUrl={branding.loginBackgroundUrl!}
+          overlayColor={branding.loginOverlayColor}
+          blur={branding.loginOverlayBlur}
+          fallbackGradient="linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.6))"
         />
         <div className="relative w-full max-w-sm animate-fade-in">
           {stackedHeader}
@@ -703,18 +700,11 @@ export default function LoginPage() {
         className="min-h-screen flex items-center justify-center p-6 bg-surface-canvas relative"
         style={accentStyle}
       >
-        <div
-          aria-hidden
-          className="fixed inset-0 pointer-events-none"
-          style={{
-            backgroundImage: heroBg(
-              branding.loginOverlayColor,
-              "linear-gradient(rgba(0,0,0,0.74), rgba(0,0,0,0.82))",
-              branding.loginBackgroundUrl!
-            ),
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }}
+        <LoginBackdrop
+          imageUrl={branding.loginBackgroundUrl!}
+          overlayColor={branding.loginOverlayColor}
+          blur={branding.loginOverlayBlur}
+          fallbackGradient="linear-gradient(rgba(0,0,0,0.74), rgba(0,0,0,0.82))"
         />
         <div className="relative w-full max-w-sm animate-fade-in">
           {stackedHeader}
@@ -755,6 +745,7 @@ export default function LoginPage() {
 function BrandedHero({
   imageUrl,
   overlayColor,
+  blur,
   logoUrl,
   logoLightUrl,
   tenantName,
@@ -762,6 +753,7 @@ function BrandedHero({
 }: {
   imageUrl: string;
   overlayColor: string | null;
+  blur: number | null;
   logoUrl: string | null;
   logoLightUrl: string | null;
   tenantName: string | undefined;
@@ -771,21 +763,35 @@ function BrandedHero({
   // praktisch immer besser lesbar. Fallback auf das Standard-Logo,
   // wenn keine helle Variante hochgeladen wurde.
   const heroLogo = logoLightUrl ?? logoUrl;
+  const glass = !!blur && blur > 0;
   return (
     <aside
       className="relative lg:flex-1 lg:min-h-screen min-h-[40vh] flex flex-col justify-between p-8 lg:p-12 text-white overflow-hidden"
       style={{
-        backgroundImage: heroBg(
-          overlayColor,
-          "linear-gradient(135deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.25) 60%, rgba(0,0,0,0.55) 100%)",
-          imageUrl
-        ),
+        backgroundImage: glass
+          ? `url(${cssEscapeUrl(imageUrl)})`
+          : heroBg(
+              overlayColor,
+              "linear-gradient(135deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.25) 60%, rgba(0,0,0,0.55) 100%)",
+              imageUrl
+            ),
         backgroundSize: "cover",
         backgroundPosition: "center",
       }}
     >
+      {glass && (
+        <div
+          aria-hidden
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundColor: overlayColor ?? "transparent",
+            backdropFilter: `blur(${blur}px)`,
+            WebkitBackdropFilter: `blur(${blur}px)`,
+          }}
+        />
+      )}
       {/* Logo oben */}
-      <div>
+      <div className="relative z-10">
         {heroLogo ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -802,7 +808,7 @@ function BrandedHero({
 
       {/* Greeting unten */}
       {greeting && (
-        <div className="max-w-md hero-prose text-white drop-shadow-md">
+        <div className="relative z-10 max-w-md hero-prose text-white drop-shadow-md">
           <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml>
             {greeting}
           </ReactMarkdown>
@@ -847,6 +853,58 @@ function BrandedHero({
  *  Parameter mit '&', '=' und gelegentlich auch '(' — alle drei sind
  *  in CSS url(...) ohne Quoting problematisch. Wir setzen einfache
  *  Anführungszeichen drumherum und escapen interne ' falls vorhanden. */
+// Vollbild-Hintergrund für die Login-Layouts splash/centered. Ist ein
+// Weichzeichner gesetzt, rendern wir zwei Ebenen: das Bild und darüber
+// die Farbfläche mit backdrop-blur (Frosted Glass). Ohne Blur bleibt es
+// bei einer Ebene (Farbe/Gradient + Bild) wie zuvor.
+function LoginBackdrop({
+  imageUrl,
+  overlayColor,
+  blur,
+  fallbackGradient,
+}: {
+  imageUrl: string;
+  overlayColor: string | null;
+  blur: number | null;
+  fallbackGradient: string;
+}) {
+  if (blur && blur > 0) {
+    return (
+      <>
+        <div
+          aria-hidden
+          className="fixed inset-0 pointer-events-none"
+          style={{
+            backgroundImage: `url(${cssEscapeUrl(imageUrl)})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        />
+        <div
+          aria-hidden
+          className="fixed inset-0 pointer-events-none"
+          style={{
+            backgroundColor: overlayColor ?? "transparent",
+            backdropFilter: `blur(${blur}px)`,
+            WebkitBackdropFilter: `blur(${blur}px)`,
+          }}
+        />
+      </>
+    );
+  }
+  return (
+    <div
+      aria-hidden
+      className="fixed inset-0 pointer-events-none"
+      style={{
+        backgroundImage: heroBg(overlayColor, fallbackGradient, imageUrl),
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+      }}
+    />
+  );
+}
+
 // Overlay über dem Login-Hintergrundbild. Hat der Tenant eine eigene
 // Farbfläche konfiguriert (RGBA-Hex #rrggbbaa), gewinnt sie als
 // Volltonfläche; sonst greift der layout-spezifische Default-Gradient.

@@ -46,6 +46,8 @@ const updateSchema = z.object({
     .regex(/^#[0-9a-fA-F]{6}([0-9a-fA-F]{2})?$/)
     .nullable()
     .optional(),
+  // Weichzeichner hinter der Farbfläche (px), 0–40. Null = aus.
+  loginOverlayBlur: z.number().int().min(0).max(40).nullable().optional(),
 });
 
 // Größenlimit je Asset-Typ. Logos sind klein; der Login-Hintergrund
@@ -158,6 +160,7 @@ type TenantAppearanceRow = {
   loginAccentColor: string | null;
   loginLayout: string | null;
   loginOverlayColor: string | null;
+  loginOverlayBlur: number | null;
   emailLogoKey: string | null;
 };
 
@@ -187,6 +190,7 @@ async function serializeAppearance(t: TenantAppearanceRow) {
         | "centered"
         | null) ?? "centered",
     loginOverlayColor: t.loginOverlayColor,
+    loginOverlayBlur: t.loginOverlayBlur,
     emailLogoUrl,
   };
 }
@@ -202,6 +206,7 @@ const APPEARANCE_SELECT = {
   loginAccentColor: true,
   loginLayout: true,
   loginOverlayColor: true,
+  loginOverlayBlur: true,
   emailLogoKey: true,
 } as const;
 
@@ -239,6 +244,9 @@ export async function registerAppearanceRoutes(app: FastifyInstance) {
         }),
         ...(body.loginOverlayColor !== undefined && {
           loginOverlayColor: body.loginOverlayColor,
+        }),
+        ...(body.loginOverlayBlur !== undefined && {
+          loginOverlayBlur: body.loginOverlayBlur,
         }),
       },
       select: APPEARANCE_SELECT,

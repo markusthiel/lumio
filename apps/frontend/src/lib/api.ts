@@ -336,6 +336,7 @@ export interface Appearance {
   loginAccentColor: string | null;
   loginLayout: "minimal" | "splash" | "side_by_side" | "centered";
   loginOverlayColor: string | null;
+  loginOverlayBlur: number | null;
   emailLogoUrl: string | null;
 }
 
@@ -537,6 +538,7 @@ export const api = {
         accentColor: string | null;
         layout: "minimal" | "splash" | "side_by_side" | "centered";
         overlayColor: string | null;
+        overlayBlur: number | null;
       } | null;
     }>("/auth/tenant-context"),
 
@@ -1981,6 +1983,7 @@ export const api = {
       loginGreeting: string | null;
       loginLayout: "minimal" | "splash" | "side_by_side" | "centered";
       loginOverlayColor: string | null;
+      loginOverlayBlur: number | null;
     }>
   ) =>
     request<{ appearance: Appearance }>(`/studio/appearance`, {

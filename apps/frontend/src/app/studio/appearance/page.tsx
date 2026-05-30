@@ -212,6 +212,7 @@ export default function AppearancePage() {
   const [loginGreeting, setLoginGreeting] = useState("");
   const [loginLayout, setLoginLayout] = useState<LoginLayout>("centered");
   const [loginOverlay, setLoginOverlay] = useState<string | null>(null);
+  const [loginOverlayBlur, setLoginOverlayBlur] = useState(0);
 
   const studioLogoRef = useRef<HTMLInputElement | null>(null);
   const studioLogoLightRef = useRef<HTMLInputElement | null>(null);
@@ -230,6 +231,7 @@ export default function AppearancePage() {
         setLoginGreeting(appearance.loginGreeting ?? "");
         setLoginLayout(appearance.loginLayout);
         setLoginOverlay(appearance.loginOverlayColor);
+        setLoginOverlayBlur(appearance.loginOverlayBlur ?? 0);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Konnte nicht laden");
       } finally {
@@ -343,6 +345,7 @@ export default function AppearancePage() {
         loginGreeting: loginGreeting.trim() || null,
         loginLayout,
         loginOverlayColor: loginOverlay,
+        loginOverlayBlur: loginOverlayBlur || null,
       });
       setAppearance(appearance);
       applyStudioAccent(appearance.studioAccentColor);
@@ -520,15 +523,37 @@ export default function AppearancePage() {
               />
 
               {appearance.loginBackgroundUrl && (
-                <Field
-                  label="Farbüberlagerung"
-                  hint="Farbfläche über dem Hintergrundbild — hebt das Login-Formular hervor und verbessert die Lesbarkeit. Farbe und Transparenz frei wählbar."
-                >
-                  <OverlayField
-                    value={loginOverlay}
-                    onChange={setLoginOverlay}
-                  />
-                </Field>
+                <>
+                  <Field
+                    label="Farbüberlagerung"
+                    hint="Farbfläche über dem Hintergrundbild — hebt das Login-Formular hervor und verbessert die Lesbarkeit. Farbe und Transparenz frei wählbar."
+                  >
+                    <OverlayField
+                      value={loginOverlay}
+                      onChange={setLoginOverlay}
+                    />
+                  </Field>
+                  <Field
+                    label="Weichzeichnen (Glas-Effekt)"
+                    hint="Zeichnet das Hintergrundbild hinter der Farbfläche weich — wie der Glas-Effekt bei Menüs und Dialogen. 0 = aus."
+                  >
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="range"
+                        min={0}
+                        max={40}
+                        value={loginOverlayBlur}
+                        onChange={(e) =>
+                          setLoginOverlayBlur(Number(e.target.value))
+                        }
+                        className="flex-1 accent-accent"
+                      />
+                      <span className="w-12 text-right tabular-nums text-sm text-ink-primary">
+                        {loginOverlayBlur}px
+                      </span>
+                    </div>
+                  </Field>
+                </>
               )}
 
               <Field
