@@ -6,7 +6,6 @@ import Link from "next/link";
 import { api, type ProofingSummary, type GalleryFile } from "@/lib/api";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { ProofingFileDetail } from "@/components/studio/ProofingFileDetail";
-import { AutoTagsToolbar } from "@/components/studio/AutoTagsToolbar";
 import { useT } from "@/lib/i18n";
 
 export default function ProofingPage() {
@@ -73,11 +72,6 @@ export default function ProofingPage() {
       />
 
       <div className="px-6 sm:px-8 lg:px-12 py-6 space-y-6 max-w-6xl">
-        {/* KI-Tagging-Toolbar — Re-Tag + Bulk-Accept. Versteckt sich
-            kommentarlos wenn das Feature ai_tagging fuer den Tenant aus
-            ist. */}
-        <AutoTagsToolbar galleryId={id} />
-
         {/* Files-Grid mit Kunden-Auswahl-Indikatoren. Klick öffnet das
             File-Detail mit Annotation-Editor. */}
         {files.length > 0 && (

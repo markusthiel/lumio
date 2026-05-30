@@ -1043,10 +1043,6 @@ export default function GalleryDetailPage() {
       <div className="px-6 sm:px-8 lg:px-12 py-6 space-y-6 max-w-7xl">
         {tab === "images" && (
           <>
-        {/* KI-Auto-Tagging-Toolbar — versteckt sich selbst wenn Feature
-            aus. Bei aktivem Flag: Re-Tag + Bulk-Accept-Threshold. */}
-        <AutoTagsToolbar galleryId={gallery.id} />
-
         {/* Upload-Zone */}
         <section
           onDragOver={(e) => {
@@ -1379,6 +1375,10 @@ export default function GalleryDetailPage() {
             }
           />
         </section>
+
+        {/* KI-Auto-Tagging — einmalige Aktion/Konfiguration, daher hier
+            in den Einstellungen statt in der Bildansicht. */}
+        <AutoTagsToolbar galleryId={gallery.id} />
           </>
         )}
 
