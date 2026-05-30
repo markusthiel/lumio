@@ -199,17 +199,28 @@ export default function AppearancePage() {
     })();
   }, []);
 
-  // Beim Verlassen der Seite die zuletzt GESPEICHERTEN Werte
-  // wiederherstellen — falls der Nutzer eine Live-Vorschau gestartet,
-  // aber nicht gespeichert hat.
+  // Letzten gespeicherten Stand in einer Ref festhalten, damit der
+  // Unmount-Cleanup immer den aktuellsten Wert sieht — ohne bei jeder
+  // Änderung neu zu feuern.
+  const savedRef = useRef<Appearance | null>(null);
+  savedRef.current = appearance;
+
+  // NUR beim Verlassen der Seite die zuletzt gespeicherten Werte
+  // wiederherstellen — falls eine Live-Vorschau lief, die nicht
+  // gespeichert wurde. Leeres Dependency-Array ist hier entscheidend:
+  // mit [appearance] würde der Cleanup beim Speichern feuern und den
+  // frisch angewandten Stand mit dem alten überschreiben (das Studio
+  // sprang dann optisch zurück, bis man neu lud).
   useEffect(() => {
     return () => {
-      if (appearance) {
-        applyStudioAccent(appearance.studioAccentColor);
-        applyStudioTheme(appearance.studioTheme);
+      const a = savedRef.current;
+      if (a) {
+        applyStudioAccent(a.studioAccentColor);
+        applyStudioTheme(a.studioTheme);
       }
     };
-  }, [appearance]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function uploadAsset(kind: AppearanceAssetKind, file: File) {
     setUploadingKind(kind);
