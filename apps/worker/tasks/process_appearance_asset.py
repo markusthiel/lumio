@@ -146,10 +146,32 @@ def optimize(self, tenant_id: str, kind: str) -> dict:
         try:
             width, height = probe_dimensions(work_path, autorotate=True)
         except Exception as err:  # noqa: BLE001
-            log.warning(
-                "appearance.probe_failed", tenantId=tenant_id, err=str(err)
+            # libvips kann das Format evtl. nicht direkt öffnen (z.B.
+            # JPEG 2000 ohne OpenJPEG-Support). Wenn es noch das Original
+            # ist, als letzten Versuch über Pillow zu JPEG transcodieren.
+            transcoded = (
+                _transcode_via_pillow(src_path, tmpdir)
+                if work_path == src_path
+                else None
             )
-            return {"ok": False, "reason": "probe_failed"}
+            if transcoded is None:
+                log.warning(
+                    "appearance.probe_failed",
+                    tenantId=tenant_id,
+                    err=str(err),
+                )
+                return {"ok": False, "reason": "probe_failed"}
+            work_path = transcoded
+            already_webp = False
+            try:
+                width, height = probe_dimensions(work_path, autorotate=True)
+            except Exception as err2:  # noqa: BLE001
+                log.warning(
+                    "appearance.probe_failed",
+                    tenantId=tenant_id,
+                    err=str(err2),
+                )
+                return {"ok": False, "reason": "probe_failed"}
 
         long_edge = max(width, height)
         needs_resize = long_edge > max_edge
@@ -238,3 +260,22 @@ def optimize(self, tenant_id: str, kind: str) -> dict:
             "resized": needs_resize,
             "converted": not already_webp,
         }
+
+
+def _transcode_via_pillow(src_path: str, tmpdir: str) -> str | None:
+    """Letzter Ausweg für Formate, die libvips nicht direkt öffnet
+    (z.B. JPEG 2000 / .jp2). Pillow ist mit OpenJPEG gebaut und kann
+    sie lesen — wir schreiben ein JPEG, das danach normal zu WebP
+    konvertiert wird. Gibt den JPEG-Pfad zurück oder None, wenn auch
+    Pillow das Format nicht öffnen kann (dann ist es vermutlich kein
+    Bild)."""
+    try:
+        from PIL import Image as PILImage  # type: ignore
+
+        out = os.path.join(tmpdir, "transcoded.jpg")
+        with PILImage.open(src_path) as im:
+            im.convert("RGB").save(out, "JPEG", quality=92)
+        return out
+    except Exception as err:  # noqa: BLE001
+        log.warning("appearance.pillow_transcode_failed", err=str(err))
+        return None

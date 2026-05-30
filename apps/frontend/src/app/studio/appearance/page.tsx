@@ -17,12 +17,12 @@ import {
 // Logos: gängige Web-Bildformate inkl. Vektor (SVG). Der Worker
 // konvertiert Bitmaps zu WebP, SVG bleibt unverändert.
 const LOGO_ACCEPT =
-  "image/png,image/jpeg,image/webp,image/svg+xml,image/gif,image/avif,image/heic,image/heif,.jfif";
+  "image/png,image/jpeg,image/webp,image/svg+xml,image/gif,image/avif,image/heic,image/heif,image/jp2,.jfif,.jp2,.j2k";
 // Login-Hintergrund: zusätzlich TIFF/BMP und Kamera-RAW. RAW wird
 // serverseitig demosaict und zu WebP eingedampft.
 const PHOTO_ACCEPT =
   LOGO_ACCEPT +
-  ",image/tiff,.tif,.tiff,.bmp,.cr2,.cr3,.nef,.nrw,.arw,.sr2,.srf,.dng,.raf,.orf,.rw2,.pef,.srw,.raw,.3fr,.erf,.kdc,.mos,.mrw,.x3f";
+  ",image/tiff,.tif,.tiff,.bmp,.jpf,.jpx,.cr2,.cr3,.nef,.nrw,.arw,.sr2,.srf,.dng,.raf,.orf,.rw2,.pef,.srw,.raw,.3fr,.erf,.kdc,.mos,.mrw,.x3f";
 const hexRe = /^#[0-9a-fA-F]{6}$/;
 
 function Section({

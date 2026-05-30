@@ -110,6 +110,8 @@ const completeAssetSchema = z.object({
 const ALLOWED_EXTENSIONS = new Set([
   "jpg", "jpeg", "jfif", "png", "webp", "svg", "gif", "bmp",
   "tif", "tiff", "heic", "heif", "avif",
+  // JPEG 2000 (wird im Worker via libvips/Pillow konvertiert)
+  "jp2", "j2k", "jpf", "jpx", "jpc", "jpm",
   // Kamera-RAW
   "cr2", "cr3", "nef", "nrw", "arw", "sr2", "srf", "dng", "raf",
   "orf", "rw2", "pef", "srw", "raw", "3fr", "erf", "kdc", "mos",
