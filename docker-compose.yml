@@ -93,6 +93,10 @@ services:
       - PORT=3001
       - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-single}
       - PUBLIC_URL=${PUBLIC_URL}
+      # Basis-Domain für die Subdomain-Tenant-Auflösung (Multi-Mode).
+      # Ohne diese Variable erkennt resolveTenant <slug>.<base> nicht und
+      # jede Tenant-Subdomain fällt auf tenant:null zurück.
+      - LUMIO_DOMAIN_BASE=${LUMIO_DOMAIN_BASE:-}
       - DATABASE_URL=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       - REDIS_URL=${REDIS_URL:-redis://redis:6379}
       - STORAGE_PROVIDER=${STORAGE_PROVIDER:-minio}
