@@ -2189,4 +2189,108 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
       return reply.redirect(url);
     }
   );
+
+  // ===================================================================
+  // Galerie-Freigabe (Collaborators) — granulare Sichtbarkeit
+  // Wer Zugriff auf die Galerie hat, darf auch die Freigabe verwalten.
+  // ===================================================================
+
+  // GET /galleries/:id/collaborators — Team-Mitglieder + Freigabe-Status
+  app.get<{ Params: { id: string } }>(
+    "/galleries/:id/collaborators",
+    async (req, reply) => {
+      const s = req.requireAuth();
+      const gallery = await prisma.gallery.findFirst({
+        where: {
+          id: req.params.id,
+          tenantId: req.tenantId,
+          ...galleryAccessWhere(s),
+        },
+        select: { id: true, ownerId: true },
+      });
+      if (!gallery) return reply.status(404).send({ error: "not_found" });
+
+      const [members, collabs] = await Promise.all([
+        prisma.user.findMany({
+          where: { tenantId: req.tenantId, status: "active" },
+          select: { id: true, name: true, email: true, role: true },
+          orderBy: [{ role: "asc" }, { createdAt: "asc" }],
+        }),
+        prisma.galleryCollaborator.findMany({
+          where: { galleryId: gallery.id },
+          select: { userId: true },
+        }),
+      ]);
+      const sharedIds = new Set(collabs.map((c) => c.userId));
+      return {
+        ownerId: gallery.ownerId,
+        members: members.map((m) => ({
+          id: m.id,
+          name: m.name,
+          email: m.email,
+          role: m.role,
+          // Ersteller und Studio-Owner haben immer Zugriff (nicht abwählbar)
+          alwaysHasAccess: m.id === gallery.ownerId || m.role === "owner",
+          isCreator: m.id === gallery.ownerId,
+          shared: sharedIds.has(m.id),
+        })),
+      };
+    }
+  );
+
+  // POST /galleries/:id/collaborators { userId } — Galerie freigeben
+  app.post<{ Params: { id: string }; Body: { userId?: string } }>(
+    "/galleries/:id/collaborators",
+    async (req, reply) => {
+      const s = req.requireAuth();
+      const userId = (req.body?.userId || "").trim();
+      if (!userId) return reply.status(400).send({ error: "userId_required" });
+      const gallery = await prisma.gallery.findFirst({
+        where: {
+          id: req.params.id,
+          tenantId: req.tenantId,
+          ...galleryAccessWhere(s),
+        },
+        select: { id: true, ownerId: true },
+      });
+      if (!gallery) return reply.status(404).send({ error: "not_found" });
+      // Ziel-User muss zum selben Studio gehören
+      const target = await prisma.user.findFirst({
+        where: { id: userId, tenantId: req.tenantId },
+        select: { id: true },
+      });
+      if (!target) return reply.status(404).send({ error: "user_not_found" });
+      // Ersteller hat ohnehin Zugriff — kein Eintrag nötig
+      if (userId === gallery.ownerId) {
+        return { ok: true, alreadyHasAccess: true };
+      }
+      await prisma.galleryCollaborator.upsert({
+        where: { galleryId_userId: { galleryId: gallery.id, userId } },
+        create: { galleryId: gallery.id, userId, addedById: s.user.id },
+        update: {},
+      });
+      return { ok: true };
+    }
+  );
+
+  // DELETE /galleries/:id/collaborators/:userId — Freigabe entfernen
+  app.delete<{ Params: { id: string; userId: string } }>(
+    "/galleries/:id/collaborators/:userId",
+    async (req, reply) => {
+      const s = req.requireAuth();
+      const gallery = await prisma.gallery.findFirst({
+        where: {
+          id: req.params.id,
+          tenantId: req.tenantId,
+          ...galleryAccessWhere(s),
+        },
+        select: { id: true },
+      });
+      if (!gallery) return reply.status(404).send({ error: "not_found" });
+      await prisma.galleryCollaborator.deleteMany({
+        where: { galleryId: gallery.id, userId: req.params.userId },
+      });
+      return { ok: true };
+    }
+  );
 }

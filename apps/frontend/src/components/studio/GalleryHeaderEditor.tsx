@@ -23,6 +23,7 @@ import { api, type Gallery } from "@/lib/api";
 import { useT } from "@/lib/i18n";
 import { FONT_OPTIONS } from "@/lib/fonts";
 import { BlurLevelPicker } from "@/components/studio/BlurLevelPicker";
+import { GalleryShareSection } from "@/components/studio/GalleryShareSection";
 
 interface GalleryFile {
   id: string;
@@ -353,6 +354,9 @@ export function GalleryHeaderEditor({ gallery, files, onChanged }: Props) {
                 onChange={(v) => patch({ colorAccent: v })}
               />
             </Field>
+          </div>
+          <div className="pt-5 border-t border-line-subtle">
+            <GalleryShareSection galleryId={gallery.id} />
           </div>
         </div>
       )}

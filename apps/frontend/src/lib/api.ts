@@ -993,6 +993,30 @@ export const api = {
   deleteGallery: (id: string) =>
     request<void>(`/galleries/${id}`, { method: "DELETE" }),
 
+  // Galerie-Freigabe (granulare Sichtbarkeit pro Team-Mitglied)
+  galleryCollaborators: (id: string) =>
+    request<{
+      ownerId: string;
+      members: {
+        id: string;
+        name: string | null;
+        email: string;
+        role: string;
+        alwaysHasAccess: boolean;
+        isCreator: boolean;
+        shared: boolean;
+      }[];
+    }>(`/galleries/${id}/collaborators`),
+  shareGallery: (id: string, userId: string) =>
+    request<{ ok: boolean }>(`/galleries/${id}/collaborators`, {
+      method: "POST",
+      body: JSON.stringify({ userId }),
+    }),
+  unshareGallery: (id: string, userId: string) =>
+    request<{ ok: boolean }>(`/galleries/${id}/collaborators/${userId}`, {
+      method: "DELETE",
+    }),
+
   // ---------------------------------------------------------------------------
   // Upload-Links (Studio) — öffentliche Drag-and-Drop-Endpunkte pro Galerie
   // ---------------------------------------------------------------------------
