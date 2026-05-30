@@ -50,7 +50,11 @@ export function ProofingFileDetail({ galleryId, file, onClose }: Props) {
   const [comments, setComments] = useState<Comment[] | null>(null);
   const [strokes, setStrokes] = useState<AnnotationStroke[]>([]);
   const [saving, setSaving] = useState(false);
-  const [tool, setTool] = useState<AnnotationTool | null>("freehand");
+  // Kein Zeichen-Werkzeug vorausgewählt: so ist der Zoom (disabled bei
+  // aktivem Tool) beim Öffnen sofort verfügbar — konsistent mit der
+  // Kundengalerie, wo Zeichnen ebenfalls opt-in ist. Zum Annotieren
+  // wählt das Studio in der Toolbar ein Werkzeug; dann ist Zoom aus.
+  const [tool, setTool] = useState<AnnotationTool | null>(null);
   const [color, setColor] = useState<AnnotationColor>("red");
   const [newComment, setNewComment] = useState("");
 

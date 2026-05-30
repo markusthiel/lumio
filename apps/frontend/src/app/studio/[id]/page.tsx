@@ -2288,10 +2288,7 @@ function Lightbox({
   const url = file.webUrl ?? file.thumbUrl;
 
   return (
-    <div
-      className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center">
       <button
         type="button"
         onClick={onClose}
@@ -2300,7 +2297,7 @@ function Lightbox({
       >
         <span className="text-xl leading-none">✕</span> Schließen
       </button>
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 text-white/60 text-ui-sm tabular-nums">
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30 text-white/60 text-ui-sm tabular-nums">
         {i + 1} / {files.length}
       </div>
 
@@ -2312,21 +2309,26 @@ function Lightbox({
             prev();
           }}
           aria-label="Vorheriges"
-          className="absolute left-2 sm:left-4 h-12 w-12 flex items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors text-3xl leading-none"
+          className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-20 h-10 w-10 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm text-white/90 transition-colors text-2xl leading-none"
         >
           ‹
         </button>
       )}
 
-      <div
-        className="flex flex-col items-center"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {url ? (
+      {url ? (
+        <div
+          ref={zoom.containerRef}
+          {...zoom.containerProps}
+          onClick={(e) => {
+            // Klick auf den leeren Bereich (nicht aufs Bild) schließt —
+            // nur wenn nicht gezoomt, sonst zählt ein Pan-Ende als Klick.
+            if (e.target === e.currentTarget && !zoom.zoomed) onClose();
+          }}
+          className="absolute inset-0 overflow-hidden flex items-center justify-center z-0"
+        >
           <div
-            ref={zoom.containerRef}
-            {...zoom.containerProps}
-            className="relative overflow-hidden flex items-center justify-center max-w-[92vw] max-h-[84vh] rounded-sm"
+            className="relative inline-block max-h-[84vh]"
+            style={{ lineHeight: 0, ...zoom.style }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -2334,18 +2336,17 @@ function Lightbox({
               alt={file.originalFilename}
               draggable={false}
               key={file.id}
-              className="max-w-[92vw] max-h-[84vh] object-contain block select-none"
-              style={zoom.style}
+              className="max-h-[84vh] max-w-[92vw] object-contain block select-none rounded-sm"
             />
           </div>
-        ) : (
-          <div className="text-white/50 text-ui px-12 py-24">
-            Keine Vorschau verfügbar
-          </div>
-        )}
-        <div className="mt-3 text-center text-white/60 text-ui-sm max-w-[80vw] truncate">
-          {file.originalFilename}
         </div>
+      ) : (
+        <div className="text-white/50 text-ui px-12 py-24">
+          Keine Vorschau verfügbar
+        </div>
+      )}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 text-center text-white/60 text-ui-sm max-w-[80vw] truncate px-4">
+        {file.originalFilename}
       </div>
 
       {i < files.length - 1 && (
@@ -2356,7 +2357,7 @@ function Lightbox({
             next();
           }}
           aria-label="Nächstes"
-          className="absolute right-2 sm:right-4 h-12 w-12 flex items-center justify-center rounded-full text-white/80 hover:text-white hover:bg-white/10 transition-colors text-3xl leading-none"
+          className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-20 h-10 w-10 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm text-white/90 transition-colors text-2xl leading-none"
         >
           ›
         </button>
