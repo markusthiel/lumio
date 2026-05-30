@@ -53,6 +53,13 @@ services:
     build:
       context: ./apps/frontend
       dockerfile: Dockerfile
+      # NEXT_PUBLIC_* müssen zur Build-Zeit gesetzt sein (Next.js backt sie
+      # ins Bundle). Das environment unten ist für etwaige Server-Side-Reads
+      # zusätzlich gesetzt, ersetzt aber NICHT diese Build-Args.
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-}
+        NEXT_PUBLIC_DEPLOYMENT_MODE: ${DEPLOYMENT_MODE:-single}
+        NEXT_PUBLIC_DOMAIN_BASE: ${LUMIO_DOMAIN_BASE:-}
     container_name: lumio_frontend
     restart: unless-stopped
     environment:

@@ -12,6 +12,16 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
+# NEXT_PUBLIC_* werden von Next.js zur BUILD-ZEIT ins Bundle eingebacken
+# (Client- wie Server-Komponenten). Sie müssen daher hier als ARG
+# ankommen und als ENV gesetzt sein, BEVOR next build läuft — ein reines
+# Laufzeit-environment im Compose greift für diese Variablen nicht.
+ARG NEXT_PUBLIC_API_URL=""
+ARG NEXT_PUBLIC_DEPLOYMENT_MODE="single"
+ARG NEXT_PUBLIC_DOMAIN_BASE=""
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
+    NEXT_PUBLIC_DEPLOYMENT_MODE=$NEXT_PUBLIC_DEPLOYMENT_MODE \
+    NEXT_PUBLIC_DOMAIN_BASE=$NEXT_PUBLIC_DOMAIN_BASE
 RUN npm run build
 
 FROM node:20-alpine AS runner
