@@ -153,6 +153,13 @@ export default function GalleryDetailPage() {
   // Bar und das File-Grid synchron sind.
   const [tagFilter, setTagFilter] = useState<Set<string>>(new Set());
 
+  // Detailseiten-Tabs: gruppiert die sehr volle Seite in Bilder / Teilen /
+  // Auswahl & Statistik / Einstellungen. Reine Anzeige-Umschaltung — alle
+  // Daten/Handler bleiben in dieser Komponente, kein Neuladen beim Wechsel.
+  const [tab, setTab] = useState<
+    "images" | "share" | "insights" | "settings"
+  >("images");
+
   // DnD-Sensoren (siehe Sprint 17)
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -936,31 +943,17 @@ export default function GalleryDetailPage() {
         title={gallery.title}
         description={gallery.description || undefined}
         actions={
-          <>
-            <Link
-              href={`/studio/${gallery.id}/stats`}
-              className="text-ui-sm text-ink-secondary hover:text-ink-primary transition-colors duration-motion"
-            >
-              {t("studio.statsLink")}
-            </Link>
-            <Link
-              href={`/studio/${gallery.id}/proofing`}
-              className="text-ui-sm text-ink-secondary hover:text-ink-primary transition-colors duration-motion"
-            >
-              {t("studio.proofingLink")}
-            </Link>
-            <Button
-              variant={gallery.status === "live" ? "secondary" : "primary"}
-              onClick={toggleLive}
-              disabled={togglingStatus}
-            >
-              {togglingStatus
-                ? "…"
-                : gallery.status === "live"
-                ? t("studio.setDraft")
-                : t("studio.setLive")}
-            </Button>
-          </>
+          <Button
+            variant={gallery.status === "live" ? "secondary" : "primary"}
+            onClick={toggleLive}
+            disabled={togglingStatus}
+          >
+            {togglingStatus
+              ? "…"
+              : gallery.status === "live"
+              ? t("studio.setDraft")
+              : t("studio.setLive")}
+          </Button>
         }
       />
 
@@ -1032,6 +1025,41 @@ export default function GalleryDetailPage() {
         />
       </div>
 
+      {/* Detailseiten-Tab-Navigation — gruppiert die volle Seite. */}
+      <div className="px-6 sm:px-8 lg:px-12 border-b border-line-subtle">
+        <nav className="flex gap-1 -mb-px overflow-x-auto">
+          {(
+            [
+              ["images", "Bilder"],
+              ["share", "Teilen"],
+              ["insights", "Auswahl & Statistik"],
+              ["settings", "Einstellungen"],
+            ] as const
+          ).map(([key, label]) => {
+            const on = tab === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setTab(key)}
+                className={`relative whitespace-nowrap px-3 h-10 text-ui-sm transition-colors duration-motion ${
+                  on
+                    ? "text-accent font-medium"
+                    : "text-ink-tertiary hover:text-ink-secondary"
+                }`}
+              >
+                {label}
+                {on && (
+                  <span className="absolute left-2 right-2 -bottom-px h-0.5 rounded-full bg-accent" />
+                )}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {tab === "images" && (
+        <>
       {/* File-Tag-Filter — pro-Galerie ein-/ausschaltbar via localStorage.
           Default eingeklappt damit Galerien ohne Tag-Workflow keinen
           visuellen Lärm haben. */}
@@ -1050,8 +1078,12 @@ export default function GalleryDetailPage() {
           setSelected(new Set(visibleFiles.map((f) => f.id)));
         }}
       />
+        </>
+      )}
 
       <div className="px-6 sm:px-8 lg:px-12 py-6 space-y-6 max-w-7xl">
+        {tab === "images" && (
+          <>
         {/* KI-Auto-Tagging-Toolbar — versteckt sich selbst wenn Feature
             aus. Bei aktivem Flag: Re-Tag + Bulk-Accept-Threshold. */}
         <AutoTagsToolbar galleryId={gallery.id} />
@@ -1174,10 +1206,15 @@ export default function GalleryDetailPage() {
             })()}
           </section>
         )}
+          </>
+        )}
 
-        {/* Share-Panel */}
-        <SharePanel galleryId={gallery.id} gallerySlug={gallery.slug} />
+        {tab === "share" && (
+          <SharePanel galleryId={gallery.id} gallerySlug={gallery.slug} />
+        )}
 
+        {tab === "settings" && (
+          <>
         {/* Header-Customization — Hero, Logo, Welcome-Text */}
         <GalleryHeaderEditor
           gallery={gallery}
@@ -1361,10 +1398,15 @@ export default function GalleryDetailPage() {
             }
           />
         </section>
+          </>
+        )}
 
-        {/* Upload-Links: öffentliche Drag-and-Drop-Endpunkte */}
-        <UploadLinksSection galleryId={gallery.id} />
+        {tab === "share" && (
+          <UploadLinksSection galleryId={gallery.id} />
+        )}
 
+        {tab === "images" && (
+          <>
         {/* Files-Toolbar */}
         {gallery.files.length > 0 && (
           <section>
@@ -1628,6 +1670,41 @@ export default function GalleryDetailPage() {
 
         {gallery.files.length === 0 && (
           <div className="text-ui text-ink-tertiary">{t("studio.noFiles")}</div>
+        )}
+          </>
+        )}
+
+        {tab === "insights" && (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Link
+              href={`/studio/${gallery.id}/proofing`}
+              className="block rounded-md border border-line-subtle bg-surface-raised hover:border-line-strong hover:bg-surface-overlay transition-all duration-motion ease-out p-5"
+            >
+              <h2 className="text-ui-md font-medium text-ink-primary">
+                Auswahl-Übersicht
+              </h2>
+              <p className="text-ui-sm text-ink-tertiary mt-1.5 leading-relaxed">
+                Was deine Kunden ausgewählt, favorisiert und kommentiert haben.
+              </p>
+              <span className="inline-block text-ui-sm text-accent mt-3">
+                Öffnen →
+              </span>
+            </Link>
+            <Link
+              href={`/studio/${gallery.id}/stats`}
+              className="block rounded-md border border-line-subtle bg-surface-raised hover:border-line-strong hover:bg-surface-overlay transition-all duration-motion ease-out p-5"
+            >
+              <h2 className="text-ui-md font-medium text-ink-primary">
+                Statistik
+              </h2>
+              <p className="text-ui-sm text-ink-tertiary mt-1.5 leading-relaxed">
+                Besuche, Aktivität im Zeitverlauf und die beliebtesten Bilder.
+              </p>
+              <span className="inline-block text-ui-sm text-accent mt-3">
+                Öffnen →
+              </span>
+            </Link>
+          </div>
         )}
       </div>
 
