@@ -47,6 +47,20 @@ import { useT } from "@/lib/i18n";
 import { Button, Input } from "@/components/ui";
 
 const MODE = process.env.NEXT_PUBLIC_DEPLOYMENT_MODE ?? "single";
+const DOMAIN_BASE = (process.env.NEXT_PUBLIC_DOMAIN_BASE ?? "").toLowerCase();
+const RESERVED_SUBDOMAINS = ["www", "studio", "api", "admin", "app"];
+
+// Apex-Domain oder reservierter Host (studio.* etc.)? Dort führt ein
+// fehlender Tenant zurück zum Picker. Auf einer echten, aber unbekannten
+// Tenant-Subdomain (z.B. Tippfehler im Picker) würde derselbe Redirect
+// einen Loop zwischen / und /login erzeugen — dort zeigen wir stattdessen
+// "Studio nicht gefunden".
+function isApexLikeHost(): boolean {
+  if (typeof window === "undefined") return true;
+  const host = window.location.hostname.toLowerCase();
+  if (!DOMAIN_BASE || host === DOMAIN_BASE) return true;
+  return RESERVED_SUBDOMAINS.some((sd) => host === `${sd}.${DOMAIN_BASE}`);
+}
 
 type Stage =
   | { kind: "credentials" }
@@ -85,6 +99,11 @@ export default function LoginPage() {
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  // Im Multi-Mode wird erst der Tenant-Kontext aufgelöst, bevor die Form
+  // erscheint — sonst blitzt auf studio.* (→ Picker) bzw. vor dem Laden
+  // des Brandings kurz die ungebrandete Form auf.
+  const [resolving, setResolving] = useState(MODE !== "single");
+  const [notFound, setNotFound] = useState(false);
 
   const [tenantContext, setTenantContext] = useState<TenantContext | null>(
     null
@@ -123,7 +142,14 @@ export default function LoginPage() {
         const r = await api.getTenantContext();
         if (cancelled) return;
         if (MODE !== "single" && !r.tenant) {
-          router.replace("/");
+          // Apex/studio.* → Picker. Unbekannte Tenant-Subdomain →
+          // "nicht gefunden" (kein Redirect-Loop).
+          if (isApexLikeHost()) {
+            router.replace("/");
+          } else {
+            setNotFound(true);
+            setResolving(false);
+          }
           return;
         }
         if (r.tenant) {
@@ -169,6 +195,10 @@ export default function LoginPage() {
         // Tenant-Context-Fehler ist nicht fatal — Login funktioniert
         // mit Default-Branding weiter.
       }
+      // Kontext steht (oder ist fehlgeschlagen) — jetzt erst die Form
+      // zeigen. Bei einem Redirect (Session vorhanden oder Apex ohne
+      // Tenant) bleibt resolving true, sodass die Form nicht aufblitzt.
+      if (!cancelled) setResolving(false);
     })();
     return () => {
       cancelled = true;
@@ -286,6 +316,46 @@ export default function LoginPage() {
   // Logo-Auswahl: logoLightUrl bevorzugt — die Form-Card sitzt auf
   // dem dunklen surface-raised, also brauchen schwarze Logos die
   // helle Variante.
+  // Unbekannte Tenant-Subdomain — klare Sackgasse statt Redirect-Loop.
+  if (notFound) {
+    const pickerHref = DOMAIN_BASE ? `https://studio.${DOMAIN_BASE}/` : "/";
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-surface-canvas p-8">
+        <div className="max-w-md w-full text-center space-y-4 animate-fade-in">
+          <h1 className="text-display-sm font-medium text-ink-primary">
+            Studio nicht gefunden
+          </h1>
+          <p className="text-ui text-ink-tertiary leading-relaxed">
+            Unter dieser Adresse gibt es kein Studio. Prüfe den Namen
+            oder wähle dein Studio erneut aus.
+          </p>
+          <a
+            href={pickerHref}
+            className="inline-flex items-center justify-center h-9 px-4 rounded bg-accent text-accent-contrast text-ui-sm font-medium hover:bg-accent-hover transition-colors duration-motion"
+          >
+            Studio auswählen
+          </a>
+        </div>
+      </main>
+    );
+  }
+
+  // Solange der Tenant-Kontext im Multi-Mode noch aufgelöst wird (oder
+  // gleich ein Redirect folgt), einen neutralen Lade-Screen zeigen
+  // statt die Form aufblitzen zu lassen.
+  if (resolving) {
+    return (
+      <main className="min-h-screen flex items-center justify-center bg-surface-canvas">
+        <div className="flex flex-col items-center gap-3 animate-fade-in">
+          <div className="h-6 w-6 rounded-full border-2 border-line-subtle border-t-accent animate-spin" />
+          <span className="text-ui-xs font-medium text-ink-tertiary uppercase tracking-[0.15em]">
+            Lumio
+          </span>
+        </div>
+      </main>
+    );
+  }
+
   const brandLogo = branding?.logoLightUrl ?? branding?.logoUrl ?? null;
   const brandHeader = tenantContext && (
     <div className="flex flex-col items-center mb-6">
