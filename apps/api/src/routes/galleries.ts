@@ -27,6 +27,7 @@ import { resolveGalleryBranding } from "../services/branding.js";
 import { logEvent } from "../services/audit.js";
 import { checkActiveGalleriesLimit, checkFeatureAvailable } from "../services/usage.js";
 import { publishEvent } from "../services/webhooks.js";
+import { galleryAccessWhere } from "../lib/gallery-access.js";
 import {
   createVisitorToken,
   verifyVisitorToken,
@@ -210,7 +211,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
       const galleries = await prisma.gallery.findMany({
         where: {
           tenantId: req.tenantId,
-          ownerId: s.user.id,
+          ...galleryAccessWhere(s),
           ...(modeFilter ? { mode: modeFilter } : {}),
           ...(statusFilter ? { status: statusFilter } : {}),
           ...(since || until
@@ -484,7 +485,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         where: {
           id: req.params.id,
           tenantId: req.tenantId,
-          ownerId: s.user.id,
+          ...galleryAccessWhere(s),
         },
         include: {
           files: {
@@ -598,7 +599,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         where: {
           id: req.params.id,
           tenantId: req.tenantId,
-          ownerId: s.user.id,
+          ...galleryAccessWhere(s),
         },
         select: { id: true, slug: true, watermarkEnabled: true, status: true },
       });
@@ -765,7 +766,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         where: {
           id: req.params.id,
           tenantId: req.tenantId,
-          ownerId: s.user.id,
+          ...galleryAccessWhere(s),
         },
         select: { id: true, slug: true },
       });
@@ -865,10 +866,10 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
   /** Helfer: prüft Ownership der Galerie und gibt die Galerie-ID
    *  zurück. Wenn der User nicht der Owner ist oder die Galerie nicht
    *  im aktuellen Tenant liegt, returnt null (Caller schickt 404). */
-  async function findOwnedGallery(req: FastifyRequest, galleryId: string) {
+  async function findAccessibleGallery(req: FastifyRequest, galleryId: string) {
     const s = req.requireAuth();
     return prisma.gallery.findFirst({
-      where: { id: galleryId, tenantId: req.tenantId, ownerId: s.user.id },
+      where: { id: galleryId, tenantId: req.tenantId, ...galleryAccessWhere(s) },
       select: { id: true },
     });
   }
@@ -877,7 +878,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
   app.get<{ Params: { id: string } }>(
     "/galleries/:id/sections",
     async (req, reply) => {
-      const gallery = await findOwnedGallery(req, req.params.id);
+      const gallery = await findAccessibleGallery(req, req.params.id);
       if (!gallery) return reply.status(404).send({ error: "not_found" });
 
       const sections = await prisma.gallerySection.findMany({
@@ -915,7 +916,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
   app.post<{ Params: { id: string } }>(
     "/galleries/:id/sections",
     async (req, reply) => {
-      const gallery = await findOwnedGallery(req, req.params.id);
+      const gallery = await findAccessibleGallery(req, req.params.id);
       if (!gallery) return reply.status(404).send({ error: "not_found" });
       const body = sectionCreateSchema.parse(req.body);
 
@@ -965,7 +966,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
   app.patch<{ Params: { id: string; sectionId: string } }>(
     "/galleries/:id/sections/:sectionId",
     async (req, reply) => {
-      const gallery = await findOwnedGallery(req, req.params.id);
+      const gallery = await findAccessibleGallery(req, req.params.id);
       if (!gallery) return reply.status(404).send({ error: "not_found" });
       const body = sectionUpdateSchema.parse(req.body);
 
@@ -1022,7 +1023,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
   app.post<{ Params: { id: string; sectionId: string } }>(
     "/galleries/:id/sections/:sectionId/sync",
     async (req, reply) => {
-      const gallery = await findOwnedGallery(req, req.params.id);
+      const gallery = await findAccessibleGallery(req, req.params.id);
       if (!gallery) return reply.status(404).send({ error: "not_found" });
 
       const section = await prisma.gallerySection.findFirst({
@@ -1086,7 +1087,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
   app.delete<{ Params: { id: string; sectionId: string } }>(
     "/galleries/:id/sections/:sectionId",
     async (req, reply) => {
-      const gallery = await findOwnedGallery(req, req.params.id);
+      const gallery = await findAccessibleGallery(req, req.params.id);
       if (!gallery) return reply.status(404).send({ error: "not_found" });
 
       const section = await prisma.gallerySection.findFirst({
@@ -1106,7 +1107,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
   app.post<{ Params: { id: string } }>(
     "/galleries/:id/sections/reorder",
     async (req, reply) => {
-      const gallery = await findOwnedGallery(req, req.params.id);
+      const gallery = await findAccessibleGallery(req, req.params.id);
       if (!gallery) return reply.status(404).send({ error: "not_found" });
       const body = sectionReorderSchema.parse(req.body);
 
@@ -1139,7 +1140,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
   app.post<{ Params: { id: string; sectionId: string } }>(
     "/galleries/:id/sections/:sectionId/files",
     async (req, reply) => {
-      const gallery = await findOwnedGallery(req, req.params.id);
+      const gallery = await findAccessibleGallery(req, req.params.id);
       if (!gallery) return reply.status(404).send({ error: "not_found" });
       const body = sectionAssignSchema.parse(req.body);
 
@@ -1166,7 +1167,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
   app.delete<{ Params: { id: string } }>(
     "/galleries/:id/sections/files",
     async (req, reply) => {
-      const gallery = await findOwnedGallery(req, req.params.id);
+      const gallery = await findAccessibleGallery(req, req.params.id);
       if (!gallery) return reply.status(404).send({ error: "not_found" });
       const body = sectionAssignSchema.parse(req.body);
 
@@ -1203,7 +1204,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         where: {
           id: req.params.id,
           tenantId: req.tenantId,
-          ownerId: s.user.id,
+          ...galleryAccessWhere(s),
         },
         select: { id: true },
       });
@@ -2103,7 +2104,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
       where: {
         id: req.params.id,
         tenantId: req.tenantId,
-        ownerId: s.user.id,
+        ...galleryAccessWhere(s),
       },
       select: { id: true, tenantId: true },
     });

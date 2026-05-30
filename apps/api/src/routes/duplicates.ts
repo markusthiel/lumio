@@ -25,6 +25,7 @@ import { prisma } from "../db.js";
 import { config } from "../config.js";
 import { enqueue, Queues } from "../services/queue.js";
 import { presignGet } from "../services/storage.js";
+import { galleryAccessWhere } from "../lib/gallery-access.js";
 
 
 const REDIS_PROGRESS_PREFIX = "lumio:dup-scan:";
@@ -53,7 +54,7 @@ export async function registerDuplicateRoutes(app: FastifyInstance) {
         where: {
           id: req.params.id,
           tenantId: req.tenantId,
-          ownerId: s.user.id,
+          ...galleryAccessWhere(s),
         },
         select: { id: true, tenantId: true },
       });
@@ -124,7 +125,7 @@ export async function registerDuplicateRoutes(app: FastifyInstance) {
         where: {
           id: req.params.id,
           tenantId: req.tenantId,
-          ownerId: s.user.id,
+          ...galleryAccessWhere(s),
         },
         select: { id: true },
       });
@@ -182,7 +183,7 @@ export async function registerDuplicateRoutes(app: FastifyInstance) {
         where: {
           id: req.params.id,
           tenantId: req.tenantId,
-          ownerId: s.user.id,
+          ...galleryAccessWhere(s),
         },
         select: { id: true },
       });

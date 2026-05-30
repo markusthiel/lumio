@@ -45,6 +45,7 @@ import { enqueue, Queues } from "../services/queue.js";
 import { publish } from "../services/events.js";
 import { checkStorageLimit } from "../services/usage.js";
 import { logEvent } from "../services/audit.js";
+import { galleryAccessWhere } from "../lib/gallery-access.js";
 
 const MAX_FILES_PER_INIT = 100; // bewusst niedriger als bei /uploads/init
                                  // weil die UX einer Drag-Drop-Page anders ist
@@ -185,7 +186,7 @@ function isUnlocked(
 async function findOwnedGallery(req: FastifyRequest, galleryId: string) {
   const s = req.requireAuth();
   return prisma.gallery.findFirst({
-    where: { id: galleryId, tenantId: req.tenantId, ownerId: s.user.id },
+    where: { id: galleryId, tenantId: req.tenantId, ...galleryAccessWhere(s) },
     select: { id: true, tenantId: true },
   });
 }

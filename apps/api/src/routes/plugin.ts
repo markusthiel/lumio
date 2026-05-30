@@ -36,6 +36,7 @@ import { generateGallerySlug } from "../services/ids.js";
 import { logEvent } from "../services/audit.js";
 import { deleteObject } from "../services/storage.js";
 import { invalidateZipCacheForGallery } from "../services/zip-cache.js";
+import { galleryAccessWhere } from "../lib/gallery-access.js";
 
 const API_VERSION = "1";
 
@@ -49,7 +50,7 @@ export async function registerPluginRoutes(app: FastifyInstance) {
   app.get("/plugin/galleries", async (req) => {
     const s = req.requireAuth();
     const galleries = await prisma.gallery.findMany({
-      where: { tenantId: req.tenantId, ownerId: s.user.id },
+      where: { tenantId: req.tenantId, ...galleryAccessWhere(s) },
       orderBy: { updatedAt: "desc" },
       select: {
         id: true,
@@ -148,7 +149,7 @@ export async function registerPluginRoutes(app: FastifyInstance) {
       const s = req.requireAuth();
       const body = patchSchema.parse(req.body);
       const existing = await prisma.gallery.findFirst({
-        where: { id: req.params.id, tenantId: req.tenantId, ownerId: s.user.id },
+        where: { id: req.params.id, tenantId: req.tenantId, ...galleryAccessWhere(s) },
         select: { id: true },
       });
       if (!existing) return reply.status(404).send({ error: "not_found" });
@@ -199,7 +200,7 @@ export async function registerPluginRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const s = req.requireAuth();
       const gallery = await prisma.gallery.findFirst({
-        where: { id: req.params.id, tenantId: req.tenantId, ownerId: s.user.id },
+        where: { id: req.params.id, tenantId: req.tenantId, ...galleryAccessWhere(s) },
         select: { id: true },
       });
       if (!gallery) return reply.status(404).send({ error: "not_found" });
@@ -248,7 +249,7 @@ export async function registerPluginRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const s = req.requireAuth();
       const gallery = await prisma.gallery.findFirst({
-        where: { id: req.params.id, tenantId: req.tenantId, ownerId: s.user.id },
+        where: { id: req.params.id, tenantId: req.tenantId, ...galleryAccessWhere(s) },
         select: { id: true },
       });
       if (!gallery) return reply.status(404).send({ error: "not_found" });
@@ -292,7 +293,7 @@ export async function registerPluginRoutes(app: FastifyInstance) {
         where: {
           id: req.params.id,
           tenantId: req.tenantId,
-          ownerId: s.user.id,
+          ...galleryAccessWhere(s),
         },
         select: { id: true, slug: true, title: true, mode: true },
       });

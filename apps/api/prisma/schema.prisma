@@ -218,6 +218,7 @@ model User {
   apiTokens    ApiToken[]
   passwordResetTokens PasswordResetToken[]
   smartCollections SmartCollection[] @relation("SmartCollectionOwner")
+  galleryCollaborations GalleryCollaborator[] @relation("GalleryCollaboratorUser")
 
   /// Wenn true: dieser User erhaelt keine Broadcast-Mails mehr.
   /// System-Mails (Password-Reset, Galerie-Einladungen, Lifecycle-
@@ -542,10 +543,30 @@ model Gallery {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   
+  collaborators   GalleryCollaborator[]
   @@index([tenantId])
   @@index([ownerId])
   @@index([slug])
   @@map("galleries")
+}
+
+/// Freigabe einer Galerie für ein Team-Mitglied (granulare Sichtbarkeit).
+/// Wer hier eingetragen ist, hat volle Rechte auf die Galerie (sehen,
+/// bearbeiten, löschen, weiter freigeben) — siehe lib/gallery-access.ts.
+model GalleryCollaborator {
+  id          String   @id @default(uuid()) @db.Uuid
+  galleryId   String   @db.Uuid
+  gallery     Gallery  @relation(fields: [galleryId], references: [id], onDelete: Cascade)
+  userId      String   @db.Uuid
+  user        User     @relation("GalleryCollaboratorUser", fields: [userId], references: [id], onDelete: Cascade)
+  /// Wer die Freigabe erteilt hat (für Audit; bleibt bei User-Löschung null).
+  addedById   String?  @db.Uuid
+  createdAt   DateTime @default(now())
+
+  @@unique([galleryId, userId])
+  @@index([userId])
+  @@index([galleryId])
+  @@map("gallery_collaborators")
 }
 
 // -----------------------------------------------------------------------------

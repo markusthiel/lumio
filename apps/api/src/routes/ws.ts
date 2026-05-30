@@ -19,6 +19,7 @@ import websocketPlugin from "@fastify/websocket";
 
 import { prisma } from "../db.js";
 import { subscribe } from "../services/events.js";
+import { galleryAccessWhere } from "../lib/gallery-access.js";
 
 export async function registerWsRoutes(app: FastifyInstance) {
   await app.register(websocketPlugin);
@@ -44,7 +45,7 @@ export async function registerWsRoutes(app: FastifyInstance) {
         where: {
           id: req.params.id,
           tenantId: req.tenantId,
-          ownerId: session.user.id,
+          ...galleryAccessWhere(session),
         },
         select: { id: true },
       });

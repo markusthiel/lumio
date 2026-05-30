@@ -25,6 +25,7 @@ import { prisma } from "../db.js";
 import { isFeatureEnabled } from "../services/feature-flags.js";
 import { logEvent } from "../services/audit.js";
 import { presignGet } from "../services/storage.js";
+import { galleryAccessWhere } from "../lib/gallery-access.js";
 
 // Tag-Vokabular — feste Labels die der Worker-Code kennt. UI uebersetzt
 // daraus die Anzeige (kein freier Tag-String).
@@ -143,7 +144,7 @@ export async function registerAutoTagRoutes(app: FastifyInstance) {
       const s = req.requireAuth();
 
       const gallery = await prisma.gallery.findFirst({
-        where: { id: req.params.id, tenantId: req.tenantId, ownerId: s.user.id },
+        where: { id: req.params.id, tenantId: req.tenantId, ...galleryAccessWhere(s) },
         select: { id: true },
       });
       if (!gallery) return reply.status(404).send({ error: "not_found" });
@@ -209,7 +210,7 @@ export async function registerAutoTagRoutes(app: FastifyInstance) {
       const s = req.requireAuth();
 
       const gallery = await prisma.gallery.findFirst({
-        where: { id: req.params.id, tenantId: req.tenantId, ownerId: s.user.id },
+        where: { id: req.params.id, tenantId: req.tenantId, ...galleryAccessWhere(s) },
         select: { id: true },
       });
       if (!gallery) return reply.status(404).send({ error: "not_found" });
@@ -327,7 +328,7 @@ export async function registerAutoTagRoutes(app: FastifyInstance) {
       const file = await prisma.file.findFirst({
         where: {
           id: req.params.id,
-          gallery: { tenantId: req.tenantId, ownerId: s.user.id },
+          gallery: { tenantId: req.tenantId, ...galleryAccessWhere(s) },
         },
         select: { id: true },
       });
@@ -370,7 +371,7 @@ export async function registerAutoTagRoutes(app: FastifyInstance) {
         where: {
           id: req.params.autoTagId,
           fileId: req.params.id,
-          file: { gallery: { tenantId: req.tenantId, ownerId: s.user.id } },
+          file: { gallery: { tenantId: req.tenantId, ...galleryAccessWhere(s) } },
         },
       });
       if (!autoTag) return reply.status(404).send({ error: "not_found" });
@@ -452,7 +453,7 @@ export async function registerAutoTagRoutes(app: FastifyInstance) {
         where: {
           id: req.params.autoTagId,
           fileId: req.params.id,
-          file: { gallery: { tenantId: req.tenantId, ownerId: s.user.id } },
+          file: { gallery: { tenantId: req.tenantId, ...galleryAccessWhere(s) } },
         },
       });
       if (!autoTag) return reply.status(404).send({ error: "not_found" });
@@ -499,7 +500,7 @@ export async function registerAutoTagRoutes(app: FastifyInstance) {
       const s = req.requireAuth();
 
       const gallery = await prisma.gallery.findFirst({
-        where: { id: req.params.id, tenantId: req.tenantId, ownerId: s.user.id },
+        where: { id: req.params.id, tenantId: req.tenantId, ...galleryAccessWhere(s) },
         select: { id: true },
       });
       if (!gallery) return reply.status(404).send({ error: "not_found" });
@@ -585,7 +586,7 @@ export async function registerAutoTagRoutes(app: FastifyInstance) {
       );
 
       const gallery = await prisma.gallery.findFirst({
-        where: { id: req.params.id, tenantId: req.tenantId, ownerId: s.user.id },
+        where: { id: req.params.id, tenantId: req.tenantId, ...galleryAccessWhere(s) },
         select: { id: true },
       });
       if (!gallery) return reply.status(404).send({ error: "not_found" });
@@ -677,7 +678,7 @@ export async function registerAutoTagRoutes(app: FastifyInstance) {
       const s = req.requireAuth();
 
       const gallery = await prisma.gallery.findFirst({
-        where: { id: req.params.id, tenantId: req.tenantId, ownerId: s.user.id },
+        where: { id: req.params.id, tenantId: req.tenantId, ...galleryAccessWhere(s) },
         select: { id: true },
       });
       if (!gallery) return reply.status(404).send({ error: "not_found" });
@@ -754,7 +755,7 @@ export async function registerAutoTagRoutes(app: FastifyInstance) {
       const s = req.requireAuth();
 
       const gallery = await prisma.gallery.findFirst({
-        where: { id: req.params.id, tenantId: req.tenantId, ownerId: s.user.id },
+        where: { id: req.params.id, tenantId: req.tenantId, ...galleryAccessWhere(s) },
         select: { id: true },
       });
       if (!gallery) return reply.status(404).send({ error: "not_found" });

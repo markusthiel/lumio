@@ -23,6 +23,7 @@ import { presignGet } from "../services/storage.js";
 import { requestZipDownload } from "../services/zip.js";
 import { notifyZipReadyOnce } from "../services/notifier.js";
 import { loadVisitor } from "./galleries.js";
+import { galleryAccessWhere } from "../lib/gallery-access.js";
 
 export async function registerZipRoutes(app: FastifyInstance) {
   // -------------------------------------------------------------------------
@@ -468,7 +469,7 @@ export async function registerZipRoutes(app: FastifyInstance) {
         where: {
           id: req.params.id,
           tenantId: req.tenantId,
-          ownerId: s.user.id,
+          ...galleryAccessWhere(s),
         },
         select: { id: true, tenantId: true },
       });
@@ -533,7 +534,7 @@ export async function registerZipRoutes(app: FastifyInstance) {
         where: {
           id: req.params.id,
           tenantId: req.tenantId,
-          ownerId: s.user.id,
+          ...galleryAccessWhere(s),
         },
         select: { id: true },
       });
@@ -585,7 +586,7 @@ export async function registerZipRoutes(app: FastifyInstance) {
         where: {
           id: req.params.id,
           tenantId: req.tenantId,
-          ownerId: s.user.id,
+          ...galleryAccessWhere(s),
         },
         select: { id: true },
       });

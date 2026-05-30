@@ -43,6 +43,7 @@ import { enqueue, Queues } from "../services/queue.js";
 import { publish } from "../services/events.js";
 import { logEvent } from "../services/audit.js";
 import { checkStorageLimit } from "../services/usage.js";
+import { galleryAccessWhere, canAccessGallery } from "../lib/gallery-access.js";
 
 const MAX_FILES_PER_INIT = 1000;
 
@@ -87,7 +88,7 @@ export async function registerFileRoutes(app: FastifyInstance) {
       where: {
         id: body.galleryId,
         tenantId: req.tenantId,
-        ownerId: s.user.id,
+        ...galleryAccessWhere(s),
       },
       select: {
         id: true,
@@ -217,13 +218,13 @@ export async function registerFileRoutes(app: FastifyInstance) {
     const file = await prisma.file.findFirst({
       where: { id: body.fileId },
       include: {
-        gallery: { select: { id: true, tenantId: true, ownerId: true } },
+        gallery: { select: { id: true, tenantId: true, ownerId: true, collaborators: { select: { userId: true } } } },
       },
     });
     if (
       !file ||
       file.gallery.tenantId !== req.tenantId ||
-      file.gallery.ownerId !== s.user.id
+      !canAccessGallery(s, file.gallery)
     ) {
       return reply.status(404).send({ error: "not_found" });
     }
@@ -334,13 +335,13 @@ export async function registerFileRoutes(app: FastifyInstance) {
       const file = await prisma.file.findFirst({
         where: { id: req.params.fileId },
         include: {
-          gallery: { select: { tenantId: true, ownerId: true } },
+          gallery: { select: { tenantId: true, ownerId: true, collaborators: { select: { userId: true } } } },
         },
       });
       if (
         !file ||
         file.gallery.tenantId !== req.tenantId ||
-        file.gallery.ownerId !== s.user.id
+        !canAccessGallery(s, file.gallery)
       ) {
         return reply.status(404).send({ error: "not_found" });
       }
@@ -415,13 +416,13 @@ export async function registerFileRoutes(app: FastifyInstance) {
       const file = await prisma.file.findFirst({
         where: { id: req.params.id },
         include: {
-          gallery: { select: { tenantId: true, ownerId: true } },
+          gallery: { select: { tenantId: true, ownerId: true, collaborators: { select: { userId: true } } } },
         },
       });
       if (
         !file ||
         file.gallery.tenantId !== req.tenantId ||
-        file.gallery.ownerId !== s.user.id
+        !canAccessGallery(s, file.gallery)
       ) {
         return reply.status(404).send({ error: "not_found" });
       }
@@ -445,13 +446,13 @@ export async function registerFileRoutes(app: FastifyInstance) {
       where: { id: req.params.id },
       include: {
         renditions: { select: { storageKey: true } },
-        gallery: { select: { tenantId: true, ownerId: true } },
+        gallery: { select: { tenantId: true, ownerId: true, collaborators: { select: { userId: true } } } },
       },
     });
     if (
       !file ||
       file.gallery.tenantId !== req.tenantId ||
-      file.gallery.ownerId !== s.user.id
+      !canAccessGallery(s, file.gallery)
     ) {
       return reply.status(404).send({ error: "not_found" });
     }
@@ -567,7 +568,7 @@ export async function registerFileRoutes(app: FastifyInstance) {
       where: {
         id: body.galleryId,
         tenantId: req.tenantId,
-        ownerId: s.user.id,
+        ...galleryAccessWhere(s),
       },
       select: { id: true },
     });
@@ -818,7 +819,7 @@ export async function registerFileRoutes(app: FastifyInstance) {
       where: {
         id: body.galleryId,
         tenantId: req.tenantId,
-        ownerId: s.user.id,
+        ...galleryAccessWhere(s),
       },
       select: { id: true },
     });

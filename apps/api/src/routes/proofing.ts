@@ -22,6 +22,7 @@ import { logEvent } from "../services/audit.js";
 import { checkSelectionLimit } from "../services/selectionLimit.js";
 import { publishEvent } from "../services/webhooks.js";
 import { publish as publishRealtime } from "../services/events.js";
+import { galleryAccessWhere } from "../lib/gallery-access.js";
 
 const selectionSchema = z.object({
   color: z.enum(["red", "yellow", "green"]).nullable().optional(),
@@ -362,7 +363,7 @@ export async function registerProofingRoutes(app: FastifyInstance) {
         where: {
           id: req.params.id,
           tenantId: req.tenantId,
-          ownerId: s.user.id,
+          ...galleryAccessWhere(s),
         },
         select: { id: true, commentsEnabled: true },
       });
@@ -415,7 +416,7 @@ export async function registerProofingRoutes(app: FastifyInstance) {
         where: {
           id: req.params.id,
           tenantId: req.tenantId,
-          ownerId: s.user.id,
+          ...galleryAccessWhere(s),
         },
         select: { id: true },
       });
@@ -546,7 +547,7 @@ export async function registerProofingRoutes(app: FastifyInstance) {
         where: {
           id: req.params.id,
           tenantId: req.tenantId,
-          ownerId: s.user.id,
+          ...galleryAccessWhere(s),
         },
         select: { id: true },
       });

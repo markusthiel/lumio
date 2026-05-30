@@ -25,6 +25,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 
 import { prisma } from "../db.js";
+import { galleryAccessWhere } from "../lib/gallery-access.js";
 
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
 
@@ -262,7 +263,7 @@ export async function registerTagRoutes(app: FastifyInstance) {
         where: {
           id: req.params.id,
           tenantId: req.tenantId,
-          ownerId: s.user.id,
+          ...galleryAccessWhere(s),
         },
         select: { id: true },
       });
@@ -294,7 +295,7 @@ export async function registerTagRoutes(app: FastifyInstance) {
         where: {
           id: req.params.id,
           tenantId: req.tenantId,
-          ownerId: s.user.id,
+          ...galleryAccessWhere(s),
         },
         select: { id: true },
       });
@@ -317,7 +318,7 @@ export async function registerTagRoutes(app: FastifyInstance) {
       const file = await prisma.file.findFirst({
         where: {
           id: req.params.id,
-          gallery: { tenantId: req.tenantId, ownerId: s.user.id },
+          gallery: { tenantId: req.tenantId, ...galleryAccessWhere(s) },
         },
         select: {
           id: true,
@@ -341,7 +342,7 @@ export async function registerTagRoutes(app: FastifyInstance) {
       const file = await prisma.file.findFirst({
         where: {
           id: req.params.id,
-          gallery: { tenantId: req.tenantId, ownerId: s.user.id },
+          gallery: { tenantId: req.tenantId, ...galleryAccessWhere(s) },
         },
         select: { id: true },
       });
@@ -367,7 +368,7 @@ export async function registerTagRoutes(app: FastifyInstance) {
       const file = await prisma.file.findFirst({
         where: {
           id: req.params.id,
-          gallery: { tenantId: req.tenantId, ownerId: s.user.id },
+          gallery: { tenantId: req.tenantId, ...galleryAccessWhere(s) },
         },
         select: { id: true },
       });

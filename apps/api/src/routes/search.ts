@@ -34,6 +34,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 
 import { prisma } from "../db.js";
+import { galleryAccessWhere } from "../lib/gallery-access.js";
 
 const querySchema = z.object({
   q: z.string().min(2).max(120),
@@ -67,7 +68,7 @@ export async function registerSearchRoutes(app: FastifyInstance) {
       prisma.gallery.findMany({
         where: {
           tenantId: req.tenantId,
-          ownerId: s.user.id,
+          ...galleryAccessWhere(s),
           OR: [
             { title: { contains: q, mode: "insensitive" } },
             { description: { contains: q, mode: "insensitive" } },
@@ -94,7 +95,7 @@ export async function registerSearchRoutes(app: FastifyInstance) {
           originalFilename: { contains: q, mode: "insensitive" },
           gallery: {
             tenantId: req.tenantId,
-            ownerId: s.user.id,
+            ...galleryAccessWhere(s),
           },
         },
         include: {
