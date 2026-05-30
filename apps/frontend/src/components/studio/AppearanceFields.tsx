@@ -41,6 +41,74 @@ export function ColorField({
 }
 
 /**
+ * Overlay-Farbe mit variabler Transparenz. Wert ist ein RGBA-Hex
+ * (#rrggbbaa) oder null (kein Overlay). Color-Picker für die Farbe,
+ * Slider für die Stärke (Alpha 0–100 %). Gleiche Mechanik wie das
+ * Hero-Overlay im Galerie-Editor.
+ */
+export function OverlayField({
+  value,
+  onChange,
+}: {
+  value: string | null;
+  onChange: (v: string | null) => void;
+}) {
+  const hex6 = value && value.length >= 7 ? value.slice(0, 7) : "#000000";
+  const alphaHex = value && value.length === 9 ? value.slice(7, 9) : "00";
+  const alphaPercent = Math.round((parseInt(alphaHex, 16) / 255) * 100);
+
+  function rebuild(h6: string, percent: number): string | null {
+    if (percent === 0) return null;
+    const alpha = Math.round((percent / 100) * 255)
+      .toString(16)
+      .padStart(2, "0");
+    return `${h6}${alpha}`;
+  }
+
+  return (
+    <div className="flex items-center gap-3 flex-wrap">
+      <label
+        className="relative w-10 h-9 rounded border border-line-subtle cursor-pointer overflow-hidden shrink-0"
+        style={{ backgroundColor: value ?? "transparent" }}
+        title="Farbe wählen"
+      >
+        <input
+          type="color"
+          value={hex6}
+          onChange={(e) =>
+            onChange(rebuild(e.target.value, alphaPercent || 40))
+          }
+          className="absolute -inset-1 w-[calc(100%+8px)] h-[calc(100%+8px)] opacity-0 cursor-pointer"
+        />
+      </label>
+      <label className="flex items-center gap-2 text-sm text-ink-secondary flex-1 min-w-[180px]">
+        Stärke
+        <input
+          type="range"
+          min={0}
+          max={100}
+          value={alphaPercent}
+          onChange={(e) => onChange(rebuild(hex6, Number(e.target.value)))}
+          className="flex-1 accent-accent"
+        />
+        <span className="w-9 text-right tabular-nums text-ink-primary">
+          {alphaPercent}%
+        </span>
+      </label>
+      {value && (
+        <button
+          type="button"
+          onClick={() => onChange(null)}
+          className="text-sm text-ink-tertiary hover:text-ink-primary"
+        >
+          Entfernen
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
  * Asset-Upload-Feld mit Vorschau, Hochladen/Ersetzen/Entfernen.
  * Der eigentliche Upload-Flow (init → PUT → complete) liegt beim Aufrufer
  * via onFile/onRemove.

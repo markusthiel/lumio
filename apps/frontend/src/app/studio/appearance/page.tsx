@@ -8,7 +8,11 @@ import {
 } from "@/lib/api";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { Button } from "@/components/ui";
-import { ColorField, AssetField } from "@/components/studio/AppearanceFields";
+import {
+  ColorField,
+  OverlayField,
+  AssetField,
+} from "@/components/studio/AppearanceFields";
 import {
   applyStudioAccent,
   applyStudioTheme,
@@ -207,6 +211,7 @@ export default function AppearancePage() {
   const [loginAccent, setLoginAccent] = useState("");
   const [loginGreeting, setLoginGreeting] = useState("");
   const [loginLayout, setLoginLayout] = useState<LoginLayout>("centered");
+  const [loginOverlay, setLoginOverlay] = useState<string | null>(null);
 
   const studioLogoRef = useRef<HTMLInputElement | null>(null);
   const studioLogoLightRef = useRef<HTMLInputElement | null>(null);
@@ -224,6 +229,7 @@ export default function AppearancePage() {
         setLoginAccent(appearance.loginAccentColor ?? "");
         setLoginGreeting(appearance.loginGreeting ?? "");
         setLoginLayout(appearance.loginLayout);
+        setLoginOverlay(appearance.loginOverlayColor);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Konnte nicht laden");
       } finally {
@@ -336,6 +342,7 @@ export default function AppearancePage() {
         loginAccentColor: loginAccent.trim() || null,
         loginGreeting: loginGreeting.trim() || null,
         loginLayout,
+        loginOverlayColor: loginOverlay,
       });
       setAppearance(appearance);
       applyStudioAccent(appearance.studioAccentColor);
@@ -511,6 +518,18 @@ export default function AppearancePage() {
                 onRemove={() => removeAsset("loginBackground")}
                 previewHeight="large"
               />
+
+              {appearance.loginBackgroundUrl && (
+                <Field
+                  label="Farbüberlagerung"
+                  hint="Farbfläche über dem Hintergrundbild — hebt das Login-Formular hervor und verbessert die Lesbarkeit. Farbe und Transparenz frei wählbar."
+                >
+                  <OverlayField
+                    value={loginOverlay}
+                    onChange={setLoginOverlay}
+                  />
+                </Field>
+              )}
 
               <Field
                 label="Begrüßungstext"

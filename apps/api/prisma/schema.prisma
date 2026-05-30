@@ -84,6 +84,9 @@ model Tenant {
   loginGreeting      String?
   loginAccentColor   String?
   loginLayout        String?  @default("centered") // minimal|splash|side_by_side|centered
+  // Optionale Farbfläche über dem Login-Hintergrundbild (RGBA-Hex wie
+  // "#00000066", alpha = Transparenz). Null = layout-abhängiger Default.
+  loginOverlayColor  String?  @db.VarChar(9)
   emailLogoKey       String?
   
   // Watermark-Konfiguration (siehe docs/KONZEPT.md §9)

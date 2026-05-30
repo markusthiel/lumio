@@ -87,6 +87,7 @@ type LoginBranding = {
   accentColor: string;
   loginBackgroundUrl: string | null;
   loginGreeting: string | null;
+  loginOverlayColor: string | null;
 };
 
 export default function LoginPage() {
@@ -177,6 +178,7 @@ export default function LoginPage() {
             accentColor: r.login.accentColor ?? "#f59e0b",
             loginBackgroundUrl: r.login.backgroundUrl,
             loginGreeting: r.login.greeting,
+            loginOverlayColor: r.login.overlayColor,
           });
           setLayout(r.login.layout);
         } else if (r.branding) {
@@ -189,6 +191,7 @@ export default function LoginPage() {
             accentColor: r.branding.accentColor,
             loginBackgroundUrl: null,
             loginGreeting: null,
+            loginOverlayColor: null,
           });
         }
       } catch {
@@ -647,6 +650,7 @@ export default function LoginPage() {
       >
         <BrandedHero
           imageUrl={branding.loginBackgroundUrl!}
+          overlayColor={branding.loginOverlayColor}
           logoUrl={branding.logoUrl}
           logoLightUrl={branding.logoLightUrl}
           tenantName={tenantContext?.name}
@@ -673,9 +677,11 @@ export default function LoginPage() {
           aria-hidden
           className="fixed inset-0 pointer-events-none"
           style={{
-            backgroundImage: `linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.6)), url(${cssEscapeUrl(
+            backgroundImage: heroBg(
+              branding.loginOverlayColor,
+              "linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.6))",
               branding.loginBackgroundUrl!
-            )})`,
+            ),
             backgroundSize: "cover",
             backgroundPosition: "center",
           }}
@@ -701,9 +707,11 @@ export default function LoginPage() {
           aria-hidden
           className="fixed inset-0 pointer-events-none"
           style={{
-            backgroundImage: `linear-gradient(rgba(0,0,0,0.74), rgba(0,0,0,0.82)), url(${cssEscapeUrl(
+            backgroundImage: heroBg(
+              branding.loginOverlayColor,
+              "linear-gradient(rgba(0,0,0,0.74), rgba(0,0,0,0.82))",
               branding.loginBackgroundUrl!
-            )})`,
+            ),
             backgroundSize: "cover",
             backgroundPosition: "center",
           }}
@@ -746,12 +754,14 @@ export default function LoginPage() {
 // -----------------------------------------------------------------------------
 function BrandedHero({
   imageUrl,
+  overlayColor,
   logoUrl,
   logoLightUrl,
   tenantName,
   greeting,
 }: {
   imageUrl: string;
+  overlayColor: string | null;
   logoUrl: string | null;
   logoLightUrl: string | null;
   tenantName: string | undefined;
@@ -765,7 +775,11 @@ function BrandedHero({
     <aside
       className="relative lg:flex-1 lg:min-h-screen min-h-[40vh] flex flex-col justify-between p-8 lg:p-12 text-white overflow-hidden"
       style={{
-        backgroundImage: `linear-gradient(135deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.25) 60%, rgba(0,0,0,0.55) 100%), url(${cssEscapeUrl(imageUrl)})`,
+        backgroundImage: heroBg(
+          overlayColor,
+          "linear-gradient(135deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.25) 60%, rgba(0,0,0,0.55) 100%)",
+          imageUrl
+        ),
         backgroundSize: "cover",
         backgroundPosition: "center",
       }}
@@ -833,6 +847,20 @@ function BrandedHero({
  *  Parameter mit '&', '=' und gelegentlich auch '(' — alle drei sind
  *  in CSS url(...) ohne Quoting problematisch. Wir setzen einfache
  *  Anführungszeichen drumherum und escapen interne ' falls vorhanden. */
+// Overlay über dem Login-Hintergrundbild. Hat der Tenant eine eigene
+// Farbfläche konfiguriert (RGBA-Hex #rrggbbaa), gewinnt sie als
+// Volltonfläche; sonst greift der layout-spezifische Default-Gradient.
+function heroBg(
+  overlay: string | null | undefined,
+  fallbackGradient: string,
+  imageUrl: string
+): string {
+  const tint = overlay
+    ? `linear-gradient(${overlay}, ${overlay})`
+    : fallbackGradient;
+  return `${tint}, url(${cssEscapeUrl(imageUrl)})`;
+}
+
 function cssEscapeUrl(url: string): string {
   return `"${url.replace(/"/g, '\\"')}"`;
 }
