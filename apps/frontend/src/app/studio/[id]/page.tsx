@@ -8,6 +8,7 @@ import { uploadFiles, type UploadProgress } from "@/lib/upload";
 import { useImageZoom } from "@/lib/useImageZoom";
 import { SharePanel } from "@/components/studio/SharePanel";
 import { GalleryHeaderEditor } from "@/components/studio/GalleryHeaderEditor";
+import { GalleryShareSection } from "@/components/studio/GalleryShareSection";
 import { SectionsEditor } from "@/components/studio/SectionsEditor";
 import { UploadLinksSection } from "@/components/studio/UploadLinksSection";
 import { RejectDialog } from "@/components/studio/RejectDialog";
@@ -1227,6 +1228,9 @@ export default function GalleryDetailPage() {
             await load();
           }}
         />
+
+        {/* Team-Zugriff — granulare Freigabe an einzelne Mitglieder */}
+        <GalleryShareSection galleryId={gallery.id} />
 
         {/* Kapitel/Sections — optional, ordnet Files zu Kapiteln zu */}
         <SectionsEditor
