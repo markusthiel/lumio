@@ -57,6 +57,107 @@ function Field({
   );
 }
 
+type LoginLayout = "minimal" | "splash" | "side_by_side" | "centered";
+
+/** Radio-Card-Picker für die Login-Layout-Variante — Mini-Diagramme,
+ *  damit man die Anordnung vor dem Klick sieht (analog zur Galerie). */
+function LoginLayoutPicker({
+  value,
+  onChange,
+}: {
+  value: LoginLayout;
+  onChange: (v: LoginLayout) => void;
+}) {
+  const Box = ({ overlay = false }: { overlay?: boolean }) => (
+    <div
+      className={`rounded-sm p-1 flex flex-col gap-0.5 ${
+        overlay ? "bg-surface-overlay/85" : "bg-ink-primary/15"
+      }`}
+    >
+      <div className="h-0.5 w-full rounded-sm bg-ink-primary/40" />
+      <div className="h-0.5 w-full rounded-sm bg-ink-primary/40" />
+      <div className="h-1 w-1/2 rounded-sm bg-accent/80 mt-0.5" />
+    </div>
+  );
+  const options: { id: LoginLayout; label: string; sketch: React.ReactNode }[] =
+    [
+      {
+        id: "minimal",
+        label: "Minimal",
+        sketch: (
+          <div className="w-full h-full flex items-center justify-center p-2">
+            <div className="w-3/5">
+              <Box />
+            </div>
+          </div>
+        ),
+      },
+      {
+        id: "splash",
+        label: "Splash",
+        sketch: (
+          <div className="w-full h-full flex items-center justify-center p-1.5 bg-ink-primary/30">
+            <div className="w-3/5">
+              <Box overlay />
+            </div>
+          </div>
+        ),
+      },
+      {
+        id: "side_by_side",
+        label: "Side-by-Side",
+        sketch: (
+          <div className="w-full h-full grid grid-cols-2">
+            <div className="flex items-center justify-center p-1.5">
+              <div className="w-full">
+                <Box />
+              </div>
+            </div>
+            <div className="bg-ink-primary/30" />
+          </div>
+        ),
+      },
+      {
+        id: "centered",
+        label: "Zentriert",
+        sketch: (
+          <div className="w-full h-full bg-ink-primary/10 p-2 flex flex-col items-center gap-1">
+            <div className="h-0.5 w-1/3 rounded-sm bg-ink-primary/50" />
+            <div className="w-3/5 mt-0.5">
+              <Box overlay />
+            </div>
+          </div>
+        ),
+      },
+    ];
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      {options.map((opt) => {
+        const active = value === opt.id;
+        return (
+          <button
+            key={opt.id}
+            type="button"
+            onClick={() => onChange(opt.id)}
+            className={`rounded border p-2 text-left transition-colors ${
+              active
+                ? "border-accent bg-accent/10"
+                : "border-line-subtle bg-surface-sunken hover:border-line-strong"
+            }`}
+          >
+            <div className="aspect-[4/3] w-full rounded-sm bg-surface-overlay/40 overflow-hidden">
+              {opt.sketch}
+            </div>
+            <div className="mt-2 text-xs font-medium text-ink-primary">
+              {opt.label}
+            </div>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function AppearancePage() {
   const [appearance, setAppearance] = useState<Appearance | null>(null);
   const [loading, setLoading] = useState(true);
@@ -70,6 +171,7 @@ export default function AppearancePage() {
   const [studioAccent, setStudioAccent] = useState("");
   const [loginAccent, setLoginAccent] = useState("");
   const [loginGreeting, setLoginGreeting] = useState("");
+  const [loginLayout, setLoginLayout] = useState<LoginLayout>("centered");
 
   const studioLogoRef = useRef<HTMLInputElement | null>(null);
   const studioLogoLightRef = useRef<HTMLInputElement | null>(null);
@@ -86,6 +188,7 @@ export default function AppearancePage() {
         setStudioAccent(appearance.studioAccentColor ?? "");
         setLoginAccent(appearance.loginAccentColor ?? "");
         setLoginGreeting(appearance.loginGreeting ?? "");
+        setLoginLayout(appearance.loginLayout);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Konnte nicht laden");
       } finally {
@@ -164,6 +267,7 @@ export default function AppearancePage() {
         studioAccentColor: studioAccent.trim() || null,
         loginAccentColor: loginAccent.trim() || null,
         loginGreeting: loginGreeting.trim() || null,
+        loginLayout,
       });
       setAppearance(appearance);
       applyStudioAccent(appearance.studioAccentColor);
@@ -295,6 +399,13 @@ export default function AppearancePage() {
               title="Login-Seite"
               description="Die Seite, auf der du (und dein Team) euch anmeldet."
             >
+              <Field
+                label="Layout"
+                hint="Wie die Anmeldeseite aufgebaut ist. Logo, Bild und Begrüßung bleiben gleich — nur die Anordnung ändert sich."
+              >
+                <LoginLayoutPicker value={loginLayout} onChange={setLoginLayout} />
+              </Field>
+
               <div className="grid sm:grid-cols-2 gap-4">
                 <AssetField
                   label="Logo"

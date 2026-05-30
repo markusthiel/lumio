@@ -636,7 +636,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
   // das Frontend entscheidet dann.
   app.get("/auth/tenant-context", async (req) => {
     if (!req.tenantId) {
-      return { tenant: null, branding: null };
+      return { tenant: null, branding: null, login: null };
     }
     const row = await prisma.tenant.findUnique({
       where: { id: req.tenantId },
@@ -646,10 +646,16 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         displayName: true,
         slug: true,
         status: true,
+        // Login-Erscheinungsbild (tenant-weit, entkoppelt vom Branding)
+        loginLogoKey: true,
+        loginBackgroundKey: true,
+        loginGreeting: true,
+        loginAccentColor: true,
+        loginLayout: true,
       },
     });
     if (!row) {
-      return { tenant: null, branding: null };
+      return { tenant: null, branding: null, login: null };
     }
     // 'name' in der API-Response ist der OEFFENTLICHE Name. Der
     // interne Verwaltungsname (row.name) ist hier nicht relevant —
@@ -663,7 +669,29 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       status: row.status as "active" | "suspended" | "archived",
     };
     const branding = await resolveTenantBranding(tenant.id);
-    return { tenant, branding };
+    const signLogin = async (key: string | null) => {
+      if (!key) return null;
+      if (key.startsWith("http://") || key.startsWith("https://")) return key;
+      return presignGet({ key, ttlSeconds: 3600 });
+    };
+    const [loginLogoUrl, loginBackgroundUrl] = await Promise.all([
+      signLogin(row.loginLogoKey),
+      signLogin(row.loginBackgroundKey),
+    ]);
+    const login = {
+      logoUrl: loginLogoUrl,
+      backgroundUrl: loginBackgroundUrl,
+      greeting: row.loginGreeting,
+      accentColor: row.loginAccentColor,
+      layout:
+        (row.loginLayout as
+          | "minimal"
+          | "splash"
+          | "side_by_side"
+          | "centered"
+          | null) ?? "centered",
+    };
+    return { tenant, branding, login };
   });
 
   // -------------------------------------------------------------------------

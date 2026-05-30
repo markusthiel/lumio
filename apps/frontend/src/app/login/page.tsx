@@ -90,6 +90,9 @@ export default function LoginPage() {
     null
   );
   const [branding, setBranding] = useState<LoginBranding | null>(null);
+  const [layout, setLayout] = useState<
+    "minimal" | "splash" | "side_by_side" | "centered"
+  >("centered");
 
   // Tenant + Branding einmalig beim Mount laden. Falls Multi-Mode +
   // Apex-Domain ohne Tenant: zurück zum Picker. Andere Fälle: einfach
@@ -137,7 +140,21 @@ export default function LoginPage() {
             );
           }
         }
-        if (r.branding) {
+        // Login-Erscheinungsbild (tenant-weit, entkoppelt vom Galerie-
+        // Branding). Ein einzelnes Login-Logo deckt alle Flächen ab —
+        // die Login-Seite ist durchgehend dunkel, also passt eine helle
+        // Variante überall (Hero-Overlay wie Form-Card).
+        if (r.login) {
+          setBranding({
+            logoUrl: r.login.logoUrl,
+            logoLightUrl: r.login.logoUrl,
+            accentColor: r.login.accentColor ?? "#f59e0b",
+            loginBackgroundUrl: r.login.backgroundUrl,
+            loginGreeting: r.login.greeting,
+          });
+          setLayout(r.login.layout);
+        } else if (r.branding) {
+          // Fallback (z.B. ältere API ohne login-Objekt)
           setBranding({
             logoUrl: r.branding.logoUrl,
             logoLightUrl: r.branding.logoLightUrl,
@@ -246,8 +263,6 @@ export default function LoginPage() {
     }
   }
 
-  const hasHero = !!branding?.loginBackgroundUrl;
-
   // Akzentfarbe als CSS-Var. Wenn das Default-Lumio-Orange aktiv ist,
   // ueberschreiben wir gar nichts (Standard-Akzent bleibt). Sonst:
   // CSS Custom Property setzen, die das Button/Focus-Styling via
@@ -287,9 +302,34 @@ export default function LoginPage() {
     </div>
   );
 
+  // Gestapelter Header (Logo zentriert + Begrüßung) für die Layouts
+  // minimal / splash / centered.
+  const stackedHeader = (
+    <div className="text-center mb-8">
+      {brandLogo ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={brandLogo}
+          alt={tenantContext?.name ?? ""}
+          className="max-h-14 mx-auto object-contain"
+        />
+      ) : (
+        <div className="text-display text-accent font-semibold tracking-tight">
+          {tenantContext?.name ?? "Lumio"}
+        </div>
+      )}
+      {branding?.loginGreeting && (
+        <div className="mt-4 text-ui-sm text-ink-secondary prose-tight">
+          <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml>
+            {branding.loginGreeting}
+          </ReactMarkdown>
+        </div>
+      )}
+    </div>
+  );
+
   const formCard = (
     <div className="w-full max-w-sm">
-      {brandHeader}
       {stage.kind === "credentials" ? (
         <form
           onSubmit={submitCredentials}
@@ -524,8 +564,10 @@ export default function LoginPage() {
     </div>
   );
 
-  // BRANDED HERO Layout (Split-Screen)
-  if (hasHero && branding) {
+  const hasBg = !!branding?.loginBackgroundUrl;
+
+  // SIDE-BY-SIDE — Split-Screen: Bild auf einer Hälfte, Form auf der anderen
+  if (layout === "side_by_side" && hasBg && branding) {
     return (
       <main
         className="min-h-screen flex flex-col lg:flex-row bg-surface-canvas"
@@ -548,7 +590,63 @@ export default function LoginPage() {
     );
   }
 
-  // BRANDED FORM oder UNBRANDED — zentriertes Layout
+  // SPLASH — Vollbild-Bild, Form-Karte mittig als Overlay
+  if (layout === "splash" && hasBg && branding) {
+    return (
+      <main
+        className="min-h-screen flex items-center justify-center p-6 bg-surface-canvas relative"
+        style={accentStyle}
+      >
+        <div
+          aria-hidden
+          className="fixed inset-0 pointer-events-none"
+          style={{
+            backgroundImage: `linear-gradient(rgba(0,0,0,0.45), rgba(0,0,0,0.6)), url(${cssEscapeUrl(
+              branding.loginBackgroundUrl!
+            )})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        />
+        <div className="relative w-full max-w-sm animate-fade-in">
+          {stackedHeader}
+          {formCard}
+          <LegalFooter className="mt-8" />
+        </div>
+      </main>
+    );
+  }
+
+  // CENTERED — Bild als ruhiger Hintergrund, Logo + Begrüßung prominent
+  // über der Form
+  if (layout === "centered" && hasBg && branding) {
+    return (
+      <main
+        className="min-h-screen flex items-center justify-center p-6 bg-surface-canvas relative"
+        style={accentStyle}
+      >
+        <div
+          aria-hidden
+          className="fixed inset-0 pointer-events-none"
+          style={{
+            backgroundImage: `linear-gradient(rgba(0,0,0,0.74), rgba(0,0,0,0.82)), url(${cssEscapeUrl(
+              branding.loginBackgroundUrl!
+            )})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        />
+        <div className="relative w-full max-w-sm animate-fade-in">
+          {stackedHeader}
+          {formCard}
+          <LegalFooter className="mt-8" />
+        </div>
+      </main>
+    );
+  }
+
+  // MINIMAL (und Fallback, wenn kein Hintergrundbild gesetzt ist) —
+  // schlicht zentriert auf dezentem Akzent-Gradient.
   return (
     <main
       className="min-h-screen flex items-center justify-center p-6 bg-surface-canvas"
@@ -562,29 +660,8 @@ export default function LoginPage() {
             "radial-gradient(60% 50% at 50% 0%, rgba(245,158,11,0.06) 0%, transparent 70%)",
         }}
       />
-
       <div className="relative w-full max-w-sm animate-fade-in">
-        <div className="text-center mb-8">
-          {branding?.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={branding.logoUrl}
-              alt={tenantContext?.name ?? ""}
-              className="max-h-12 mx-auto"
-            />
-          ) : (
-            <div className="text-display text-accent font-semibold tracking-tight">
-              Lumio
-            </div>
-          )}
-          {branding?.loginGreeting && (
-            <div className="mt-4 text-ui-sm text-ink-secondary prose-tight">
-              <ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml>
-                {branding.loginGreeting}
-              </ReactMarkdown>
-            </div>
-          )}
-        </div>
+        {stackedHeader}
         {formCard}
         <LegalFooter className="mt-8" />
       </div>

@@ -83,6 +83,7 @@ model Tenant {
   loginBackgroundKey String?
   loginGreeting      String?
   loginAccentColor   String?
+  loginLayout        String?  @default("centered") // minimal|splash|side_by_side|centered
   emailLogoKey       String?
   
   // Watermark-Konfiguration (siehe docs/KONZEPT.md §9)

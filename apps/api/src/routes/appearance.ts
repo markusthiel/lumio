@@ -36,6 +36,9 @@ const updateSchema = z.object({
   studioTheme: z.enum(["dark", "light"]).optional(),
   loginAccentColor: z.string().regex(colorRegex).nullable().optional(),
   loginGreeting: z.string().max(2000).nullable().optional(),
+  loginLayout: z
+    .enum(["minimal", "splash", "side_by_side", "centered"])
+    .optional(),
 });
 
 const initAssetSchema = z.object({
@@ -94,6 +97,7 @@ type TenantAppearanceRow = {
   loginBackgroundKey: string | null;
   loginGreeting: string | null;
   loginAccentColor: string | null;
+  loginLayout: string | null;
   emailLogoKey: string | null;
 };
 
@@ -115,6 +119,13 @@ async function serializeAppearance(t: TenantAppearanceRow) {
     loginBackgroundUrl,
     loginGreeting: t.loginGreeting,
     loginAccentColor: t.loginAccentColor,
+    loginLayout:
+      (t.loginLayout as
+        | "minimal"
+        | "splash"
+        | "side_by_side"
+        | "centered"
+        | null) ?? "centered",
     emailLogoUrl,
   };
 }
@@ -128,6 +139,7 @@ const APPEARANCE_SELECT = {
   loginBackgroundKey: true,
   loginGreeting: true,
   loginAccentColor: true,
+  loginLayout: true,
   emailLogoKey: true,
 } as const;
 
@@ -159,6 +171,9 @@ export async function registerAppearanceRoutes(app: FastifyInstance) {
         }),
         ...(body.loginGreeting !== undefined && {
           loginGreeting: body.loginGreeting,
+        }),
+        ...(body.loginLayout !== undefined && {
+          loginLayout: body.loginLayout,
         }),
       },
       select: APPEARANCE_SELECT,
