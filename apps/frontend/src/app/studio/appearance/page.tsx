@@ -197,6 +197,51 @@ function LoginLayoutPicker({
   );
 }
 
+// Weichzeichner-Stufen statt px-Slider — für die meisten klarer.
+// Gespeichert wird weiterhin der px-Wert (loginOverlayBlur), das Login
+// rendert ihn unverändert als backdrop-filter: blur(Npx).
+const BLUR_LEVELS: { label: string; px: number }[] = [
+  { label: "Aus", px: 0 },
+  { label: "Schwach", px: 6 },
+  { label: "Standard", px: 14 },
+  { label: "Stark", px: 28 },
+];
+
+function BlurPicker({
+  value,
+  onChange,
+}: {
+  value: number;
+  onChange: (px: number) => void;
+}) {
+  // Aktiv = exakter Treffer, sonst die nächstgelegene Stufe (falls noch
+  // ein alter, freier px-Wert gespeichert ist).
+  const activePx = BLUR_LEVELS.reduce((best, lvl) =>
+    Math.abs(lvl.px - value) < Math.abs(best.px - value) ? lvl : best
+  ).px;
+  return (
+    <div className="grid grid-cols-4 gap-2">
+      {BLUR_LEVELS.map((lvl) => {
+        const on = activePx === lvl.px;
+        return (
+          <button
+            key={lvl.label}
+            type="button"
+            onClick={() => onChange(lvl.px)}
+            className={`rounded border px-3 py-2 text-sm font-medium transition-colors ${
+              on
+                ? "border-accent bg-accent/10 text-ink-primary"
+                : "border-line-subtle bg-surface-sunken text-ink-secondary hover:border-line-strong"
+            }`}
+          >
+            {lvl.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function AppearancePage() {
   const [appearance, setAppearance] = useState<Appearance | null>(null);
   const [loading, setLoading] = useState(true);
@@ -535,23 +580,12 @@ export default function AppearancePage() {
                   </Field>
                   <Field
                     label="Weichzeichnen (Glas-Effekt)"
-                    hint="Zeichnet das Hintergrundbild hinter der Farbfläche weich — wie der Glas-Effekt bei Menüs und Dialogen. 0 = aus."
+                    hint="Zeichnet das Hintergrundbild hinter der Farbfläche weich — wie der Glas-Effekt bei Menüs und Dialogen."
                   >
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="range"
-                        min={0}
-                        max={40}
-                        value={loginOverlayBlur}
-                        onChange={(e) =>
-                          setLoginOverlayBlur(Number(e.target.value))
-                        }
-                        className="flex-1 accent-accent"
-                      />
-                      <span className="w-12 text-right tabular-nums text-sm text-ink-primary">
-                        {loginOverlayBlur}px
-                      </span>
-                    </div>
+                    <BlurPicker
+                      value={loginOverlayBlur}
+                      onChange={setLoginOverlayBlur}
+                    />
                   </Field>
                 </>
               )}
