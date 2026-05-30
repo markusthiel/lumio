@@ -318,6 +318,25 @@ export interface Branding {
   customCss: string | null;
 }
 
+export type AppearanceAssetKind =
+  | "studioLogo"
+  | "studioLogoLight"
+  | "loginLogo"
+  | "loginBackground"
+  | "emailLogo";
+
+export interface Appearance {
+  studioLogoUrl: string | null;
+  studioLogoLightUrl: string | null;
+  studioAccentColor: string | null;
+  studioTheme: "dark" | "light";
+  loginLogoUrl: string | null;
+  loginBackgroundUrl: string | null;
+  loginGreeting: string | null;
+  loginAccentColor: string | null;
+  emailLogoUrl: string | null;
+}
+
 export interface SpriteSheet {
   url: string;
   interval: number;
@@ -463,6 +482,11 @@ export const api = {
        *  überschreibt damit die CSS-Variable --accent. null => das
        *  Studio bleibt beim Standard-Amber. */
       studioAccent: string | null;
+      /** Studio-Grundton (Dark/Light) und Logo aus den tenant-weiten
+       *  Erscheinungsbild-Einstellungen. */
+      studioTheme: "dark" | "light";
+      studioLogoUrl: string | null;
+      studioLogoLightUrl: string | null;
       /** Aktive Feature-Flag-Keys fuer diesen Tenant. Frontend prueft
        *  z.B. features.includes('print_shop') bevor es Print-Shop-
        *  Eintraege rendert. */
@@ -1934,6 +1958,52 @@ export const api = {
   ) =>
     request<{ branding: BrandingDetail }>(
       `/brandings/${id}/assets/${kind}`,
+      { method: "DELETE" }
+    ),
+
+  // Appearance (Studio / Login / E-Mails — tenant-weit)
+  getAppearance: () =>
+    request<{ appearance: Appearance }>(`/studio/appearance`),
+
+  updateAppearance: (
+    patch: Partial<{
+      studioAccentColor: string | null;
+      studioTheme: "dark" | "light";
+      loginAccentColor: string | null;
+      loginGreeting: string | null;
+    }>
+  ) =>
+    request<{ appearance: Appearance }>(`/studio/appearance`, {
+      method: "PUT",
+      body: JSON.stringify(patch),
+    }),
+
+  initAppearanceAssetUpload: (input: {
+    kind: AppearanceAssetKind;
+    contentType: string;
+    sizeBytes: number;
+  }) =>
+    request<{
+      key: string;
+      uploadUrl: string;
+      headers: Record<string, string>;
+    }>(`/studio/appearance/assets`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  completeAppearanceAssetUpload: (input: {
+    kind: AppearanceAssetKind;
+    key: string;
+  }) =>
+    request<{ appearance: Appearance }>(`/studio/appearance/assets/complete`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  deleteAppearanceAsset: (kind: AppearanceAssetKind) =>
+    request<{ appearance: Appearance }>(
+      `/studio/appearance/assets/${kind}`,
       { method: "DELETE" }
     ),
 

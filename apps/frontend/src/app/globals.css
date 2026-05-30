@@ -73,6 +73,29 @@
   --motion-ease:          cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* === Heller Studio-Grundton ===
+ * Aktiviert ueber <html data-theme="light"> (StudioShell setzt das aus
+ * den Erscheinungsbild-Einstellungen). Nur Flaechen-, Text- und Linien-
+ * Tokens werden umgesetzt — die Akzentfarbe kommt weiterhin aus --accent
+ * (Default-Amber oder dynamisch ueberschrieben), der Kontrasttext fuer
+ * Accent-Flaechen wird zur Laufzeit aus der Helligkeit berechnet. */
+:root[data-theme="light"] {
+  --surface-canvas:    247 247 249;   /* leicht graue Buehne */
+  --surface-sunken:    237 237 241;   /* Inputs, Code — tiefer */
+  --surface-raised:    255 255 255;   /* Cards — weiss, hebt sich ab */
+  --surface-overlay:   255 255 255;   /* Modals/Tooltips */
+
+  --ink-primary:       24 24 27;
+  --ink-secondary:     82 82 91;
+  --ink-tertiary:      138 138 148;
+  --ink-inverted:      247 247 249;
+
+  --line-subtle:       226 226 230;
+  --line-strong:       198 198 206;
+
+  --brand-primary:     24 24 27;
+}
+
 /* === Motion-Stufen, gesteuert vom <html data-motion="..."> === */
 
 /* "off": komplett aus. */

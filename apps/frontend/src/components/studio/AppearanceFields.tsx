@@ -1,0 +1,135 @@
+"use client";
+
+import React from "react";
+
+/**
+ * Farb-Eingabe: sichtbares Swatch + nativer Picker als unsichtbares
+ * Overlay (umgeht das kollabierende Default-Rendering von
+ * <input type="color"> in Chrome/Brave) plus ein Hex-Textfeld.
+ */
+export function ColorField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const valid = /^#[0-9a-fA-F]{6}$/.test(value.trim());
+  return (
+    <div className="flex items-center gap-2">
+      <label
+        className="relative w-10 h-9 rounded border border-line-subtle cursor-pointer overflow-hidden shrink-0"
+        style={{ backgroundColor: valid ? value : "transparent" }}
+        title="Farbe wählen"
+      >
+        <input
+          type="color"
+          value={valid ? value : "#000000"}
+          onChange={(e) => onChange(e.target.value)}
+          className="absolute -inset-1 w-[calc(100%+8px)] h-[calc(100%+8px)] opacity-0 cursor-pointer"
+        />
+      </label>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="flex-1 rounded-md border border-line-subtle px-3 py-2 text-sm font-mono"
+        pattern="^#[0-9a-fA-F]{6}$"
+        spellCheck={false}
+      />
+    </div>
+  );
+}
+
+/**
+ * Asset-Upload-Feld mit Vorschau, Hochladen/Ersetzen/Entfernen.
+ * Der eigentliche Upload-Flow (init → PUT → complete) liegt beim Aufrufer
+ * via onFile/onRemove.
+ */
+export function AssetField({
+  label,
+  imageUrl,
+  accept,
+  hint,
+  uploading,
+  inputRef,
+  onPick,
+  onFile,
+  onRemove,
+  previewHeight = "small",
+  darkPreview = false,
+}: {
+  label: string;
+  imageUrl: string | null;
+  accept: string;
+  hint: string;
+  uploading: boolean;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  onPick: () => void;
+  onFile: (file: File) => void;
+  onRemove: () => void;
+  /** "small" für Logo/Favicon, "large" für Hero-Background. */
+  previewHeight?: "small" | "large";
+  /** Wenn true, wird der Preview-Container dunkler — damit weiße Logos
+   *  und helle Varianten sichtbar bleiben. */
+  darkPreview?: boolean;
+}) {
+  const previewCls =
+    previewHeight === "large" ? "min-h-[180px] max-h-[260px]" : "min-h-[64px]";
+  const imageCls =
+    previewHeight === "large"
+      ? "max-h-[240px] max-w-full object-cover w-full rounded"
+      : "max-h-12 max-w-full object-contain";
+  const previewBg = darkPreview
+    ? "bg-[#0a0a0c] border-[#1a1a1f]"
+    : "bg-surface-raised border-line-subtle";
+  return (
+    <div className="space-y-1">
+      <label className="text-xs font-medium text-ink-secondary">{label}</label>
+      <div className="rounded-md border border-line-subtle bg-surface-sunken p-3 space-y-2">
+        <input
+          ref={inputRef}
+          type="file"
+          accept={accept}
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) onFile(f);
+            if (e.target) e.target.value = "";
+          }}
+        />
+        {imageUrl ? (
+          <div
+            className={`border rounded p-2 flex items-center justify-center ${previewBg} ${previewCls}`}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={imageUrl} alt="" className={imageCls} />
+          </div>
+        ) : (
+          <div
+            className={`text-xs text-ink-tertiary text-center py-3 flex items-center justify-center ${previewCls}`}
+          >
+            Noch nichts hochgeladen.
+          </div>
+        )}
+        <div className="flex justify-between items-center gap-2">
+          <button
+            onClick={onPick}
+            disabled={uploading}
+            className="text-xs px-2 py-1 rounded border border-line-subtle hover:bg-surface-raised disabled:opacity-50"
+          >
+            {uploading ? "…" : imageUrl ? "Ersetzen" : "Hochladen"}
+          </button>
+          {imageUrl && (
+            <button
+              onClick={onRemove}
+              className="text-xs text-semantic-danger hover:underline"
+            >
+              Entfernen
+            </button>
+          )}
+        </div>
+        <div className="text-[10px] text-ink-tertiary">{hint}</div>
+      </div>
+    </div>
+  );
+}

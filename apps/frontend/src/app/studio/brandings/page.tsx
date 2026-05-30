@@ -89,6 +89,26 @@ export default function BrandingsPage() {
 
       <div className="px-6 sm:px-8 lg:px-12 py-6 space-y-6 max-w-5xl">
 
+        {/* Tenant-weites Erscheinungsbild (Studio/Login/E-Mails) —
+            getrennt von den Galerie-Brandings darunter. */}
+        <Link
+          href="/studio/appearance"
+          className="flex items-center justify-between gap-4 rounded-lg border border-line-subtle bg-surface-raised hover:border-line-strong hover:shadow-sm transition px-5 py-4"
+        >
+          <div>
+            <div className="text-ui-sm font-semibold text-ink-primary">
+              Studio, Login &amp; E-Mails
+            </div>
+            <div className="text-ui-sm text-ink-tertiary mt-0.5">
+              Logo, Farben und Grundton für dein Backend, die Anmeldeseite und
+              E-Mails — unabhängig vom Galerie-Branding.
+            </div>
+          </div>
+          <span className="text-ui-sm font-medium text-accent shrink-0">
+            Öffnen →
+          </span>
+        </Link>
+
         {/* Empty-State Variante anpassen: wenn der Plan kein Branding
             erlaubt, ist die "noch keine erstellt"-Hint irreführend. */}
         {brandings.length === 0 && brandingsAllowed ? (
