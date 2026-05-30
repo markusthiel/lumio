@@ -334,7 +334,7 @@ export default function BillingPage() {
             </button>
           </div>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {plans.map((p) => {
             const isCurrent =
               p.slug === usage.plan.slug &&
