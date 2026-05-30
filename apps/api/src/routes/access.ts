@@ -12,10 +12,11 @@
  *   PUT    /galleries/:id/password        — Passwort setzen
  *   DELETE /galleries/:id/password        — Passwort entfernen
  */
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 
 import { prisma } from "../db.js";
+import { galleryAccessWhere } from "../lib/gallery-access.js";
 import { generateAccessToken } from "../services/ids.js";
 import { hashPassword } from "../services/auth.js";
 import { logEvent } from "../services/audit.js";
@@ -77,16 +78,14 @@ const setPasswordSchema = z.object({
   password: z.string().min(4).max(200),
 });
 
-async function loadOwnedGallery(req: {
-  tenantId: string;
-  session: { user: { id: string } } | null;
-}, galleryId: string) {
-  if (!req.session) return null;
+async function loadOwnedGallery(req: FastifyRequest, galleryId: string) {
+  const s = req.requireAuth();
+  // Granulares Zugriffsmodell: Ersteller ODER freigegeben ODER Studio-Owner.
   return prisma.gallery.findFirst({
     where: {
       id: galleryId,
       tenantId: req.tenantId,
-      ownerId: req.session.user.id,
+      ...galleryAccessWhere(s),
     },
     select: { id: true, slug: true },
   });

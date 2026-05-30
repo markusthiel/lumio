@@ -7,10 +7,11 @@
  *
  * Alle nur mit Studio-Auth + Ownership-Check.
  */
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import archiver from "archiver";
 
 import { prisma } from "../db.js";
+import { galleryAccessWhere } from "../lib/gallery-access.js";
 import {
   loadProofingExport,
   buildCsv,
@@ -18,13 +19,12 @@ import {
   xmpSidecarName,
 } from "../services/export.js";
 
-async function ownGallery(req: {
-  tenantId: string;
-  session: { user: { id: string } } | null;
-}, id: string) {
-  if (!req.session) return null;
+async function ownGallery(req: FastifyRequest, id: string) {
+  const s = req.requireAuth();
+  // Granulares Zugriffsmodell: Ersteller ODER freigegeben ODER Studio-Owner.
+  // (Früher nur ownerId — das umging die Galerie-Freigabe komplett.)
   return prisma.gallery.findFirst({
-    where: { id, tenantId: req.tenantId, ownerId: req.session.user.id },
+    where: { id, tenantId: req.tenantId, ...galleryAccessWhere(s) },
     select: { id: true, slug: true, title: true },
   });
 }
