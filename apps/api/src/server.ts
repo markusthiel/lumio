@@ -31,6 +31,7 @@ import { registerDpaRoutes } from "./routes/dpa.js";
 import { registerMetaRoutes } from "./routes/meta.js";
 import { registerExportRoutes } from "./routes/export.js";
 import { registerBrandingRoutes } from "./routes/brandings.js";
+import { registerAppearanceRoutes } from "./routes/appearance.js";
 import { registerTemplateRoutes } from "./routes/templates.js";
 import { registerAuditRoutes } from "./routes/audit.js";
 import { registerTokenRoutes } from "./routes/tokens.js";
@@ -139,6 +140,7 @@ async function buildServer() {
       await registerMetaRoutes(api);
       await registerExportRoutes(api);
       await registerBrandingRoutes(api);
+      await registerAppearanceRoutes(api);
       await registerTemplateRoutes(api);
       await registerAuditRoutes(api);
       await registerTokenRoutes(api);

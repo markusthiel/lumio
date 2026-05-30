@@ -66,6 +66,24 @@ model Tenant {
   // Branding auf Tenant-Ebene (kann pro Galerie überschrieben werden)
   brandingId  String?  @db.Uuid
   branding    Branding? @relation("TenantBranding", fields: [brandingId], references: [id])
+
+  // ---------------------------------------------------------------------------
+  // Erscheinungsbild fuer Studio-Backend, Login-Seite und E-Mails.
+  // Tenant-weit und bewusst ENTKOPPELT vom Galerie-Branding (das es
+  // mehrfach geben kann) — Studio/Login/Mails gibt es je nur einmal.
+  // Asset-Felder sind S3-Keys (Schema t/<tenantId>/appearance/<name>)
+  // und werden beim Ausliefern signiert. Farben sind #hex; null faellt
+  // jeweils auf den eingebauten Standard zurueck (Amber-Akzent, Dark).
+  // ---------------------------------------------------------------------------
+  studioLogoKey      String?  // Logo in der Sidebar (fuer dunklen Grund)
+  studioLogoLightKey String?  // helle Variante (bei hellem Grundton)
+  studioAccentColor  String?
+  studioTheme        String?  @default("dark") // "dark" | "light"
+  loginLogoKey       String?
+  loginBackgroundKey String?
+  loginGreeting      String?
+  loginAccentColor   String?
+  emailLogoKey       String?
   
   // Watermark-Konfiguration (siehe docs/KONZEPT.md §9)
   // Wenn watermarkImageKey gesetzt: PNG aus S3 wird als Overlay verwendet.

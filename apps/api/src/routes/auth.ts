@@ -57,6 +57,7 @@ import { logEvent } from "../services/audit.js";
 import { getEffectiveFlags } from "../services/feature-flags.js";
 import { getStripe } from "../services/stripe-client.js";
 import { resolveTenantBranding } from "../services/branding.js";
+import { presignGet } from "../services/storage.js";
 
 const loginSchema = z.object({
   email: z.string().email().toLowerCase(),
@@ -684,10 +685,12 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         slug: true,
         status: true,
         archiveScheduledAt: true,
-        // Akzentfarbe des Default-Brandings — faerbt das Studio-Backend
-        // ein (CSS-Variable --accent im Frontend). null => das Studio
-        // bleibt beim Standard-Amber.
-        branding: { select: { accentColor: true } },
+        // Studio-Erscheinungsbild (tenant-weit, entkoppelt vom Galerie-
+        // Branding). Faerbt und bebildert das Studio-Backend.
+        studioAccentColor: true,
+        studioTheme: true,
+        studioLogoKey: true,
+        studioLogoLightKey: true,
       },
     });
     const tenant = tenantRow
@@ -699,7 +702,18 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           archiveScheduledAt: tenantRow.archiveScheduledAt,
         }
       : null;
-    const studioAccent = tenantRow?.branding?.accentColor ?? null;
+    const signAsset = async (key: string | null | undefined) => {
+      if (!key) return null;
+      if (key.startsWith("http://") || key.startsWith("https://")) return key;
+      return presignGet({ key, ttlSeconds: 3600 });
+    };
+    const [studioLogoUrl, studioLogoLightUrl] = await Promise.all([
+      signAsset(tenantRow?.studioLogoKey),
+      signAsset(tenantRow?.studioLogoLightKey),
+    ]);
+    const studioAccent = tenantRow?.studioAccentColor ?? null;
+    const studioTheme =
+      (tenantRow?.studioTheme as "dark" | "light" | null) ?? "dark";
 
     // Bei Impersonate-Sessions auch die Identitaet des Super-Admins
     // mitliefern fuer den Banner.
@@ -744,6 +758,9 @@ export async function registerAuthRoutes(app: FastifyInstance) {
       },
       tenant,
       studioAccent,
+      studioTheme,
+      studioLogoUrl,
+      studioLogoLightUrl,
       impersonation,
       features: activeFeatures,
     };
