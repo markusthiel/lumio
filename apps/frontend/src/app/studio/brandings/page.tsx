@@ -6,8 +6,10 @@ import Link from "next/link";
 import { api, type BrandingDetail, type BillingUsage } from "@/lib/api";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { Button } from "@/components/ui";
+import { useT } from "@/lib/i18n";
 
 export default function BrandingsPage() {
+  const t = useT();
   const router = useRouter();
   const [brandings, setBrandings] = useState<BrandingDetail[]>([]);
   const [defaultId, setDefaultId] = useState<string | null>(null);
@@ -55,9 +57,7 @@ export default function BrandingsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen text-ui text-ink-tertiary">
-        Lädt…
-      </div>
+      <div className="flex items-center justify-center h-screen text-ui text-ink-tertiary">{t("common.loading")}</div>
     );
   }
 
@@ -65,23 +65,21 @@ export default function BrandingsPage() {
     <>
       <PageHeader
         breadcrumb={[
-          { label: "Studio", href: "/studio" },
-          { label: "Branding" },
+          { label: t("brandingsList.breadcrumbStudio"), href: "/studio" },
+          { label: t("brandingsList.breadcrumb") },
         ]}
-        title="Branding"
-        description="Logo, Farben und Schrift für deine Kunden-Galerien."
+        title={t("brandingsList.title")}
+        description={t("brandingsList.description")}
         actions={
           brandingsAllowed ? (
-            <Button variant="primary" onClick={() => setShowCreate(true)}>
-              Neues Profil
-            </Button>
+            <Button variant="primary" onClick={() => setShowCreate(true)}>{t("brandingsList.newProfile")}</Button>
           ) : (
             <Link
               href="/studio/billing"
               className="inline-flex items-center gap-1.5 h-9 px-4 rounded-md bg-accent/15 text-accent hover:bg-accent/25 text-ui-sm font-medium transition-colors duration-motion"
-              title={`Ab ${brandingsMin === "studio" ? "Studio" : "Pro"}-Plan verfügbar`}
+              title={t("brandingsList.planBadgeTitle", { plan: brandingsMin === "studio" ? "Studio" : "Pro" })}
             >
-              <span>Ab {brandingsMin === "studio" ? "Studio" : "Pro"}-Plan</span>
+              <span>{t("brandingsList.planBadge", { plan: brandingsMin === "studio" ? "Studio" : "Pro" })}</span>
             </Link>
           )
         }
@@ -93,28 +91,21 @@ export default function BrandingsPage() {
             erlaubt, ist die "noch keine erstellt"-Hint irreführend. */}
         {brandings.length === 0 && brandingsAllowed ? (
           <div className="rounded-md border border-dashed border-line-subtle bg-surface-sunken p-12 text-center">
-            <div className="text-ink-tertiary text-ui">
-              Noch keine Branding-Profile angelegt.
-            </div>
+            <div className="text-ink-tertiary text-ui">{t("brandingsList.noProfiles")}</div>
             <button
               onClick={() => setShowCreate(true)}
               className="mt-3 text-ui-sm font-medium text-accent hover:text-accent-hover transition-colors duration-motion"
-            >
-              Erstes Profil erstellen →
-            </button>
+            >{t("brandingsList.createFirst")}</button>
           </div>
         ) : brandings.length === 0 && !brandingsAllowed ? (
           <div className="rounded-md border border-dashed border-line-subtle bg-surface-sunken p-12 text-center">
             <div className="text-ink-secondary text-ui">
-              Eigenes Branding ist ab{" "}
-              {brandingsMin === "studio" ? "Studio" : "Pro"}-Plan verfügbar.
+              {t("brandingsList.planRequired", { plan: brandingsMin === "studio" ? "Studio" : "Pro" })}
             </div>
             <Link
               href="/studio/billing"
               className="mt-3 inline-block text-ui-sm font-medium text-accent hover:text-accent-hover transition-colors duration-motion"
-            >
-              Plan ansehen →
-            </Link>
+            >{t("brandingsList.viewPlan")}</Link>
           </div>
         ) : (
           <ul className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -151,9 +142,7 @@ export default function BrandingsPage() {
                     <div className="flex items-center justify-between">
                       <div className="font-medium">{b.name}</div>
                       {defaultId === b.id && (
-                        <span className="text-[10px] font-medium uppercase tracking-wider bg-semantic-success/15 text-semantic-success px-1.5 py-0.5 rounded">
-                          Default
-                        </span>
+                        <span className="text-[10px] font-medium uppercase tracking-wider bg-semantic-success/15 text-semantic-success px-1.5 py-0.5 rounded">{t("brandingsList.defaultBadge")}</span>
                       )}
                     </div>
                     <div className="flex items-center gap-2 text-xs text-ink-tertiary">
@@ -199,6 +188,7 @@ function CreateBrandingDialog({
   onClose: () => void;
   onCreated: (b: BrandingDetail) => void;
 }) {
+  const t = useT();
   const [name, setName] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -211,7 +201,7 @@ function CreateBrandingDialog({
       const { branding } = await api.createBranding({ name });
       onCreated(branding);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setPending(false);
     }
@@ -227,13 +217,13 @@ function CreateBrandingDialog({
         onSubmit={onSubmit}
         className="w-full max-w-sm bg-surface-raised rounded-lg p-6 space-y-4"
       >
-        <h2 className="text-lg font-semibold">Neues Branding-Profil</h2>
+        <h2 className="text-lg font-semibold">{t("brandingsList.dialogTitle")}</h2>
         <input
           required
           autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="z.B. Standard, Hochzeit, Newborn"
+          placeholder={t("brandingsList.namePlaceholder")}
           className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm"
         />
         {error && (
@@ -246,15 +236,13 @@ function CreateBrandingDialog({
             type="button"
             onClick={onClose}
             className="text-sm px-3 py-2 rounded-md border border-line-subtle hover:bg-surface-sunken"
-          >
-            Abbrechen
-          </button>
+          >{t("common.cancel")}</button>
           <button
             type="submit"
             disabled={pending}
             className="text-sm px-3 py-2 rounded-md bg-accent text-accent-contrast hover:bg-accent-hover disabled:opacity-50"
           >
-            {pending ? "Wird erstellt…" : "Erstellen"}
+            {pending ? t("common.creating") : t("common.create")}
           </button>
         </div>
       </form>

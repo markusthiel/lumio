@@ -1498,4 +1498,21 @@ export const de: Dict = {
     demoGallery: "Demo-Galerie",
     exampleAction: "Beispiel-Aktion",
   },
+
+  brandingsList: {
+    breadcrumbStudio: "Studio",
+    breadcrumb: "Branding",
+    title: "Branding",
+    description: "Logo, Farben und Schrift für deine Kunden-Galerien.",
+    newProfile: "Neues Profil",
+    planBadge: "Ab {plan}-Plan",
+    planBadgeTitle: "Ab {plan}-Plan verfügbar",
+    noProfiles: "Noch keine Branding-Profile angelegt.",
+    createFirst: "Erstes Profil erstellen →",
+    planRequired: "Eigenes Branding ist ab {plan}-Plan verfügbar.",
+    viewPlan: "Plan ansehen →",
+    defaultBadge: "Default",
+    dialogTitle: "Neues Branding-Profil",
+    namePlaceholder: "z.B. Standard, Hochzeit, Newborn",
+  },
 };
