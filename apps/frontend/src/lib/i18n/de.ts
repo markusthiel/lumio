@@ -977,4 +977,63 @@ export const de: Dict = {
     statusCanceled: "Gekündigt",
     statusUnpaid: "Unbezahlt",
   },
+
+  appearance: {
+    title: "Studio & Login",
+    description:
+      "Eigenes Erscheinungsbild für dein Studio-Backend, die Login-Seite und E-Mails — unabhängig vom Galerie-Branding.",
+    studioBackend: "Studio-Backend",
+    baseTone: "Grundton",
+    accentColor: "Akzentfarbe",
+    accentHint:
+      "Färbt Buttons, Links und aktive Elemente im Studio. Leer = Standard (Amber).",
+    logoDark: "Logo (dunkler Modus)",
+    logoDarkHint:
+      "Erscheint oben in der Seitenleiste. Helle/weiße Variante empfohlen.",
+    logoLight: "Logo (heller Modus)",
+    logoLightHint:
+      "Optional. Dunkle Variante für den hellen Grundton. Leer = das normale Logo.",
+    loginPage: "Login-Seite",
+    layout: "Layout",
+    loginLayoutHint:
+      "Wie die Anmeldeseite aufgebaut ist. Logo, Bild und Begrüßung bleiben gleich — nur die Anordnung ändert sich.",
+    logo: "Logo",
+    loginLogoHint: "Erscheint über dem Login-Formular.",
+    backgroundImage: "Hintergrundbild",
+    backgroundHint:
+      "Großflächiges Bild hinter dem Login. PNG/JPEG/WEBP, max. 10 MB.",
+    preview: "Vorschau",
+    previewHint:
+      "So wirken Farbüberlagerung und Glas-Effekt über dem Hintergrundbild.",
+    colorOverlay: "Farbüberlagerung",
+    colorOverlayHint:
+      "Farbfläche über dem Hintergrundbild — hebt das Login-Formular hervor und verbessert die Lesbarkeit. Farbe und Transparenz frei wählbar.",
+    blur: "Weichzeichnen (Glas-Effekt)",
+    blurHint:
+      "Zeichnet das Hintergrundbild hinter der Farbfläche weich — wie der Glas-Effekt bei Menüs und Dialogen.",
+    welcomeText: "Begrüßungstext",
+    welcomeHint:
+      "Kurzer Text über dem Login. Markdown möglich (# Überschrift, **fett**).",
+    welcomePlaceholder: "z.B. Willkommen zurück bei Thiel Media",
+    emails: "E-Mails",
+    emailLogo: "E-Mail-Logo",
+    emailLogoBannerHint:
+      "Liegt auf dem farbigen Banner — helle/weiße Variante empfohlen.",
+    emailLogoDefaultHint:
+      "Erscheint im Kopf bzw. Footer der E-Mails. Dunkle Variante empfohlen (heller Hintergrund).",
+    mailLayoutHint:
+      "Aufbau der E-Mails an deine Kunden. Deine Akzentfarbe wird für Linie/Banner, Buttons und Zitate übernommen. Kein Dark-Mode — die Mail-Programme dunkeln selbst ab.",
+    layoutMinimal: "Minimal",
+    layoutSplash: "Splash",
+    layoutSideBySide: "Side-by-Side",
+    layoutCentered: "Zentriert",
+    logoPosition: "Logo-Position",
+    posLeft: "Links",
+    posRight: "Rechts",
+    posCenter: "Mittig",
+    posFooter: "Footer",
+    headerStyle: "Kopf-Stil",
+    headerLine: "Schlichte Linie",
+    headerBanner: "Akzent-Banner",
+  },
 };

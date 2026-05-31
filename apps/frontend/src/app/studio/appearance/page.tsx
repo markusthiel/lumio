@@ -7,6 +7,7 @@ import {
   type AppearanceAssetKind,
 } from "@/lib/api";
 import { PageHeader } from "@/components/studio/PageHeader";
+import { useT } from "@/lib/i18n";
 import { Button } from "@/components/ui";
 import {
   ColorField,
@@ -108,6 +109,7 @@ function LoginLayoutPicker({
   value: LoginLayout;
   onChange: (v: LoginLayout) => void;
 }) {
+  const t = useT();
   const Box = ({ overlay = false }: { overlay?: boolean }) => (
     <div
       className={`rounded-sm p-1 flex flex-col gap-0.5 ${
@@ -123,7 +125,7 @@ function LoginLayoutPicker({
     [
       {
         id: "minimal",
-        label: "Minimal",
+        label: t("appearance.layoutMinimal"),
         sketch: (
           <div className="w-full h-full flex items-center justify-center p-2">
             <div className="w-3/5">
@@ -134,7 +136,7 @@ function LoginLayoutPicker({
       },
       {
         id: "splash",
-        label: "Splash",
+        label: t("appearance.layoutSplash"),
         sketch: (
           <div className="w-full h-full flex items-center justify-center p-1.5 bg-ink-primary/30">
             <div className="w-3/5">
@@ -145,7 +147,7 @@ function LoginLayoutPicker({
       },
       {
         id: "side_by_side",
-        label: "Side-by-Side",
+        label: t("appearance.layoutSideBySide"),
         sketch: (
           <div className="w-full h-full grid grid-cols-2">
             <div className="flex items-center justify-center p-1.5">
@@ -159,7 +161,7 @@ function LoginLayoutPicker({
       },
       {
         id: "centered",
-        label: "Zentriert",
+        label: t("appearance.layoutCentered"),
         sketch: (
           <div className="w-full h-full bg-ink-primary/10 p-2 flex flex-col items-center gap-1">
             <div className="h-0.5 w-1/3 rounded-sm bg-ink-primary/50" />
@@ -218,6 +220,7 @@ function MailLayoutControls({
   onHeaderStyle: (v: MailHeaderStyle) => void;
   accent: string;
 }) {
+  const t = useT();
   const ac = accent || "#d97706";
   const LOGO_GRAY = "#4b5563";
   const TEXT_GRAY = "#d1d5db";
@@ -302,33 +305,21 @@ function MailLayoutControls({
 
       {/* Regler 1: Logo-Position */}
       <div>
-        <div className="text-xs font-medium text-ink-secondary mb-1.5">Logo-Position</div>
+        <div className="text-xs font-medium text-ink-secondary mb-1.5">{t("appearance.logoPosition")}</div>
         <div className="flex flex-wrap gap-1.5">
-          <Pill active={logoPosition === "left"} onClick={() => onLogoPosition("left")}>
-            Links
-          </Pill>
-          <Pill active={logoPosition === "right"} onClick={() => onLogoPosition("right")}>
-            Rechts
-          </Pill>
-          <Pill active={logoPosition === "center"} onClick={() => onLogoPosition("center")}>
-            Mittig
-          </Pill>
-          <Pill active={logoPosition === "footer"} onClick={() => onLogoPosition("footer")}>
-            Footer
-          </Pill>
+          <Pill active={logoPosition === "left"} onClick={() => onLogoPosition("left")}>{t("appearance.posLeft")}</Pill>
+          <Pill active={logoPosition === "right"} onClick={() => onLogoPosition("right")}>{t("appearance.posRight")}</Pill>
+          <Pill active={logoPosition === "center"} onClick={() => onLogoPosition("center")}>{t("appearance.posCenter")}</Pill>
+          <Pill active={logoPosition === "footer"} onClick={() => onLogoPosition("footer")}>{t("appearance.posFooter")}</Pill>
         </div>
       </div>
 
       {/* Regler 2: Kopf-Stil */}
       <div>
-        <div className="text-xs font-medium text-ink-secondary mb-1.5">Kopf-Stil</div>
+        <div className="text-xs font-medium text-ink-secondary mb-1.5">{t("appearance.headerStyle")}</div>
         <div className="flex flex-wrap gap-1.5">
-          <Pill active={headerStyle === "line"} onClick={() => onHeaderStyle("line")}>
-            Schlichte Linie
-          </Pill>
-          <Pill active={headerStyle === "banner"} onClick={() => onHeaderStyle("banner")}>
-            Akzent-Banner
-          </Pill>
+          <Pill active={headerStyle === "line"} onClick={() => onHeaderStyle("line")}>{t("appearance.headerLine")}</Pill>
+          <Pill active={headerStyle === "banner"} onClick={() => onHeaderStyle("banner")}>{t("appearance.headerBanner")}</Pill>
         </div>
       </div>
     </div>
@@ -337,6 +328,7 @@ function MailLayoutControls({
 
 
 export default function AppearancePage() {
+  const t = useT();
   const [appearance, setAppearance] = useState<Appearance | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -512,11 +504,11 @@ export default function AppearancePage() {
           { label: "Gestaltung", href: "/studio/brandings" },
           { label: "Studio & Login" },
         ]}
-        title="Studio & Login"
-        description="Eigenes Erscheinungsbild für dein Studio-Backend, die Login-Seite und E-Mails — unabhängig vom Galerie-Branding."
+        title={t("appearance.title")}
+        description={t("appearance.description")}
         actions={
           <Button variant="primary" onClick={save} disabled={saving || loading}>
-            {saving ? "Speichern…" : "Speichern"}
+            {saving ? t("common.saving") : t("common.save")}
           </Button>
         }
       />
@@ -534,11 +526,11 @@ export default function AppearancePage() {
           <>
             {/* ============ STUDIO-BACKEND ============ */}
             <Section
-              title="Studio-Backend"
+              title={t("appearance.studioBackend")}
               description="So sieht deine Arbeitsumgebung aus, wenn du eingeloggt bist."
             >
               <Field
-                label="Grundton"
+                label={t("appearance.baseTone")}
                 hint="Hell oder dunkel — wirkt sofort als Vorschau, gespeichert wird mit „Speichern“."
               >
                 <div className="inline-flex rounded-md border border-line-subtle overflow-hidden">
@@ -563,8 +555,8 @@ export default function AppearancePage() {
               </Field>
 
               <Field
-                label="Akzentfarbe"
-                hint="Färbt Buttons, Links und aktive Elemente im Studio. Leer = Standard (Amber)."
+                label={t("appearance.accentColor")}
+                hint={t("appearance.accentHint")}
               >
                 <div className="flex items-center gap-3">
                   <div className="flex-1">
@@ -594,10 +586,10 @@ export default function AppearancePage() {
 
               <div className="grid sm:grid-cols-2 gap-4">
                 <AssetField
-                  label="Logo (dunkler Modus)"
+                  label={t("appearance.logoDark")}
                   imageUrl={appearance.studioLogoUrl}
                   accept={LOGO_ACCEPT}
-                  hint="Erscheint oben in der Seitenleiste. Helle/weiße Variante empfohlen."
+                  hint={t("appearance.logoDarkHint")}
                   uploading={uploadingKind === "studioLogo"}
                   inputRef={studioLogoRef}
                   onPick={() => studioLogoRef.current?.click()}
@@ -606,10 +598,10 @@ export default function AppearancePage() {
                   previewTone="dark"
                 />
                 <AssetField
-                  label="Logo (heller Modus)"
+                  label={t("appearance.logoLight")}
                   imageUrl={appearance.studioLogoLightUrl}
                   accept={LOGO_ACCEPT}
-                  hint="Optional. Dunkle Variante für den hellen Grundton. Leer = das normale Logo."
+                  hint={t("appearance.logoLightHint")}
                   uploading={uploadingKind === "studioLogoLight"}
                   inputRef={studioLogoLightRef}
                   onPick={() => studioLogoLightRef.current?.click()}
@@ -622,22 +614,22 @@ export default function AppearancePage() {
 
             {/* ============ LOGIN-SEITE ============ */}
             <Section
-              title="Login-Seite"
+              title={t("appearance.loginPage")}
               description="Die Seite, auf der du (und dein Team) euch anmeldet."
             >
               <Field
-                label="Layout"
-                hint="Wie die Anmeldeseite aufgebaut ist. Logo, Bild und Begrüßung bleiben gleich — nur die Anordnung ändert sich."
+                label={t("appearance.layout")}
+                hint={t("appearance.loginLayoutHint")}
               >
                 <LoginLayoutPicker value={loginLayout} onChange={setLoginLayout} />
               </Field>
 
               <div className="grid sm:grid-cols-2 gap-4">
                 <AssetField
-                  label="Logo"
+                  label={t("appearance.logo")}
                   imageUrl={appearance.loginLogoUrl}
                   accept={LOGO_ACCEPT}
-                  hint="Erscheint über dem Login-Formular."
+                  hint={t("appearance.loginLogoHint")}
                   uploading={uploadingKind === "loginLogo"}
                   inputRef={loginLogoRef}
                   onPick={() => loginLogoRef.current?.click()}
@@ -646,7 +638,7 @@ export default function AppearancePage() {
                   previewTone="dark"
                 />
                 <Field
-                  label="Akzentfarbe"
+                  label={t("appearance.accentColor")}
                   hint="Login-Button und Links. Leer = Standard."
                 >
                   <ColorField
@@ -657,10 +649,10 @@ export default function AppearancePage() {
               </div>
 
               <AssetField
-                label="Hintergrundbild"
+                label={t("appearance.backgroundImage")}
                 imageUrl={appearance.loginBackgroundUrl}
                 accept={PHOTO_ACCEPT}
-                hint="Großflächiges Bild hinter dem Login. PNG/JPEG/WEBP, max. 10 MB."
+                hint={t("appearance.backgroundHint")}
                 uploading={uploadingKind === "loginBackground"}
                 inputRef={loginBgRef}
                 onPick={() => loginBgRef.current?.click()}
@@ -672,8 +664,8 @@ export default function AppearancePage() {
               {appearance.loginBackgroundUrl && (
                 <>
                   <Field
-                    label="Vorschau"
-                    hint="So wirken Farbüberlagerung und Glas-Effekt über dem Hintergrundbild."
+                    label={t("appearance.preview")}
+                    hint={t("appearance.previewHint")}
                   >
                     <div className="relative w-full aspect-[16/9] rounded-md overflow-hidden bg-surface-sunken">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -699,8 +691,8 @@ export default function AppearancePage() {
                     </div>
                   </Field>
                   <Field
-                    label="Farbüberlagerung"
-                    hint="Farbfläche über dem Hintergrundbild — hebt das Login-Formular hervor und verbessert die Lesbarkeit. Farbe und Transparenz frei wählbar."
+                    label={t("appearance.colorOverlay")}
+                    hint={t("appearance.colorOverlayHint")}
                   >
                     <OverlayField
                       value={loginOverlay}
@@ -708,8 +700,8 @@ export default function AppearancePage() {
                     />
                   </Field>
                   <Field
-                    label="Weichzeichnen (Glas-Effekt)"
-                    hint="Zeichnet das Hintergrundbild hinter der Farbfläche weich — wie der Glas-Effekt bei Menüs und Dialogen."
+                    label={t("appearance.blur")}
+                    hint={t("appearance.blurHint")}
                   >
                     <BlurLevelPicker
                       value={loginOverlayBlur}
@@ -720,14 +712,14 @@ export default function AppearancePage() {
               )}
 
               <Field
-                label="Begrüßungstext"
-                hint="Kurzer Text über dem Login. Markdown möglich (# Überschrift, **fett**)."
+                label={t("appearance.welcomeText")}
+                hint={t("appearance.welcomeHint")}
               >
                 <textarea
                   value={loginGreeting}
                   onChange={(e) => setLoginGreeting(e.target.value)}
                   rows={3}
-                  placeholder="z.B. Willkommen zurück bei Thiel Media"
+                  placeholder={t("appearance.welcomePlaceholder")}
                   className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm resize-y"
                 />
               </Field>
@@ -735,18 +727,18 @@ export default function AppearancePage() {
 
             {/* ============ E-MAILS ============ */}
             <Section
-              title="E-Mails"
+              title={t("appearance.emails")}
               description="Logo in den E-Mails, die Lumio in deinem Namen verschickt (Galerie-Einladungen, Benachrichtigungen)."
             >
               <AssetField
-                label="E-Mail-Logo"
+                label={t("appearance.emailLogo")}
                 imageUrl={appearance.emailLogoUrl}
                 accept={LOGO_ACCEPT}
                 hint={
                   mailHeaderStyle === "banner" &&
                   mailLogoPosition !== "footer"
-                    ? "Liegt auf dem farbigen Banner — helle/weiße Variante empfohlen."
-                    : "Erscheint im Kopf bzw. Footer der E-Mails. Dunkle Variante empfohlen (heller Hintergrund)."
+                    ? t("appearance.emailLogoBannerHint")
+                    : t("appearance.emailLogoDefaultHint")
                 }
                 uploading={uploadingKind === "emailLogo"}
                 inputRef={emailLogoRef}
@@ -762,8 +754,8 @@ export default function AppearancePage() {
                 }
               />
               <Field
-                label="Layout"
-                hint="Aufbau der E-Mails an deine Kunden. Deine Akzentfarbe wird für Linie/Banner, Buttons und Zitate übernommen. Kein Dark-Mode — die Mail-Programme dunkeln selbst ab."
+                label={t("appearance.layout")}
+                hint={t("appearance.mailLayoutHint")}
               >
                 <MailLayoutControls
                   logoPosition={mailLogoPosition}
@@ -781,7 +773,7 @@ export default function AppearancePage() {
                 onClick={save}
                 disabled={saving || loading}
               >
-                {saving ? "Speichern…" : "Speichern"}
+                {saving ? t("common.saving") : t("common.save")}
               </Button>
             </div>
           </>

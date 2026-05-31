@@ -972,4 +972,63 @@ export const en: Dict = {
     statusCanceled: "Cancelled",
     statusUnpaid: "Unpaid",
   },
+
+  appearance: {
+    title: "Studio & login",
+    description:
+      "A custom look for your studio backend, the login page and emails — independent of the gallery branding.",
+    studioBackend: "Studio backend",
+    baseTone: "Base tone",
+    accentColor: "Accent color",
+    accentHint:
+      "Colors buttons, links and active elements in the studio. Empty = default (amber).",
+    logoDark: "Logo (dark mode)",
+    logoDarkHint:
+      "Appears at the top of the sidebar. A light/white variant is recommended.",
+    logoLight: "Logo (light mode)",
+    logoLightHint:
+      "Optional. A dark variant for the light base tone. Empty = the normal logo.",
+    loginPage: "Login page",
+    layout: "Layout",
+    loginLayoutHint:
+      "How the sign-in page is laid out. Logo, image and greeting stay the same — only the arrangement changes.",
+    logo: "Logo",
+    loginLogoHint: "Appears above the login form.",
+    backgroundImage: "Background image",
+    backgroundHint:
+      "Large image behind the login. PNG/JPEG/WEBP, max. 10 MB.",
+    preview: "Preview",
+    previewHint:
+      "Shows how the color overlay and glass effect look over the background image.",
+    colorOverlay: "Color overlay",
+    colorOverlayHint:
+      "A color layer over the background image — makes the login form stand out and improves readability. Color and transparency freely adjustable.",
+    blur: "Blur (glass effect)",
+    blurHint:
+      "Blurs the background image behind the color layer — like the glass effect on menus and dialogs.",
+    welcomeText: "Welcome text",
+    welcomeHint:
+      "Short text above the login. Markdown allowed (# heading, **bold**).",
+    welcomePlaceholder: "e.g. Welcome back to Thiel Media",
+    emails: "Emails",
+    emailLogo: "Email logo",
+    emailLogoBannerHint:
+      "Sits on the colored banner — a light/white variant is recommended.",
+    emailLogoDefaultHint:
+      "Appears in the header or footer of the emails. A dark variant is recommended (light background).",
+    mailLayoutHint:
+      "Layout of the emails to your clients. Your accent color is used for the line/banner, buttons and quotes. No dark mode — email clients darken on their own.",
+    layoutMinimal: "Minimal",
+    layoutSplash: "Splash",
+    layoutSideBySide: "Side-by-side",
+    layoutCentered: "Centered",
+    logoPosition: "Logo position",
+    posLeft: "Left",
+    posRight: "Right",
+    posCenter: "Center",
+    posFooter: "Footer",
+    headerStyle: "Header style",
+    headerLine: "Simple line",
+    headerBanner: "Accent banner",
+  },
 };
