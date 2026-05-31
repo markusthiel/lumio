@@ -17,6 +17,7 @@ import { api } from "@/lib/api";
 import type { PrintOrderDetail } from "@/lib/api";
 import { Button, Input, Textarea } from "@/components/ui";
 import { StatusBadge } from "../page";
+import { useT } from "@/lib/i18n";
 
 export default function OrderDetailPage({
   params,
@@ -24,6 +25,7 @@ export default function OrderDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const t = useT();
   const [order, setOrder] = useState<PrintOrderDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<
@@ -39,7 +41,7 @@ export default function OrderDetailPage({
       setOrder(r.order);
       setNoteValue(r.order.studioNote ?? "");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler");
+      setError(err instanceof Error ? err.message : t("common.error"));
     }
   }, [id]);
 
@@ -67,11 +69,11 @@ export default function OrderDetailPage({
     try {
       await api.transitionPrintOrder(id, { type, ...extra });
       await load();
-      setMessage({ kind: "success", text: "Status aktualisiert." });
+      setMessage({ kind: "success", text: t("orderDetail.statusUpdated") });
     } catch (err) {
       setMessage({
         kind: "danger",
-        text: err instanceof Error ? err.message : "Fehler",
+        text: err instanceof Error ? err.message : t("common.error"),
       });
     } finally {
       setBusy(false);
@@ -82,12 +84,12 @@ export default function OrderDetailPage({
     setBusy(true);
     try {
       await api.setPrintOrderNote(id, noteValue);
-      setMessage({ kind: "success", text: "Notiz gespeichert." });
+      setMessage({ kind: "success", text: t("orderDetail.noteSaved") });
       await load();
     } catch (err) {
       setMessage({
         kind: "danger",
-        text: err instanceof Error ? err.message : "Fehler",
+        text: err instanceof Error ? err.message : t("common.error"),
       });
     } finally {
       setBusy(false);
@@ -102,7 +104,7 @@ export default function OrderDetailPage({
     );
   }
   if (!order) {
-    return <div className="text-sm text-ink-tertiary">Lädt…</div>;
+    return <div className="text-sm text-ink-tertiary">{t("common.loading")}</div>;
   }
 
   // Status-spezifische Buttons
@@ -113,9 +115,7 @@ export default function OrderDetailPage({
       <Link
         href="/studio/print-shop/orders"
         className="text-xs text-accent hover:underline"
-      >
-        ← Alle Bestellungen
-      </Link>
+      >{t("orderDetail.backToOrders")}</Link>
 
       {message && (
         <div
@@ -143,9 +143,9 @@ export default function OrderDetailPage({
               {order.guestName} &lt;{order.guestEmail}&gt;
             </div>
             <div className="text-xs text-ink-tertiary mt-0.5">
-              Bestellt am {new Date(order.createdAt).toLocaleString("de-DE")}
+              {t("orderDetail.orderedOn", { date: new Date(order.createdAt).toLocaleString("de-DE") })}
               {" · "}
-              Galerie:{" "}
+              {t("orderDetail.galleryLabel")}{" "}
               <Link
                 href={`/studio/${order.gallery.id}`}
                 className="text-accent hover:underline"
@@ -160,8 +160,8 @@ export default function OrderDetailPage({
             </div>
             <div className="text-xs text-ink-tertiary">
               {order.paymentMode === "stripe_connect"
-                ? "Online (Stripe)"
-                : "Offline-Rechnung"}
+                ? t("orderDetail.paymentOnline")
+                : t("orderDetail.paymentOffline")}
             </div>
           </div>
         </div>
@@ -169,48 +169,53 @@ export default function OrderDetailPage({
         {/* Action-Buttons */}
         {availableTransitions.length > 0 && (
           <div className="flex flex-wrap gap-2 pt-3 border-t border-line-subtle">
-            {availableTransitions.map((t) => {
-              if (t === "mark_shipped") {
+            {availableTransitions.map((tr) => {
+              if (tr === "mark_shipped") {
                 return (
                   <Button
-                    key={t}
+                    key={tr}
                     size="sm"
                     onClick={() => setShippingDialog(true)}
                     disabled={busy}
                   >
-                    Versendet
+                    {t("orderDetail.actShipped")}
                   </Button>
                 );
               }
-              if (t === "cancel" || t === "refund") {
+              if (tr === "cancel" || tr === "refund") {
                 return (
                   <Button
-                    key={t}
+                    key={tr}
                     size="sm"
                     variant="secondary"
                     onClick={() => {
-                      const verb = t === "cancel" ? "stornieren" : "erstatten";
+                      const verb =
+                        tr === "cancel"
+                          ? t("orderDetail.verbCancel")
+                          : t("orderDetail.verbRefund");
                       const reason = window.prompt(
-                        `Grund für die ${verb} (optional):`
+                        t("orderDetail.reasonPrompt", { verb })
                       );
                       if (reason === null) return; // cancelled prompt
-                      void transition(t, { reason });
+                      void transition(tr, { reason });
                     }}
                     disabled={busy}
                   >
-                    {t === "cancel" ? "Stornieren" : "Erstatten"}
+                    {tr === "cancel"
+                      ? t("orderDetail.actCancel")
+                      : t("orderDetail.actRefund")}
                   </Button>
                 );
               }
               return (
                 <Button
-                  key={t}
+                  key={tr}
                   size="sm"
-                  variant={t === "mark_paid" ? "primary" : "secondary"}
-                  onClick={() => void transition(t)}
+                  variant={tr === "mark_paid" ? "primary" : "secondary"}
+                  onClick={() => void transition(tr)}
                   disabled={busy}
                 >
-                  {transitionLabel(t)}
+                  {t(transitionLabel(tr))}
                 </Button>
               );
             })}
@@ -220,23 +225,23 @@ export default function OrderDetailPage({
 
       {/* Tracking-Info wenn schon vorhanden */}
       {(order.trackingNumber || order.trackingUrl) && (
-        <Section title="Versand">
+        <Section title={t("orderDetail.secShipping")}>
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
             {order.trackingNumber && (
               <>
-                <dt className="text-ink-tertiary">Sendungsnummer</dt>
+                <dt className="text-ink-tertiary">{t("orderDetail.trackingNumber")}</dt>
                 <dd className="font-mono">{order.trackingNumber}</dd>
               </>
             )}
             {order.trackingCarrier && (
               <>
-                <dt className="text-ink-tertiary">Versanddienstleister</dt>
+                <dt className="text-ink-tertiary">{t("orderDetail.trackingCarrier")}</dt>
                 <dd>{order.trackingCarrier}</dd>
               </>
             )}
             {order.trackingUrl && (
               <>
-                <dt className="text-ink-tertiary">Tracking-URL</dt>
+                <dt className="text-ink-tertiary">{t("orderDetail.trackingUrl")}</dt>
                 <dd>
                   <a
                     href={order.trackingUrl}
@@ -254,7 +259,7 @@ export default function OrderDetailPage({
       )}
 
       {/* Items */}
-      <Section title={`Artikel (${order.items.length})`}>
+      <Section title={t("orderDetail.secItems", { n: order.items.length })}>
         <ul className="divide-y divide-line-subtle">
           {order.items.map((it) => (
             <li key={it.id} className="py-2 flex items-center gap-3 flex-wrap">
@@ -272,7 +277,7 @@ export default function OrderDetailPage({
                     ` · ${it.printProductVariant.finishType}`}
                 </div>
                 <div className="text-xs text-ink-tertiary mt-0.5">
-                  Bild: {it.file.originalFilename}
+                  {t("orderDetail.imageLabel")} {it.file.originalFilename}
                 </div>
               </div>
               <div className="text-sm tabular-nums">
@@ -283,14 +288,14 @@ export default function OrderDetailPage({
         </ul>
         <dl className="mt-3 pt-3 border-t border-line-subtle text-sm space-y-1">
           <div className="flex justify-between">
-            <dt className="text-ink-tertiary">Zwischensumme</dt>
+            <dt className="text-ink-tertiary">{t("orderDetail.subtotal")}</dt>
             <dd className="tabular-nums">
               {formatPrice(order.subtotalCents, order.currency)}
             </dd>
           </div>
           <div className="flex justify-between">
             <dt className="text-ink-tertiary">
-              Versand
+              {t("orderDetail.shipping")}
               {order.shippingMethod && ` (${order.shippingMethod.name})`}
             </dt>
             <dd className="tabular-nums">
@@ -298,20 +303,20 @@ export default function OrderDetailPage({
             </dd>
           </div>
           <div className="flex justify-between">
-            <dt className="text-ink-tertiary">MwSt</dt>
+            <dt className="text-ink-tertiary">{t("orderDetail.vat")}</dt>
             <dd className="tabular-nums">
               {formatPrice(order.taxCents, order.currency)}
             </dd>
           </div>
           <div className="flex justify-between pt-2 border-t border-line-subtle font-semibold">
-            <dt>Gesamtsumme</dt>
+            <dt>{t("orderDetail.total")}</dt>
             <dd className="tabular-nums">
               {formatPrice(order.totalCents, order.currency)}
             </dd>
           </div>
           {order.applicationFeeCents > 0 && (
             <div className="flex justify-between text-xs text-ink-tertiary pt-1">
-              <dt>davon Lumio-Anteil</dt>
+              <dt>{t("orderDetail.lumioShare")}</dt>
               <dd className="tabular-nums">
                 −{formatPrice(order.applicationFeeCents, order.currency)}
               </dd>
@@ -321,44 +326,42 @@ export default function OrderDetailPage({
       </Section>
 
       {/* Adressen */}
-      <Section title="Lieferadresse">
+      <Section title={t("orderDetail.secShippingAddr")}>
         <AddressBlock addr={order.shippingAddress} />
       </Section>
 
       {order.billingAddress && (
-        <Section title="Rechnungsadresse">
+        <Section title={t("orderDetail.secBillingAddr")}>
           <AddressBlock addr={order.billingAddress} />
         </Section>
       )}
 
       {/* Kunden-Notiz */}
       {order.guestNote && (
-        <Section title="Hinweis vom Kunden">
+        <Section title={t("orderDetail.secGuestNote")}>
           <p className="text-sm whitespace-pre-wrap">{order.guestNote}</p>
         </Section>
       )}
 
       {/* Studio-Notiz */}
-      <Section title="Interne Notiz">
+      <Section title={t("orderDetail.secInternalNote")}>
         <Textarea
           value={noteValue}
           onChange={(e) => setNoteValue(e.target.value)}
           rows={3}
-          placeholder="Notizen fuer das Studio-Team (nicht fuer den Kunden sichtbar)"
+          placeholder={t("orderDetail.notePlaceholder")}
         />
         <div className="flex justify-end mt-2">
           <Button
             size="sm"
             onClick={saveNote}
             disabled={busy || noteValue === (order.studioNote ?? "")}
-          >
-            Notiz speichern
-          </Button>
+          >{t("orderDetail.saveNote")}</Button>
         </div>
       </Section>
 
       {/* Timeline */}
-      <Section title="Verlauf">
+      <Section title={t("orderDetail.secHistory")}>
         <ol className="space-y-2">
           {order.events.map((e) => (
             <li key={e.id} className="flex gap-3 text-sm">
@@ -366,10 +369,10 @@ export default function OrderDetailPage({
                 {new Date(e.createdAt).toLocaleString("de-DE")}
               </span>
               <span className="flex-1 min-w-0">
-                <strong>{eventLabel(e.eventType)}</strong>
+                <strong>{t(eventLabel(e.eventType))}</strong>
                 <span className="text-ink-tertiary">
                   {" · "}
-                  {actorLabel(e.actor)}
+                  {t(actorLabel(e.actor))}
                 </span>
                 {e.data && Object.keys(e.data).length > 0 && (
                   <div className="text-xs text-ink-tertiary mt-0.5">
@@ -412,6 +415,7 @@ function ShippingDialog({
     trackingUrl?: string;
   }) => void;
 }) {
+  const t = useT();
   const [trackingNumber, setTrackingNumber] = useState("");
   const [trackingCarrier, setTrackingCarrier] = useState("DHL");
   const [trackingUrl, setTrackingUrl] = useState("");
@@ -426,10 +430,9 @@ function ShippingDialog({
       }}
     >
       <div className="bg-surface-raised rounded-md border border-line-subtle p-5 max-w-md w-full">
-        <h3 className="text-lg font-semibold mb-3">Als versendet markieren</h3>
+        <h3 className="text-lg font-semibold mb-3">{t("orderDetail.shipDialogTitle")}</h3>
         <p className="text-xs text-ink-tertiary mb-3">
-          Tracking-Daten sind optional, aber der Kunde bekommt eine Mail —
-          mit Tracking ist die Mail viel hilfreicher.
+          {t("orderDetail.shipDialogDesc")}
         </p>
         <form
           onSubmit={(e) => {
@@ -443,31 +446,25 @@ function ShippingDialog({
           className="space-y-3"
         >
           <label className="block">
-            <span className="block text-xs text-ink-tertiary mb-1">
-              Sendungsnummer
-            </span>
+            <span className="block text-xs text-ink-tertiary mb-1">{t("orderDetail.trackingNumber")}</span>
             <Input
               type="text"
               value={trackingNumber}
               onChange={(e) => setTrackingNumber(e.target.value)}
-              placeholder="z.B. 1Z999AA10123456784"
+              placeholder={t("orderDetail.trackingNumberPlaceholder")}
             />
           </label>
           <label className="block">
-            <span className="block text-xs text-ink-tertiary mb-1">
-              Versanddienstleister
-            </span>
+            <span className="block text-xs text-ink-tertiary mb-1">{t("orderDetail.trackingCarrier")}</span>
             <Input
               type="text"
               value={trackingCarrier}
               onChange={(e) => setTrackingCarrier(e.target.value)}
-              placeholder="DHL, UPS, DPD, ..."
+              placeholder={t("orderDetail.trackingCarrierPlaceholder")}
             />
           </label>
           <label className="block">
-            <span className="block text-xs text-ink-tertiary mb-1">
-              Tracking-URL (optional)
-            </span>
+            <span className="block text-xs text-ink-tertiary mb-1">{t("orderDetail.trackingUrlOptional")}</span>
             <Input
               type="url"
               value={trackingUrl}
@@ -480,10 +477,8 @@ function ShippingDialog({
               type="button"
               variant="secondary"
               onClick={onClose}
-            >
-              Abbrechen
-            </Button>
-            <Button type="submit">Versenden</Button>
+            >{t("common.cancel")}</Button>
+            <Button type="submit">{t("orderDetail.shipSubmit")}</Button>
           </div>
         </form>
       </div>
@@ -559,17 +554,17 @@ function transitionsForStatus(status: string): Array<
 function transitionLabel(t: string): string {
   switch (t) {
     case "mark_paid":
-      return "Als bezahlt markieren";
+      return "orderDetail.actMarkPaid";
     case "mark_in_production":
-      return "In Produktion";
+      return "orderDetail.actInProduction";
     case "mark_shipped":
-      return "Versendet";
+      return "orderDetail.actShipped";
     case "mark_delivered":
-      return "Zugestellt";
+      return "orderDetail.actDelivered";
     case "cancel":
-      return "Stornieren";
+      return "orderDetail.actCancel";
     case "refund":
-      return "Erstatten";
+      return "orderDetail.actRefund";
     default:
       return t;
   }
@@ -578,23 +573,23 @@ function transitionLabel(t: string): string {
 function eventLabel(t: string): string {
   switch (t) {
     case "created":
-      return "Bestellung angelegt";
+      return "orderDetail.evCreated";
     case "mark_paid":
-      return "Bezahlt";
+      return "orderDetail.evPaid";
     case "mark_in_production":
-      return "In Produktion";
+      return "orderDetail.evInProduction";
     case "mark_shipped":
-      return "Versendet";
+      return "orderDetail.evShipped";
     case "mark_delivered":
-      return "Zugestellt";
+      return "orderDetail.evDelivered";
     case "cancel":
-      return "Storniert";
+      return "orderDetail.evCancel";
     case "refund":
-      return "Erstattet";
+      return "orderDetail.evRefund";
     case "note_added":
-      return "Notiz hinzugefuegt";
+      return "orderDetail.evNote";
     case "mails_sent_paid":
-      return "Bestaetigungsmails versendet";
+      return "orderDetail.evMailsPaid";
     default:
       return t;
   }
@@ -603,13 +598,13 @@ function eventLabel(t: string): string {
 function actorLabel(a: string): string {
   switch (a) {
     case "guest":
-      return "Kunde";
+      return "orderDetail.actorGuest";
     case "studio":
-      return "Studio";
+      return "orderDetail.actorStudio";
     case "system":
-      return "System";
+      return "orderDetail.actorSystem";
     case "super_admin":
-      return "Super-Admin";
+      return "orderDetail.actorSuperAdmin";
     default:
       return a;
   }
