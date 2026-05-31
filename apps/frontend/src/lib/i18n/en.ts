@@ -449,6 +449,8 @@ export const en: Dict = {
     noAccessTitle: "No access",
     noAccessBody:
       "This gallery is only accessible via a personal share link.",
+    orderPrints: "Order prints",
+    orderPrintsTitle: "Order prints and wall art",
     // Lightbox
     close: "Close",
     previous: "Previous image",

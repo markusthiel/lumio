@@ -450,6 +450,8 @@ export const de: Dict = {
     noAccessTitle: "Kein Zugriff",
     noAccessBody:
       "Diese Galerie ist nur über einen persönlichen Freigabe-Link zugänglich.",
+    orderPrints: "Prints bestellen",
+    orderPrintsTitle: "Prints und Wandbilder bestellen",
     // Lightbox
     close: "Schließen",
     previous: "Vorheriges Bild",

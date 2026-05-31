@@ -302,10 +302,10 @@ export function GalleryView({
                   borderColor: "var(--brand-border)",
                   color: "var(--brand-fg)",
                 }}
-                title="Prints und Wandbilder bestellen"
+                title={t("gallery.orderPrintsTitle")}
               >
                 <PrintIcon />
-                <span>Prints bestellen</span>
+                <span>{t("gallery.orderPrints")}</span>
               </a>
             )}
             {/* Pick-Modus-Toggle — nur sichtbar wenn Downloads aktiviert
