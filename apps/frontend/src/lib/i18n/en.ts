@@ -1446,4 +1446,51 @@ export const en: Dict = {
     srcAllGalleries: "All galleries",
     srcSupport: "Support request",
   },
+
+  brandingEditor: {
+    notFound: "Profile not found.",
+    breadcrumbStudio: "Studio",
+    breadcrumb: "Branding",
+    defaultDesc:
+      "Tenant default — used for galleries without explicit branding",
+    makeDefault: "Set as default",
+    confirmDelete:
+      "Delete this branding profile? Galleries using it fall back to the default.",
+    confirmRemoveAsset: "Remove {label}?",
+    labelName: "Name",
+    labelPrimary: "Primary color (background)",
+    labelAccent: "Accent color (buttons, links)",
+    whereItWorks: "Where this applies:",
+    colorHelp:
+      "Primary color = gallery background and automatically matching text color (light-on-dark or vice versa). Accent = \"Start slideshow\" and \"Selection done\" buttons, like icon, focus indicators, comment submit. For empty galleries many of these elements aren't visible yet.",
+    labelFont: "Font",
+    fontInter: "Inter (default)",
+    fontSystem: "System",
+    introLabel: "Intro text (before the gallery)",
+    introPlaceholder: "e.g. welcome message for the client",
+    introHint:
+      "Markdown supported: # heading, **bold**, blank line for a paragraph.",
+    footerLabel: "Footer text",
+    footerPlaceholder: "© 2026 My Studio · All rights reserved",
+    labelLogo: "Logo",
+    labelLogoLight: "Logo (light)",
+    labelFavicon: "Favicon",
+    remLogoLight: "Light logo",
+    hintLogo: "PNG/JPEG/SVG, transparent recommended. Used on light surfaces.",
+    hintLogoLight:
+      "Light/white variant for dark gallery backgrounds. Optional — if empty, the default logo is used.",
+    hintFavicon: "PNG or ICO, square",
+    cssLabel: "Custom CSS (for power users)",
+    previewTitle: "Preview",
+    previewNote:
+      "Preview shows the branding roughly as clients see it. Images and layout adapt to the real gallery.",
+    colorPickerTitle: "Pick color",
+    nothingUploaded: "Nothing uploaded yet.",
+    replace: "Replace",
+    upload: "Upload",
+    removeBtn: "Remove",
+    previewLogo: "Logo",
+    demoGallery: "Demo gallery",
+    exampleAction: "Example action",
+  },
 };

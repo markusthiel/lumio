@@ -6,9 +6,11 @@ import Link from "next/link";
 import { api, type BrandingDetail } from "@/lib/api";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { MarkdownField } from "@/components/studio/MarkdownField";
+import { useT } from "@/lib/i18n";
 import { Button } from "@/components/ui";
 
 export default function BrandingEditorPage() {
+  const t = useT();
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const id = params.id;
@@ -54,7 +56,7 @@ export default function BrandingEditorPage() {
         router.replace("/login");
         return;
       }
-      setError(err instanceof Error ? err.message : "Fehler");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setLoading(false);
     }
@@ -79,7 +81,7 @@ export default function BrandingEditorPage() {
       });
       setBranding(updated);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setSaving(false);
     }
@@ -93,7 +95,7 @@ export default function BrandingEditorPage() {
   async function remove() {
     if (
       !confirm(
-        "Dieses Branding-Profil löschen? Galerien, die es nutzen, fallen auf das Default zurück."
+        t("brandingEditor.confirmDelete")
       )
     )
       return;
@@ -127,7 +129,7 @@ export default function BrandingEditorPage() {
       });
       setBranding(updated);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setUploadingKind(null);
     }
@@ -137,27 +139,25 @@ export default function BrandingEditorPage() {
     kind: "logo" | "logoLight" | "favicon"
   ) {
     const labels = {
-      logo: "Logo",
-      logoLight: "Helles Logo",
-      favicon: "Favicon",
+      logo: t("brandingEditor.labelLogo"),
+      logoLight: t("brandingEditor.remLogoLight"),
+      favicon: t("brandingEditor.labelFavicon"),
     } as const;
-    if (!confirm(`${labels[kind]} entfernen?`)) return;
+    if (!confirm(t("brandingEditor.confirmRemoveAsset", { label: labels[kind] }))) return;
     const { branding: updated } = await api.deleteBrandingAsset(id, kind);
     setBranding(updated);
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen text-ui text-ink-tertiary">
-        Lädt…
-      </div>
+      <div className="flex items-center justify-center h-screen text-ui text-ink-tertiary">{t("common.loading")}</div>
     );
   }
   if (!branding) {
     return (
       <div className="px-6 sm:px-8 lg:px-12 py-8">
         <div className="text-ui text-semantic-danger">
-          {error ?? "Profil nicht gefunden."}
+          {error ?? t("brandingEditor.notFound")}
         </div>
       </div>
     );
@@ -169,26 +169,22 @@ export default function BrandingEditorPage() {
     <>
       <PageHeader
         breadcrumb={[
-          { label: "Studio", href: "/studio" },
-          { label: "Branding", href: "/studio/brandings" },
+          { label: t("brandingEditor.breadcrumbStudio"), href: "/studio" },
+          { label: t("brandingEditor.breadcrumb"), href: "/studio/brandings" },
           { label: branding.name },
         ]}
         title={branding.name}
         description={
-          isDefault ? "Tenant-Default — wird für Galerien ohne explizites Branding verwendet" : undefined
+          isDefault ? t("brandingEditor.defaultDesc") : undefined
         }
         actions={
           <>
             {!isDefault && (
-              <Button variant="secondary" onClick={makeDefault}>
-                Als Default
-              </Button>
+              <Button variant="secondary" onClick={makeDefault}>{t("brandingEditor.makeDefault")}</Button>
             )}
-            <Button variant="danger" onClick={remove}>
-              Löschen
-            </Button>
+            <Button variant="danger" onClick={remove}>{t("common.delete")}</Button>
             <Button variant="primary" onClick={save} disabled={saving}>
-              {saving ? "Speichert…" : "Speichern"}
+              {saving ? t("common.saving") : t("common.save")}
             </Button>
           </>
         }
@@ -205,7 +201,7 @@ export default function BrandingEditorPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Form */}
           <div className="space-y-4">
-            <Field label="Name">
+            <Field label={t("brandingEditor.labelName")}>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -214,54 +210,50 @@ export default function BrandingEditorPage() {
             </Field>
 
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Primärfarbe (Hintergrund)">
+              <Field label={t("brandingEditor.labelPrimary")}>
                 <ColorField value={primaryColor} onChange={setPrimaryColor} />
               </Field>
-              <Field label="Akzentfarbe (Buttons, Links)">
+              <Field label={t("brandingEditor.labelAccent")}>
                 <ColorField value={accentColor} onChange={setAccentColor} />
               </Field>
             </div>
             <p className="text-ui-xs text-ink-tertiary -mt-2 mb-1 leading-relaxed">
-              <strong className="text-ink-secondary font-medium">Wo das wirkt:</strong>{" "}
-              Primärfarbe = Hintergrund der Galerie und automatisch
-              passende Textfarbe (hell-auf-dunkel oder umgekehrt).
-              Akzent = „Slideshow starten" und „Auswahl fertig"-Buttons,
-              Like-Icon, Fokus-Indikatoren, Komment-Submit. Bei leeren
-              Galerien sind viele dieser Elemente noch nicht sichtbar.
+              <strong className="text-ink-secondary font-medium">{t("brandingEditor.whereItWorks")}</strong>{" "}
+              {t("brandingEditor.colorHelp")}
             </p>
 
-            <Field label="Schrift">
+            <Field label={t("brandingEditor.labelFont")}>
               <select
                 value={fontFamily}
                 onChange={(e) => setFontFamily(e.target.value)}
                 className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm bg-surface-raised"
               >
-                <option value="Inter">Inter (Standard)</option>
+                <option value="Inter">{t("brandingEditor.fontInter")}</option>
                 <option value="Playfair Display">Playfair Display (Serif)</option>
                 <option value="Cormorant Garamond">Cormorant Garamond (Serif)</option>
                 <option value="DM Sans">DM Sans</option>
                 <option value="Lora">Lora (Serif)</option>
                 <option value="Montserrat">Montserrat</option>
                 <option value="Source Sans 3">Source Sans 3</option>
-                <option value="system-ui">System</option>
+                <option value="system-ui">{t("brandingEditor.fontSystem")}</option>
               </select>
             </Field>
 
             <MarkdownField
-              label="Intro-Text (vor der Galerie)"
+              label={t("brandingEditor.introLabel")}
               value={introText}
               onChange={setIntroText}
               rows={3}
               maxLength={2000}
-              placeholder="z.B. Begrüßung des Kunden"
-              hint="Markdown möglich: # Überschrift, **fett**, leere Zeile für Absatz."
+              placeholder={t("brandingEditor.introPlaceholder")}
+              hint={t("brandingEditor.introHint")}
             />
 
-            <Field label="Footer-Text">
+            <Field label={t("brandingEditor.footerLabel")}>
               <input
                 value={footerText}
                 onChange={(e) => setFooterText(e.target.value)}
-                placeholder="© 2026 Mein Studio · Alle Rechte vorbehalten"
+                placeholder={t("brandingEditor.footerPlaceholder")}
                 className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm"
               />
             </Field>
@@ -273,10 +265,10 @@ export default function BrandingEditorPage() {
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <AssetField
-                  label="Logo"
+                  label={t("brandingEditor.labelLogo")}
                   imageUrl={branding.logoUrl}
                   accept="image/png,image/jpeg,image/svg+xml"
-                  hint="PNG/JPEG/SVG, transparent empfohlen. Wird auf hellen Flächen genutzt."
+                  hint={t("brandingEditor.hintLogo")}
                   uploading={uploadingKind === "logo"}
                   inputRef={logoInputRef}
                   onPick={() => logoInputRef.current?.click()}
@@ -284,10 +276,10 @@ export default function BrandingEditorPage() {
                   onRemove={() => removeAsset("logo")}
                 />
                 <AssetField
-                  label="Logo (hell)"
+                  label={t("brandingEditor.labelLogoLight")}
                   imageUrl={branding.logoLightUrl}
                   accept="image/png,image/jpeg,image/svg+xml"
-                  hint="Helle/weiße Variante für dunkle Galerie-Hintergründe. Optional — wenn leer, wird das Standard-Logo verwendet."
+                  hint={t("brandingEditor.hintLogoLight")}
                   uploading={uploadingKind === "logoLight"}
                   inputRef={logoLightInputRef}
                   onPick={() => logoLightInputRef.current?.click()}
@@ -297,10 +289,10 @@ export default function BrandingEditorPage() {
                 />
               </div>
               <AssetField
-                label="Favicon"
+                label={t("brandingEditor.labelFavicon")}
                 imageUrl={branding.faviconUrl}
                 accept="image/png,image/x-icon,image/vnd.microsoft.icon"
-                hint="PNG oder ICO, quadratisch"
+                hint={t("brandingEditor.hintFavicon")}
                 uploading={uploadingKind === "favicon"}
                 inputRef={faviconInputRef}
                 onPick={() => faviconInputRef.current?.click()}
@@ -309,7 +301,7 @@ export default function BrandingEditorPage() {
               />
             </div>
 
-            <Field label="Custom CSS (für Power-User)">
+            <Field label={t("brandingEditor.cssLabel")}>
               <textarea
                 value={customCss}
                 onChange={(e) => setCustomCss(e.target.value)}
@@ -322,7 +314,7 @@ export default function BrandingEditorPage() {
 
           {/* Live-Preview */}
           <div className="space-y-2">
-            <div className="text-sm font-medium">Vorschau</div>
+            <div className="text-sm font-medium">{t("brandingEditor.previewTitle")}</div>
             <BrandingPreview
               primaryColor={primaryColor}
               accentColor={accentColor}
@@ -332,8 +324,7 @@ export default function BrandingEditorPage() {
               footerText={footerText}
             />
             <p className="text-xs text-ink-tertiary">
-              Vorschau zeigt das Branding ungefähr so, wie Kunden es sehen.
-              Bilder und Layout passen sich an die echte Galerie an.
+              {t("brandingEditor.previewNote")}
             </p>
           </div>
         </div>
@@ -367,6 +358,7 @@ function ColorField({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const t = useT();
   const valid = /^#[0-9a-fA-F]{6}$/.test(value.trim());
   return (
     <div className="flex items-center gap-2">
@@ -377,7 +369,7 @@ function ColorField({
       <label
         className="relative w-10 h-9 rounded border border-line-subtle cursor-pointer overflow-hidden shrink-0"
         style={{ backgroundColor: valid ? value : "transparent" }}
-        title="Farbe wählen"
+        title={t("brandingEditor.colorPickerTitle")}
       >
         <input
           type="color"
@@ -425,6 +417,7 @@ function AssetField({
    *  und helle Varianten sichtbar bleiben. */
   darkPreview?: boolean;
 }) {
+  const t = useT();
   const previewCls =
     previewHeight === "large"
       ? "min-h-[180px] max-h-[260px]"
@@ -464,9 +457,7 @@ function AssetField({
         ) : (
           <div
             className={`text-xs text-ink-tertiary text-center py-3 flex items-center justify-center ${previewCls}`}
-          >
-            Noch nichts hochgeladen.
-          </div>
+          >{t("brandingEditor.nothingUploaded")}</div>
         )}
         <div className="flex justify-between items-center gap-2">
           <button
@@ -474,15 +465,13 @@ function AssetField({
             disabled={uploading}
             className="text-xs px-2 py-1 rounded border border-line-subtle hover:bg-surface-raised disabled:opacity-50"
           >
-            {uploading ? "…" : imageUrl ? "Ersetzen" : "Hochladen"}
+            {uploading ? "…" : imageUrl ? t("brandingEditor.replace") : t("brandingEditor.upload")}
           </button>
           {imageUrl && (
             <button
               onClick={onRemove}
               className="text-xs text-red-600 hover:underline"
-            >
-              Entfernen
-            </button>
+            >{t("brandingEditor.removeBtn")}</button>
           )}
         </div>
         <div className="text-[10px] text-ink-tertiary">{hint}</div>
@@ -506,6 +495,7 @@ function BrandingPreview({
   introText: string;
   footerText: string;
 }) {
+  const t = useT();
   return (
     <div
       className="rounded-lg overflow-hidden border border-line-subtle shadow-sm"
@@ -517,13 +507,13 @@ function BrandingPreview({
           // eslint-disable-next-line @next/next/no-img-element
           <img src={logoUrl} alt="" className="h-8 max-w-[60%] object-contain" />
         ) : (
-          <div className="text-accent-contrast/40 text-xs italic">Logo</div>
+          <div className="text-accent-contrast/40 text-xs italic">{t("brandingEditor.previewLogo")}</div>
         )}
       </div>
 
       {/* Body */}
       <div className="p-6 space-y-4 text-accent-contrast">
-        <h2 className="text-xl">Demo-Galerie</h2>
+        <h2 className="text-xl">{t("brandingEditor.demoGallery")}</h2>
         {introText && (
           <p className="text-sm opacity-80 whitespace-pre-wrap">{introText}</p>
         )}
@@ -535,9 +525,7 @@ function BrandingPreview({
         <button
           className="text-sm px-3 py-1.5 rounded font-medium"
           style={{ backgroundColor: accentColor, color: primaryColor }}
-        >
-          Beispiel-Aktion
-        </button>
+        >{t("brandingEditor.exampleAction")}</button>
       </div>
 
       {/* Footer */}

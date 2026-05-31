@@ -1451,4 +1451,51 @@ export const de: Dict = {
     srcAllGalleries: "Alle Galerien",
     srcSupport: "Support-Anforderung",
   },
+
+  brandingEditor: {
+    notFound: "Profil nicht gefunden.",
+    breadcrumbStudio: "Studio",
+    breadcrumb: "Branding",
+    defaultDesc:
+      "Tenant-Default — wird für Galerien ohne explizites Branding verwendet",
+    makeDefault: "Als Default",
+    confirmDelete:
+      "Dieses Branding-Profil löschen? Galerien, die es nutzen, fallen auf das Default zurück.",
+    confirmRemoveAsset: "{label} entfernen?",
+    labelName: "Name",
+    labelPrimary: "Primärfarbe (Hintergrund)",
+    labelAccent: "Akzentfarbe (Buttons, Links)",
+    whereItWorks: "Wo das wirkt:",
+    colorHelp:
+      "Primärfarbe = Hintergrund der Galerie und automatisch passende Textfarbe (hell-auf-dunkel oder umgekehrt). Akzent = „Slideshow starten\" und „Auswahl fertig\"-Buttons, Like-Icon, Fokus-Indikatoren, Komment-Submit. Bei leeren Galerien sind viele dieser Elemente noch nicht sichtbar.",
+    labelFont: "Schrift",
+    fontInter: "Inter (Standard)",
+    fontSystem: "System",
+    introLabel: "Intro-Text (vor der Galerie)",
+    introPlaceholder: "z.B. Begrüßung des Kunden",
+    introHint:
+      "Markdown möglich: # Überschrift, **fett**, leere Zeile für Absatz.",
+    footerLabel: "Footer-Text",
+    footerPlaceholder: "© 2026 Mein Studio · Alle Rechte vorbehalten",
+    labelLogo: "Logo",
+    labelLogoLight: "Logo (hell)",
+    labelFavicon: "Favicon",
+    remLogoLight: "Helles Logo",
+    hintLogo: "PNG/JPEG/SVG, transparent empfohlen. Wird auf hellen Flächen genutzt.",
+    hintLogoLight:
+      "Helle/weiße Variante für dunkle Galerie-Hintergründe. Optional — wenn leer, wird das Standard-Logo verwendet.",
+    hintFavicon: "PNG oder ICO, quadratisch",
+    cssLabel: "Custom CSS (für Power-User)",
+    previewTitle: "Vorschau",
+    previewNote:
+      "Vorschau zeigt das Branding ungefähr so, wie Kunden es sehen. Bilder und Layout passen sich an die echte Galerie an.",
+    colorPickerTitle: "Farbe wählen",
+    nothingUploaded: "Noch nichts hochgeladen.",
+    replace: "Ersetzen",
+    upload: "Hochladen",
+    removeBtn: "Entfernen",
+    previewLogo: "Logo",
+    demoGallery: "Demo-Galerie",
+    exampleAction: "Beispiel-Aktion",
+  },
 };
