@@ -12,6 +12,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 import type {
   PrintProductCreateInput,
   PrintVariantCreateInput,
@@ -27,15 +28,16 @@ type ProviderMine = Awaited<
 >["providers"][number];
 
 const CATEGORIES = [
-  { value: "print", label: "Foto-Print" },
-  { value: "canvas", label: "Leinwand" },
-  { value: "photobook", label: "Photobook" },
-  { value: "frame", label: "Gerahmt" },
-  { value: "metal_print", label: "Metalldruck" },
-  { value: "poster", label: "Poster" },
+  { value: "print", label: "printProducts.catPrint" },
+  { value: "canvas", label: "printProducts.catCanvas" },
+  { value: "photobook", label: "printProducts.catPhotobook" },
+  { value: "frame", label: "printProducts.catFrame" },
+  { value: "metal_print", label: "printProducts.catMetalPrint" },
+  { value: "poster", label: "printProducts.catPoster" },
 ] as const;
 
 export default function PrintProductsPage() {
+  const t = useT();
   const [products, setProducts] = useState<Product[] | null>(null);
   const [providers, setProviders] = useState<ProviderMine[] | null>(null);
   const [editing, setEditing] = useState<
@@ -61,7 +63,7 @@ export default function PrintProductsPage() {
     } catch (err) {
       setMessage({
         kind: "danger",
-        text: err instanceof Error ? err.message : "Fehler",
+        text: err instanceof Error ? err.message : t("common.error"),
       });
     }
   }, []);
@@ -71,16 +73,16 @@ export default function PrintProductsPage() {
   }, [load]);
 
   async function deleteProduct(p: Product) {
-    if (!confirm(`Produkt '${p.name}' wirklich löschen?`)) return;
+    if (!confirm(t("printProducts.deleteProductConfirm", { name: p.name }))) return;
     setBusy(true);
     try {
       await api.deletePrintProduct(p.id);
       await load();
-      setMessage({ kind: "success", text: "Produkt gelöscht." });
+      setMessage({ kind: "success", text: t("printProducts.productDeleted") });
     } catch (err) {
       setMessage({
         kind: "danger",
-        text: err instanceof Error ? err.message : "Fehler",
+        text: err instanceof Error ? err.message : t("common.error"),
       });
     } finally {
       setBusy(false);
@@ -88,16 +90,16 @@ export default function PrintProductsPage() {
   }
 
   async function deleteVariant(v: Variant) {
-    if (!confirm(`Variante '${v.name}' wirklich löschen?`)) return;
+    if (!confirm(t("printProducts.deleteVariantConfirm", { name: v.name }))) return;
     setBusy(true);
     try {
       await api.deletePrintVariant(v.id);
       await load();
-      setMessage({ kind: "success", text: "Variante gelöscht." });
+      setMessage({ kind: "success", text: t("printProducts.variantDeleted") });
     } catch (err) {
       setMessage({
         kind: "danger",
-        text: err instanceof Error ? err.message : "Fehler",
+        text: err instanceof Error ? err.message : t("common.error"),
       });
     } finally {
       setBusy(false);
@@ -143,15 +145,11 @@ export default function PrintProductsPage() {
         <Button
           onClick={() => setEditing({ mode: "create-product" })}
           disabled={busy}
-        >
-          + Produkt
-        </Button>
+        >{t("printProducts.addProduct")}</Button>
       </div>
 
       {products.length === 0 ? (
-        <div className="rounded-md border border-line-subtle bg-surface-raised px-4 py-6 text-sm text-ink-tertiary text-center">
-          Noch keine Produkte angelegt.
-        </div>
+        <div className="rounded-md border border-line-subtle bg-surface-raised px-4 py-6 text-sm text-ink-tertiary text-center">{t("printProducts.noProducts")}</div>
       ) : (
         <ul className="space-y-3">
           {products.map((p) => (
@@ -164,7 +162,7 @@ export default function PrintProductsPage() {
                   <div className="flex items-center gap-2 flex-wrap mb-0.5">
                     <strong className="text-sm">{p.name}</strong>
                     <span className="text-xs px-1.5 py-0.5 rounded bg-surface-sunken text-ink-secondary">
-                      {CATEGORIES.find((c) => c.value === p.category)?.label ??
+                      {(() => { const cat = CATEGORIES.find((c) => c.value === p.category); return cat ? t(cat.label) : p.category; })() ??
                         p.category}
                     </span>
                     {!p.enabled && (
@@ -192,17 +190,13 @@ export default function PrintProductsPage() {
                     variant="secondary"
                     onClick={() => setEditing({ mode: "edit-product", product: p })}
                     disabled={busy}
-                  >
-                    Bearbeiten
-                  </Button>
+                  >{t("common.edit")}</Button>
                   <Button
                     size="sm"
                     variant="secondary"
                     onClick={() => deleteProduct(p)}
                     disabled={busy}
-                  >
-                    Löschen
-                  </Button>
+                  >{t("common.delete")}</Button>
                 </div>
               </div>
 
@@ -210,7 +204,7 @@ export default function PrintProductsPage() {
               <div className="border-t border-line-subtle pt-3 mt-3">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-medium text-ink-tertiary uppercase tracking-wide">
-                    Varianten ({p.variants.length})
+                    {t("printProducts.variantsCount", { n: p.variants.length })}
                   </span>
                   <Button
                     size="sm"
@@ -219,14 +213,11 @@ export default function PrintProductsPage() {
                       setEditing({ mode: "create-variant", product: p })
                     }
                     disabled={busy}
-                  >
-                    + Variante
-                  </Button>
+                  >{t("printProducts.addVariant")}</Button>
                 </div>
                 {p.variants.length === 0 ? (
                   <div className="text-xs text-ink-tertiary py-2 text-center">
-                    Noch keine Varianten — mindestens eine ist nötig damit
-                    Endkunden bestellen können.
+                    {t("printProducts.noVariants")}
                   </div>
                 ) : (
                   <ul className="space-y-1">
@@ -240,14 +231,14 @@ export default function PrintProductsPage() {
                           <span className="text-ink-tertiary">
                             · {v.widthMm}×{v.heightMm} mm
                             {v.finishType && ` · ${v.finishType}`}
-                            {!v.enabled && " · inaktiv"}
+                            {!v.enabled && t("printProducts.inactiveSuffix")}
                           </span>
                         </span>
                         <span className="text-sm tabular-nums">
                           {formatPrice(v.priceCents)}
                           {v.costCents !== null && (
                             <span className="text-ink-tertiary text-xs ml-1">
-                              (Kosten {formatPrice(v.costCents)})
+                              {t("printProducts.costNote", { price: formatPrice(v.costCents) })}
                             </span>
                           )}
                         </span>
@@ -262,17 +253,13 @@ export default function PrintProductsPage() {
                             })
                           }
                           disabled={busy}
-                        >
-                          Bearbeiten
-                        </Button>
+                        >{t("common.edit")}</Button>
                         <Button
                           size="sm"
                           variant="secondary"
                           onClick={() => deleteVariant(v)}
                           disabled={busy}
-                        >
-                          Löschen
-                        </Button>
+                        >{t("common.delete")}</Button>
                       </li>
                     ))}
                   </ul>
@@ -293,7 +280,7 @@ export default function PrintProductsPage() {
           onSaved={async () => {
             setEditing(null);
             await load();
-            setMessage({ kind: "success", text: "Gespeichert." });
+            setMessage({ kind: "success", text: t("printProducts.saved") });
           }}
         />
       )}
@@ -307,7 +294,7 @@ export default function PrintProductsPage() {
           onSaved={async () => {
             setEditing(null);
             await load();
-            setMessage({ kind: "success", text: "Gespeichert." });
+            setMessage({ kind: "success", text: t("printProducts.saved") });
           }}
         />
       )}
@@ -333,6 +320,7 @@ function ProductDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const t = useT();
   const [name, setName] = useState(existing?.name ?? "");
   const [description, setDescription] = useState(existing?.description ?? "");
   const [providerKey, setProviderKey] = useState(
@@ -364,32 +352,32 @@ function ProductDialog({
       }
       onSaved();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <Modal onClose={onClose} title={existing ? "Produkt bearbeiten" : "Produkt anlegen"}>
+    <Modal onClose={onClose} title={existing ? t("printProducts.editProductTitle") : t("printProducts.createProductTitle")}>
       <form onSubmit={submit} className="space-y-3">
-        <FormRow label="Name">
+        <FormRow label={t("printProducts.name")}>
           <Input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
-            placeholder="z.B. „Premium Foto-Print"
+            placeholder={t("printProducts.namePlaceholderProduct")}
           />
         </FormRow>
-        <FormRow label="Beschreibung (optional)">
+        <FormRow label={t("printProducts.descOptional")}>
           <Textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
           />
         </FormRow>
-        <FormRow label="Anbieter">
+        <FormRow label={t("printProducts.provider")}>
           <Select
             value={providerKey}
             onChange={(e) => setProviderKey(e.target.value)}
@@ -402,7 +390,7 @@ function ProductDialog({
             ))}
           </Select>
         </FormRow>
-        <FormRow label="Kategorie">
+        <FormRow label={t("printProducts.category")}>
           <Select
             value={category}
             onChange={(e) =>
@@ -411,7 +399,7 @@ function ProductDialog({
           >
             {CATEGORIES.map((c) => (
               <option key={c.value} value={c.value}>
-                {c.label}
+                {t(c.label)}
               </option>
             ))}
           </Select>
@@ -443,6 +431,7 @@ function VariantDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const t = useT();
   const [name, setName] = useState(existing?.name ?? "");
   const [widthMm, setWidthMm] = useState(String(existing?.widthMm ?? ""));
   const [heightMm, setHeightMm] = useState(String(existing?.heightMm ?? ""));
@@ -474,10 +463,10 @@ function VariantDialog({
         ? Math.round(parseFloat(costEuros) * 100)
         : null;
       if (!Number.isFinite(w) || w <= 0 || !Number.isFinite(h) || h <= 0) {
-        throw new Error("Breite und Höhe müssen positive Zahlen sein.");
+        throw new Error(t("printProducts.errWidthHeight"));
       }
       if (!Number.isFinite(price) || price < 0) {
-        throw new Error("Preis ungültig.");
+        throw new Error(t("printProducts.errPrice"));
       }
       const payload: PrintVariantCreateInput = {
         name: name.trim(),
@@ -496,26 +485,26 @@ function VariantDialog({
       }
       onSaved();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <Modal onClose={onClose} title={existing ? "Variante bearbeiten" : "Variante anlegen"}>
+    <Modal onClose={onClose} title={existing ? t("printProducts.editVariantTitle") : t("printProducts.createVariantTitle")}>
       <form onSubmit={submit} className="space-y-3">
-        <FormRow label="Name">
+        <FormRow label={t("printProducts.name")}>
           <Input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
-            placeholder="z.B. „20×30 Glanz"
+            placeholder={t("printProducts.namePlaceholderVariant")}
           />
         </FormRow>
         <div className="grid grid-cols-2 gap-3">
-          <FormRow label="Breite (mm)">
+          <FormRow label={t("printProducts.widthMm")}>
             <Input
               type="number"
               value={widthMm}
@@ -524,7 +513,7 @@ function VariantDialog({
               min={1}
             />
           </FormRow>
-          <FormRow label="Höhe (mm)">
+          <FormRow label={t("printProducts.heightMm")}>
             <Input
               type="number"
               value={heightMm}
@@ -534,25 +523,25 @@ function VariantDialog({
             />
           </FormRow>
         </div>
-        <FormRow label="Material/Finish (optional)">
+        <FormRow label={t("printProducts.materialFinish")}>
           <Input
             type="text"
             value={finishType}
             onChange={(e) => setFinishType(e.target.value)}
-            placeholder="z.B. matte, glossy, pearl, fine-art"
+            placeholder={t("printProducts.materialPlaceholder")}
           />
         </FormRow>
-        <FormRow label="Aspect-Ratio">
+        <FormRow label={t("printProducts.aspectRatio")}>
           <Select
             value={aspectMode}
             onChange={(e) => setAspectMode(e.target.value as "free" | "fixed")}
           >
-            <option value="free">Freier Crop (Endkunde wählt Ausschnitt)</option>
-            <option value="fixed">Festes Verhältnis (aus Größe abgeleitet)</option>
+            <option value="free">{t("printProducts.aspectFree")}</option>
+            <option value="fixed">{t("printProducts.aspectFixed")}</option>
           </Select>
         </FormRow>
         <div className="grid grid-cols-2 gap-3">
-          <FormRow label="Endkunden-Preis (EUR)">
+          <FormRow label={t("printProducts.priceEur")}>
             <Input
               type="number"
               step="0.01"
@@ -562,14 +551,14 @@ function VariantDialog({
               min={0}
             />
           </FormRow>
-          <FormRow label="Lab-Kosten (optional, EUR)">
+          <FormRow label={t("printProducts.costEur")}>
             <Input
               type="number"
               step="0.01"
               value={costEuros}
               onChange={(e) => setCostEuros(e.target.value)}
               min={0}
-              placeholder="für Margin-Anzeige"
+              placeholder={t("printProducts.costPlaceholder")}
             />
           </FormRow>
         </div>
@@ -578,9 +567,7 @@ function VariantDialog({
             type="checkbox"
             checked={enabled}
             onChange={(e) => setEnabled(e.target.checked)}
-          />
-          Aktiv
-        </label>
+          />{t("printProducts.active")}</label>
 
         {error && <FormError>{error}</FormError>}
         <DialogActions onClose={onClose} saving={saving} />
@@ -649,14 +636,11 @@ function DialogActions({
   onClose: () => void;
   saving: boolean;
 }) {
+  const t = useT();
   return (
     <div className="flex gap-2 justify-end pt-2">
-      <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>
-        Abbrechen
-      </Button>
-      <Button type="submit" disabled={saving}>
-        Speichern
-      </Button>
+      <Button type="button" variant="secondary" onClick={onClose} disabled={saving}>{t("common.cancel")}</Button>
+      <Button type="submit" disabled={saving}>{t("common.save")}</Button>
     </div>
   );
 }
