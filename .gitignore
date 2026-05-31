@@ -25,6 +25,8 @@ build/
 /infra/caddy/secrets/
 !/infra/caddy/secrets/.gitkeep
 !/infra/caddy/secrets/acmedns.json.example
+# acme-dns Live-Konfig (echte Domain/IP) — Vorlage: config.cfg
+/infra/acme-dns/config.local.cfg
 
 # Logs
 logs/

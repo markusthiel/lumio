@@ -327,7 +327,9 @@ services:
       - "${ACME_DNS_BIND_IP}:53:53/tcp"
       - "127.0.0.1:8053:80"  # API nur intern + via Caddy reverse-proxied
     volumes:
-      - ./infra/acme-dns/config.cfg:/etc/acme-dns/config.cfg:ro
+      # Live-Konfig liegt in config.local.cfg (gitignored, von git pull
+      # unberührt). Vorlage: infra/acme-dns/config.cfg.
+      - ./infra/acme-dns/config.local.cfg:/etc/acme-dns/config.cfg:ro
       - acme_dns_data:/var/lib/acme-dns
     networks:
       - lumio_net

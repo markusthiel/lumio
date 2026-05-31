@@ -142,7 +142,7 @@ jobs:
   # Benötigte Secrets (Forgejo → Repo → Settings → Actions → Secrets):
   #   DEPLOY_SSH_KEY  — privater SSH-Key (ed25519), passend zum public key
   #                     in ~/.ssh/authorized_keys auf dem Server
-  #   DEPLOY_HOST     — Server-IP oder Hostname (z.B. 167.233.25.29)
+  #   DEPLOY_HOST     — Server-IP oder Hostname (z.B. 203.0.113.10)
   #   DEPLOY_USER     — SSH-User (z.B. root)
   deploy:
     needs: build
