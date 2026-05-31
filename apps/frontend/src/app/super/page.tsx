@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { SuperShell } from "@/components/super/SuperShell";
+import { useT } from "@/lib/i18n";
 
 export default function SuperDashboardPage() {
   return (
@@ -16,6 +17,7 @@ export default function SuperDashboardPage() {
 type StatsResponse = Awaited<ReturnType<typeof api.superStats>>;
 
 function DashboardContent() {
+  const t = useT();
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
 
@@ -25,41 +27,39 @@ function DashboardContent() {
 
   return (
     <div className="px-4 sm:px-8 py-6 max-w-4xl">
-      <h1 className="text-2xl font-semibold mb-1">Übersicht</h1>
-      <p className="text-ui-sm text-ink-tertiary mb-6">
-        Plattform-Status auf einen Blick.
-      </p>
+      <h1 className="text-2xl font-semibold mb-1">{t("superDash.title")}</h1>
+      <p className="text-ui-sm text-ink-tertiary mb-6">{t("superDash.subtitle")}</p>
 
       {!stats ? (
-        <div className="text-ui text-ink-tertiary">Lädt…</div>
+        <div className="text-ui text-ink-tertiary">{t("common.loading")}</div>
       ) : (
         <>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
             <StatCard
-              label="Tenants aktiv"
+              label={t("superDash.statActive")}
               value={stats.tenants.active ?? 0}
               tone="success"
             />
             <StatCard
-              label="Tenants suspendiert"
+              label={t("superDash.statSuspended")}
               value={stats.tenants.suspended ?? 0}
               tone={stats.tenants.suspended ? "warning" : "neutral"}
             />
             <StatCard
-              label="Karenzphase (Löschung)"
+              label={t("superDash.statGrace")}
               value={stats.tenants.pending_deletion ?? 0}
               tone={
                 (stats.tenants.pending_deletion ?? 0) > 0 ? "warning" : "neutral"
               }
             />
             <StatCard
-              label="Tenants archiviert"
+              label={t("superDash.statArchived")}
               value={stats.tenants.archived ?? 0}
               tone="neutral"
             />
-            <StatCard label="User insgesamt" value={stats.totalUsers} />
-            <StatCard label="Galerien insgesamt" value={stats.totalGalleries} />
-            <StatCard label="Files insgesamt" value={stats.totalFiles} />
+            <StatCard label={t("superDash.statUsers")} value={stats.totalUsers} />
+            <StatCard label={t("superDash.statGalleries")} value={stats.totalGalleries} />
+            <StatCard label={t("superDash.statFiles")} value={stats.totalFiles} />
           </div>
 
           {stats.failedPayments.length > 0 && (
@@ -92,13 +92,12 @@ function PendingDeletionsList({
   pending: StatsResponse["pendingDeletions"];
   onChange: () => void;
 }) {
+  const t = useT();
   return (
     <section className="mt-8">
-      <h2 className="text-lg font-semibold mb-1">Tenants in Karenzphase</h2>
+      <h2 className="text-lg font-semibold mb-1">{t("superDash.graceTitle")}</h2>
       <p className="text-ui-sm text-ink-tertiary mb-4">
-        Diese Studios sind zur endgültigen Löschung markiert. Sie können sich
-        bis zum Stichtag selbst zurücknehmen oder du machst es manuell — z.B.
-        wenn der Owner sich nicht mehr einloggen kann.
+        {t("superDash.graceDesc")}
       </p>
       <div className="border border-line-subtle rounded-md bg-surface-raised divide-y divide-line-subtle">
         {pending.map((t) => (
@@ -116,6 +115,7 @@ function PendingDeletionRow({
   tenant: StatsResponse["pendingDeletions"][number];
   onChange: () => void;
 }) {
+  const t = useT();
   const [confirming, setConfirming] = useState(false);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -155,7 +155,7 @@ function PendingDeletionRow({
       await api.superCancelSelfDeletion(tenant.id);
       onChange();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setWorking(false);
     }
@@ -172,11 +172,11 @@ function PendingDeletionRow({
         </Link>
         {tenant.ownerEmail && (
           <div className="text-xs text-ink-tertiary truncate">
-            Owner: {tenant.ownerName ?? tenant.ownerEmail} ({tenant.ownerEmail})
+            {t("superDash.ownerLabel")} {tenant.ownerName ?? tenant.ownerEmail} ({tenant.ownerEmail})
           </div>
         )}
         <div className="text-xs text-ink-tertiary mt-0.5">
-          Löschung am {dateStr}
+          {t("superDash.deletionOn", { date: dateStr })}
           {daysRemaining !== null && (
             <span
               className={
@@ -187,10 +187,10 @@ function PendingDeletionRow({
             >
               {" · "}
               {daysRemaining === 0
-                ? "heute"
+                ? t("superDash.today")
                 : daysRemaining === 1
-                  ? "morgen"
-                  : `in ${daysRemaining} Tagen`}
+                  ? t("superDash.tomorrow")
+                  : t("superDash.inDays", { n: daysRemaining })}
             </span>
           )}
         </div>
@@ -209,10 +209,10 @@ function PendingDeletionRow({
           }
         >
           {working
-            ? "Wird zurückgenommen…"
+            ? t("superDash.undoing")
             : confirming
-              ? "Sicher? Nochmal klicken"
-              : "Löschung zurücknehmen"}
+              ? t("superDash.confirmUndo")
+              : t("superDash.undoDeletion")}
         </button>
       </div>
     </div>
@@ -254,13 +254,12 @@ function RecentSignupsList({
 }: {
   signups: StatsResponse["recentSignups"];
 }) {
+  const t = useT();
   return (
     <section>
-      <h2 className="text-lg font-semibold mb-3">Neueste Signups</h2>
+      <h2 className="text-lg font-semibold mb-3">{t("superDash.recentTitle")}</h2>
       {signups.length === 0 ? (
-        <div className="text-sm text-ink-tertiary">
-          Noch keine Signups.
-        </div>
+        <div className="text-sm text-ink-tertiary">{t("superDash.noSignups")}</div>
       ) : (
         <div className="border border-line-subtle rounded-md bg-surface-raised divide-y divide-line-subtle">
           {signups.map((s) => (
@@ -273,7 +272,7 @@ function RecentSignupsList({
                 <div className="min-w-0">
                   <div className="text-sm font-medium truncate">{s.name}</div>
                   <div className="text-xs text-ink-tertiary truncate">
-                    {s.planName ?? "Kein Plan"}
+                    {s.planName ?? t("superDash.noPlan")}
                     {s.subscriptionStatus && (
                       <>
                         {" · "}
@@ -283,7 +282,7 @@ function RecentSignupsList({
                   </div>
                 </div>
                 <div className="text-xs text-ink-tertiary shrink-0">
-                  {relativeTime(s.createdAt)}
+                  {relativeTime(s.createdAt, t)}
                 </div>
               </div>
             </Link>
@@ -305,13 +304,12 @@ function PlanDistribution({
 }: {
   plans: StatsResponse["planDistribution"];
 }) {
+  const t = useT();
   if (plans.length === 0) {
     return (
       <section>
-        <h2 className="text-lg font-semibold mb-3">Plan-Verteilung</h2>
-        <div className="text-sm text-ink-tertiary">
-          Noch keine Subscriptions.
-        </div>
+        <h2 className="text-lg font-semibold mb-3">{t("superDash.planDistTitle")}</h2>
+        <div className="text-sm text-ink-tertiary">{t("superDash.noSubs")}</div>
       </section>
     );
   }
@@ -320,14 +318,14 @@ function PlanDistribution({
 
   return (
     <section>
-      <h2 className="text-lg font-semibold mb-3">Plan-Verteilung</h2>
+      <h2 className="text-lg font-semibold mb-3">{t("superDash.planDistTitle")}</h2>
       <div className="border border-line-subtle rounded-md bg-surface-raised p-4 space-y-3">
         {plans.map((p) => (
           <div key={p.planId}>
             <div className="flex items-baseline justify-between mb-1 text-sm">
               <span className="font-medium">{p.planName}</span>
               <span className="text-ink-tertiary">
-                {p.total} {p.total === 1 ? "Tenant" : "Tenants"}
+                {p.total} {t(p.total === 1 ? "superDash.tenant" : "superDash.tenants")}
               </span>
             </div>
             <StatusStackBar
@@ -414,6 +412,7 @@ function SignupsSparkline({
 }: {
   weekly: StatsResponse["signupsPerWeek"];
 }) {
+  const t = useT();
   if (weekly.length === 0) return null;
   const max = Math.max(...weekly.map((w) => w.count), 1);
   const total = weekly.reduce((sum, w) => sum + w.count, 0);
@@ -424,9 +423,9 @@ function SignupsSparkline({
   return (
     <section className="mt-8">
       <div className="flex items-baseline justify-between mb-2">
-        <h2 className="text-lg font-semibold">Signups · letzte 12 Wochen</h2>
+        <h2 className="text-lg font-semibold">{t("superDash.signupsTitle")}</h2>
         <span className="text-sm text-ink-tertiary">
-          {total} {total === 1 ? "Tenant" : "Tenants"} insgesamt
+          {total} {t(total === 1 ? "superDash.tenant" : "superDash.tenants")} {t("superDash.totalSuffix")}
         </span>
       </div>
       <div className="border border-line-subtle rounded-md bg-surface-raised p-4">
@@ -448,8 +447,8 @@ function SignupsSparkline({
                   opacity={w.count === 0 ? 0.2 : 1}
                 >
                   <title>
-                    KW ab {w.weekStart}: {w.count}{" "}
-                    {w.count === 1 ? "Signup" : "Signups"}
+                    {t("superDash.weekOf")} {w.weekStart}: {w.count}{" "}
+                    {t(w.count === 1 ? "superDash.signup" : "superDash.signups")}
                   </title>
                 </rect>
               </g>
@@ -461,15 +460,18 @@ function SignupsSparkline({
   );
 }
 
-function relativeTime(iso: string): string {
+function relativeTime(
+  iso: string,
+  t: (key: string, vars?: Record<string, string | number>) => string
+): string {
   const ms = Date.now() - new Date(iso).getTime();
   const m = Math.floor(ms / 60000);
-  if (m < 1) return "gerade eben";
-  if (m < 60) return `vor ${m} min`;
+  if (m < 1) return t("superDash.justNow");
+  if (m < 60) return t("superDash.minAgo", { m });
   const h = Math.floor(m / 60);
-  if (h < 24) return `vor ${h}h`;
+  if (h < 24) return t("superDash.hAgo", { h });
   const d = Math.floor(h / 24);
-  if (d < 30) return `vor ${d} ${d === 1 ? "Tag" : "Tagen"}`;
+  if (d < 30) return t(d === 1 ? "superDash.dayAgo" : "superDash.daysAgo", { d });
   return new Date(iso).toLocaleDateString("de-DE", {
     day: "2-digit",
     month: "short",
@@ -487,14 +489,14 @@ function FailedPaymentsList({
 }: {
   payments: StatsResponse["failedPayments"];
 }) {
+  const t = useT();
   return (
     <section className="mt-6">
       <h2 className="text-lg font-semibold mb-1 text-semantic-danger">
-        Zahlungsprobleme · {payments.length}
+        {t("superDash.paymentIssues")} · {payments.length}
       </h2>
       <p className="text-ui-sm text-ink-tertiary mb-3">
-        Subscriptions mit Status past_due, unpaid oder incomplete. Älteste
-        zuerst — die brauchen am dringensten Aufmerksamkeit.
+        {t("superDash.paymentIssuesDesc")}
       </p>
       <div className="border border-semantic-danger/30 rounded-md bg-semantic-danger/5 divide-y divide-line-subtle">
         {payments.map((p) => (
@@ -510,6 +512,7 @@ function FailedPaymentRow({
 }: {
   payment: StatsResponse["failedPayments"][number];
 }) {
+  const t = useT();
   const sinceDays = Math.floor(
     (Date.now() - new Date(payment.problemSince).getTime()) /
       (1000 * 60 * 60 * 24)
@@ -529,9 +532,7 @@ function FailedPaymentRow({
             {payment.status}
           </span>
           {payment.readOnlySince && (
-            <span className="text-xs px-1.5 py-0.5 rounded bg-semantic-warning/15 text-semantic-warning">
-              Read-Only
-            </span>
+            <span className="text-xs px-1.5 py-0.5 rounded bg-semantic-warning/15 text-semantic-warning">{t("superDash.readOnly")}</span>
           )}
         </div>
         <div className="text-xs text-ink-tertiary mt-0.5 truncate">
@@ -544,10 +545,10 @@ function FailedPaymentRow({
           )}
           {" · "}
           {sinceDays === 0
-            ? "heute eskaliert"
+            ? t("superDash.escalatedToday")
             : sinceDays === 1
-              ? "seit gestern"
-              : `seit ${sinceDays} Tagen`}
+              ? t("superDash.sinceYesterday")
+              : t("superDash.sinceDaysN", { n: sinceDays })}
         </div>
       </div>
       {payment.stripeCustomerId && (
@@ -557,9 +558,7 @@ function FailedPaymentRow({
           rel="noopener noreferrer"
           className="text-xs px-3 py-1.5 rounded border border-line-subtle hover:bg-surface-sunken whitespace-nowrap"
           onClick={(e) => e.stopPropagation()}
-        >
-          ↗ In Stripe öffnen
-        </a>
+        >{t("superDash.openInStripe")}</a>
       )}
     </div>
   );
