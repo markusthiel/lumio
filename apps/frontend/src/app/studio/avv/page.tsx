@@ -158,7 +158,7 @@ export default function StudioAvvPage() {
                 <div className="text-ui-sm">
                   <div className="font-medium text-amber-700">{t("avv.statusNewVersionTitle")}</div>
                   <div className="text-ink-secondary mt-0.5">
-                    {t("avv.newVersionDetail", { yourVersion: acceptance.version, currentVersion: status?.currentVersion })}
+                    {t("avv.newVersionDetail", { yourVersion: acceptance.version, currentVersion: status?.currentVersion ?? "" })}
                   </div>
                 </div>
               </div>

@@ -124,7 +124,7 @@ export default function ShippingMethodsPage() {
                     <>
                       {" · "}
                       {m.estimatedDaysMin === m.estimatedDaysMax
-                        ? t("shipping.daysExact", { n: m.estimatedDaysMin })
+                        ? t("shipping.daysExact", { n: m.estimatedDaysMin ?? "?" })
                         : t("shipping.daysRange", { min: m.estimatedDaysMin ?? "?", max: m.estimatedDaysMax ?? "?" })}
                     </>
                   )}
