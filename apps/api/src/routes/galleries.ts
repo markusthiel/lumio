@@ -152,12 +152,8 @@ export async function loadVisitor(
 
   const claims = verifyVisitorToken(cookie);
   if (!claims || claims.gid !== gallery.id) return null;
-  if (gallery.passwordHash && !claims.pw) return null;
 
-  // Kam der Besucher über einen Freigabe-Link (claims.aid)? Dann prüfen,
-  // ob dieser noch gültig ist (existiert, gehört zur Galerie, nicht
-  // abgelaufen). Ein abgelaufener/gelöschter Link verliert den Zugang —
-  // sonst liefe er nie wirklich ab.
+  // Kam der Besucher über einen Freigabe-Link (claims.aid)?
   if (claims.aid) {
     const access = await prisma.galleryAccess.findUnique({
       where: { id: claims.aid },
@@ -168,22 +164,24 @@ export async function loadVisitor(
       access.galleryId === gallery.id &&
       (access.expiresAt === null || access.expiresAt >= new Date());
     if (!linkValid) {
-      // Link ungültig: öffentliche, passwortlose Galerie erlaubt weiter
-      // anonymes Browsen, sonst gesperrt.
+      // Link ungültig/abgelaufen: öffentliche, passwortlose Galerie
+      // erlaubt weiter anonymes Browsen, sonst gesperrt.
       if (gallery.publicAccess && !gallery.passwordHash) {
         return { galleryId: gallery.id, accessId: null };
       }
       return null;
     }
-    // Hat der Link ein eigenes Passwort, muss es eingegeben worden sein
-    // (claims.pw). Greift auch, wenn die Galerie selbst passwortlos ist.
+    // Token-Inhaber: das Galerie-Passwort gilt NICHT — der Link ist
+    // bereits der Ausweis. Nur ein eigenes Link-Passwort muss (falls
+    // gesetzt) eingegeben worden sein.
     if (access.passwordHash && !claims.pw) return null;
-  } else if (!gallery.publicAccess) {
-    // Anonymes Cookie (kein Link), aber Galerie ist nicht öffentlich.
-    return null;
+    return { galleryId: gallery.id, accessId: claims.aid };
   }
 
-  return { galleryId: gallery.id, accessId: claims.aid };
+  // Anonymes Cookie (kein Link): Galerie-Passwort und publicAccess gelten.
+  if (gallery.passwordHash && !claims.pw) return null;
+  if (!gallery.publicAccess) return null;
+  return { galleryId: gallery.id, accessId: null };
 }
 
 /** Parst ein ISO-Datum oder gibt undefined zurück bei Invalid-Date.
@@ -1492,11 +1490,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
     let unlocked = false;
     if (cookie) {
       const claims = verifyVisitorToken(cookie);
-      if (
-        claims &&
-        claims.gid === gallery.id &&
-        (!gallery.passwordHash || claims.pw)
-      ) {
+      if (claims && claims.gid === gallery.id) {
         if (claims.aid) {
           const access = await prisma.galleryAccess.findUnique({
             where: { id: claims.aid },
@@ -1510,16 +1504,20 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
             access &&
             access.galleryId === gallery.id &&
             (access.expiresAt === null || access.expiresAt >= new Date());
-          // Hat der Link ein Passwort, gilt er erst nach Eingabe (pw).
-          const linkPwOk = !access?.passwordHash || claims.pw;
-          // Gültiger Link → unlocked. Sonst nur, wenn die Galerie auch
-          // anonym offen ist (öffentlich + passwortlos).
-          unlocked =
-            (!!linkValid && linkPwOk) ||
-            (gallery.publicAccess && !gallery.passwordHash);
+          if (linkValid) {
+            // Token-Inhaber: Galerie-Passwort gilt nicht, nur ein
+            // eigenes Link-Passwort (falls gesetzt).
+            unlocked = !access?.passwordHash || claims.pw;
+          } else {
+            // Link ungültig → wie anonym behandeln.
+            unlocked =
+              gallery.publicAccess &&
+              (!gallery.passwordHash || claims.pw);
+          }
         } else {
-          // Anonymes Cookie: nur bei öffentlicher Galerie gültig.
-          unlocked = gallery.publicAccess;
+          // Anonymes Cookie: Galerie-Passwort + publicAccess gelten.
+          unlocked =
+            gallery.publicAccess && (!gallery.passwordHash || claims.pw);
         }
       }
     }
@@ -1760,10 +1758,11 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         return reply.status(403).send({ error: "access_required" });
       }
 
-      // 3. Passwort prüfen. Ein Link-Passwort hat Vorrang vor dem
-      //    Galerie-Passwort: wer über einen passwortgeschützten Link
-      //    kommt, gibt dessen Passwort ein.
-      const requiredHash = linkPasswordHash ?? gallery.passwordHash;
+      // 3. Passwort prüfen. Ein gültiger Freigabe-Link umgeht das
+      //    Galerie-Passwort (der Token ist bereits der Ausweis) — nur
+      //    ein eigenes Link-Passwort gilt dann. Anonyme Besucher
+      //    brauchen das Galerie-Passwort.
+      const requiredHash = accessId ? linkPasswordHash : gallery.passwordHash;
       let passwordOk = !requiredHash;
       if (requiredHash) {
         if (!body.password) {
