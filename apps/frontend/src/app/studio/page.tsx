@@ -928,7 +928,7 @@ function GalleryCard({
         </span>
       )}
       {isCollab && stats && stats.selected > 0 && (
-        <span className="inline-flex items-center gap-1" title="Ausgewählt">
+        <span className="inline-flex items-center gap-1" title={t("studio.selected")}>
           <svg
             width="12"
             height="12"

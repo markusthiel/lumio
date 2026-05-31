@@ -41,6 +41,8 @@ export const de: Dict = {
     audit: "Audit",
     billing: "Plan & Speicher",
     settings: "Einstellungen",
+    menuOpen: "Menü öffnen",
+    menuClose: "Menü schließen",
     logout: "Abmelden",
   },
 
@@ -443,6 +445,7 @@ export const de: Dict = {
         "Wert überschreitet das Hard-Cap dieser Instanz ({cap} MiB).",
     },
     activeUploads: "Aktive Uploads",
+    selected: "Ausgewählt",
     secSyncTitle: "Files mit dem Tag in die Section, andere raus",
     secSyncing: "Sync…",
     secSyncNow: "Jetzt synchronisieren",
@@ -2001,5 +2004,20 @@ export const de: Dict = {
     invalidBody: "Der Setup-Link funktioniert nicht mehr. Bitte den Administrator um einen neuen Link.",
     inactiveTitle: "Konto nicht verfügbar",
     inactiveBody: "Dein Studio ist momentan deaktiviert. Bitte wende dich an den Administrator.",
+  },
+
+  apiTokens: {
+    title: "API-Tokens",
+    desc: "Für Plugins (z.B. Lightroom) und CLI-Tools. Tokens haben dieselben Rechte wie dein Studio-Account und sind einzeln widerrufbar.",
+    revokeConfirm: "Token „{name}“ widerrufen?",
+    created: "Token „{name}“ wurde erstellt. Kopiere ihn jetzt — er wird nicht erneut angezeigt.",
+    copy: "Kopieren",
+    placeholder: "z.B. Lightroom Studio-Mac",
+    createBtn: "Token erstellen",
+    empty: "Keine Tokens.",
+    createdAt: "Erstellt {date}",
+    lastUsed: " · zuletzt verwendet {date}",
+    neverUsed: " · noch nicht verwendet",
+    revoke: "Widerrufen",
   },
 };

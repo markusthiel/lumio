@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api, type ApiTokenSummary } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 /**
  * Studio-Settings-Sektion zum Verwalten von API-Tokens.
@@ -15,6 +16,7 @@ import { api, type ApiTokenSummary } from "@/lib/api";
  * Token erzeugen.
  */
 export function ApiTokensSection() {
+  const t = useT();
   const [tokens, setTokens] = useState<ApiTokenSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [newName, setNewName] = useState("");
@@ -58,7 +60,7 @@ export function ApiTokensSection() {
   }
 
   async function revoke(id: string, name: string) {
-    if (!window.confirm(`Token "${name}" widerrufen?`)) return;
+    if (!window.confirm(t("apiTokens.revokeConfirm", { name }))) return;
     try {
       await api.revokeApiToken(id);
       await load();
@@ -77,10 +79,9 @@ export function ApiTokensSection() {
   return (
     <section className="rounded-lg border border-line-subtle bg-surface-raised p-5 space-y-4">
       <div>
-        <h2 className="text-sm font-medium">API-Tokens</h2>
+        <h2 className="text-sm font-medium">{t("apiTokens.title")}</h2>
         <p className="text-xs text-ink-tertiary mt-0.5">
-          Für Plugins (z.B. Lightroom) und CLI-Tools. Tokens haben dieselben
-          Rechte wie dein Studio-Account und sind einzeln widerrufbar.
+          {t("apiTokens.desc")}
         </p>
       </div>
 
@@ -88,8 +89,7 @@ export function ApiTokensSection() {
       {justCreated && (
         <div className="rounded-md border border-semantic-warning/30 bg-semantic-warning/10 p-3 space-y-2">
           <div className="text-xs font-medium text-semantic-warning">
-            Token „{justCreated.name}" wurde erstellt. Kopiere ihn jetzt —
-            er wird nicht erneut angezeigt.
+            {t("apiTokens.created", { name: justCreated.name })}
           </div>
           <div className="flex items-center gap-2">
             <code className="flex-1 font-mono text-xs bg-surface-raised border border-semantic-warning/30 rounded px-2 py-1.5 overflow-x-auto whitespace-nowrap">
@@ -100,13 +100,13 @@ export function ApiTokensSection() {
               onClick={copyToken}
               className="text-xs px-2 py-1.5 rounded border border-semantic-warning/40 bg-surface-raised hover:bg-semantic-warning/15 whitespace-nowrap"
             >
-              {copied ? "✓" : "Kopieren"}
+              {copied ? "✓" : t("apiTokens.copy")}
             </button>
             <button
               type="button"
               onClick={() => setJustCreated(null)}
               className="text-xs px-2 py-1.5 rounded border border-semantic-warning/40 bg-surface-raised hover:bg-semantic-warning/15"
-              aria-label="Schließen"
+              aria-label={t("common.close")}
             >
               ✕
             </button>
@@ -120,7 +120,7 @@ export function ApiTokensSection() {
           type="text"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
-          placeholder="z.B. Lightroom Studio-Mac"
+          placeholder={t("apiTokens.placeholder")}
           maxLength={100}
           className="flex-1 rounded-md border border-line-subtle px-3 py-1.5 text-sm"
         />
@@ -129,13 +129,13 @@ export function ApiTokensSection() {
           disabled={creating || !newName.trim()}
           className="text-sm px-3 py-1.5 rounded-md bg-accent text-accent-contrast hover:bg-accent-hover disabled:opacity-50 whitespace-nowrap"
         >
-          {creating ? "…" : "Token erstellen"}
+          {creating ? "…" : t("apiTokens.createBtn")}
         </button>
       </form>
 
       {/* Liste */}
       {!loading && tokens.length === 0 && (
-        <p className="text-xs text-ink-tertiary italic">Keine Tokens.</p>
+        <p className="text-xs text-ink-tertiary italic">{t("apiTokens.empty")}</p>
       )}
       {tokens.length > 0 && (
         <ul className="divide-y divide-line-subtle border border-line-subtle rounded-md">
@@ -147,10 +147,10 @@ export function ApiTokensSection() {
               <div className="flex-1 min-w-0">
                 <div className="font-medium truncate">{tok.name}</div>
                 <div className="text-xs text-ink-tertiary mt-0.5">
-                  Erstellt {formatDate(tok.createdAt)}
+                  {t("apiTokens.createdAt", { date: formatDate(tok.createdAt) })}
                   {tok.lastUsedAt
-                    ? ` · zuletzt verwendet ${formatDate(tok.lastUsedAt)}`
-                    : " · noch nicht verwendet"}
+                    ? t("apiTokens.lastUsed", { date: formatDate(tok.lastUsedAt) })
+                    : t("apiTokens.neverUsed")}
                 </div>
               </div>
               <button
@@ -158,7 +158,7 @@ export function ApiTokensSection() {
                 onClick={() => revoke(tok.id, tok.name)}
                 className="text-xs text-semantic-danger hover:underline whitespace-nowrap"
               >
-                Widerrufen
+                {t("apiTokens.revoke")}
               </button>
             </li>
           ))}

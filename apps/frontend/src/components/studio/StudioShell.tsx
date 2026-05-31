@@ -250,7 +250,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
       <button
         type="button"
         onClick={() => setMobileOpen(true)}
-        aria-label="Menü öffnen"
+        aria-label={t("nav.menuOpen")}
         className="fixed top-3 left-3 z-30 sm:hidden h-9 w-9 rounded bg-surface-raised border border-line-subtle flex items-center justify-center text-ink-primary"
       >
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -332,7 +332,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
       {mobileOpen && (
         <button
           type="button"
-          aria-label="Menü schließen"
+          aria-label={t("nav.menuClose")}
           onClick={() => setMobileOpen(false)}
           className="fixed inset-0 z-30 bg-black/40 sm:hidden"
         />
