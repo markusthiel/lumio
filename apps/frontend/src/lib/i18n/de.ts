@@ -24,6 +24,10 @@ export const de: Dict = {
 
   nav: {
     studio: "Studio",
+    analytics: "Analytics",
+    printShop: "Print-Shop",
+    design: "Gestaltung",
+    accountGroup: "Konto",
     galleries: "Galerien",
     branding: "Branding",
     brandings: "Brandings",
@@ -34,6 +38,17 @@ export const de: Dict = {
     billing: "Plan & Speicher",
     settings: "Einstellungen",
     logout: "Abmelden",
+  },
+
+  subtabs: {
+    studioLogin: "Studio & Login",
+    general: "Allgemein",
+    team: "Team",
+    integrations: "Integrationen",
+    dataExport: "Datenexport",
+    dpa: "AV-Vertrag",
+    myAccount: "Mein Konto",
+    aria: "Unterbereiche",
   },
 
   login: {
@@ -424,6 +439,19 @@ export const de: Dict = {
         "Wert überschreitet das Hard-Cap dieser Instanz ({cap} MiB).",
     },
     activeUploads: "Aktive Uploads",
+    tabMedia: "Medien",
+    dropzone: "Dateien hier ablegen oder klicken zum Auswählen",
+    tabShare: "Teilen",
+    tabInsights: "Auswahl & Statistik",
+    tabSettings: "Einstellungen",
+    subSelection: "Auswahl",
+    subStats: "Statistik",
+    prepSg: "Datei wird vorbereitet…",
+    prepPl: "Dateien werden vorbereitet…",
+    dupNamedSg: "{n} Datei hat denselben Namen wie eine bereits in der Galerie vorhandene Datei.",
+    dupNamedPl: "{n} Dateien haben denselben Namen wie bereits in der Galerie vorhandene Dateien.",
+    dupRemainSg: "Die übrigen {m} Datei ist neu.",
+    dupRemainPl: "Die übrigen {m} Dateien sind neu.",
     zeroSizeTitleAll: "Dateien konnten nicht gelesen werden",
     zeroSizeTitleSome: "{count} von {total} Dateien übersprungen",
     zeroSizeMessage:

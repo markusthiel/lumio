@@ -24,6 +24,10 @@ export const en: Dict = {
 
   nav: {
     studio: "Studio",
+    analytics: "Analytics",
+    printShop: "Print shop",
+    design: "Design",
+    accountGroup: "Account",
     galleries: "Galleries",
     branding: "Branding",
     brandings: "Brandings",
@@ -34,6 +38,17 @@ export const en: Dict = {
     billing: "Plan & Storage",
     settings: "Settings",
     logout: "Logout",
+  },
+
+  subtabs: {
+    studioLogin: "Studio & login",
+    general: "General",
+    team: "Team",
+    integrations: "Integrations",
+    dataExport: "Data export",
+    dpa: "DPA",
+    myAccount: "My account",
+    aria: "Sub-areas",
   },
 
   login: {
@@ -424,6 +439,19 @@ export const en: Dict = {
         "Value exceeds the instance hard-cap ({cap} MiB).",
     },
     activeUploads: "Active uploads",
+    tabMedia: "Media",
+    dropzone: "Drop files here or click to select",
+    tabShare: "Share",
+    tabInsights: "Selection & stats",
+    tabSettings: "Settings",
+    subSelection: "Selection",
+    subStats: "Stats",
+    prepSg: "file is being prepared…",
+    prepPl: "files are being prepared…",
+    dupNamedSg: "{n} file has the same name as a file already in the gallery.",
+    dupNamedPl: "{n} files have the same names as files already in the gallery.",
+    dupRemainSg: "The remaining {m} file is new.",
+    dupRemainPl: "The remaining {m} files are new.",
     zeroSizeTitleAll: "Files could not be read",
     zeroSizeTitleSome: "{count} of {total} files skipped",
     zeroSizeMessage:

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useT } from "@/lib/i18n";
 import { api } from "@/lib/api";
 
 type Role = "owner" | "admin" | "member";
@@ -35,10 +36,10 @@ const SUB_GROUPS: SubGroup[] = [
     // Gestaltung
     match: ["/studio/brandings", "/studio/templates", "/studio/tags", "/studio/appearance"],
     tabs: [
-      { href: "/studio/brandings", label: "Branding" },
-      { href: "/studio/appearance", label: "Studio & Login" },
-      { href: "/studio/templates", label: "Templates" },
-      { href: "/studio/tags", label: "Tags" },
+      { href: "/studio/brandings", label: "nav.branding" },
+      { href: "/studio/appearance", label: "subtabs.studioLogin" },
+      { href: "/studio/templates", label: "nav.templates" },
+      { href: "/studio/tags", label: "nav.tags" },
     ],
   },
   {
@@ -52,20 +53,20 @@ const SUB_GROUPS: SubGroup[] = [
       "/studio/avv",
     ],
     tabs: [
-      { href: "/studio/settings", label: "Allgemein" },
-      { href: "/studio/team", label: "Team", rolesAllowed: ["owner", "admin"] },
-      { href: "/studio/webhooks", label: "Integrationen" },
-      { href: "/studio/exports", label: "Datenexport" },
-      { href: "/studio/audit", label: "Audit" },
-      { href: "/studio/avv", label: "AV-Vertrag", rolesAllowed: ["owner", "admin"] },
+      { href: "/studio/settings", label: "subtabs.general" },
+      { href: "/studio/team", label: "subtabs.team", rolesAllowed: ["owner", "admin"] },
+      { href: "/studio/webhooks", label: "subtabs.integrations" },
+      { href: "/studio/exports", label: "subtabs.dataExport" },
+      { href: "/studio/audit", label: "nav.audit" },
+      { href: "/studio/avv", label: "subtabs.dpa", rolesAllowed: ["owner", "admin"] },
     ],
   },
   {
     // Konto
     match: ["/studio/account", "/studio/billing"],
     tabs: [
-      { href: "/studio/account", label: "Mein Konto" },
-      { href: "/studio/billing", label: "Plan & Speicher" },
+      { href: "/studio/account", label: "subtabs.myAccount" },
+      { href: "/studio/billing", label: "nav.billing" },
     ],
   },
 ];
@@ -75,6 +76,7 @@ function isOn(pathname: string, href: string): boolean {
 }
 
 export function StudioSubTabs() {
+  const t = useT();
   const pathname = usePathname();
   const [userRole, setUserRole] = useState<Role | null>(null);
   const [features, setFeatures] = useState<string[]>([]);
@@ -119,7 +121,7 @@ export function StudioSubTabs() {
     <div className="border-b border-line-subtle overflow-x-auto">
       <nav
         className="flex items-center gap-0.5 px-6 sm:px-8 lg:px-12 min-w-max"
-        aria-label="Unterbereiche"
+        aria-label={t("subtabs.aria")}
       >
         {tabs.map((tab) => {
           const active = isOn(pathname, tab.href);
@@ -134,7 +136,7 @@ export function StudioSubTabs() {
                   : "border-transparent text-ink-secondary hover:text-ink-primary"
               }`}
             >
-              {tab.label}
+              {t(tab.label)}
             </Link>
           );
         })}

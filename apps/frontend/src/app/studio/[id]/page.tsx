@@ -1024,10 +1024,10 @@ export default function GalleryDetailPage() {
         <nav className="flex gap-1 -mb-px overflow-x-auto">
           {(
             [
-              ["images", "Medien"],
-              ["share", "Teilen"],
-              ["insights", "Auswahl & Statistik"],
-              ["settings", "Einstellungen"],
+              ["images", "studio.tabMedia"],
+              ["share", "studio.tabShare"],
+              ["insights", "studio.tabInsights"],
+              ["settings", "studio.tabSettings"],
             ] as const
           ).map(([key, label]) => {
             const on = tab === key;
@@ -1042,7 +1042,7 @@ export default function GalleryDetailPage() {
                     : "text-ink-tertiary hover:text-ink-secondary"
                 }`}
               >
-                {label}
+                {t(label)}
                 {on && (
                   <span className="absolute left-2 right-2 -bottom-px h-0.5 rounded-full bg-accent" />
                 )}
@@ -1078,7 +1078,7 @@ export default function GalleryDetailPage() {
             onChange={(e) => void handleFiles(e.target.files)}
           />
           <div className="text-ui text-ink-primary font-medium">
-            Dateien hier ablegen oder klicken zum Auswählen
+            {t("studio.dropzone")}
           </div>
           <div className="text-ui-xs text-ink-tertiary mt-1">
             JPEG, PNG, WebP, HEIC, RAW (CR2/NEF/ARW…), MP4, MOV
@@ -1110,7 +1110,7 @@ export default function GalleryDetailPage() {
               <span>{t("studio.activeUploads")}</span>
               {pendingInitCount > 0 && (
                 <span className="text-ui-xs text-ink-tertiary font-normal">
-                  {pendingInitCount} {pendingInitCount === 1 ? "Datei wird" : "Dateien werden"} vorbereitet…
+                  {pendingInitCount} {t(pendingInitCount === 1 ? "studio.prepSg" : "studio.prepPl")}
                 </span>
               )}
             </div>
@@ -1734,8 +1734,8 @@ export default function GalleryDetailPage() {
             <div className="inline-flex rounded-md border border-line-subtle overflow-hidden">
               {(
                 [
-                  ["selection", "Auswahl"],
-                  ["stats", "Statistik"],
+                  ["selection", "studio.subSelection"],
+                  ["stats", "studio.subStats"],
                 ] as const
               ).map(([k, label]) => (
                 <button
@@ -1748,7 +1748,7 @@ export default function GalleryDetailPage() {
                       : "bg-surface-sunken text-ink-tertiary hover:text-ink-secondary"
                   }`}
                 >
-                  {label}
+                  {t(label)}
                 </button>
               ))}
             </div>
@@ -1789,21 +1789,13 @@ export default function GalleryDetailPage() {
               Duplikate erkannt
             </h2>
             <p className="text-ui-sm text-ink-secondary mt-2">
-              {dupDialog.duplicates.length}{" "}
               {dupDialog.duplicates.length === 1
-                ? "Datei hat denselben Namen wie eine"
-                : "Dateien haben denselben Namen wie"}{" "}
-              bereits in der Galerie vorhandene{" "}
-              {dupDialog.duplicates.length === 1 ? "Datei" : "Dateien"}.{" "}
-              {dupDialog.newFiles.length > 0 && (
-                <>
-                  Die übrigen {dupDialog.newFiles.length}{" "}
-                  {dupDialog.newFiles.length === 1
-                    ? "Datei ist"
-                    : "Dateien sind"}{" "}
-                  neu.
-                </>
-              )}
+                ? t("studio.dupNamedSg", { n: dupDialog.duplicates.length })
+                : t("studio.dupNamedPl", { n: dupDialog.duplicates.length })}{" "}
+              {dupDialog.newFiles.length > 0 &&
+                (dupDialog.newFiles.length === 1
+                  ? t("studio.dupRemainSg", { m: dupDialog.newFiles.length })
+                  : t("studio.dupRemainPl", { m: dupDialog.newFiles.length }))}
             </p>
             {/* Bei wenigen Duplikaten Namen direkt zeigen; bei vielen
                 in <details> kollabieren, sonst wird der Dialog
