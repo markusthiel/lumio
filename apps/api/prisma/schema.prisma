@@ -415,6 +415,12 @@ model Gallery {
   customerTagFilterEnabled Boolean @default(false)
   selectionLimit  Int?     // max Anzahl Auswahl für Kunde
   emailRequired   Boolean  @default(false) // Kunde muss E-Mail eingeben
+  // Zugriffsmodus:
+  //   true  = öffentlich: jeder mit dem Galerie-Link (Slug) kommt rein,
+  //           Freigabe-Links geben nur Zusatzrechte (Auswahl/Kommentar)
+  //   false = nur über gültige, nicht-abgelaufene Freigabe-Links;
+  //           der nackte Slug-Link und abgelaufene Links sind gesperrt
+  publicAccess    Boolean  @default(true)
   
   // Cover-Bild
   coverFileId     String?  @db.Uuid

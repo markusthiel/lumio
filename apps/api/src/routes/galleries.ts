@@ -45,6 +45,7 @@ const createGallerySchema = z.object({
   commentsEnabled: z.boolean().optional(),
   ratingsEnabled: z.boolean().optional(),
   customerTagFilterEnabled: z.boolean().optional(),
+  publicAccess: z.boolean().optional(),
   selectionLimit: z.number().int().positive().optional(),
   expiresAt: z.string().datetime().optional(),
   // Optional: Template übernehmen. Explizit gesetzte Felder im Request
@@ -128,6 +129,7 @@ export async function loadVisitor(
       status: true,
       expiresAt: true,
       passwordHash: true,
+      publicAccess: true,
     },
   });
   if (!gallery || gallery.status !== "live") return null;
@@ -136,9 +138,10 @@ export async function loadVisitor(
   const cookieName = visitorCookieName(gallery.id);
   const cookie = req.cookies?.[cookieName];
   if (!cookie) {
-    // Wenn keine Auth nötig ist (kein Passwort), darf der Visitor anonym
-    // browsen. Das ist Picdrop-Verhalten.
-    if (!gallery.passwordHash) {
+    // Ohne Cookie nur rein, wenn die Galerie öffentlich UND passwortlos
+    // ist (anonymes Browsen, Picdrop-Style). Sonst braucht es einen
+    // gültigen Freigabe-Link.
+    if (gallery.publicAccess && !gallery.passwordHash) {
       return { galleryId: gallery.id, accessId: null };
     }
     return null;
@@ -148,27 +151,30 @@ export async function loadVisitor(
   if (!claims || claims.gid !== gallery.id) return null;
   if (gallery.passwordHash && !claims.pw) return null;
 
-  // Ablauf des Freigabe-Links prüfen: Kam der Besucher über einen
-  // personalisierten Access-Link (claims.aid) und ist dieser abgelaufen
-  // (oder gelöscht), gilt der Zugang nicht mehr — auch wenn das
-  // Visitor-Cookie noch gültig wäre. Sonst liefe der Link nie wirklich ab.
+  // Kam der Besucher über einen Freigabe-Link (claims.aid)? Dann prüfen,
+  // ob dieser noch gültig ist (existiert, gehört zur Galerie, nicht
+  // abgelaufen). Ein abgelaufener/gelöschter Link verliert den Zugang —
+  // sonst liefe er nie wirklich ab.
   if (claims.aid) {
     const access = await prisma.galleryAccess.findUnique({
       where: { id: claims.aid },
       select: { expiresAt: true, galleryId: true },
     });
-    const expired =
-      !access ||
-      access.galleryId !== gallery.id ||
-      (access.expiresAt !== null && access.expiresAt < new Date());
-    if (expired) {
-      // Wie ein ungültiges Cookie behandeln: passwortlose Galerien
-      // erlauben weiterhin anonymes Browsen, geschützte sperren.
-      if (!gallery.passwordHash) {
+    const linkValid =
+      access &&
+      access.galleryId === gallery.id &&
+      (access.expiresAt === null || access.expiresAt >= new Date());
+    if (!linkValid) {
+      // Link ungültig: öffentliche, passwortlose Galerie erlaubt weiter
+      // anonymes Browsen, sonst gesperrt.
+      if (gallery.publicAccess && !gallery.passwordHash) {
         return { galleryId: gallery.id, accessId: null };
       }
       return null;
     }
+  } else if (!gallery.publicAccess) {
+    // Anonymes Cookie (kein Link), aber Galerie ist nicht öffentlich.
+    return null;
   }
 
   return { galleryId: gallery.id, accessId: claims.aid };
@@ -661,6 +667,9 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
             : {}),
           ...(body.customerTagFilterEnabled !== undefined
             ? { customerTagFilterEnabled: body.customerTagFilterEnabled }
+            : {}),
+          ...(body.publicAccess !== undefined
+            ? { publicAccess: body.publicAccess }
             : {}),
           ...(body.selectionLimit !== undefined
             ? { selectionLimit: body.selectionLimit }
@@ -1420,6 +1429,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         customerTagFilterEnabled: true,
         selectionLimit: true,
         passwordHash: true,
+        publicAccess: true,
         expiresAt: true,
         tenantId: true,
         brandingId: true,
@@ -1455,8 +1465,9 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
       return reply.status(410).send({ error: "expired" });
     }
 
-    // Prüfen, ob das Visitor-Cookie schon gesetzt ist (auto-unlock bei
-    // erneutem Aufruf)
+    // Prüfen, ob das Visitor-Cookie schon einen gültigen Zugang gibt
+    // (auto-unlock bei erneutem Aufruf). Konsistent zu loadVisitor:
+    // Link-Ablauf und publicAccess werden berücksichtigt.
     const cookieName = visitorCookieName(gallery.id);
     const cookie = req.cookies?.[cookieName];
     let unlocked = false;
@@ -1467,7 +1478,23 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         claims.gid === gallery.id &&
         (!gallery.passwordHash || claims.pw)
       ) {
-        unlocked = true;
+        if (claims.aid) {
+          const access = await prisma.galleryAccess.findUnique({
+            where: { id: claims.aid },
+            select: { expiresAt: true, galleryId: true },
+          });
+          const linkValid =
+            access &&
+            access.galleryId === gallery.id &&
+            (access.expiresAt === null || access.expiresAt >= new Date());
+          // Gültiger Link → unlocked. Sonst nur, wenn die Galerie auch
+          // anonym offen ist (öffentlich + passwortlos).
+          unlocked =
+            !!linkValid || (gallery.publicAccess && !gallery.passwordHash);
+        } else {
+          // Anonymes Cookie: nur bei öffentlicher Galerie gültig.
+          unlocked = gallery.publicAccess;
+        }
       }
     }
 
@@ -1596,6 +1623,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         customerTagFilterEnabled: gallery.customerTagFilterEnabled,
         selectionLimit: gallery.selectionLimit,
         requiresPassword: !!gallery.passwordHash,
+        publicAccess: gallery.publicAccess,
         unlocked,
         branding,
         // Header-Customization durchreichen
@@ -1652,6 +1680,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           status: true,
           expiresAt: true,
           passwordHash: true,
+          publicAccess: true,
         },
       });
       if (!gallery || gallery.status !== "live") {
@@ -1700,11 +1729,12 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
             expiresAt: true,
           },
         });
-        if (
-          access &&
-          access.galleryId === gallery.id &&
-          (!access.expiresAt || access.expiresAt > new Date())
-        ) {
+        if (access && access.galleryId === gallery.id) {
+          // Token gehört zur Galerie. Abgelaufen → klare Meldung
+          // (kein Enumeration-Risiko, der Token war ja gültig).
+          if (access.expiresAt && access.expiresAt < new Date()) {
+            return reply.status(410).send({ error: "link_expired" });
+          }
           accessId = access.id;
           // Audit-Count + last-access aktualisieren
           await prisma.galleryAccess
@@ -1717,9 +1747,15 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
             })
             .catch(() => {});
         }
-        // Ungültiger Token → kein Fehler, einfach als anonym behandeln.
-        // Das verhindert Token-Enumeration: jeder Token-Versuch sieht aus
-        // wie ein normaler Visitor-Aufruf.
+        // Fremder/ungültiger Token → kein Fehler, als anonym behandeln.
+        // Das verhindert Token-Enumeration: jeder Versuch sieht aus wie
+        // ein normaler Visitor-Aufruf.
+      }
+
+      // Nicht-öffentliche Galerie: Ohne gültigen Freigabe-Link kein
+      // Zugang (der nackte Slug-Link reicht nicht).
+      if (!gallery.publicAccess && !accessId) {
+        return reply.status(403).send({ error: "access_required" });
       }
 
       // Visitor-Cookie setzen
