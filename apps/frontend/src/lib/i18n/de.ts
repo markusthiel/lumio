@@ -1918,4 +1918,22 @@ export const de: Dict = {
     add: "Passkey hinzufügen",
     addError: "Passkey konnte nicht hinzugefügt werden.",
   },
+
+  bulkSel: {
+    tagBtn: "Tag …",
+    sectionBtn: "Section …",
+    tagForSg: "Tag für {n} Foto",
+    tagForPl: "Tag für {n} Fotos",
+    loadingTags: "Lade Tags…",
+    noTags: "Keine Tags angelegt. Lege erst unter Studio → Tags Tags an.",
+    titleAssign: "An die Auswahl hängen",
+    assign: "+ setzen",
+    titleRemove: "Von der Auswahl entfernen",
+    remove: "− entf.",
+    moveSg: "{n} Foto verschieben nach…",
+    movePl: "{n} Fotos verschieben nach…",
+    loadingSections: "Lade Sections…",
+    noSections: "Keine Sections angelegt. Lege erst in den Galerie-Settings Sections an.",
+    noSectionBucket: "ohne Section (Default-Bucket)",
+  },
 };

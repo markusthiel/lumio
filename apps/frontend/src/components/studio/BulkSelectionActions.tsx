@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, type TagSummary, type StudioSection } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
+import { useT } from "@/lib/i18n";
 
 interface Props {
   galleryId: string;
@@ -32,6 +33,7 @@ export function BulkSelectionActions({
   disabled,
   onApplied,
 }: Props) {
+  const t = useT();
   const [open, setOpen] = useState<"tag" | "section" | null>(null);
   const [tags, setTags] = useState<TagSummary[] | null>(null);
   const [sections, setSections] = useState<StudioSection[] | null>(null);
@@ -122,7 +124,7 @@ export function BulkSelectionActions({
           void loadTags();
         }}
       >
-        Tag …
+        {t("bulkSel.tagBtn")}
       </Button>
       <Button
         size="sm"
@@ -133,23 +135,22 @@ export function BulkSelectionActions({
           void loadSections();
         }}
       >
-        Section …
+        {t("bulkSel.sectionBtn")}
       </Button>
 
       {open === "tag" && (
         <div className="absolute top-full left-0 mt-1 z-50 w-72 max-h-96 overflow-auto rounded-md border border-line-subtle bg-surface-raised shadow-lg">
           <div className="px-3 py-2 border-b border-line-subtle text-ui-xs text-ink-tertiary">
-            Tag für {selectedFileIds.length}{" "}
-            {selectedFileIds.length === 1 ? "Foto" : "Fotos"}
+            {t(selectedFileIds.length === 1 ? "bulkSel.tagForSg" : "bulkSel.tagForPl", { n: selectedFileIds.length })}
           </div>
           {tags === null && (
             <div className="px-3 py-3 text-ui-xs text-ink-tertiary">
-              Lade Tags…
+              {t("bulkSel.loadingTags")}
             </div>
           )}
           {tags && tags.length === 0 && (
             <div className="px-3 py-3 text-ui-xs text-ink-tertiary">
-              Keine Tags angelegt. Lege erst unter Studio → Tags Tags an.
+              {t("bulkSel.noTags")}
             </div>
           )}
           {tags &&
@@ -170,18 +171,18 @@ export function BulkSelectionActions({
                   onClick={() => void applyTag(tag, "assign")}
                   disabled={busy}
                   className="text-xs px-2 py-0.5 rounded bg-accent/12 hover:bg-accent/20 text-accent border border-accent/30 disabled:opacity-50"
-                  title="An die Auswahl hängen"
+                  title={t("bulkSel.titleAssign")}
                 >
-                  + setzen
+                  {t("bulkSel.assign")}
                 </button>
                 <button
                   type="button"
                   onClick={() => void applyTag(tag, "remove")}
                   disabled={busy}
                   className="text-xs px-2 py-0.5 rounded bg-surface-sunken hover:bg-surface-raised text-ink-secondary border border-line-subtle disabled:opacity-50"
-                  title="Von der Auswahl entfernen"
+                  title={t("bulkSel.titleRemove")}
                 >
-                  − entf.
+                  {t("bulkSel.remove")}
                 </button>
               </div>
             ))}
@@ -191,18 +192,16 @@ export function BulkSelectionActions({
       {open === "section" && (
         <div className="absolute top-full left-0 mt-1 z-50 w-72 max-h-96 overflow-auto rounded-md border border-line-subtle bg-surface-raised shadow-lg">
           <div className="px-3 py-2 border-b border-line-subtle text-ui-xs text-ink-tertiary">
-            {selectedFileIds.length}{" "}
-            {selectedFileIds.length === 1 ? "Foto verschieben nach…" : "Fotos verschieben nach…"}
+            {t(selectedFileIds.length === 1 ? "bulkSel.moveSg" : "bulkSel.movePl", { n: selectedFileIds.length })}
           </div>
           {sections === null && (
             <div className="px-3 py-3 text-ui-xs text-ink-tertiary">
-              Lade Sections…
+              {t("bulkSel.loadingSections")}
             </div>
           )}
           {sections && sections.length === 0 && (
             <div className="px-3 py-3 text-ui-xs text-ink-tertiary">
-              Keine Sections angelegt. Lege erst in den Galerie-Settings
-              Sections an.
+              {t("bulkSel.noSections")}
             </div>
           )}
           {sections &&
@@ -224,7 +223,7 @@ export function BulkSelectionActions({
               disabled={busy}
               className="w-full text-left px-3 py-2 text-ui-sm text-ink-tertiary hover:bg-surface-sunken border-t border-line-subtle disabled:opacity-50"
             >
-              ohne Section (Default-Bucket)
+              {t("bulkSel.noSectionBucket")}
             </button>
           )}
         </div>
