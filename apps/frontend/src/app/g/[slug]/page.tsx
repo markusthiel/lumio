@@ -45,6 +45,10 @@ function PublicGalleryInner() {
   const [canSelect, setCanSelect] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Zugang verweigert: Link abgelaufen bzw. Galerie nur mit Freigabe-Link.
+  const [accessState, setAccessState] = useState<"expired" | "denied" | null>(
+    null
+  );
   // Print-Shop: prueft ob fuer diese Galerie verfuegbar (Feature-Flag,
   // Tenant-Config, Galerie-Override). Catalog-Call ist der eindeutige
   // Indikator — er liefert 404 wenn nicht verfuegbar oder 401 wenn
@@ -102,12 +106,18 @@ function PublicGalleryInner() {
             const { gallery: g2 } = await api.getPublicGallery(slug);
             if (!cancelled) setMeta(g2);
             if (!cancelled) await loadFiles();
-          } catch {
-            // Token war ungültig oder fehlend — egal, wenn die Galerie
-            // ohne Passwort ist, machen wir mit den vorhandenen Files
-            // weiter (anonymer Modus). Bei passwortgeschützten Galerien
-            // landet der User stattdessen im UnlockForm.
-            if (!needsPassword) await loadFiles();
+          } catch (e) {
+            // Abgelaufener Link bzw. nicht-öffentliche Galerie ohne
+            // gültigen Link → eigene Hinweis-Seite. Sonst (ungültiges/
+            // fehlendes Token bei öffentlicher Galerie) anonym weiter.
+            const msg = e instanceof Error ? e.message : "";
+            if (msg.includes("link_expired")) {
+              if (!cancelled) setAccessState("expired");
+            } else if (msg.includes("access_required")) {
+              if (!cancelled) setAccessState("denied");
+            } else if (!needsPassword) {
+              await loadFiles();
+            }
           }
         } else if (gallery.unlocked) {
           await loadFiles();
@@ -165,6 +175,25 @@ function PublicGalleryInner() {
           <div className="text-lg font-medium">{t("gallery.notAvailable")}</div>
           <div className="text-sm opacity-60 mt-2">
             {error ?? t("gallery.loadFailed")}
+          </div>
+        </div>
+      </GalleryShell>
+    );
+  }
+
+  if (accessState) {
+    return (
+      <GalleryShell branding={meta?.branding ?? null}>
+        <div className="text-center py-20 max-w-md mx-auto">
+          <div className="text-lg font-medium">
+            {accessState === "expired"
+              ? "Link abgelaufen"
+              : "Kein Zugriff"}
+          </div>
+          <div className="text-sm opacity-60 mt-2">
+            {accessState === "expired"
+              ? "Dieser Galerie-Link ist abgelaufen. Bitte wende dich an deinen Fotografen für einen neuen Link."
+              : "Diese Galerie ist nur über einen persönlichen Freigabe-Link zugänglich."}
           </div>
         </div>
       </GalleryShell>

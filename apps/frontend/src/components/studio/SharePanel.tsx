@@ -7,10 +7,28 @@ import { EmailChipsInput } from "@/components/studio/EmailChipsInput";
 export function SharePanel({
   galleryId,
   gallerySlug,
+  initialPublicAccess = true,
 }: {
   galleryId: string;
   gallerySlug: string;
+  initialPublicAccess?: boolean;
 }) {
+  const [publicAccess, setPublicAccess] = useState(initialPublicAccess);
+  const [savingAccessMode, setSavingAccessMode] = useState(false);
+
+  async function toggleAccessMode(next: boolean) {
+    setSavingAccessMode(true);
+    const prev = publicAccess;
+    setPublicAccess(next);
+    try {
+      await api.updateGallery(galleryId, { publicAccess: next });
+    } catch {
+      setPublicAccess(prev);
+    } finally {
+      setSavingAccessMode(false);
+    }
+  }
+
   const [accesses, setAccesses] = useState<GalleryAccess[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreate, setShowCreate] = useState(false);
@@ -149,7 +167,52 @@ export function SharePanel({
   }
 
   return (
-    <section className="rounded-lg border border-line-subtle bg-surface-raised">
+    <div className="space-y-4">
+      <section className="rounded-lg border border-line-subtle bg-surface-raised p-4 space-y-3">
+        <div>
+          <h2 className="text-sm font-medium">Zugriff</h2>
+          <p className="text-xs text-ink-tertiary mt-0.5">
+            Wer diese Galerie öffnen kann.
+          </p>
+        </div>
+        <label className="flex items-start gap-2 text-sm cursor-pointer">
+          <input
+            type="radio"
+            name="accessMode"
+            checked={publicAccess}
+            disabled={savingAccessMode}
+            onChange={() => void toggleAccessMode(true)}
+            className="mt-1"
+          />
+          <span>
+            <span className="font-medium">Öffentlich</span>
+            <span className="block text-xs text-ink-tertiary">
+              Jeder mit dem Galerie-Link kann sie öffnen. Freigabe-Links
+              geben Zusatzrechte (Auswahl, Kommentare).
+            </span>
+          </span>
+        </label>
+        <label className="flex items-start gap-2 text-sm cursor-pointer">
+          <input
+            type="radio"
+            name="accessMode"
+            checked={!publicAccess}
+            disabled={savingAccessMode}
+            onChange={() => void toggleAccessMode(false)}
+            className="mt-1"
+          />
+          <span>
+            <span className="font-medium">Nur über Freigabe-Links</span>
+            <span className="block text-xs text-ink-tertiary">
+              Nur mit einem gültigen, nicht abgelaufenen Freigabe-Link
+              erreichbar. Der reine Galerie-Link und abgelaufene Links
+              sind gesperrt.
+            </span>
+          </span>
+        </label>
+      </section>
+
+      <section className="rounded-lg border border-line-subtle bg-surface-raised">
       <header className="px-4 py-3 border-b border-line-subtle flex items-center justify-between">
         <h2 className="text-sm font-medium">Share-Links</h2>
         <button
@@ -398,6 +461,7 @@ export function SharePanel({
         />
       )}
     </section>
+    </div>
   );
 }
 

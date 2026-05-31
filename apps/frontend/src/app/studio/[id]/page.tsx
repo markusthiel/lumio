@@ -1189,7 +1189,11 @@ export default function GalleryDetailPage() {
         )}
 
         {tab === "share" && (
-          <SharePanel galleryId={gallery.id} gallerySlug={gallery.slug} />
+          <SharePanel
+            galleryId={gallery.id}
+            gallerySlug={gallery.slug}
+            initialPublicAccess={gallery.publicAccess ?? true}
+          />
         )}
 
         {tab === "settings" && (

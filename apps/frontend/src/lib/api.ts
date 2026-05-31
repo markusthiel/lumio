@@ -55,6 +55,7 @@ export interface Gallery {
   /** Wenn true: Tag-Filter ist in der Customer-Galerie sichtbar +
    *  Tag-gefilterte ZIP-Downloads sind moeglich. Default false. */
   customerTagFilterEnabled?: boolean;
+  publicAccess?: boolean;
   selectionLimit: number | null;
   brandingId?: string | null;
   // Header-Customization (Studio kann das hier direkt sehen + editieren)
@@ -257,8 +258,10 @@ export interface PublicGalleryMeta {
   /** Wenn true: Tag-Filter wird in der Customer-Galerie angezeigt
    *  und Tag-gefilterte ZIP-Downloads sind moeglich. */
   customerTagFilterEnabled?: boolean;
+  publicAccess?: boolean;
   selectionLimit: number | null;
   requiresPassword: boolean;
+  publicAccess: boolean;
   unlocked: boolean;
   branding: Branding | null;
   header: {
