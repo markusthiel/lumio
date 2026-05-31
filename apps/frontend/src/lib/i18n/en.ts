@@ -1330,6 +1330,7 @@ export const en: Dict = {
     status_building: "Building",
     status_ready: "Ready",
     status_failed: "Failed",
+    status_expired: "Expired",
   },
 
   audit: {
@@ -1421,5 +1422,28 @@ export const en: Dict = {
     viewDocument: "View agreement / print as PDF",
     docNote:
       "The agreement opens in a new tab. Using your browser's \"Print\" you can save it as a PDF. Technical and organizational measures as well as the sub-processors are included as appendices.",
+  },
+
+  exportsList: {
+    errorStart: "Error starting",
+    title: "Data export",
+    description:
+      "Downloads original files + metadata (tags, selection, comments) as a ZIP archive. One ZIP per gallery. Downloads are available for 30 days.",
+    newExport: "Start new export",
+    singleGallery: "Single gallery",
+    chooseGallery: "– Choose gallery –",
+    starting: "Starting…",
+    startExport: "Start export",
+    allGalleries: "All galleries at once",
+    allGalleriesDesc:
+      "Creates a separate ZIP for each gallery. Handy for regular backups or to take with you.",
+    exportAllN: "Export all {n} galleries",
+    previousExports: "Previous exports",
+    noExports: "No exports created yet.",
+    gallery: "gallery",
+    galleries: "galleries",
+    expiresOn: "· expires on {date}",
+    srcAllGalleries: "All galleries",
+    srcSupport: "Support request",
   },
 };

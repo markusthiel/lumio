@@ -23,6 +23,7 @@ import Link from "next/link";
 import { api, type Gallery } from "@/lib/api";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { Button } from "@/components/ui";
+import { useT } from "@/lib/i18n";
 
 interface ExportListItem {
   id: string;
@@ -34,19 +35,20 @@ interface ExportListItem {
 }
 
 const SOURCE_LABEL: Record<string, string> = {
-  studio: "Einzelne Galerie",
-  studio_all: "Alle Galerien",
-  super_admin: "Support-Anforderung",
+  studio: "exportsList.singleGallery",
+  studio_all: "exportsList.srcAllGalleries",
+  super_admin: "exportsList.srcSupport",
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  pending: "Wartet",
-  building: "Wird erstellt",
-  ready: "Fertig",
-  expired: "Abgelaufen",
+  pending: "exportDetail.status_pending",
+  building: "exportDetail.status_building",
+  ready: "exportDetail.status_ready",
+  expired: "exportDetail.status_expired",
 };
 
 export default function ExportsPage() {
+  const t = useT();
   const [exports, setExports] = useState<ExportListItem[]>([]);
   const [galleries, setGalleries] = useState<Gallery[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,7 +66,7 @@ export default function ExportsPage() {
       setExports(exportRes.exports);
       setGalleries(galleryRes.galleries);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler beim Laden");
+      setError(err instanceof Error ? err.message : t("exportDetail.errorLoad"));
     } finally {
       setLoading(false);
     }
@@ -97,7 +99,7 @@ export default function ExportsPage() {
       setSelectedGalleryId("");
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler beim Starten");
+      setError(err instanceof Error ? err.message : t("exportsList.errorStart"));
     } finally {
       setCreating(null);
     }
@@ -110,7 +112,7 @@ export default function ExportsPage() {
       await api.createTenantExport();
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler beim Starten");
+      setError(err instanceof Error ? err.message : t("exportsList.errorStart"));
     } finally {
       setCreating(null);
     }
@@ -119,8 +121,8 @@ export default function ExportsPage() {
   return (
     <>
       <PageHeader
-        title="Datenexport"
-        description="Lädt Originaldateien + Metadaten (Tags, Auswahl, Kommentare) als ZIP-Archiv. Pro Galerie ein ZIP. Downloads sind 30 Tage verfügbar."
+        title={t("exportsList.title")}
+        description={t("exportsList.description")}
       />
       <div className="px-6 sm:px-8 lg:px-12 py-6 max-w-5xl">
 
@@ -132,12 +134,10 @@ export default function ExportsPage() {
 
       {/* Sektion 1: Neuen Export starten */}
       <section className="rounded-md border border-line-subtle bg-surface-raised p-5 mb-6 space-y-5">
-        <h2 className="text-ui-md font-medium text-ink-primary">
-          Neuen Export starten
-        </h2>
+        <h2 className="text-ui-md font-medium text-ink-primary">{t("exportsList.newExport")}</h2>
 
         <div className="space-y-2">
-          <div className="text-ui-sm text-ink-primary">Einzelne Galerie</div>
+          <div className="text-ui-sm text-ink-primary">{t("exportsList.singleGallery")}</div>
           <div className="flex gap-2">
             <select
               value={selectedGalleryId}
@@ -145,7 +145,7 @@ export default function ExportsPage() {
               disabled={creating !== null}
               className="flex-1 h-9 px-2.5 rounded bg-surface-sunken border border-line-subtle hover:border-line-strong focus:border-accent text-ui text-ink-primary focus:outline-none transition-colors duration-motion disabled:opacity-50"
             >
-              <option value="">– Galerie wählen –</option>
+              <option value="">{t("exportsList.chooseGallery")}</option>
               {galleries.map((g) => (
                 <option key={g.id} value={g.id}>
                   {g.title}
@@ -158,18 +158,15 @@ export default function ExportsPage() {
               onClick={startGalleryExport}
               disabled={!selectedGalleryId || creating !== null}
             >
-              {creating === "single" ? "Starte…" : "Export starten"}
+              {creating === "single" ? t("exportsList.starting") : t("exportsList.startExport")}
             </Button>
           </div>
         </div>
 
         <div className="border-t border-line-subtle pt-5 space-y-2">
-          <div className="text-ui-sm text-ink-primary">
-            Alle Galerien auf einmal
-          </div>
+          <div className="text-ui-sm text-ink-primary">{t("exportsList.allGalleries")}</div>
           <div className="text-ui-xs text-ink-tertiary mb-2">
-            Erstellt für jede Galerie ein eigenes ZIP. Praktisch für regelmäßige
-            Sicherungen oder zum Mitnehmen.
+            {t("exportsList.allGalleriesDesc")}
           </div>
           <Button
             variant="secondary"
@@ -178,25 +175,19 @@ export default function ExportsPage() {
             disabled={creating !== null || galleries.length === 0}
           >
             {creating === "all"
-              ? "Starte…"
-              : `Alle ${galleries.length} Galerien exportieren`}
+              ? t("exportsList.starting")
+              : t("exportsList.exportAllN", { n: galleries.length })}
           </Button>
         </div>
       </section>
 
       {/* Sektion 2: Liste der Exports */}
       <section className="rounded-md border border-line-subtle bg-surface-raised p-5">
-        <h2 className="text-ui-md font-medium text-ink-primary mb-3">
-          Bisherige Exports
-        </h2>
+        <h2 className="text-ui-md font-medium text-ink-primary mb-3">{t("exportsList.previousExports")}</h2>
         {loading && exports.length === 0 ? (
-          <div className="text-ui-sm text-ink-tertiary py-6 text-center">
-            Wird geladen…
-          </div>
+          <div className="text-ui-sm text-ink-tertiary py-6 text-center">{t("exportDetail.loading")}</div>
         ) : exports.length === 0 ? (
-          <div className="text-ui-sm text-ink-tertiary py-6 text-center">
-            Noch keine Exports erstellt.
-          </div>
+          <div className="text-ui-sm text-ink-tertiary py-6 text-center">{t("exportsList.noExports")}</div>
         ) : (
           <ul className="divide-y divide-line-subtle">
             {exports.map((e) => (
@@ -207,16 +198,15 @@ export default function ExportsPage() {
                 >
                   <div className="min-w-0 flex-1">
                     <div className="text-ui-sm text-ink-primary">
-                      {SOURCE_LABEL[e.source] ?? e.source} · {e.itemCount}{" "}
-                      {e.itemCount === 1 ? "Galerie" : "Galerien"}
+                      {SOURCE_LABEL[e.source] ? t(SOURCE_LABEL[e.source]) : e.source} · {e.itemCount}{" "}
+                      {t(e.itemCount === 1 ? "exportsList.gallery" : "exportsList.galleries")}
                     </div>
                     <div className="text-ui-xs text-ink-tertiary mt-0.5">
                       {new Date(e.createdAt).toLocaleString("de-DE")}
                       {e.status === "ready" && (
                         <>
                           {" "}
-                          · läuft ab am{" "}
-                          {new Date(e.expiresAt).toLocaleDateString("de-DE")}
+                          {t("exportsList.expiresOn", { date: new Date(e.expiresAt).toLocaleDateString("de-DE") })}
                         </>
                       )}
                     </div>
@@ -234,6 +224,7 @@ export default function ExportsPage() {
 }
 
 function StatusBadge({ status }: { status: ExportListItem["status"] }) {
+  const t = useT();
   const cls =
     status === "ready"
       ? "bg-semantic-success/10 text-semantic-success border-semantic-success/30"
@@ -244,7 +235,7 @@ function StatusBadge({ status }: { status: ExportListItem["status"] }) {
     <span
       className={`text-ui-xs px-2 py-0.5 rounded-xs border whitespace-nowrap ${cls}`}
     >
-      {STATUS_LABEL[status] ?? status}
+      {STATUS_LABEL[status] ? t(STATUS_LABEL[status]) : status}
     </span>
   );
 }

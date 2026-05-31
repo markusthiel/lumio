@@ -1335,6 +1335,7 @@ export const de: Dict = {
     status_building: "Wird erstellt",
     status_ready: "Fertig",
     status_failed: "Fehlgeschlagen",
+    status_expired: "Abgelaufen",
   },
 
   audit: {
@@ -1426,5 +1427,28 @@ export const de: Dict = {
     viewDocument: "Vertrag ansehen / als PDF drucken",
     docNote:
       "Der Vertrag öffnet sich in einem neuen Tab. Über „Drucken\" deines Browsers kannst du ihn als PDF speichern. Technische und organisatorische Maßnahmen sowie die Unterauftragsverarbeiter sind als Anlagen enthalten.",
+  },
+
+  exportsList: {
+    errorStart: "Fehler beim Starten",
+    title: "Datenexport",
+    description:
+      "Lädt Originaldateien + Metadaten (Tags, Auswahl, Kommentare) als ZIP-Archiv. Pro Galerie ein ZIP. Downloads sind 30 Tage verfügbar.",
+    newExport: "Neuen Export starten",
+    singleGallery: "Einzelne Galerie",
+    chooseGallery: "– Galerie wählen –",
+    starting: "Starte…",
+    startExport: "Export starten",
+    allGalleries: "Alle Galerien auf einmal",
+    allGalleriesDesc:
+      "Erstellt für jede Galerie ein eigenes ZIP. Praktisch für regelmäßige Sicherungen oder zum Mitnehmen.",
+    exportAllN: "Alle {n} Galerien exportieren",
+    previousExports: "Bisherige Exports",
+    noExports: "Noch keine Exports erstellt.",
+    gallery: "Galerie",
+    galleries: "Galerien",
+    expiresOn: "· läuft ab am {date}",
+    srcAllGalleries: "Alle Galerien",
+    srcSupport: "Support-Anforderung",
   },
 };
