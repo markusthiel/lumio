@@ -47,7 +47,6 @@ services:
     depends_on:
       - frontend
       - api
-      - acme_dns
     networks:
       - lumio_net
 
@@ -316,6 +315,10 @@ services:
     image: joohoi/acme-dns:latest
     container_name: lumio_acme_dns
     restart: unless-stopped
+    # Nur für Wildcard-TLS (Multi-Tenant-Subdomains) nötig. Single-Mode-
+    # Self-Hoster brauchen diesen Container NICHT — er startet daher nur
+    # mit:  docker compose --profile wildcard up
+    profiles: ["wildcard"]
     ports:
       # Bewusst NICHT 0.0.0.0:53 — das kollidiert auf Ubuntu mit
       # systemd-resolved, das auf 127.0.0.53:53 lauscht. Linux verbietet

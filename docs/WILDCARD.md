@@ -59,15 +59,40 @@ Bei Hetzner Cloud Console → Firewalls → Add Rule:
 
 Bei AWS / DigitalOcean / sonstigen: entsprechend in der Security-Group.
 
-### 4. acme-dns Container starten
+### 4. Live-Konfig anlegen + Container starten
+
+acme-dns liest seine Konfig aus `infra/acme-dns/config.local.cfg`
+(gitignored, von `git pull` unberührt). Einmalig aus der Vorlage anlegen
+und deine echte Domain + IP eintragen:
 
 ```bash
-docker compose \
+cp infra/acme-dns/config.cfg infra/acme-dns/config.local.cfg
+# config.local.cfg öffnen und ersetzen:
+#   auth.example.com  → deine Auth-Subdomain (z.B. auth.lumio-cloud.de)
+#   203.0.113.10      → deine öffentliche Server-IP
+```
+
+Dann acme-dns starten. Der Container liegt hinter dem Compose-Profile
+`wildcard` und startet nur, wenn das Profile aktiv ist:
+
+```bash
+docker compose --profile wildcard \
   -f docker-compose.yml \
   -f docker-compose.prod.yml \
   -f docker-compose.ml.yml \
   up -d acme_dns
 ```
+
+> **Wichtig:** Ab jetzt brauchst du `--profile wildcard` bei **jedem**
+> Deploy, sonst stoppt Compose den acme-dns-Container und die
+> Wildcard-Zertifikate können nicht mehr erneuert werden. Dein
+> Standard-Deploy-Befehl lautet also künftig:
+>
+> ```bash
+> docker compose --profile wildcard \
+>   -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.ml.yml \
+>   up -d --build
+> ```
 
 Verifizieren:
 
