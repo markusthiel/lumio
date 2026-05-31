@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { ShippingMethodCreateInput } from "@/lib/api";
 import { Button, Input } from "@/components/ui";
+import { useT } from "@/lib/i18n";
 
 type Method = Awaited<
   ReturnType<typeof api.listShippingMethods>
@@ -19,6 +20,7 @@ type ProviderMine = Awaited<
 >["providers"][number];
 
 export default function ShippingMethodsPage() {
+  const t = useT();
   const [methods, setMethods] = useState<Method[] | null>(null);
   const [providers, setProviders] = useState<ProviderMine[] | null>(null);
   const [editing, setEditing] = useState<Method | "new" | null>(null);
@@ -38,7 +40,7 @@ export default function ShippingMethodsPage() {
     } catch (err) {
       setMessage({
         kind: "danger",
-        text: err instanceof Error ? err.message : "Fehler",
+        text: err instanceof Error ? err.message : t("common.error"),
       });
     }
   }, []);
@@ -48,16 +50,16 @@ export default function ShippingMethodsPage() {
   }, [load]);
 
   async function remove(m: Method) {
-    if (!confirm(`Versandmethode '${m.name}' wirklich löschen?`)) return;
+    if (!confirm(t("shipping.confirmDelete", { name: m.name }))) return;
     setBusy(true);
     try {
       await api.deleteShippingMethod(m.id);
       await load();
-      setMessage({ kind: "success", text: "Gelöscht." });
+      setMessage({ kind: "success", text: t("shipping.deleted") });
     } catch (err) {
       setMessage({
         kind: "danger",
-        text: err instanceof Error ? err.message : "Fehler",
+        text: err instanceof Error ? err.message : t("common.error"),
       });
     } finally {
       setBusy(false);
@@ -65,7 +67,7 @@ export default function ShippingMethodsPage() {
   }
 
   if (!methods || !providers) {
-    return <div className="text-sm text-ink-tertiary">Lädt…</div>;
+    return <div className="text-sm text-ink-tertiary">{t("common.loading")}</div>;
   }
 
   const enabledProviders = providers.filter((p) => p.enabled);
@@ -73,13 +75,11 @@ export default function ShippingMethodsPage() {
   if (enabledProviders.length === 0) {
     return (
       <div className="rounded-md border border-semantic-warning/30 bg-semantic-warning/8 px-3 py-4 text-sm text-semantic-warning">
-        Erst Anbieter konfigurieren. Versand wird pro Anbieter angelegt.{" "}
+        {t("shipping.noProvidersWarning")}{" "}
         <a
           href="/studio/print-shop/providers"
           className="underline font-medium"
-        >
-          Zu den Anbietern
-        </a>
+        >{t("shipping.toProviders")}</a>
       </div>
     );
   }
@@ -99,15 +99,11 @@ export default function ShippingMethodsPage() {
       )}
 
       <div className="flex justify-end">
-        <Button onClick={() => setEditing("new")} disabled={busy}>
-          + Versandmethode
-        </Button>
+        <Button onClick={() => setEditing("new")} disabled={busy}>{t("shipping.addMethod")}</Button>
       </div>
 
       {methods.length === 0 ? (
-        <div className="rounded-md border border-line-subtle bg-surface-raised px-4 py-6 text-sm text-ink-tertiary text-center">
-          Noch keine Versandmethoden angelegt.
-        </div>
+        <div className="rounded-md border border-line-subtle bg-surface-raised px-4 py-6 text-sm text-ink-tertiary text-center">{t("shipping.noMethods")}</div>
       ) : (
         <ul className="space-y-2">
           {methods.map((m) => (
@@ -119,9 +115,7 @@ export default function ShippingMethodsPage() {
                 <div className="flex items-center gap-2 flex-wrap mb-0.5">
                   <strong className="text-sm">{m.name}</strong>
                   {!m.enabled && (
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-surface-sunken text-ink-tertiary">
-                      inaktiv
-                    </span>
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-surface-sunken text-ink-tertiary">{t("shipping.inactive")}</span>
                   )}
                 </div>
                 <div className="text-xs text-ink-tertiary">
@@ -130,8 +124,8 @@ export default function ShippingMethodsPage() {
                     <>
                       {" · "}
                       {m.estimatedDaysMin === m.estimatedDaysMax
-                        ? `${m.estimatedDaysMin} Tage`
-                        : `${m.estimatedDaysMin ?? "?"}–${m.estimatedDaysMax ?? "?"} Tage`}
+                        ? t("shipping.daysExact", { n: m.estimatedDaysMin })
+                        : t("shipping.daysRange", { min: m.estimatedDaysMin ?? "?", max: m.estimatedDaysMax ?? "?" })}
                     </>
                   )}
                   {m.countries.length > 0 && ` · ${m.countries.join(", ")}`}
@@ -145,17 +139,13 @@ export default function ShippingMethodsPage() {
                 variant="secondary"
                 onClick={() => setEditing(m)}
                 disabled={busy}
-              >
-                Bearbeiten
-              </Button>
+              >{t("common.edit")}</Button>
               <Button
                 size="sm"
                 variant="secondary"
                 onClick={() => remove(m)}
                 disabled={busy}
-              >
-                Löschen
-              </Button>
+              >{t("common.delete")}</Button>
             </li>
           ))}
         </ul>
@@ -169,7 +159,7 @@ export default function ShippingMethodsPage() {
           onSaved={async () => {
             setEditing(null);
             await load();
-            setMessage({ kind: "success", text: "Gespeichert." });
+            setMessage({ kind: "success", text: t("shipping.saved") });
           }}
         />
       )}
@@ -195,6 +185,7 @@ function ShippingDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const t = useT();
   const [name, setName] = useState(existing?.name ?? "DHL Standard");
   const [providerKey, setProviderKey] = useState(
     existing?.providerKey ?? enabledProviders[0]?.providerKey ?? ""
@@ -222,7 +213,7 @@ function ShippingDialog({
     try {
       const price = Math.round(parseFloat(priceEuros) * 100);
       if (!Number.isFinite(price) || price < 0) {
-        throw new Error("Preis ungültig.");
+        throw new Error(t("shipping.priceInvalid"));
       }
       const countryList = countries
         .split(",")
@@ -248,7 +239,7 @@ function ShippingDialog({
       }
       onSaved();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setSaving(false);
     }
@@ -265,11 +256,11 @@ function ShippingDialog({
     >
       <div className="bg-surface-raised rounded-md border border-line-subtle p-5 max-w-md w-full max-h-[85vh] overflow-y-auto">
         <h3 className="text-lg font-semibold mb-4">
-          {existing ? "Versandmethode bearbeiten" : "Versandmethode anlegen"}
+          {existing ? t("shipping.dialogEditTitle") : t("shipping.dialogNewTitle")}
         </h3>
         <form onSubmit={submit} className="space-y-3">
           <label className="block">
-            <span className="block text-xs text-ink-tertiary mb-1">Name</span>
+            <span className="block text-xs text-ink-tertiary mb-1">{t("shipping.labelName")}</span>
             <Input
               type="text"
               value={name}
@@ -278,9 +269,7 @@ function ShippingDialog({
             />
           </label>
           <label className="block">
-            <span className="block text-xs text-ink-tertiary mb-1">
-              Anbieter (welcher Lab-Workflow verschickt?)
-            </span>
+            <span className="block text-xs text-ink-tertiary mb-1">{t("shipping.labelProvider")}</span>
             <select
               className="w-full rounded border border-line-subtle bg-surface-raised px-2 py-1.5 text-sm"
               value={providerKey}
@@ -295,9 +284,7 @@ function ShippingDialog({
             </select>
           </label>
           <label className="block">
-            <span className="block text-xs text-ink-tertiary mb-1">
-              Preis (EUR)
-            </span>
+            <span className="block text-xs text-ink-tertiary mb-1">{t("shipping.labelPrice")}</span>
             <Input
               type="number"
               step="0.01"
@@ -309,9 +296,7 @@ function ShippingDialog({
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="block text-xs text-ink-tertiary mb-1">
-                Lieferzeit von (Tage)
-              </span>
+              <span className="block text-xs text-ink-tertiary mb-1">{t("shipping.labelDaysFrom")}</span>
               <Input
                 type="number"
                 value={daysMin}
@@ -320,9 +305,7 @@ function ShippingDialog({
               />
             </label>
             <label className="block">
-              <span className="block text-xs text-ink-tertiary mb-1">
-                bis (Tage)
-              </span>
+              <span className="block text-xs text-ink-tertiary mb-1">{t("shipping.labelDaysTo")}</span>
               <Input
                 type="number"
                 value={daysMax}
@@ -332,27 +315,21 @@ function ShippingDialog({
             </label>
           </div>
           <label className="block">
-            <span className="block text-xs text-ink-tertiary mb-1">
-              Lieferländer (Komma-getrennt, ISO-Code wie DE, AT, CH)
-            </span>
+            <span className="block text-xs text-ink-tertiary mb-1">{t("shipping.labelCountries")}</span>
             <Input
               type="text"
               value={countries}
               onChange={(e) => setCountries(e.target.value)}
               placeholder="DE, AT, CH"
             />
-            <span className="block text-xs text-ink-tertiary mt-0.5">
-              Leer lassen = alle Länder erlaubt.
-            </span>
+            <span className="block text-xs text-ink-tertiary mt-0.5">{t("shipping.countriesHint")}</span>
           </label>
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
               checked={enabled}
               onChange={(e) => setEnabled(e.target.checked)}
-            />
-            Aktiv
-          </label>
+            />{t("shipping.active")}</label>
 
           {error && (
             <div className="rounded border border-semantic-danger/30 bg-semantic-danger/8 px-2 py-1.5 text-xs text-semantic-danger">
@@ -366,12 +343,8 @@ function ShippingDialog({
               variant="secondary"
               onClick={onClose}
               disabled={saving}
-            >
-              Abbrechen
-            </Button>
-            <Button type="submit" disabled={saving}>
-              Speichern
-            </Button>
+            >{t("common.cancel")}</Button>
+            <Button type="submit" disabled={saving}>{t("common.save")}</Button>
           </div>
         </form>
       </div>
