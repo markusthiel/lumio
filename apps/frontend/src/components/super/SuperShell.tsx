@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useT } from "@/lib/i18n";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
@@ -22,6 +23,7 @@ interface Admin {
  *    Navigation. Pattern wie im StudioShell — gleiches z-Index-System.
  */
 export function SuperShell({ children }: { children: React.ReactNode }) {
+  const t = useT();
   const router = useRouter();
   const pathname = usePathname();
   const [admin, setAdmin] = useState<Admin | null>(null);
@@ -61,7 +63,7 @@ export function SuperShell({ children }: { children: React.ReactNode }) {
       <button
         type="button"
         onClick={() => setMobileOpen(true)}
-        aria-label="Menü öffnen"
+        aria-label={t("nav.menuOpen")}
         className="fixed top-3 left-3 z-30 sm:hidden h-9 w-9 rounded bg-surface-raised border border-line-subtle flex items-center justify-center text-ink-primary shadow"
       >
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -88,7 +90,7 @@ export function SuperShell({ children }: { children: React.ReactNode }) {
           <button
             type="button"
             onClick={() => setMobileOpen(false)}
-            aria-label="Menü schließen"
+            aria-label={t("nav.menuClose")}
             className="sm:hidden h-7 w-7 -mr-1 flex items-center justify-center text-ink-tertiary hover:text-ink-primary"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
@@ -106,47 +108,47 @@ export function SuperShell({ children }: { children: React.ReactNode }) {
           <SidebarLink
             href="/super"
             active={pathname === "/super"}
-            label="Übersicht"
+            label={t("super.navOverview")}
           />
           <SidebarLink
             href="/super/tenants"
             active={pathname?.startsWith("/super/tenants") ?? false}
-            label="Tenants"
+            label={t("super.navTenants")}
           />
           <SidebarLink
             href="/super/storage"
             active={pathname?.startsWith("/super/storage") ?? false}
-            label="Storage"
+            label={t("super.navStorage")}
           />
           <SidebarLink
             href="/super/mrr"
             active={pathname?.startsWith("/super/mrr") ?? false}
-            label="MRR"
+            label={t("super.navMrr")}
           />
           <SidebarLink
             href="/super/announcements"
             active={pathname?.startsWith("/super/announcements") ?? false}
-            label="Banner"
+            label={t("super.navBanner")}
           />
           <SidebarLink
             href="/super/broadcasts"
             active={pathname?.startsWith("/super/broadcasts") ?? false}
-            label="Broadcasts"
+            label={t("super.navBroadcasts")}
           />
           <SidebarLink
             href="/super/print-providers"
             active={pathname?.startsWith("/super/print-providers") ?? false}
-            label="Print-Provider"
+            label={t("super.navPrintProvider")}
           />
           <SidebarLink
             href="/super/audit"
             active={pathname?.startsWith("/super/audit") ?? false}
-            label="Audit-Log"
+            label={t("super.navAudit")}
           />
           <SidebarLink
             href="/super/system"
             active={pathname?.startsWith("/super/system") ?? false}
-            label="System"
+            label={t("super.navSystem")}
           />
         </nav>
 
@@ -177,7 +179,7 @@ export function SuperShell({ children }: { children: React.ReactNode }) {
       {mobileOpen && (
         <button
           type="button"
-          aria-label="Menü schließen"
+          aria-label={t("nav.menuClose")}
           onClick={() => setMobileOpen(false)}
           className="fixed inset-0 z-30 bg-black/40 sm:hidden"
         />

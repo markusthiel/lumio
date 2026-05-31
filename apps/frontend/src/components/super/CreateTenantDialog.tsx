@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useT } from "@/lib/i18n";
 import { api, type SuperTenantCreated } from "@/lib/api";
 
 interface Props {
@@ -15,6 +16,7 @@ interface Props {
  * Mail-Versand fehlschlägt.
  */
 export function CreateTenantDialog({ onClose, onCreated }: Props) {
+  const t = useT();
   const [slug, setSlug] = useState("");
   const [slugTouched, setSlugTouched] = useState(false);
   const [name, setName] = useState("");
@@ -41,14 +43,14 @@ export function CreateTenantDialog({ onClose, onCreated }: Props) {
       });
       setResult(r);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Fehler";
+      const msg = err instanceof Error ? err.message : t("common.error");
       setError(
         msg.includes("slug_taken")
-          ? "Dieser Slug ist schon vergeben."
+          ? t("super.ctSlugTaken")
           : msg.includes("domain_taken")
-          ? "Diese Custom-Domain ist schon vergeben."
+          ? t("super.ctDomainTaken")
           : msg.includes("email_taken")
-          ? "Diese E-Mail ist in diesem Tenant schon registriert."
+          ? t("super.invEmailTaken")
           : msg
       );
     } finally {
@@ -64,12 +66,12 @@ export function CreateTenantDialog({ onClose, onCreated }: Props) {
         <div className="w-full max-w-lg rounded-md border border-line-strong bg-surface-raised p-6 space-y-4">
           <div>
             <h2 className="text-ui-lg font-semibold text-ink-primary">
-              Tenant „{result.tenant.name}" angelegt
+              {t("super.ctCreatedTitle", { name: result.tenant.name })}
             </h2>
             <p className="text-ui-sm text-ink-tertiary mt-1">
               {result.setup.mailSent
-                ? `Einladung an ${result.owner.email} versendet.`
-                : `Mail-Versand fehlgeschlagen. Bitte diesen Link manuell an den Owner schicken:`}
+                ? t("super.ctMailSent", { email: result.owner.email })
+                : t("super.ctMailFailed")}
             </p>
           </div>
 
@@ -84,12 +86,11 @@ export function CreateTenantDialog({ onClose, onCreated }: Props) {
             }}
             className="text-ui-sm text-accent hover:text-accent-hover transition-colors duration-motion"
           >
-            Link kopieren
+            {t("super.copyLink")}
           </button>
 
           <div className="text-ui-xs text-ink-tertiary border-t border-line-subtle pt-3">
-            Der Link ist 72 Stunden gültig. Danach muss ein neuer
-            Setup-Link über die Owner-Verwaltung angefordert werden.
+            {t("super.ctLinkValid")}
           </div>
 
           <button
@@ -97,7 +98,7 @@ export function CreateTenantDialog({ onClose, onCreated }: Props) {
             onClick={() => onCreated()}
             className="w-full h-9 rounded bg-accent text-accent-contrast font-medium text-ui-sm hover:bg-accent-hover transition-colors duration-motion"
           >
-            Fertig
+            {t("super.done")}
           </button>
         </div>
       </Backdrop>
@@ -111,10 +112,10 @@ export function CreateTenantDialog({ onClose, onCreated }: Props) {
         className="w-full max-w-md rounded-md border border-line-strong bg-surface-raised p-6 space-y-3"
       >
         <h2 className="text-ui-lg font-semibold text-ink-primary">
-          Neuer Tenant
+          {t("super.ctTitle")}
         </h2>
 
-        <Field label="Studio-Name" required>
+        <Field label={t("super.studioName")} required>
           <input
             type="text"
             value={name}
@@ -143,8 +144,8 @@ export function CreateTenantDialog({ onClose, onCreated }: Props) {
         </Field>
 
         <Field
-          label="Öffentlicher Anzeigename"
-          hint="Optional. Wenn leer, wird der Studio-Name oben verwendet. Sichtbar im Login & in E-Mails an die Kunden. Owner kann das später selbst ändern."
+          label={t("super.ctDisplayName")}
+          hint={t("super.ctDisplayHint")}
         >
           <input
             type="text"
@@ -157,9 +158,9 @@ export function CreateTenantDialog({ onClose, onCreated }: Props) {
         </Field>
 
         <Field
-          label="Slug"
+          label={t("super.ctSlug")}
           required
-          hint="Kleinbuchstaben, Ziffern, Bindestriche. Wird Teil der Subdomain."
+          hint={t("super.ctSlugHint")}
         >
           <input
             type="text"
@@ -177,8 +178,8 @@ export function CreateTenantDialog({ onClose, onCreated }: Props) {
         </Field>
 
         <Field
-          label="Custom-Domain (optional)"
-          hint="Wenn der Tenant eine eigene Domain bekommen soll. Caddy muss separat konfiguriert werden."
+          label={t("super.ctDomain")}
+          hint={t("super.ctDomainHint")}
         >
           <input
             type="text"
@@ -194,7 +195,7 @@ export function CreateTenantDialog({ onClose, onCreated }: Props) {
           <div className="text-ui-xs uppercase tracking-[0.12em] text-ink-tertiary mb-2">
             Initial-Owner
           </div>
-          <Field label="Name" required>
+          <Field label={t("super.name")} required>
             <input
               type="text"
               value={ownerName}
@@ -206,9 +207,9 @@ export function CreateTenantDialog({ onClose, onCreated }: Props) {
           </Field>
           <div className="h-2" />
           <Field
-            label="E-Mail"
+            label={t("super.email")}
             required
-            hint="Bekommt eine Einladungs-Mail mit Setup-Link."
+            hint={t("super.ctEmailHint")}
           >
             <input
               type="email"
@@ -239,7 +240,7 @@ export function CreateTenantDialog({ onClose, onCreated }: Props) {
             disabled={busy}
             className="flex-1 h-9 rounded bg-accent text-accent-contrast font-medium text-ui-sm hover:bg-accent-hover disabled:opacity-50 transition-colors duration-motion"
           >
-            {busy ? "Wird angelegt…" : "Anlegen + Einladen"}
+            {busy ? t("super.ctCreating") : t("super.ctSubmit")}
           </button>
         </div>
       </form>

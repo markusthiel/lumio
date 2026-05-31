@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { api } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 interface Props {
   tenantId: string;
@@ -21,6 +22,7 @@ export function InviteOwnerDialog({
   onClose,
   onInvited,
 }: Props) {
+  const t = useT();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -41,12 +43,12 @@ export function InviteOwnerDialog({
       });
       setResult({ setupUrl: r.setup.url, mailSent: r.setup.mailSent });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Fehler";
+      const msg = err instanceof Error ? err.message : t("common.error");
       setError(
         msg.includes("email_taken")
-          ? "Diese E-Mail ist in diesem Tenant schon registriert."
+          ? t("super.invEmailTaken")
           : msg.includes("tenant_inactive")
-          ? "Tenant ist nicht aktiv."
+          ? t("super.invTenantInactive")
           : msg
       );
     } finally {
@@ -59,12 +61,12 @@ export function InviteOwnerDialog({
       <Backdrop>
         <div className="w-full max-w-lg rounded-md border border-line-strong bg-surface-raised p-6 space-y-4">
           <h2 className="text-ui-lg font-semibold text-ink-primary">
-            Owner eingeladen
+            {t("super.invInvitedTitle")}
           </h2>
           <p className="text-ui-sm text-ink-tertiary">
             {result.mailSent
-              ? `Setup-Mail an ${email} versendet.`
-              : `Mail-Versand fehlgeschlagen. Bitte diesen Link manuell weiterleiten:`}
+              ? t("super.invMailSent", { email })
+              : t("super.invMailFailed")}
           </p>
           <div className="rounded bg-surface-sunken border border-line-subtle p-3 break-all font-mono text-ui-xs">
             {result.setupUrl}
@@ -74,14 +76,14 @@ export function InviteOwnerDialog({
             onClick={() => navigator.clipboard.writeText(result.setupUrl)}
             className="text-ui-sm text-accent hover:text-accent-hover"
           >
-            Link kopieren
+            {t("super.copyLink")}
           </button>
           <button
             type="button"
             onClick={() => onInvited()}
             className="w-full h-9 rounded bg-accent text-accent-contrast text-ui-sm font-medium"
           >
-            Fertig
+            {t("super.done")}
           </button>
         </div>
       </Backdrop>
@@ -96,15 +98,15 @@ export function InviteOwnerDialog({
       >
         <div>
           <h2 className="text-ui-lg font-semibold text-ink-primary">
-            Owner einladen
+            {t("super.invTitle")}
           </h2>
           <p className="text-ui-sm text-ink-tertiary mt-0.5">
-            für „{tenantName}"
+            {t("super.invFor", { name: tenantName })}
           </p>
         </div>
 
         <label className="block">
-          <span className="text-ui-sm text-ink-secondary">Name</span>
+          <span className="text-ui-sm text-ink-secondary">{t("super.name")}</span>
           <input
             type="text"
             value={name}
@@ -116,7 +118,7 @@ export function InviteOwnerDialog({
         </label>
 
         <label className="block">
-          <span className="text-ui-sm text-ink-secondary">E-Mail</span>
+          <span className="text-ui-sm text-ink-secondary">{t("super.email")}</span>
           <input
             type="email"
             value={email}
@@ -136,14 +138,14 @@ export function InviteOwnerDialog({
             disabled={busy}
             className="h-9 px-3 rounded border border-line-strong text-ui-sm text-ink-secondary"
           >
-            Abbrechen
+            {t("common.cancel")}
           </button>
           <button
             type="submit"
             disabled={busy || !email || !name}
             className="flex-1 h-9 rounded bg-accent text-accent-contrast text-ui-sm font-medium disabled:opacity-50"
           >
-            {busy ? "Wird eingeladen…" : "Einladen"}
+            {busy ? t("super.inviting") : t("super.invite")}
           </button>
         </div>
       </form>
