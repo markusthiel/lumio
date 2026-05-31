@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { api, type GalleryAccess } from "@/lib/api";
 import { EmailChipsInput } from "@/components/studio/EmailChipsInput";
+import { useT } from "@/lib/i18n";
 
 export function SharePanel({
   galleryId,
@@ -15,6 +16,7 @@ export function SharePanel({
   initialPublicAccess?: boolean;
   initialHasPassword?: boolean;
 }) {
+  const t = useT();
   const [publicAccess, setPublicAccess] = useState(initialPublicAccess);
   const [savingAccessMode, setSavingAccessMode] = useState(false);
 
@@ -186,8 +188,8 @@ export function SharePanel({
     } catch (err) {
       alert(
         err instanceof Error
-          ? `Fehler: ${err.message}`
-          : "Einladung konnte nicht verschickt werden."
+          ? `${t("common.error")}: ${err.message}`
+          : t("share.inviteFailed")
       );
     } finally {
       setInvitingId(null);
@@ -212,8 +214,8 @@ export function SharePanel({
     } catch (err) {
       alert(
         err instanceof Error
-          ? `Fehler beim Widerrufen: ${err.message}`
-          : "Fehler beim Widerrufen"
+          ? `${t("share.revokeFailed")}: ${err.message}`
+          : t("share.revokeFailed")
       );
     }
   }
@@ -222,10 +224,8 @@ export function SharePanel({
     <div className="space-y-4">
       <section className="rounded-lg border border-line-subtle bg-surface-raised p-4 space-y-3">
         <div>
-          <h2 className="text-sm font-medium">Zugriff</h2>
-          <p className="text-xs text-ink-tertiary mt-0.5">
-            Wer diese Galerie öffnen kann.
-          </p>
+          <h2 className="text-sm font-medium">{t("share.accessTitle")}</h2>
+          <p className="text-xs text-ink-tertiary mt-0.5">{t("share.accessSubtitle")}</p>
         </div>
         <label className="flex items-start gap-2 text-sm cursor-pointer">
           <input
@@ -237,10 +237,9 @@ export function SharePanel({
             className="mt-1"
           />
           <span>
-            <span className="font-medium">Öffentlich</span>
+            <span className="font-medium">{t("share.public")}</span>
             <span className="block text-xs text-ink-tertiary">
-              Jeder mit dem Galerie-Link kann sie öffnen. Freigabe-Links
-              geben Zusatzrechte (Auswahl, Kommentare).
+              {t("share.publicHint")}
             </span>
           </span>
         </label>
@@ -254,11 +253,9 @@ export function SharePanel({
             className="mt-1"
           />
           <span>
-            <span className="font-medium">Nur über Freigabe-Links</span>
+            <span className="font-medium">{t("share.linksOnly")}</span>
             <span className="block text-xs text-ink-tertiary">
-              Nur mit einem gültigen, nicht abgelaufenen Freigabe-Link
-              erreichbar. Der reine Galerie-Link und abgelaufene Links
-              sind gesperrt.
+              {t("share.linksOnlyHint")}
             </span>
           </span>
         </label>
@@ -266,13 +263,13 @@ export function SharePanel({
         <div className="border-t border-line-subtle pt-3 space-y-2">
           <div>
             <div className="text-sm font-medium">
-              Passwortschutz{" "}
-              <span className="text-ink-tertiary font-normal">(optional)</span>
+              {t("share.passwordProtection")}{" "}
+              <span className="text-ink-tertiary font-normal">{t("share.optional")}</span>
             </div>
             <p className="text-xs text-ink-tertiary mt-0.5">
               {hasPassword
-                ? "Aktiv — Besucher müssen das Passwort eingeben."
-                : "Zusätzlich: Besucher müssen ein Passwort eingeben, das du ihnen mitteilst."}
+                ? t("share.passwordActive")
+                : t("share.passwordInactive")}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -280,7 +277,7 @@ export function SharePanel({
               type="text"
               value={pwInput}
               onChange={(e) => setPwInput(e.target.value)}
-              placeholder={hasPassword ? "Neues Passwort" : "Passwort festlegen"}
+              placeholder={hasPassword ? t("share.newPassword") : t("share.setPasswordPlaceholder")}
               className="flex-1 rounded-md border border-line-subtle px-3 py-2 text-sm"
             />
             <button
@@ -288,16 +285,14 @@ export function SharePanel({
               disabled={savingPw || !pwInput.trim()}
               className="text-xs px-3 py-2 rounded-md bg-accent text-accent-contrast hover:bg-accent-hover disabled:opacity-50 whitespace-nowrap"
             >
-              {hasPassword ? "Ändern" : "Setzen"}
+              {hasPassword ? t("share.change") : t("share.set")}
             </button>
             {hasPassword && (
               <button
                 onClick={() => void removePassword()}
                 disabled={savingPw}
                 className="text-xs px-2 py-2 text-red-600 hover:underline disabled:opacity-50 whitespace-nowrap"
-              >
-                Entfernen
-              </button>
+              >{t("share.remove")}</button>
             )}
           </div>
         </div>
@@ -305,24 +300,18 @@ export function SharePanel({
 
       <section className="rounded-lg border border-line-subtle bg-surface-raised">
       <header className="px-4 py-3 border-b border-line-subtle flex items-center justify-between">
-        <h2 className="text-sm font-medium">Share-Links</h2>
+        <h2 className="text-sm font-medium">{t("share.linksTitle")}</h2>
         <button
           onClick={() => setShowCreate(true)}
           className="text-xs px-2.5 py-1 rounded bg-accent text-accent-contrast hover:bg-accent-hover"
-        >
-          + Neuer Link
-        </button>
+        >{t("share.newLink")}</button>
       </header>
 
       <div className="px-4 py-3">
         {/* Public link (ohne Token) */}
         <div className="border border-line-subtle rounded p-3 mb-3 bg-surface-sunken">
-          <div className="text-xs font-medium text-ink-secondary">
-            Öffentlicher Link
-          </div>
-          <div className="text-xs text-ink-tertiary mb-2">
-            Anonyme Vorschau ohne Auswahl/Kommentare.
-          </div>
+          <div className="text-xs font-medium text-ink-secondary">{t("share.publicLink")}</div>
+          <div className="text-xs text-ink-tertiary mb-2">{t("share.publicLinkHint")}</div>
           <div className="flex items-center gap-2">
             <code className="flex-1 text-xs bg-surface-raised border border-line-subtle rounded px-2 py-1 truncate">
               {buildShareUrl()}
@@ -331,14 +320,14 @@ export function SharePanel({
               onClick={() => copyLink("public", buildShareUrl())}
               className="text-xs px-2 py-1 rounded border border-line-subtle hover:bg-surface-sunken"
             >
-              {copied === "public" ? "Kopiert!" : "Kopieren"}
+              {copied === "public" ? t("share.copied") : t("share.copy")}
             </button>
             <a
               href={buildShareUrl()}
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs px-2 py-1 rounded border border-line-subtle hover:bg-surface-sunken inline-flex items-center gap-1"
-              title="In neuem Tab öffnen"
+              title={t("share.openNewTab")}
             >
               <svg
                 width="12"
@@ -353,19 +342,16 @@ export function SharePanel({
                 <path d="M15 3h6v6" />
                 <path d="M10 14 21 3" />
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-              </svg>
-              Öffnen
-            </a>
+              </svg>{t("share.open")}</a>
           </div>
         </div>
 
         {/* Access-Token-Links */}
         {loading ? (
-          <div className="text-xs text-ink-tertiary">Lädt…</div>
+          <div className="text-xs text-ink-tertiary">{t("common.loading")}</div>
         ) : accesses.length === 0 ? (
           <div className="text-xs text-ink-tertiary">
-            Noch keine personalisierten Links. Lege einen an, damit Kunden
-            Auswahl und Kommentare zugeordnet werden.
+            {t("share.noLinks")}
           </div>
         ) : (
           <ul className="space-y-2">
@@ -383,7 +369,7 @@ export function SharePanel({
                         <div className="text-xs text-ink-tertiary truncate">
                           {a.emails.length === 1
                             ? a.emails[0]
-                            : `${a.emails[0]} +${a.emails.length - 1} weitere`}
+                            : t("share.moreEmails", { first: a.emails[0], count: a.emails.length - 1 })}
                         </div>
                       )}
                     </div>
@@ -393,13 +379,13 @@ export function SharePanel({
                           onClick={() => setInviteFor(a)}
                           disabled={invitingId === a.id}
                           className="text-xs text-accent hover:underline disabled:opacity-50"
-                          title="Einladungs-Mail verschicken"
+                          title={t("share.sendInviteTitle")}
                         >
                           {invitingId === a.id
-                            ? "Senden…"
+                            ? t("share.sending")
                             : invitedId === a.id
-                              ? "Gesendet ✓"
-                              : "Einladung senden"}
+                              ? t("share.sent")
+                              : t("share.sendInvite")}
                         </button>
                       )}
                       <button
@@ -411,8 +397,8 @@ export function SharePanel({
                         }
                       >
                         {confirmingDeleteId === a.id
-                          ? "Sicher? Nochmal klicken"
-                          : "Widerrufen"}
+                          ? t("share.confirmDelete")
+                          : t("share.revoke")}
                       </button>
                     </div>
                   </div>
@@ -424,14 +410,14 @@ export function SharePanel({
                       onClick={() => copyLink(a.id, url)}
                       className="text-xs px-2 py-1 rounded border border-line-subtle hover:bg-surface-sunken"
                     >
-                      {copied === a.id ? "Kopiert!" : "Kopieren"}
+                      {copied === a.id ? t("share.copied") : t("share.copy")}
                     </button>
                     <a
                       href={url}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs px-2 py-1 rounded border border-line-subtle hover:bg-surface-sunken inline-flex items-center gap-1"
-                      title="In neuem Tab öffnen"
+                      title={t("share.openNewTab")}
                     >
                       <svg
                         width="12"
@@ -446,17 +432,15 @@ export function SharePanel({
                         <path d="M15 3h6v6" />
                         <path d="M10 14 21 3" />
                         <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-                      </svg>
-                      Öffnen
-                    </a>
+                      </svg>{t("share.open")}</a>
                   </div>
                   <div className="text-[10px] text-ink-tertiary flex gap-2">
-                    {a.canDownload && <span>↓ Download</span>}
-                    {a.canSelect && <span>● Auswahl</span>}
-                    {a.canComment && <span>● Kommentare</span>}
-                    {a.canSeeOthers && <span>● Andere sehen</span>}
+                    {a.canDownload && <span>{t("share.permDownload")}</span>}
+                    {a.canSelect && <span>{t("share.permSelect")}</span>}
+                    {a.canComment && <span>{t("share.permComment")}</span>}
+                    {a.canSeeOthers && <span>{t("share.permSeeOthers")}</span>}
                     <span className="ml-auto">
-                      {a.accessCount} Aufrufe
+                      {t("share.views", { count: a.accessCount })}
                     </span>
                   </div>
                   <div className="text-[11px] flex items-center gap-2 flex-wrap pt-0.5">
@@ -473,51 +457,49 @@ export function SharePanel({
                           disabled={savingExpiry}
                           className="text-accent hover:underline disabled:opacity-50"
                         >
-                          {savingExpiry ? "Speichern…" : "Speichern"}
+                          {savingExpiry ? t("share.savingShort") : t("common.save")}
                         </button>
                         {expiryDraft && (
                           <button
                             onClick={() => setExpiryDraft("")}
                             className="text-ink-tertiary hover:text-ink-secondary"
-                          >
-                            Kein Ablauf
-                          </button>
+                          >{t("share.noExpiry")}</button>
                         )}
                         <button
                           onClick={() => setEditingExpiryId(null)}
                           className="text-ink-tertiary hover:text-ink-secondary"
-                        >
-                          Abbrechen
-                        </button>
+                        >{t("common.cancel")}</button>
                       </>
                     ) : (
                       <>
                         {a.expiresAt ? (
                           new Date(a.expiresAt) < new Date() ? (
                             <span className="text-red-600">
-                              Abgelaufen —{" "}
-                              {new Date(a.expiresAt).toLocaleString("de-DE", {
-                                dateStyle: "medium",
-                                timeStyle: "short",
+                              {t("share.expiredOn", {
+                                date: new Date(a.expiresAt).toLocaleString("de-DE", {
+                                  dateStyle: "medium",
+                                  timeStyle: "short",
+                                }),
                               })}
                             </span>
                           ) : (
                             <span className="text-ink-tertiary">
-                              Läuft ab:{" "}
-                              {new Date(a.expiresAt).toLocaleString("de-DE", {
-                                dateStyle: "medium",
-                                timeStyle: "short",
+                              {t("share.expiresOn", {
+                                date: new Date(a.expiresAt).toLocaleString("de-DE", {
+                                  dateStyle: "medium",
+                                  timeStyle: "short",
+                                }),
                               })}
                             </span>
                           )
                         ) : (
-                          <span className="text-ink-tertiary">Kein Ablauf</span>
+                          <span className="text-ink-tertiary">{t("share.noExpiry")}</span>
                         )}
                         <button
                           onClick={() => startEditExpiry(a)}
                           className="text-accent hover:underline"
                         >
-                          {a.expiresAt ? "Ändern" : "Ablauf setzen"}
+                          {a.expiresAt ? t("share.change") : t("share.setExpiry")}
                         </button>
                       </>
                     )}
@@ -532,7 +514,7 @@ export function SharePanel({
                           value={pwDraft}
                           onChange={(e) => setPwDraft(e.target.value)}
                           placeholder={
-                            a.hasPassword ? "Neues Passwort" : "Passwort"
+                            a.hasPassword ? t("share.newPassword") : t("share.passwordPlaceholder")
                           }
                           className="flex-1 rounded border border-line-subtle px-2 py-1 text-xs"
                         />
@@ -542,41 +524,31 @@ export function SharePanel({
                             void saveLinkPassword(a.id, pwDraft.trim())
                           }
                           className="text-accent hover:underline disabled:opacity-40"
-                        >
-                          Speichern
-                        </button>
+                        >{t("common.save")}</button>
                         {a.hasPassword && (
                           <button
                             disabled={savingLinkPw}
                             onClick={() => void saveLinkPassword(a.id, null)}
                             className="text-red-600 hover:underline disabled:opacity-40"
-                          >
-                            Entfernen
-                          </button>
+                          >{t("share.remove")}</button>
                         )}
                         <button
                           onClick={() => setEditingPwId(null)}
                           className="text-ink-tertiary hover:text-ink-secondary"
-                        >
-                          Abbrechen
-                        </button>
+                        >{t("common.cancel")}</button>
                       </>
                     ) : (
                       <>
                         {a.hasPassword ? (
-                          <span className="text-ink-secondary">
-                            🔒 Passwortgeschützt
-                          </span>
+                          <span className="text-ink-secondary">{t("share.passwordProtected")}</span>
                         ) : (
-                          <span className="text-ink-tertiary">
-                            Kein Passwort
-                          </span>
+                          <span className="text-ink-tertiary">{t("share.noPassword")}</span>
                         )}
                         <button
                           onClick={() => startEditPw(a)}
                           className="text-accent hover:underline"
                         >
-                          {a.hasPassword ? "Ändern" : "Passwort setzen"}
+                          {a.hasPassword ? t("share.change") : t("share.setPassword")}
                         </button>
                       </>
                     )}
@@ -633,6 +605,7 @@ function InviteDialog({
     updateDefaults?: boolean;
   }) => void;
 }) {
+  const t = useT();
   const [recipients, setRecipients] = useState<string[]>(access.emails);
   const [message, setMessage] = useState("");
   /** Hat der User die hinterlegten Adressen veraendert? Nur dann
@@ -665,25 +638,21 @@ function InviteDialog({
         className="w-full max-w-md bg-surface-raised border border-line-subtle shadow-2xl rounded-lg p-6 space-y-4"
       >
         <div>
-          <h2 className="text-lg font-semibold">Einladung senden</h2>
+          <h2 className="text-lg font-semibold">{t("share.sendInvite")}</h2>
           <p className="text-sm text-ink-secondary mt-1">
-            Empfänger: <strong>{access.label}</strong>
+            {t("share.recipientLabel")} <strong>{access.label}</strong>
           </p>
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="invite-emails" className="text-sm font-medium">
-            E-Mail-Adressen
-          </label>
+          <label htmlFor="invite-emails" className="text-sm font-medium">{t("share.emails")}</label>
           <EmailChipsInput
             id="invite-emails"
             value={recipients}
             onChange={setRecipients}
-            placeholder="Adresse eintippen + Enter"
+            placeholder={t("share.emailPlaceholder")}
           />
-          <p className="text-xs text-ink-tertiary">
-            Pro Adresse wird eine eigene Mail versendet.
-          </p>
+          <p className="text-xs text-ink-tertiary">{t("share.emailHint")}</p>
         </div>
 
         {changed && (
@@ -694,11 +663,8 @@ function InviteDialog({
               onChange={(e) => setSaveAsDefault(e.target.checked)}
               className="mt-0.5"
             />
-            <span>
-              Geänderte Liste als Standard speichern
-              <span className="block text-xs text-ink-tertiary">
-                Bei der nächsten „Einladung senden" werden diese Adressen
-                automatisch vorgeschlagen.
+            <span>{t("share.saveAsDefault")}<span className="block text-xs text-ink-tertiary">
+                {t("share.saveAsDefaultHint")}
               </span>
             </span>
           </label>
@@ -706,8 +672,8 @@ function InviteDialog({
 
         <div className="space-y-1">
           <label htmlFor="invite-msg" className="text-sm font-medium">
-            Persönliche Nachricht{" "}
-            <span className="text-ink-tertiary">(optional)</span>
+            {t("share.personalMessage")}{" "}
+            <span className="text-ink-tertiary">{t("share.optional")}</span>
           </label>
           <textarea
             id="invite-msg"
@@ -716,7 +682,7 @@ function InviteDialog({
             rows={3}
             maxLength={1000}
             className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm"
-            placeholder="z.B. Liebe Anna, hier sind eure Hochzeitsbilder. Viel Freude beim Anschauen!"
+            placeholder={t("share.messagePlaceholder")}
           />
         </div>
 
@@ -725,17 +691,15 @@ function InviteDialog({
             type="button"
             onClick={onClose}
             className="text-sm px-3 py-2 rounded-md border border-line-subtle hover:bg-surface-sunken"
-          >
-            Abbrechen
-          </button>
+          >{t("common.cancel")}</button>
           <button
             type="submit"
             disabled={recipients.length === 0}
             className="text-sm px-3 py-2 rounded-md bg-accent text-accent-contrast hover:bg-accent-hover disabled:opacity-50"
           >
             {recipients.length === 1
-              ? "Einladung verschicken"
-              : `An ${recipients.length} Adressen schicken`}
+              ? t("share.sendInviteSingle")
+              : t("share.sendInviteMulti", { count: recipients.length })}
           </button>
         </div>
       </form>
@@ -752,6 +716,7 @@ function CreateAccessDialog({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const t = useT();
   const [label, setLabel] = useState("");
   const [emails, setEmails] = useState<string[]>([]);
   const [canDownload, setCanDownload] = useState(true);
@@ -793,7 +758,7 @@ function CreateAccessDialog({
       });
       onCreated();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setPending(false);
     }
@@ -809,12 +774,10 @@ function CreateAccessDialog({
         onSubmit={onSubmit}
         className="w-full max-w-md bg-surface-raised border border-line-subtle shadow-2xl rounded-lg p-6 space-y-4"
       >
-        <h2 className="text-lg font-semibold">Neuer Share-Link</h2>
+        <h2 className="text-lg font-semibold">{t("share.newLinkTitle")}</h2>
 
         <div className="space-y-1">
-          <label htmlFor="label" className="text-sm font-medium">
-            Bezeichnung
-          </label>
+          <label htmlFor="label" className="text-sm font-medium">{t("share.label")}</label>
           <input
             id="label"
             required
@@ -822,62 +785,54 @@ function CreateAccessDialog({
             value={label}
             onChange={(e) => setLabel(e.target.value)}
             className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm"
-            placeholder="z.B. Brautpaar, Agentur, Eltern"
+            placeholder={t("share.labelPlaceholder")}
           />
         </div>
 
         <div className="space-y-1">
           <label htmlFor="emails" className="text-sm font-medium">
-            E-Mail-Adressen{" "}
-            <span className="text-ink-tertiary">(optional)</span>
+            {t("share.emails")}{" "}
+            <span className="text-ink-tertiary">{t("share.optional")}</span>
           </label>
           <EmailChipsInput
             id="emails"
             value={emails}
             onChange={setEmails}
-            placeholder="Adresse + Enter — mehrere möglich"
+            placeholder={t("share.emailsPlaceholderMulti")}
           />
         </div>
 
         <div className="space-y-1.5">
-          <div className="text-sm font-medium">Berechtigungen</div>
+          <div className="text-sm font-medium">{t("share.permissions")}</div>
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
               checked={canDownload}
               onChange={(e) => setCanDownload(e.target.checked)}
-            />
-            Darf Dateien herunterladen
-          </label>
+            />{t("share.permDownloadFull")}</label>
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
               checked={canSelect}
               onChange={(e) => setCanSelect(e.target.checked)}
-            />
-            Darf Auswahl treffen (Like, Color-Tag)
-          </label>
+            />{t("share.permSelectFull")}</label>
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
               checked={canComment}
               onChange={(e) => setCanComment(e.target.checked)}
-            />
-            Darf kommentieren
-          </label>
+            />{t("share.permCommentFull")}</label>
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
               checked={canSeeOthers}
               onChange={(e) => setCanSeeOthers(e.target.checked)}
-            />
-            Sieht Auswahl/Kommentare anderer Teams
-          </label>
+            />{t("share.permSeeOthersFull")}</label>
         </div>
 
         <div className="space-y-1">
           <label htmlFor="expiresAt" className="text-sm font-medium">
-            Läuft ab <span className="text-ink-tertiary">(optional)</span>
+            {t("share.expires")} <span className="text-ink-tertiary">{t("share.optional")}</span>
           </label>
           <div className="flex items-center gap-2">
             <input
@@ -892,21 +847,18 @@ function CreateAccessDialog({
                 type="button"
                 onClick={() => setExpiresAt("")}
                 className="text-xs text-ink-tertiary hover:text-ink-secondary px-2"
-              >
-                Zurücksetzen
-              </button>
+              >{t("share.reset")}</button>
             )}
           </div>
           <p className="text-xs text-ink-tertiary">
-            Nach diesem Zeitpunkt kann der Kunde die Galerie nicht mehr
-            öffnen. Leer = kein Ablauf.
+            {t("share.expiresHint")}
           </p>
         </div>
 
         <div className="space-y-1">
           <label htmlFor="linkPw" className="text-sm font-medium">
-            Passwort für diesen Link{" "}
-            <span className="text-ink-tertiary">(optional)</span>
+            {t("share.linkPassword")}{" "}
+            <span className="text-ink-tertiary">{t("share.optional")}</span>
           </label>
           <input
             id="linkPw"
@@ -914,11 +866,10 @@ function CreateAccessDialog({
             value={linkPassword}
             onChange={(e) => setLinkPassword(e.target.value)}
             className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm"
-            placeholder="Leer = kein Passwort"
+            placeholder={t("share.linkPasswordPlaceholder")}
           />
           <p className="text-xs text-ink-tertiary">
-            Sinnvoll, wenn du Link und Passwort getrennt verschickst (z. B.
-            Link per Mail, Passwort per SMS). Sonst nicht nötig.
+            {t("share.linkPasswordHint")}
           </p>
         </div>
 
@@ -931,17 +882,13 @@ function CreateAccessDialog({
                 type="checkbox"
                 checked={sendInvitation}
                 onChange={(e) => setSendInvitation(e.target.checked)}
-              />
-              Einladungs-Mail jetzt verschicken
-            </label>
+              />{t("share.sendInviteNow")}</label>
             {sendInvitation && (
               <div className="space-y-1 pl-6">
                 <label
                   htmlFor="personalMessage"
                   className="text-xs text-ink-tertiary"
-                >
-                  Persönliche Nachricht (optional)
-                </label>
+                >{t("share.personalMessageOptional")}</label>
                 <textarea
                   id="personalMessage"
                   value={personalMessage}
@@ -949,7 +896,7 @@ function CreateAccessDialog({
                   rows={3}
                   maxLength={1000}
                   className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm"
-                  placeholder="z.B. Liebe Anna, lieber Tim — eure Hochzeitsbilder sind da! Viel Freude beim Anschauen."
+                  placeholder={t("share.messagePlaceholder2")}
                 />
               </div>
             )}
@@ -967,19 +914,17 @@ function CreateAccessDialog({
             type="button"
             onClick={onClose}
             className="text-sm px-3 py-2 rounded-md border border-line-subtle hover:bg-surface-sunken"
-          >
-            Abbrechen
-          </button>
+          >{t("common.cancel")}</button>
           <button
             type="submit"
             disabled={pending}
             className="text-sm px-3 py-2 rounded-md bg-accent text-accent-contrast hover:bg-accent-hover disabled:opacity-50"
           >
             {pending
-              ? "Wird erstellt…"
+              ? t("common.creating")
               : wantsInvitation
-                ? "Erstellen & einladen"
-                : "Erstellen"}
+                ? t("share.createAndInvite")
+                : t("common.create")}
           </button>
         </div>
       </form>
