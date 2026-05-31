@@ -1510,4 +1510,30 @@ export const en: Dict = {
     dialogTitle: "New branding profile",
     namePlaceholder: "e.g. Standard, Wedding, Newborn",
   },
+
+  printShopOverview: {
+    setupStatusLabel: "Setup status:",
+    ofTotal: "of {total}",
+    ready: "✓ Print shop is ready to go",
+    step1Title: "Enable print shop",
+    step1Desc:
+      "The master switch — while it's off, clients see no order options.",
+    ctaSettings: "Settings",
+    step2Title: "Set up payment",
+    step2DescReady:
+      "Stripe Connect connected — clients can pay online.",
+    step2DescNot:
+      "Optional: Stripe Connect for online payment. Without Stripe you work in offline invoice mode.",
+    ctaPayment: "Payment",
+    step3Title: "Enable providers",
+    step3Desc:
+      "At least one print provider. 'Self-print' is always available.",
+    ctaProviders: "Providers",
+    step4Title: "Create products",
+    step4Desc: "Which sizes, materials and prices do you want to offer?",
+    ctaProducts: "Products",
+    step5Title: "Configure shipping",
+    step5Desc: "At least one shipping method with price and delivery countries.",
+    ctaShipping: "Shipping",
+  },
 };

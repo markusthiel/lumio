@@ -16,6 +16,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 interface Status {
   printShopEnabled: boolean;
@@ -26,6 +27,7 @@ interface Status {
 }
 
 export default function PrintShopOverviewPage() {
+  const t = useT();
   const [status, setStatus] = useState<Status | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,7 +50,7 @@ export default function PrintShopOverviewPage() {
           hasShipping: shipping.methods.some((m) => m.enabled),
         });
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Fehler");
+        setError(err instanceof Error ? err.message : t("common.error"));
       }
     })();
   }, []);
@@ -61,45 +63,41 @@ export default function PrintShopOverviewPage() {
     );
   }
   if (!status) {
-    return <div className="text-sm text-ink-tertiary">Lädt…</div>;
+    return <div className="text-sm text-ink-tertiary">{t("common.loading")}</div>;
   }
 
   const steps = [
     {
       ok: status.printShopEnabled,
-      title: "Print-Shop aktivieren",
-      description:
-        "Der Master-Schalter — solange er aus ist, sehen Endkunden keine Bestell-Optionen.",
-      cta: { href: "/studio/print-shop/settings", label: "Einstellungen" },
+      title: t("printShopOverview.step1Title"),
+      description: t("printShopOverview.step1Desc"),
+      cta: { href: "/studio/print-shop/settings", label: t("printShopOverview.ctaSettings") },
     },
     {
       ok: status.stripeReady || status.hasProviders,
-      title: "Bezahlung einrichten",
+      title: t("printShopOverview.step2Title"),
       description: status.stripeReady
-        ? "Stripe-Connect verbunden — Endkunden können online bezahlen."
-        : "Optional: Stripe-Connect für Online-Bezahlung. Ohne Stripe arbeitest du im Offline-Rechnungs-Modus.",
-      cta: { href: "/studio/print-shop/settings", label: "Bezahlung" },
+        ? t("printShopOverview.step2DescReady")
+        : t("printShopOverview.step2DescNot"),
+      cta: { href: "/studio/print-shop/settings", label: t("printShopOverview.ctaPayment") },
     },
     {
       ok: status.hasProviders,
-      title: "Anbieter aktivieren",
-      description:
-        "Mindestens ein Druck-Anbieter. 'Selbst drucken' ist immer verfügbar.",
-      cta: { href: "/studio/print-shop/providers", label: "Anbieter" },
+      title: t("printShopOverview.step3Title"),
+      description: t("printShopOverview.step3Desc"),
+      cta: { href: "/studio/print-shop/providers", label: t("printShopOverview.ctaProviders") },
     },
     {
       ok: status.hasProducts,
-      title: "Produkte anlegen",
-      description:
-        "Welche Größen, Materialien und Preise willst du anbieten?",
-      cta: { href: "/studio/print-shop/products", label: "Produkte" },
+      title: t("printShopOverview.step4Title"),
+      description: t("printShopOverview.step4Desc"),
+      cta: { href: "/studio/print-shop/products", label: t("printShopOverview.ctaProducts") },
     },
     {
       ok: status.hasShipping,
-      title: "Versand konfigurieren",
-      description:
-        "Mindestens eine Versandmethode mit Preis und Lieferländern.",
-      cta: { href: "/studio/print-shop/shipping", label: "Versand" },
+      title: t("printShopOverview.step5Title"),
+      description: t("printShopOverview.step5Desc"),
+      cta: { href: "/studio/print-shop/shipping", label: t("printShopOverview.ctaShipping") },
     },
   ];
 
@@ -109,10 +107,10 @@ export default function PrintShopOverviewPage() {
     <div className="space-y-4">
       <div className="rounded-md border border-line-subtle bg-surface-raised p-4">
         <div className="text-sm text-ink-secondary mb-2">
-          Setup-Status: <strong>{completed}</strong> von {steps.length}
+          {t("printShopOverview.setupStatusLabel")} <strong>{completed}</strong> {t("printShopOverview.ofTotal", { total: steps.length })}
           {completed === steps.length && (
             <span className="ml-2 text-semantic-success">
-              ✓ Print-Shop ist startklar
+              {t("printShopOverview.ready")}
             </span>
           )}
         </div>
