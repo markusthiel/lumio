@@ -208,7 +208,11 @@ function PublicGalleryInner() {
     );
   }
 
-  if (!meta.unlocked) {
+  // UnlockForm auch zeigen, wenn der Link ein Passwort verlangt — selbst
+  // wenn ein altes (anonymes) Cookie die Galerie als "unlocked" meldet.
+  // Sonst käme bei vorher offener Galerie die leere Galerie statt des
+  // Passwort-Formulars.
+  if (!meta.unlocked || needsLinkPassword) {
     return (
       <GalleryShell
         branding={meta.branding}
@@ -229,6 +233,7 @@ function PublicGalleryInner() {
           urlToken={urlToken}
           requirePassword={needsLinkPassword}
           onUnlocked={async () => {
+            setNeedsLinkPassword(false);
             const { gallery: g2 } = await api.getPublicGallery(slug);
             setMeta(g2);
             await loadFiles();

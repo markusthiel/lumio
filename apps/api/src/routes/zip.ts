@@ -53,6 +53,17 @@ export async function registerZipRoutes(app: FastifyInstance) {
         return reply.status(403).send({ error: "downloads_disabled" });
       }
 
+      // Pro-Link-Recht: Token-Inhaber duerfen nur mit canDownload=true.
+      if (visitor.accessId) {
+        const acc = await prisma.galleryAccess.findUnique({
+          where: { id: visitor.accessId },
+          select: { canDownload: true },
+        });
+        if (!acc?.canDownload) {
+          return reply.status(403).send({ error: "downloads_disabled" });
+        }
+      }
+
       // Variant validieren + Permission-Check
       const variant: "original" | "web" =
         req.query.variant === "web" ? "web" : "original";
@@ -108,6 +119,17 @@ export async function registerZipRoutes(app: FastifyInstance) {
       });
       if (!gallery || !gallery.downloadEnabled) {
         return reply.status(403).send({ error: "downloads_disabled" });
+      }
+
+      // Pro-Link-Recht: Token-Inhaber duerfen nur mit canDownload=true.
+      if (visitor.accessId) {
+        const acc = await prisma.galleryAccess.findUnique({
+          where: { id: visitor.accessId },
+          select: { canDownload: true },
+        });
+        if (!acc?.canDownload) {
+          return reply.status(403).send({ error: "downloads_disabled" });
+        }
       }
 
       const variant: "original" | "web" =
@@ -186,6 +208,17 @@ export async function registerZipRoutes(app: FastifyInstance) {
       });
       if (!gallery || !gallery.downloadEnabled) {
         return reply.status(403).send({ error: "downloads_disabled" });
+      }
+
+      // Pro-Link-Recht: Token-Inhaber duerfen nur mit canDownload=true.
+      if (visitor.accessId) {
+        const acc = await prisma.galleryAccess.findUnique({
+          where: { id: visitor.accessId },
+          select: { canDownload: true },
+        });
+        if (!acc?.canDownload) {
+          return reply.status(403).send({ error: "downloads_disabled" });
+        }
       }
 
       const variant: "original" | "web" =
@@ -289,6 +322,17 @@ export async function registerZipRoutes(app: FastifyInstance) {
       });
       if (!gallery || !gallery.downloadEnabled) {
         return reply.status(403).send({ error: "downloads_disabled" });
+      }
+
+      // Pro-Link-Recht: Token-Inhaber duerfen nur mit canDownload=true.
+      if (visitor.accessId) {
+        const acc = await prisma.galleryAccess.findUnique({
+          where: { id: visitor.accessId },
+          select: { canDownload: true },
+        });
+        if (!acc?.canDownload) {
+          return reply.status(403).send({ error: "downloads_disabled" });
+        }
       }
       if (!gallery.customerTagFilterEnabled) {
         // Galerie hat den Tag-Filter fuer Kunden nicht aktiv. Wir geben

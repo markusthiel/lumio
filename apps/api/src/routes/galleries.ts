@@ -2050,6 +2050,19 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         return reply.status(403).send({ error: "downloads_disabled" });
       }
 
+      // Pro-Link-Recht: Wer über einen Freigabe-Link kommt, darf nur
+      // herunterladen, wenn dieser Link canDownload=true hat. Anonyme
+      // Besucher gehen über den galerieweiten Schalter (oben).
+      if (visitor.accessId) {
+        const access = await prisma.galleryAccess.findUnique({
+          where: { id: visitor.accessId },
+          select: { canDownload: true },
+        });
+        if (!access?.canDownload) {
+          return reply.status(403).send({ error: "downloads_disabled" });
+        }
+      }
+
       const variant: "original" | "web" =
         req.query.variant === "web" ? "web" : "original";
       if (variant === "original" && !gallery.downloadOriginalsEnabled) {
