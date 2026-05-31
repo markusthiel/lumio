@@ -1574,4 +1574,22 @@ export const de: Dict = {
     displayNamePlaceholder: "Mein {name}-Konto",
     fieldRequired: "Feld '{field}' ist erforderlich.",
   },
+
+  orders: {
+    filterAll: "Alle",
+    filterPendingPayment: "Wartet auf Zahlung",
+    badgeDraft: "Entwurf",
+    badgePendingPayment: "Zahlung offen",
+    statusPaid: "Bezahlt",
+    statusInProduction: "In Produktion",
+    statusShipped: "Versendet",
+    statusDelivered: "Zugestellt",
+    statusCancelled: "Storniert",
+    statusRefunded: "Erstattet",
+    noOrders: "Noch keine Bestellungen",
+    withStatusSuffix: " mit diesem Status",
+    online: "Online",
+    offline: "Offline",
+    loadMore: "Mehr laden",
+  },
 };

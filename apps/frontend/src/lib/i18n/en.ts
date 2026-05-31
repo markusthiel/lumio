@@ -1569,4 +1569,22 @@ export const en: Dict = {
     displayNamePlaceholder: "My {name} account",
     fieldRequired: "Field '{field}' is required.",
   },
+
+  orders: {
+    filterAll: "All",
+    filterPendingPayment: "Awaiting payment",
+    badgeDraft: "Draft",
+    badgePendingPayment: "Payment pending",
+    statusPaid: "Paid",
+    statusInProduction: "In production",
+    statusShipped: "Shipped",
+    statusDelivered: "Delivered",
+    statusCancelled: "Cancelled",
+    statusRefunded: "Refunded",
+    noOrders: "No orders yet",
+    withStatusSuffix: " with this status",
+    online: "Online",
+    offline: "Offline",
+    loadMore: "Load more",
+  },
 };

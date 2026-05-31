@@ -6,23 +6,25 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 type Order = Awaited<
   ReturnType<typeof api.listPrintOrders>
 >["orders"][number];
 
 const STATUS_FILTERS = [
-  { value: "", label: "Alle" },
-  { value: "pending_payment", label: "Wartet auf Zahlung" },
-  { value: "paid", label: "Bezahlt" },
-  { value: "in_production", label: "In Produktion" },
-  { value: "shipped", label: "Versendet" },
-  { value: "delivered", label: "Zugestellt" },
-  { value: "cancelled", label: "Storniert" },
-  { value: "refunded", label: "Erstattet" },
+  { value: "", label: "orders.filterAll" },
+  { value: "pending_payment", label: "orders.filterPendingPayment" },
+  { value: "paid", label: "orders.statusPaid" },
+  { value: "in_production", label: "orders.statusInProduction" },
+  { value: "shipped", label: "orders.statusShipped" },
+  { value: "delivered", label: "orders.statusDelivered" },
+  { value: "cancelled", label: "orders.statusCancelled" },
+  { value: "refunded", label: "orders.statusRefunded" },
 ];
 
 export default function PrintOrdersPage() {
+  const t = useT();
   const [orders, setOrders] = useState<Order[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
@@ -46,7 +48,7 @@ export default function PrintOrdersPage() {
         setCursor(r.nextCursor);
         setHasMore(r.nextCursor !== null);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Fehler");
+        setError(err instanceof Error ? err.message : t("common.error"));
       } finally {
         setLoading(false);
       }
@@ -73,7 +75,7 @@ export default function PrintOrdersPage() {
                 : "px-2.5 py-1 text-xs rounded bg-surface-sunken text-ink-secondary hover:bg-surface-raised"
             }
           >
-            {f.label}
+            {t(f.label)}
           </button>
         ))}
       </div>
@@ -86,7 +88,7 @@ export default function PrintOrdersPage() {
 
       {orders.length === 0 && !loading ? (
         <div className="rounded-md border border-line-subtle bg-surface-raised px-4 py-8 text-sm text-ink-tertiary text-center">
-          Noch keine Bestellungen{status && " mit diesem Status"}.
+          {t("orders.noOrders")}{status && t("orders.withStatusSuffix")}.
         </div>
       ) : (
         <ul className="space-y-2">
@@ -105,8 +107,8 @@ export default function PrintOrdersPage() {
                       <StatusBadge status={o.status} />
                       <span className="text-xs px-1.5 py-0.5 rounded bg-surface-sunken text-ink-tertiary">
                         {o.paymentMode === "stripe_connect"
-                          ? "Online"
-                          : "Offline"}
+                          ? t("orders.online")
+                          : t("orders.offline")}
                       </span>
                     </div>
                     <div className="text-sm text-ink-secondary">
@@ -136,7 +138,7 @@ export default function PrintOrdersPage() {
             disabled={loading}
             className="px-4 py-2 text-sm rounded border border-line-subtle bg-surface-raised hover:bg-surface-sunken disabled:opacity-50"
           >
-            {loading ? "Lädt…" : "Mehr laden"}
+            {loading ? t("common.loading") : t("orders.loadMore")}
           </button>
         </div>
       )}
@@ -152,37 +154,38 @@ function formatPrice(cents: number, currency = "EUR"): string {
 }
 
 export function StatusBadge({ status }: { status: string }) {
+  const t = useT();
   const map: Record<string, { label: string; classes: string }> = {
     draft: {
-      label: "Entwurf",
+      label: t("orders.badgeDraft"),
       classes: "bg-surface-sunken text-ink-tertiary",
     },
     pending_payment: {
-      label: "Zahlung offen",
+      label: t("orders.badgePendingPayment"),
       classes: "bg-semantic-warning/15 text-semantic-warning",
     },
     paid: {
-      label: "Bezahlt",
+      label: t("orders.statusPaid"),
       classes: "bg-accent/15 text-accent",
     },
     in_production: {
-      label: "In Produktion",
+      label: t("orders.statusInProduction"),
       classes: "bg-accent/15 text-accent",
     },
     shipped: {
-      label: "Versendet",
+      label: t("orders.statusShipped"),
       classes: "bg-semantic-success/15 text-semantic-success",
     },
     delivered: {
-      label: "Zugestellt",
+      label: t("orders.statusDelivered"),
       classes: "bg-semantic-success/15 text-semantic-success",
     },
     cancelled: {
-      label: "Storniert",
+      label: t("orders.statusCancelled"),
       classes: "bg-surface-sunken text-ink-tertiary",
     },
     refunded: {
-      label: "Erstattet",
+      label: t("orders.statusRefunded"),
       classes: "bg-surface-sunken text-ink-tertiary",
     },
   };
