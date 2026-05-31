@@ -1373,4 +1373,53 @@ export const en: Dict = {
     actBrandingDelete: "Branding deleted",
     actBrandingDefault: "Branding set as default",
   },
+
+  avv: {
+    breadcrumbStudio: "Studio",
+    breadcrumb: "DPA",
+    title: "Data processing agreement (DPA)",
+    description: "Art. 28 GDPR — can be concluded electronically",
+    intro:
+      "As the provider, Lumio processes personal data on your behalf (e.g. photos of identifiable people, gallery access). Under Art. 28 GDPR you need a data processing agreement for this. We provide one pre-drafted here — you only fill in your company details and conclude it electronically with one click (Art. 28(9) GDPR explicitly allows the electronic format).",
+    loadError: "Status could not be loaded.",
+    saveError: "Saving failed.",
+    companyIncomplete: "Please fill in your company details completely first.",
+    acceptError: "Conclusion failed.",
+    statusDoneTitle: "✓ Agreement concluded",
+    doneDetail:
+      "Concluded electronically on {date}{byName} (version {version}).",
+    byName: " by {name}",
+    statusNewVersionTitle: "⚠ New agreement version available",
+    newVersionDetail:
+      "You concluded version {yourVersion}; the current version is {currentVersion}. Please confirm again.",
+    statusNotDoneTitle: "Not concluded yet",
+    statusNotDoneDetail:
+      "Fill in your company details and conclude the agreement below.",
+    companyTitle: "Your company details",
+    companyDesc:
+      "These details appear in the agreement as the \"controller\". Name and address are required.",
+    labelName: "Company / name *",
+    placeholderName: "e.g. Max Mustermann Photography",
+    labelStreet: "Street and number *",
+    placeholderStreet: "Sample Street 1",
+    labelPostal: "Postal code *",
+    labelCity: "City *",
+    placeholderCity: "Sample City",
+    labelCountry: "Country",
+    placeholderCountry: "Germany",
+    labelVat: "VAT ID (optional)",
+    saving: "Saving …",
+    saveCompany: "Save company details",
+    savedMsg: "✓ Saved",
+    acceptTitle: "Conclude & view agreement",
+    incompleteHint:
+      "Please save your company details completely first, then the agreement can be concluded.",
+    accepting: "Concluding …",
+    alreadyDone: "Already concluded",
+    confirmNewVersion: "Confirm new version",
+    acceptNow: "Conclude DPA now",
+    viewDocument: "View agreement / print as PDF",
+    docNote:
+      "The agreement opens in a new tab. Using your browser's \"Print\" you can save it as a PDF. Technical and organizational measures as well as the sub-processors are included as appendices.",
+  },
 };

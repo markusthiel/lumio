@@ -1378,4 +1378,53 @@ export const de: Dict = {
     actBrandingDelete: "Branding gelöscht",
     actBrandingDefault: "Branding als Standard",
   },
+
+  avv: {
+    breadcrumbStudio: "Studio",
+    breadcrumb: "AV-Vertrag",
+    title: "Auftragsverarbeitungsvertrag (AVV)",
+    description: "Art. 28 DSGVO — elektronisch abschließbar",
+    intro:
+      "Als Anbieter verarbeitet Lumio in deinem Auftrag personenbezogene Daten (z. B. Fotos identifizierbarer Personen, Galerie-Zugänge). Nach Art. 28 DSGVO brauchst du dafür einen Auftragsverarbeitungsvertrag. Den stellen wir hier vorgefertigt bereit — du füllst nur deine Stammdaten aus und schließt ihn per Klick elektronisch ab (Art. 28 Abs. 9 DSGVO erlaubt das elektronische Format ausdrücklich).",
+    loadError: "Status konnte nicht geladen werden.",
+    saveError: "Speichern fehlgeschlagen.",
+    companyIncomplete: "Bitte zuerst die Stammdaten vollständig ausfüllen.",
+    acceptError: "Abschluss fehlgeschlagen.",
+    statusDoneTitle: "✓ Vertrag abgeschlossen",
+    doneDetail:
+      "Elektronisch abgeschlossen am {date}{byName} (Version {version}).",
+    byName: " durch {name}",
+    statusNewVersionTitle: "⚠ Neue Vertragsversion verfügbar",
+    newVersionDetail:
+      "Du hast Version {yourVersion} abgeschlossen; aktuell ist Version {currentVersion}. Bitte erneut bestätigen.",
+    statusNotDoneTitle: "Noch nicht abgeschlossen",
+    statusNotDoneDetail:
+      "Fülle die Stammdaten aus und schließe den Vertrag unten ab.",
+    companyTitle: "Deine Stammdaten",
+    companyDesc:
+      "Diese Angaben erscheinen im Vertrag als „Verantwortlicher\". Pflicht sind Name und Anschrift.",
+    labelName: "Firmierung / Name *",
+    placeholderName: "z. B. Max Mustermann Fotografie",
+    labelStreet: "Straße und Hausnummer *",
+    placeholderStreet: "Musterstraße 1",
+    labelPostal: "PLZ *",
+    labelCity: "Ort *",
+    placeholderCity: "Musterstadt",
+    labelCountry: "Land",
+    placeholderCountry: "Deutschland",
+    labelVat: "USt-IdNr. (optional)",
+    saving: "Speichert …",
+    saveCompany: "Stammdaten speichern",
+    savedMsg: "✓ Gespeichert",
+    acceptTitle: "Vertrag abschließen & ansehen",
+    incompleteHint:
+      "Bitte zuerst die Stammdaten vollständig speichern, dann lässt sich der Vertrag abschließen.",
+    accepting: "Wird abgeschlossen …",
+    alreadyDone: "Bereits abgeschlossen",
+    confirmNewVersion: "Neue Version bestätigen",
+    acceptNow: "AVV jetzt abschließen",
+    viewDocument: "Vertrag ansehen / als PDF drucken",
+    docNote:
+      "Der Vertrag öffnet sich in einem neuen Tab. Über „Drucken\" deines Browsers kannst du ihn als PDF speichern. Technische und organisatorische Maßnahmen sowie die Unterauftragsverarbeiter sind als Anlagen enthalten.",
+  },
 };

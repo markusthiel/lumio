@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { api, type DpaStatus, type DpaCompany } from "@/lib/api";
 import { PageHeader } from "@/components/studio/PageHeader";
+import { useT } from "@/lib/i18n";
 
 type FormState = {
   legalName: string;
@@ -38,6 +39,7 @@ const inputCls =
 const labelCls = "block text-ui-sm text-ink-secondary mb-1";
 
 export default function StudioAvvPage() {
+  const t = useT();
   const [status, setStatus] = useState<DpaStatus | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY);
   const [loading, setLoading] = useState(true);
@@ -54,7 +56,7 @@ export default function StudioAvvPage() {
       setStatus(s);
       setForm(toForm(s.company));
     } catch {
-      setError("Status konnte nicht geladen werden.");
+      setError(t("avv.loadError"));
     } finally {
       setLoading(false);
     }
@@ -83,7 +85,7 @@ export default function StudioAvvPage() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch {
-      setError("Speichern fehlgeschlagen.");
+      setError(t("avv.saveError"));
     } finally {
       setSaving(false);
     }
@@ -99,8 +101,8 @@ export default function StudioAvvPage() {
       const code = (e as { code?: string })?.code;
       setError(
         code === "company_incomplete"
-          ? "Bitte zuerst die Stammdaten vollständig ausfüllen."
-          : "Abschluss fehlgeschlagen."
+          ? t("avv.companyIncomplete")
+          : t("avv.acceptError")
       );
     } finally {
       setAccepting(false);
@@ -118,18 +120,14 @@ export default function StudioAvvPage() {
   return (
     <>
       <PageHeader
-        breadcrumb={[{ label: "Studio", href: "/studio" }, { label: "AV-Vertrag" }]}
-        title="Auftragsverarbeitungsvertrag (AVV)"
-        description="Art. 28 DSGVO — elektronisch abschließbar"
+        breadcrumb={[{ label: t("avv.breadcrumbStudio"), href: "/studio" }, { label: t("avv.breadcrumb") }]}
+        title={t("avv.title")}
+        description={t("avv.description")}
       />
       <div className="px-6 sm:px-8 lg:px-12 py-6 max-w-5xl space-y-5">
 
       <p className="text-ui-sm text-ink-secondary leading-relaxed">
-        Als Anbieter verarbeitet Lumio in deinem Auftrag personenbezogene Daten (z.&nbsp;B. Fotos
-        identifizierbarer Personen, Galerie-Zugänge). Nach Art.&nbsp;28 DSGVO brauchst du dafür
-        einen Auftragsverarbeitungsvertrag. Den stellen wir hier vorgefertigt bereit — du füllst nur
-        deine Stammdaten aus und schließt ihn per Klick elektronisch ab (Art.&nbsp;28 Abs.&nbsp;9
-        DSGVO erlaubt das elektronische Format ausdrücklich).
+        {t("avv.intro")}
       </p>
 
       {error && (
@@ -139,7 +137,7 @@ export default function StudioAvvPage() {
       )}
 
       {loading ? (
-        <div className="text-ui-sm text-ink-secondary">Lädt …</div>
+        <div className="text-ui-sm text-ink-secondary">{t("common.loading")}</div>
       ) : (
         <>
           {/* Status */}
@@ -148,12 +146,9 @@ export default function StudioAvvPage() {
               <div className="flex items-start gap-2.5">
                 <span className="shrink-0 w-2 h-2 rounded-full mt-1.5 bg-emerald-500" aria-hidden />
                 <div className="text-ui-sm">
-                  <div className="font-medium text-emerald-700">✓ Vertrag abgeschlossen</div>
+                  <div className="font-medium text-emerald-700">{t("avv.statusDoneTitle")}</div>
                   <div className="text-ink-secondary mt-0.5">
-                    Elektronisch abgeschlossen am{" "}
-                    {new Date(acceptance.acceptedAt).toLocaleDateString("de-DE")}
-                    {acceptance.acceptedByName ? ` durch ${acceptance.acceptedByName}` : ""} (Version{" "}
-                    {acceptance.version}).
+                    {t("avv.doneDetail", { date: new Date(acceptance.acceptedAt).toLocaleDateString("de-DE"), byName: acceptance.acceptedByName ? t("avv.byName", { name: acceptance.acceptedByName }) : "", version: acceptance.version })}
                   </div>
                 </div>
               </div>
@@ -161,10 +156,9 @@ export default function StudioAvvPage() {
               <div className="flex items-start gap-2.5">
                 <span className="shrink-0 w-2 h-2 rounded-full mt-1.5 bg-amber-500 animate-pulse" aria-hidden />
                 <div className="text-ui-sm">
-                  <div className="font-medium text-amber-700">⚠ Neue Vertragsversion verfügbar</div>
+                  <div className="font-medium text-amber-700">{t("avv.statusNewVersionTitle")}</div>
                   <div className="text-ink-secondary mt-0.5">
-                    Du hast Version {acceptance.version} abgeschlossen; aktuell ist Version{" "}
-                    {status?.currentVersion}. Bitte erneut bestätigen.
+                    {t("avv.newVersionDetail", { yourVersion: acceptance.version, currentVersion: status?.currentVersion })}
                   </div>
                 </div>
               </div>
@@ -172,9 +166,9 @@ export default function StudioAvvPage() {
               <div className="flex items-start gap-2.5">
                 <span className="shrink-0 w-2 h-2 rounded-full mt-1.5 bg-amber-500" aria-hidden />
                 <div className="text-ui-sm">
-                  <div className="font-medium text-amber-700">Noch nicht abgeschlossen</div>
+                  <div className="font-medium text-amber-700">{t("avv.statusNotDoneTitle")}</div>
                   <div className="text-ink-secondary mt-0.5">
-                    Fülle die Stammdaten aus und schließe den Vertrag unten ab.
+                    {t("avv.statusNotDoneDetail")}
                   </div>
                 </div>
               </div>
@@ -184,36 +178,35 @@ export default function StudioAvvPage() {
           {/* Stammdaten */}
           <section className="rounded-lg border border-line-subtle bg-surface-raised p-5 space-y-3">
             <div>
-              <h2 className="text-ui font-medium text-ink-primary">Deine Stammdaten</h2>
+              <h2 className="text-ui font-medium text-ink-primary">{t("avv.companyTitle")}</h2>
               <p className="text-ui-sm text-ink-secondary mt-0.5">
-                Diese Angaben erscheinen im Vertrag als „Verantwortlicher". Pflicht sind Name und
-                Anschrift.
+                {t("avv.companyDesc")}
               </p>
             </div>
 
             <div>
-              <label className={labelCls}>Firmierung / Name *</label>
+              <label className={labelCls}>{t("avv.labelName")}</label>
               <input
                 className={inputCls}
                 value={form.legalName}
                 onChange={(e) => setForm({ ...form, legalName: e.target.value })}
-                placeholder="z. B. Max Mustermann Fotografie"
+                placeholder={t("avv.placeholderName")}
                 disabled={saving}
               />
             </div>
             <div>
-              <label className={labelCls}>Straße und Hausnummer *</label>
+              <label className={labelCls}>{t("avv.labelStreet")}</label>
               <input
                 className={inputCls}
                 value={form.legalStreet}
                 onChange={(e) => setForm({ ...form, legalStreet: e.target.value })}
-                placeholder="Musterstraße 1"
+                placeholder={t("avv.placeholderStreet")}
                 disabled={saving}
               />
             </div>
             <div className="flex gap-3">
               <div className="w-32">
-                <label className={labelCls}>PLZ *</label>
+                <label className={labelCls}>{t("avv.labelPostal")}</label>
                 <input
                   className={inputCls}
                   value={form.legalPostalCode}
@@ -223,29 +216,29 @@ export default function StudioAvvPage() {
                 />
               </div>
               <div className="flex-1">
-                <label className={labelCls}>Ort *</label>
+                <label className={labelCls}>{t("avv.labelCity")}</label>
                 <input
                   className={inputCls}
                   value={form.legalCity}
                   onChange={(e) => setForm({ ...form, legalCity: e.target.value })}
-                  placeholder="Musterstadt"
+                  placeholder={t("avv.placeholderCity")}
                   disabled={saving}
                 />
               </div>
             </div>
             <div className="flex gap-3">
               <div className="flex-1">
-                <label className={labelCls}>Land</label>
+                <label className={labelCls}>{t("avv.labelCountry")}</label>
                 <input
                   className={inputCls}
                   value={form.legalCountry}
                   onChange={(e) => setForm({ ...form, legalCountry: e.target.value })}
-                  placeholder="Deutschland"
+                  placeholder={t("avv.placeholderCountry")}
                   disabled={saving}
                 />
               </div>
               <div className="flex-1">
-                <label className={labelCls}>USt-IdNr. (optional)</label>
+                <label className={labelCls}>{t("avv.labelVat")}</label>
                 <input
                   className={inputCls}
                   value={form.vatId}
@@ -262,19 +255,18 @@ export default function StudioAvvPage() {
                 disabled={saving}
                 className="text-sm px-3 py-2 rounded-md bg-accent text-accent-contrast hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {saving ? "Speichert …" : "Stammdaten speichern"}
+                {saving ? t("avv.saving") : t("avv.saveCompany")}
               </button>
-              {saved && <span className="text-ui-sm text-emerald-600">✓ Gespeichert</span>}
+              {saved && <span className="text-ui-sm text-emerald-600">{t("avv.savedMsg")}</span>}
             </div>
           </section>
 
           {/* Abschluss + Dokument */}
           <section className="rounded-lg border border-line-subtle bg-surface-raised p-5 space-y-3">
-            <h2 className="text-ui font-medium text-ink-primary">Vertrag abschließen & ansehen</h2>
+            <h2 className="text-ui font-medium text-ink-primary">{t("avv.acceptTitle")}</h2>
             {!complete && (
               <p className="text-ui-sm text-amber-700">
-                Bitte zuerst die Stammdaten vollständig speichern, dann lässt sich der Vertrag
-                abschließen.
+                {t("avv.incompleteHint")}
               </p>
             )}
             <div className="flex flex-wrap items-center gap-3">
@@ -284,24 +276,20 @@ export default function StudioAvvPage() {
                 className="text-sm px-3 py-2 rounded-md bg-accent text-accent-contrast hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {accepting
-                  ? "Wird abgeschlossen …"
+                  ? t("avv.accepting")
                   : acceptance && upToDate
-                    ? "Bereits abgeschlossen"
+                    ? t("avv.alreadyDone")
                     : acceptance && !upToDate
-                      ? "Neue Version bestätigen"
-                      : "AVV jetzt abschließen"}
+                      ? t("avv.confirmNewVersion")
+                      : t("avv.acceptNow")}
               </button>
               <button
                 onClick={openDocument}
                 className="text-sm px-3 py-2 rounded-md border border-line-subtle hover:bg-surface-sunken"
-              >
-                Vertrag ansehen / als PDF drucken
-              </button>
+              >{t("avv.viewDocument")}</button>
             </div>
             <p className="text-ui-xs text-ink-secondary leading-relaxed">
-              Der Vertrag öffnet sich in einem neuen Tab. Über „Drucken" deines Browsers kannst du
-              ihn als PDF speichern. Technische und organisatorische Maßnahmen sowie die
-              Unterauftragsverarbeiter sind als Anlagen enthalten.
+              {t("avv.docNote")}
             </p>
           </section>
         </>
