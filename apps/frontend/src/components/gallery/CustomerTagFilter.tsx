@@ -152,7 +152,7 @@ export function CustomerTagFilter({
             className="text-xs uppercase tracking-wider mr-2"
             style={{ color: "var(--brand-fg-muted)" }}
           >
-            Nach Tags filtern
+            {t("customerTag.filterByTags")}
           </span>
           {visible.map(({ tag, count }) => {
             const isOn = selected.has(tag.id);
@@ -171,7 +171,7 @@ export function CustomerTagFilter({
                     : "var(--brand-surface)",
                   color: "var(--brand-fg)",
                 }}
-                title={`${tag.name} (${count} ${count === 1 ? "Foto" : "Fotos"})`}
+                title={t(count === 1 ? "tagFilter.tagTooltipSg" : "tagFilter.tagTooltipPl", { name: tag.name, count })}
               >
                 <span
                   className="inline-block w-2 h-2 rounded-full"
@@ -189,7 +189,7 @@ export function CustomerTagFilter({
               className="text-xs px-2 py-1 hover:underline"
               style={{ color: "var(--brand-fg-muted)" }}
             >
-              +{aggregated.length - VISIBLE_LIMIT} mehr
+              {t("tagFilter.moreCount", { n: aggregated.length - VISIBLE_LIMIT })}
             </button>
           )}
           {showAll && hasMore && (
@@ -199,7 +199,7 @@ export function CustomerTagFilter({
               className="text-xs px-2 py-1 hover:underline"
               style={{ color: "var(--brand-fg-muted)" }}
             >
-              weniger
+              {t("tagFilter.less")}
             </button>
           )}
           {selected.size > 0 && (
@@ -209,7 +209,7 @@ export function CustomerTagFilter({
               className="text-xs px-2 py-1 hover:underline ml-auto"
               style={{ color: "var(--brand-fg-muted)" }}
             >
-              Filter zurücksetzen
+              {t("customerTag.resetFilter")}
             </button>
           )}
         </div>
@@ -220,11 +220,8 @@ export function CustomerTagFilter({
               className="text-xs"
               style={{ color: "var(--brand-fg-muted)" }}
             >
-              {selected.size === 1
-                ? "1 Filter aktiv"
-                : `${selected.size} Filter aktiv`}{" "}
-              — {filteredCount}{" "}
-              {filteredCount === 1 ? "Foto" : "Fotos"} sichtbar
+              {t(selected.size === 1 ? "customerTag.filterActiveSg" : "customerTag.filterActivePl", { n: selected.size })}{" "}
+              — {t(filteredCount === 1 ? "customerTag.photosVisibleSg" : "customerTag.photosVisiblePl", { m: filteredCount })}
             </p>
 
             {downloadEnabled && filteredCount > 0 && (
@@ -239,7 +236,7 @@ export function CustomerTagFilter({
                       color: "rgb(var(--brand-accent-contrast))",
                     }}
                   >
-                    ⬇ {filteredCount} {filteredCount === 1 ? "Foto" : "Fotos"} herunterladen
+                    {t(filteredCount === 1 ? "customerTag.downloadSg" : "customerTag.downloadPl", { n: filteredCount })}
                   </button>
                 )}
                 {zipJob &&
@@ -255,7 +252,7 @@ export function CustomerTagFilter({
                           backgroundColor: "rgb(var(--brand-accent))",
                         }}
                       />
-                      ZIP wird erstellt…
+                      {t("customerTag.zipCreating")}
                     </span>
                   )}
                 {zipJob && zipJob.status === "ready" && (
@@ -267,8 +264,7 @@ export function CustomerTagFilter({
                       color: "rgb(var(--brand-accent-contrast))",
                     }}
                   >
-                    ✓ ZIP herunterladen ({zipJob.fileCount}{" "}
-                    {zipJob.fileCount === 1 ? "Foto" : "Fotos"})
+                    {t(zipJob.fileCount === 1 ? "tagFilter.zipReadySg" : "tagFilter.zipReadyPl", { n: zipJob.fileCount ?? 0 })}
                   </a>
                 )}
                 {zipJob && zipJob.status === "failed" && (
@@ -276,7 +272,7 @@ export function CustomerTagFilter({
                     className="text-xs"
                     style={{ color: "rgb(220 38 38)" }}
                   >
-                    Fehler{zipJob.error ? `: ${zipJob.error}` : ""}
+                    {t("common.error")}{zipJob.error ? `: ${zipJob.error}` : ""}
                   </span>
                 )}
                 {zipJob && (

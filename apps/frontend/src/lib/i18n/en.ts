@@ -1843,4 +1843,26 @@ export const en: Dict = {
     linkCopied: "Link copied (valid 24h)",
     zipFailed: "ZIP generation failed",
   },
+
+  customerTag: {
+    filterByTags: "Filter by tags",
+    resetFilter: "Reset filter",
+    filterActiveSg: "{n} filter active",
+    filterActivePl: "{n} filters active",
+    photosVisibleSg: "{m} photo visible",
+    photosVisiblePl: "{m} photos visible",
+    downloadSg: "⬇ Download {n} photo",
+    downloadPl: "⬇ Download {n} photos",
+    zipCreating: "Creating ZIP…",
+  },
+
+  tenantPicker: {
+    errEmpty: "Please enter a studio name.",
+    errFormat: "Studio name may only contain lowercase letters, digits and hyphens.",
+    errConfig: "Multi-mode is not configured correctly (NEXT_PUBLIC_DOMAIN_BASE missing).",
+    label: "Studio name",
+    placeholder: "your-studio",
+    submit: "Go to studio",
+    hint: "You'll find your studio name in the welcome email or in your browser history from previous logins.",
+  },
 };

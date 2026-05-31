@@ -1848,4 +1848,26 @@ export const de: Dict = {
     linkCopied: "Link kopiert (gültig 24h)",
     zipFailed: "ZIP-Erzeugung fehlgeschlagen",
   },
+
+  customerTag: {
+    filterByTags: "Nach Tags filtern",
+    resetFilter: "Filter zurücksetzen",
+    filterActiveSg: "{n} Filter aktiv",
+    filterActivePl: "{n} Filter aktiv",
+    photosVisibleSg: "{m} Foto sichtbar",
+    photosVisiblePl: "{m} Fotos sichtbar",
+    downloadSg: "⬇ {n} Foto herunterladen",
+    downloadPl: "⬇ {n} Fotos herunterladen",
+    zipCreating: "ZIP wird erstellt…",
+  },
+
+  tenantPicker: {
+    errEmpty: "Bitte einen Studio-Namen eingeben.",
+    errFormat: "Studio-Name darf nur Kleinbuchstaben, Ziffern und Bindestriche enthalten.",
+    errConfig: "Multi-Mode ist nicht korrekt konfiguriert (NEXT_PUBLIC_DOMAIN_BASE fehlt).",
+    label: "Studio-Name",
+    placeholder: "dein-studio",
+    submit: "Zum Studio",
+    hint: "Den Studio-Namen findest du in der Begrüßungs-Mail oder im Browser-Verlauf deiner bisherigen Logins.",
+  },
 };

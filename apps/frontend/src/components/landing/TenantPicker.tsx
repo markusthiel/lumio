@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui";
+import { useT } from "@/lib/i18n";
 
 /**
  * Tenant-Picker für die Apex-Domain im Multi-Mode.
@@ -19,6 +20,7 @@ import { Button } from "@/components/ui";
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 
 export function TenantPicker({ domainBase }: { domainBase: string }) {
+  const t = useT();
   const [slug, setSlug] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -26,18 +28,18 @@ export function TenantPicker({ domainBase }: { domainBase: string }) {
     e.preventDefault();
     const cleaned = slug.trim().toLowerCase();
     if (!cleaned) {
-      setError("Bitte einen Studio-Namen eingeben.");
+      setError(t("tenantPicker.errEmpty"));
       return;
     }
     if (!SLUG_RE.test(cleaned)) {
       setError(
-        "Studio-Name darf nur Kleinbuchstaben, Ziffern und Bindestriche enthalten."
+        t("tenantPicker.errFormat")
       );
       return;
     }
     if (!domainBase) {
       setError(
-        "Multi-Mode ist nicht korrekt konfiguriert (NEXT_PUBLIC_DOMAIN_BASE fehlt)."
+        t("tenantPicker.errConfig")
       );
       return;
     }
@@ -54,7 +56,7 @@ export function TenantPicker({ domainBase }: { domainBase: string }) {
       className="space-y-3 rounded-md border border-line-subtle bg-surface-raised p-5"
     >
       <label className="block text-ui-sm text-ink-secondary">
-        Studio-Name
+        {t("tenantPicker.label")}
       </label>
       <div className="flex items-center gap-2">
         <input
@@ -64,7 +66,7 @@ export function TenantPicker({ domainBase }: { domainBase: string }) {
             setSlug(e.target.value);
             setError(null);
           }}
-          placeholder="dein-studio"
+          placeholder={t("tenantPicker.placeholder")}
           autoCapitalize="off"
           autoCorrect="off"
           spellCheck={false}
@@ -78,11 +80,10 @@ export function TenantPicker({ domainBase }: { domainBase: string }) {
         <p className="text-ui-sm text-semantic-danger">{error}</p>
       )}
       <Button type="submit" variant="primary" size="sm" disabled={!slug.trim()}>
-        Zum Studio
+        {t("tenantPicker.submit")}
       </Button>
       <p className="text-ui-xs text-ink-tertiary pt-2">
-        Den Studio-Namen findest du in der Begrüßungs-Mail oder im
-        Browser-Verlauf deiner bisherigen Logins.
+        {t("tenantPicker.hint")}
       </p>
     </form>
   );
