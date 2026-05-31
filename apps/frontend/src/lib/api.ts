@@ -153,6 +153,9 @@ export interface UploadLink {
 export interface GalleryDetail extends Gallery {
   files: GalleryFile[];
   tags: Tag[];
+  /** Ob ein Passwortschutz gesetzt ist (der Hash selbst wird nie
+   *  ans Frontend gesendet). */
+  hasPassword?: boolean;
 }
 
 export interface UploadInit {
