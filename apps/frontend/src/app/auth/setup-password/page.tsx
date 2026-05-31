@@ -19,6 +19,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 type CheckResult =
   | { state: "checking" }
@@ -38,11 +39,12 @@ type CheckResult =
 // extrem schlicht (ein dezentes "Lädt…"), weil die echte Page sowieso
 // einen eigenen "checking"-State zeigt.
 export default function SetupPasswordPage() {
+  const t = useT();
   return (
     <Suspense
       fallback={
         <div className="min-h-screen flex items-center justify-center bg-surface-canvas">
-          <div className="text-ui text-ink-tertiary">Lädt…</div>
+          <div className="text-ui text-ink-tertiary">{t("common.loading")}</div>
         </div>
       }
     >
@@ -52,6 +54,7 @@ export default function SetupPasswordPage() {
 }
 
 function SetupPasswordInner() {
+  const t = useT();
   const router = useRouter();
   const params = useSearchParams();
   const token = params.get("token") ?? "";
@@ -91,11 +94,11 @@ function SetupPasswordInner() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (password !== confirm) {
-      setSubmitError("Die beiden Passwörter stimmen nicht überein.");
+      setSubmitError(t("setupPassword.pwMismatch"));
       return;
     }
     if (password.length < 12) {
-      setSubmitError("Mindestens 12 Zeichen.");
+      setSubmitError(t("setupPassword.minChars"));
       return;
     }
     setBusy(true);
@@ -104,10 +107,10 @@ function SetupPasswordInner() {
       await api.setupPassword(token, password);
       router.replace("/studio");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Fehler";
+      const msg = err instanceof Error ? err.message : t("common.error");
       setSubmitError(
         msg.includes("invalid_or_expired")
-          ? "Der Setup-Link ist abgelaufen oder wurde schon verwendet."
+          ? t("setupPassword.linkExpired")
           : msg
       );
       setBusy(false);
@@ -119,28 +122,28 @@ function SetupPasswordInner() {
       <div className="w-full max-w-md">
         {check.state === "checking" && (
           <div className="text-center text-ui text-ink-tertiary">
-            Setup-Link wird geprüft…
+            {t("setupPassword.checking")}
           </div>
         )}
 
         {check.state === "no_token" && (
           <Notice
-            title="Kein Setup-Link"
-            body="Diese Seite öffnet sich über den Link in deiner Einladungs-Mail."
+            title={t("setupPassword.noTokenTitle")}
+            body={t("setupPassword.noTokenBody")}
           />
         )}
 
         {check.state === "invalid" && (
           <Notice
-            title="Link ungültig oder abgelaufen"
-            body="Der Setup-Link funktioniert nicht mehr. Bitte den Administrator um einen neuen Link."
+            title={t("setupPassword.invalidTitle")}
+            body={t("setupPassword.invalidBody")}
           />
         )}
 
         {check.state === "tenant_inactive" && (
           <Notice
-            title="Konto nicht verfügbar"
-            body="Dein Studio ist momentan deaktiviert. Bitte wende dich an den Administrator."
+            title={t("setupPassword.inactiveTitle")}
+            body={t("setupPassword.inactiveBody")}
           />
         )}
 
@@ -151,21 +154,21 @@ function SetupPasswordInner() {
           >
             <div>
               <h1 className="text-ui-lg font-semibold text-ink-primary">
-                Willkommen{check.name ? `, ${check.name}` : ""}
+                {check.name ? t("setupPassword.welcomeNamed", { name: check.name }) : t("setupPassword.welcome")}
               </h1>
               <p className="text-ui-sm text-ink-tertiary mt-1">
-                Setze dein Passwort, um dein Studio{" "}
+                {t("setupPassword.setPwPre")}{" "}
                 <span className="text-ink-secondary">„{check.tenantName}"</span>{" "}
-                zu öffnen.
+                {t("setupPassword.setPwPost")}
               </p>
               <p className="text-ui-xs text-ink-tertiary mt-2">
-                Konto: {check.email}
+                {t("setupPassword.account", { email: check.email })}
               </p>
             </div>
 
             <label className="block">
               <span className="text-ui-sm text-ink-secondary">
-                Neues Passwort
+                {t("setupPassword.newPassword")}
               </span>
               <input
                 type="password"
@@ -178,12 +181,12 @@ function SetupPasswordInner() {
                 className="mt-1 w-full h-10 px-3 rounded bg-surface-sunken border border-line-subtle text-ui text-ink-primary focus:border-accent focus:outline-none"
               />
               <span className="block mt-1 text-ui-xs text-ink-tertiary">
-                Mindestens 12 Zeichen.
+                {t("setupPassword.minChars")}
               </span>
             </label>
 
             <label className="block">
-              <span className="text-ui-sm text-ink-secondary">Bestätigen</span>
+              <span className="text-ui-sm text-ink-secondary">{t("setupPassword.confirm")}</span>
               <input
                 type="password"
                 value={confirm}
@@ -205,7 +208,7 @@ function SetupPasswordInner() {
               disabled={busy || !password || !confirm}
               className="w-full h-10 rounded bg-accent text-accent-contrast font-medium hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-motion"
             >
-              {busy ? "Wird gesetzt…" : "Passwort setzen & loslegen"}
+              {busy ? t("setupPassword.submitting") : t("setupPassword.submit")}
             </button>
           </form>
         )}

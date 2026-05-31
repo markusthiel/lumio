@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 /**
  * Storage-Banner — wird am oberen Rand der Studio-Main-Area gerendert,
@@ -16,6 +17,7 @@ import { api } from "@/lib/api";
  * den exakten Stand).
  */
 export function StorageBanner() {
+  const t = useT();
   const [state, setState] = useState<{
     kind: "warning" | "danger" | "readonly" | "trial";
     title: string;
@@ -32,9 +34,8 @@ export function StorageBanner() {
         if (u.readOnlySince) {
           setState({
             kind: "readonly",
-            title: "Konto im Read-only-Modus",
-            message:
-              "Wegen ausstehender Zahlung sind Uploads und Änderungen deaktiviert. Bitte Karte aktualisieren.",
+            title: t("storageBanner.readonlyTitle"),
+            message: t("storageBanner.readonlyMsg"),
           });
           return;
         }
@@ -47,16 +48,16 @@ export function StorageBanner() {
         if (pct >= 95) {
           setState({
             kind: "danger",
-            title: "Speicher fast voll",
-            message: `Du nutzt ${pct.toFixed(0)}% deines Speichers. Storage Pack oder Plan-Upgrade nötig.`,
+            title: t("storageBanner.dangerTitle"),
+            message: t("storageBanner.dangerMsg", { pct: pct.toFixed(0) }),
           });
           return;
         }
         if (pct >= 80) {
           setState({
             kind: "warning",
-            title: "Speicher wird knapp",
-            message: `Du nutzt ${pct.toFixed(0)}% deines Speichers. Bald solltest du den Plan erweitern.`,
+            title: t("storageBanner.warnTitle"),
+            message: t("storageBanner.warnMsg", { pct: pct.toFixed(0) }),
           });
           return;
         }
@@ -69,10 +70,8 @@ export function StorageBanner() {
           if (days <= 3 && days >= 0) {
             setState({
               kind: "trial",
-              title: "Trial endet bald",
-              message: `Dein Trial endet in ${Math.ceil(days)} Tag${
-                Math.ceil(days) === 1 ? "" : "en"
-              }. Wähle einen Plan, um nahtlos weiterzuarbeiten.`,
+              title: t("storageBanner.trialTitle"),
+              message: t(Math.ceil(days) === 1 ? "storageBanner.trialMsgSg" : "storageBanner.trialMsgPl", { n: Math.ceil(days) }),
             });
             return;
           }
@@ -85,8 +84,8 @@ export function StorageBanner() {
         ) {
           setState({
             kind: "warning",
-            title: "Galerie-Limit fast erreicht",
-            message: `${u.galleries.active}/${u.plan.activeGalleries} aktive Galerien.`,
+            title: t("storageBanner.galleryTitle"),
+            message: t("storageBanner.galleryMsg", { active: u.galleries.active, limit: u.plan.activeGalleries }),
           });
           return;
         }
@@ -127,7 +126,7 @@ export function StorageBanner() {
           href="/studio/billing"
           className="px-3 py-1 rounded-md bg-current/15 hover:bg-current/25 text-ui-xs font-medium whitespace-nowrap transition-colors duration-motion"
         >
-          Plan ansehen
+          {t("storageBanner.cta")}
         </Link>
       </div>
     </div>
