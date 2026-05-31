@@ -21,6 +21,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { SuperShell } from "@/components/super/SuperShell";
+import { useT } from "@/lib/i18n";
 
 type Audience =
   | "all_paid_owners"
@@ -31,23 +32,23 @@ type Audience =
 const AUDIENCE_OPTIONS: Array<{ value: Audience; label: string; help: string }> = [
   {
     value: "all_paid_owners",
-    label: "Zahlende Owner",
-    help: "Sub-Status active oder past_due.",
+    label: "broadcasts.audPaidLabel",
+    help: "broadcasts.audPaidHelp",
   },
   {
     value: "all_trial_owners",
-    label: "Trial-Owner",
-    help: "Sub-Status trialing — typisch für Onboarding-Nudges.",
+    label: "broadcasts.audTrialLabel",
+    help: "broadcasts.audTrialHelp",
   },
   {
     value: "all_owners",
-    label: "Alle Owner",
-    help: "Paying + Trialing zusammen. Für Produkt-Updates ideal.",
+    label: "broadcasts.audAllOwnersLabel",
+    help: "broadcasts.audAllOwnersHelp",
   },
   {
     value: "all_active_users",
-    label: "Alle User",
-    help: "Auch Members, nicht nur Owner. Bei Features die alle nutzen.",
+    label: "broadcasts.audAllUsersLabel",
+    help: "broadcasts.audAllUsersHelp",
   },
 ];
 
@@ -60,11 +61,10 @@ export default function NewBroadcastPage() {
 }
 
 function Editor() {
+  const t = useT();
   const router = useRouter();
   const [subject, setSubject] = useState("");
-  const [bodyMarkdown, setBodyMarkdown] = useState(
-    "Hallo,\n\nkurze Info zu **Lumio**:\n\n- ...\n- ...\n\nViele Grüße,\nMarkus"
-  );
+  const [bodyMarkdown, setBodyMarkdown] = useState(t("broadcasts.defaultBody"));
   const [audience, setAudience] = useState<Audience>("all_paid_owners");
   const [previewHtml, setPreviewHtml] = useState("");
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -88,7 +88,7 @@ function Editor() {
         const r = await api.superPreviewBroadcast(bodyMarkdown);
         setPreviewHtml(r.html);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Preview-Fehler");
+        setError(err instanceof Error ? err.message : t("broadcasts.previewError"));
       } finally {
         setPreviewLoading(false);
       }
@@ -132,7 +132,7 @@ function Editor() {
       });
       router.push(`/super/broadcasts/${r.broadcast.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler");
+      setError(err instanceof Error ? err.message : t("common.error"));
       setSubmitState("idle");
     }
   }
@@ -146,23 +146,18 @@ function Editor() {
           type="button"
           onClick={() => router.push("/super/broadcasts")}
           className="text-ui-xs text-ink-tertiary hover:text-ink-secondary"
-        >
-          ← Broadcasts
-        </button>
+        >{t("broadcasts.backToBroadcasts")}</button>
       </div>
-      <h1 className="text-2xl font-semibold mb-1">Neuer Broadcast</h1>
+      <h1 className="text-2xl font-semibold mb-1">{t("broadcasts.title")}</h1>
       <p className="text-ui-sm text-ink-tertiary mb-6">
-        Markdown wird gerendert. Jede Mail enthält automatisch einen
-        Abmelde-Link.
+        {t("broadcasts.intro")}
       </p>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr] gap-4">
         {/* Linke Spalte: Editor */}
         <div className="space-y-4">
           <div>
-            <label className="text-sm font-medium block mb-1">
-              Empfänger-Gruppe
-            </label>
+            <label className="text-sm font-medium block mb-1">{t("broadcasts.audienceLabel")}</label>
             <div className="space-y-2">
               {AUDIENCE_OPTIONS.map((opt) => (
                 <label
@@ -183,8 +178,8 @@ function Editor() {
                       className="mt-0.5"
                     />
                     <div>
-                      <div className="text-sm font-medium">{opt.label}</div>
-                      <div className="text-xs text-ink-tertiary">{opt.help}</div>
+                      <div className="text-sm font-medium">{t(opt.label)}</div>
+                      <div className="text-xs text-ink-tertiary">{t(opt.help)}</div>
                     </div>
                   </div>
                 </label>
@@ -193,23 +188,19 @@ function Editor() {
           </div>
 
           <div>
-            <label htmlFor="bc-subject" className="text-sm font-medium block mb-1">
-              Betreff
-            </label>
+            <label htmlFor="bc-subject" className="text-sm font-medium block mb-1">{t("broadcasts.subjectLabel")}</label>
             <input
               id="bc-subject"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               maxLength={200}
-              placeholder="z.B. Neue Druckpartner-Anbindung verfügbar"
+              placeholder={t("broadcasts.subjectPlaceholder")}
               className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm"
             />
           </div>
 
           <div>
-            <label htmlFor="bc-body" className="text-sm font-medium block mb-1">
-              Text (Markdown)
-            </label>
+            <label htmlFor="bc-body" className="text-sm font-medium block mb-1">{t("broadcasts.bodyLabel")}</label>
             <textarea
               id="bc-body"
               value={bodyMarkdown}
@@ -219,8 +210,7 @@ function Editor() {
               className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm font-mono"
             />
             <div className="text-xs text-ink-tertiary mt-1">
-              Markdown: # für Überschriften, **fett**, - für Listen,
-              [Text](url) für Links, leere Zeilen = neuer Absatz.
+              {t("broadcasts.markdownHint")}
             </div>
           </div>
 
@@ -232,12 +222,12 @@ function Editor() {
               className="text-sm px-3 py-2 rounded-md border border-line-subtle hover:bg-surface-sunken disabled:opacity-50"
             >
               {testSendStatus === "sending"
-                ? "Test sendet…"
+                ? t("broadcasts.testSending")
                 : testSendStatus === "sent"
-                  ? "Test-Mail versendet ✓"
+                  ? t("broadcasts.testSent")
                   : testSendStatus === "error"
-                    ? "Test fehlgeschlagen"
-                    : "Test-Mail an mich"}
+                    ? t("broadcasts.testError")
+                    : t("broadcasts.testSend")}
             </button>
             <div className="flex-1" />
             <button
@@ -251,10 +241,10 @@ function Editor() {
               }
             >
               {submitState === "submitting"
-                ? "Wird gestartet…"
+                ? t("broadcasts.submitting")
                 : submitState === "confirming"
-                  ? "WIRKLICH an alle senden — nochmal klicken"
-                  : "An Empfänger senden…"}
+                  ? t("broadcasts.submitConfirm")
+                  : t("broadcasts.submit")}
             </button>
           </div>
           {error && (
@@ -265,23 +255,21 @@ function Editor() {
         {/* Rechte Spalte: Preview */}
         <div className="lg:sticky lg:top-4 self-start">
           <div className="text-sm font-medium mb-1 flex items-center gap-2">
-            Live-Preview
+            {t("broadcasts.livePreview")}
             {previewLoading && (
-              <span className="text-xs text-ink-tertiary">(lädt…)</span>
+              <span className="text-xs text-ink-tertiary">{t("broadcasts.loadingHint")}</span>
             )}
           </div>
           <div className="rounded-md border border-line-subtle bg-white overflow-hidden">
             {previewHtml ? (
               <iframe
-                title="Mail-Vorschau"
+                title={t("broadcasts.previewIframeTitle")}
                 srcDoc={previewHtml}
                 className="w-full"
                 style={{ height: "70vh", border: "none" }}
               />
             ) : (
-              <div className="p-6 text-sm text-ink-tertiary">
-                Tippe Markdown links — Preview erscheint hier.
-              </div>
+              <div className="p-6 text-sm text-ink-tertiary">{t("broadcasts.previewEmpty")}</div>
             )}
           </div>
         </div>
