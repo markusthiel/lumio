@@ -21,6 +21,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 type TagRef = { id: string; name: string; color: string };
 type FileLike = { id: string; tags?: TagRef[] };
@@ -49,6 +50,7 @@ export function GalleryFileTagFilter({
   filteredCount,
   onSelectFiltered,
 }: Props) {
+  const t = useT();
   // Aktivierungs-Status pro Galerie persistiert
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [showAll, setShowAll] = useState(false);
@@ -166,7 +168,7 @@ export function GalleryFileTagFilter({
         status: "failed",
         fileCount: null,
         url: null,
-        error: err instanceof Error ? err.message : "Fehler",
+        error: err instanceof Error ? err.message : t("common.error"),
       });
     }
   }
@@ -179,8 +181,8 @@ export function GalleryFileTagFilter({
       <div className="px-6 sm:px-8 lg:px-12 py-2 border-b border-line-subtle flex items-center justify-between flex-wrap gap-2 text-ui-xs text-ink-tertiary">
         <span>
           {aggregated.length > 0
-            ? `${aggregated.length} Tag${aggregated.length === 1 ? "" : "s"} auf Files in dieser Galerie`
-            : "Noch keine Tags auf Files"}
+            ? t(aggregated.length === 1 ? "tagFilter.tagsInGallerySg" : "tagFilter.tagsInGalleryPl", { n: aggregated.length })
+            : t("tagFilter.noTags")}
         </span>
         {aggregated.length > 0 && (
           <button
@@ -188,7 +190,7 @@ export function GalleryFileTagFilter({
             onClick={() => persistEnabled(true)}
             className="text-ink-secondary hover:text-accent"
           >
-            Tag-Filter anzeigen →
+            {t("tagFilter.showFilter")}
           </button>
         )}
       </div>
@@ -210,13 +212,13 @@ export function GalleryFileTagFilter({
     <div className="px-6 sm:px-8 lg:px-12 py-3 border-b border-line-subtle">
       <div className="flex items-start gap-3 flex-wrap">
         <span className="text-ui-xs uppercase tracking-[0.12em] text-ink-tertiary mt-1 shrink-0">
-          Tag-Filter
+          {t("tagFilter.filterLabel")}
         </span>
 
         <div className="flex flex-wrap gap-1.5 flex-1 min-w-0">
           {aggregated.length === 0 ? (
             <span className="text-ui-xs text-ink-tertiary">
-              Noch keine Tags auf Files in dieser Galerie.
+              {t("tagFilter.noTagsFull")}
             </span>
           ) : (
             <>
@@ -232,7 +234,7 @@ export function GalleryFileTagFilter({
                         ? "border-accent bg-accent/12 text-ink-primary"
                         : "border-line-subtle hover:border-line-strong text-ink-secondary"
                     }`}
-                    title={`${tag.name} (${count} Foto${count === 1 ? "" : "s"})`}
+                    title={t(count === 1 ? "tagFilter.tagTooltipSg" : "tagFilter.tagTooltipPl", { name: tag.name, count })}
                   >
                     <span
                       className="inline-block w-2 h-2 rounded-full"
@@ -251,7 +253,7 @@ export function GalleryFileTagFilter({
                   onClick={() => setShowAll(true)}
                   className="text-xs px-2 py-1 text-ink-tertiary hover:text-ink-secondary"
                 >
-                  +{aggregated.length - VISIBLE_LIMIT} mehr
+                  {t("tagFilter.moreCount", { n: aggregated.length - VISIBLE_LIMIT })}
                 </button>
               )}
               {showAll && hasMore && (
@@ -260,7 +262,7 @@ export function GalleryFileTagFilter({
                   onClick={() => setShowAll(false)}
                   className="text-xs px-2 py-1 text-ink-tertiary hover:text-ink-secondary"
                 >
-                  weniger
+                  {t("tagFilter.less")}
                 </button>
               )}
             </>
@@ -274,14 +276,14 @@ export function GalleryFileTagFilter({
               onClick={() => onChange(new Set())}
               className="text-xs text-ink-tertiary hover:text-ink-secondary"
             >
-              Auswahl löschen
+              {t("tagFilter.clearSelection")}
             </button>
           )}
           <button
             type="button"
             onClick={() => persistEnabled(false)}
             className="text-xs text-ink-tertiary hover:text-ink-secondary"
-            title="Tag-Filter ausblenden"
+            title={t("tagFilter.hideFilter")}
           >
             ✕
           </button>
@@ -291,10 +293,8 @@ export function GalleryFileTagFilter({
       {selected.size > 0 && (
         <>
           <p className="mt-2 text-ui-xs text-ink-tertiary">
-            {selected.size} {selected.size === 1 ? "Tag aktiv" : "Tags aktiv"} —
-            zeigt {filteredCount}{" "}
-            {filteredCount === 1 ? "Foto" : "Fotos"} die ALLE diese Tags haben
-            (UND-Filter).
+            {t(selected.size === 1 ? "tagFilter.activeTagsSg" : "tagFilter.activeTagsPl", { n: selected.size })}{" — "}
+            {t(filteredCount === 1 ? "tagFilter.showsPhotosSg" : "tagFilter.showsPhotosPl", { m: filteredCount })}
           </p>
 
           {/* ZIP-Download-Bereich: nur wenn Filter wirklich Files matcht */}
@@ -305,9 +305,9 @@ export function GalleryFileTagFilter({
                   type="button"
                   onClick={onSelectFiltered}
                   className="px-3 py-1.5 text-xs rounded bg-surface-sunken border border-line-subtle hover:bg-accent/8"
-                  title="Diese gefilterten Fotos im Auswahl-Modus markieren — danach Bulk-Aktionen (Section, Tag, Hide, Delete) wie gewohnt"
+                  title={t("tagFilter.markTitle")}
                 >
-                  ☑ {filteredCount} {filteredCount === 1 ? "Foto" : "Fotos"} markieren
+                  {t(filteredCount === 1 ? "tagFilter.markPhotosSg" : "tagFilter.markPhotosPl", { n: filteredCount })}
                 </button>
               )}
               {!zipJob && (
@@ -315,21 +315,21 @@ export function GalleryFileTagFilter({
                   type="button"
                   onClick={onRequestZip}
                   className="px-3 py-1.5 text-xs rounded bg-accent text-white hover:bg-accent/90"
-                  title="Erzeugt ein ZIP der gefilterten Fotos zum Teilen mit der Kundin"
+                  title={t("tagFilter.zipTitle")}
                 >
-                  ⬇ {filteredCount} Foto{filteredCount === 1 ? "" : "s"} als ZIP herunterladen
+                  {t(filteredCount === 1 ? "tagFilter.zipDownloadSg" : "tagFilter.zipDownloadPl", { n: filteredCount })}
                 </button>
               )}
               {zipJob && zipJob.status !== "ready" && zipJob.status !== "failed" && (
                 <div className="flex items-center gap-2 text-xs text-ink-secondary">
                   <span className="inline-block w-3 h-3 rounded-full bg-accent animate-pulse" />
-                  ZIP wird gebaut
+                  {t("tagFilter.zipBuilding")}
                   {zipJob.fileCount !== null && (
                     <span className="text-ink-tertiary">
-                      ({zipJob.fileCount} Foto{zipJob.fileCount === 1 ? "" : "s"})
+                      {t(zipJob.fileCount === 1 ? "tagFilter.photoCountSg" : "tagFilter.photoCountPl", { n: zipJob.fileCount ?? 0 })}
                     </span>
                   )}
-                  <span className="text-ink-tertiary">— wenige Sekunden bis Minuten</span>
+                  <span className="text-ink-tertiary">{t("tagFilter.zipBuildingHint")}</span>
                 </div>
               )}
               {zipJob && zipJob.status === "ready" && zipJob.url && (
@@ -338,7 +338,7 @@ export function GalleryFileTagFilter({
                     href={zipJob.url}
                     className="px-3 py-1.5 text-xs rounded bg-semantic-success/15 text-semantic-success border border-semantic-success/40 hover:bg-semantic-success/25 font-medium"
                   >
-                    ✓ ZIP herunterladen ({zipJob.fileCount} Foto{zipJob.fileCount === 1 ? "" : "s"})
+                    {t(zipJob.fileCount === 1 ? "tagFilter.zipReadySg" : "tagFilter.zipReadyPl", { n: zipJob.fileCount ?? 0 })}
                   </a>
                   <button
                     type="button"
@@ -363,27 +363,25 @@ export function GalleryFileTagFilter({
                       }
                     }}
                     className="text-xs text-ink-secondary hover:text-accent border border-line-subtle rounded px-2 py-1"
-                    title="Teilbaren Download-Link (24h gültig) in die Zwischenablage kopieren"
+                    title={t("tagFilter.copyLinkTitle")}
                   >
-                    🔗 Link für Kundin kopieren
+                    {t("tagFilter.copyLink")}
                   </button>
                   {shareInfo?.copied && (
                     <span className="text-xs text-semantic-success">
-                      Link kopiert (gültig 24h)
+                      {t("tagFilter.linkCopied")}
                     </span>
                   )}
                   <button
                     type="button"
                     onClick={() => setZipJob(null)}
                     className="text-xs text-ink-tertiary hover:text-ink-secondary"
-                  >
-                    schließen
-                  </button>
+                  >{t("common.close")}</button>
                 </div>
               )}
               {zipJob && zipJob.status === "failed" && (
                 <div className="text-xs text-semantic-danger flex items-center gap-2">
-                  ZIP-Erzeugung fehlgeschlagen
+                  {t("tagFilter.zipFailed")}
                   {zipJob.error && (
                     <span className="text-ink-tertiary">— {zipJob.error}</span>
                   )}
@@ -391,9 +389,7 @@ export function GalleryFileTagFilter({
                     type="button"
                     onClick={() => setZipJob(null)}
                     className="text-ink-secondary hover:text-ink-primary"
-                  >
-                    schließen
-                  </button>
+                  >{t("common.close")}</button>
                 </div>
               )}
             </div>
