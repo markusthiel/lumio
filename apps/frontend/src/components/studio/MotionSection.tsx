@@ -1,6 +1,7 @@
 "use client";
 
 import { MotionProvider, useMotion, type MotionLevel } from "@/components/MotionBoot";
+import { useT } from "@/lib/i18n";
 
 /**
  * Settings-Sektion zum Wählen des Animations-Niveaus.
@@ -21,28 +22,29 @@ export function MotionSection() {
 const OPTIONS: { value: MotionLevel; label: string; description: string }[] = [
   {
     value: "off",
-    label: "Aus",
-    description: "Keine Animationen. Inhalte erscheinen sofort.",
+    label: "motion.off",
+    description: "motion.offDesc",
   },
   {
     value: "subtle",
-    label: "Subtil",
-    description: "Kurze Fades und kleine Bewegungen. Empfohlen.",
+    label: "motion.subtle",
+    description: "motion.subtleDesc",
   },
   {
     value: "full",
-    label: "Spürbar",
-    description: "Längere Übergänge, deutlichere Reveals beim Scrollen.",
+    label: "motion.full",
+    description: "motion.fullDesc",
   },
 ];
 
 function MotionSectionInner() {
+  const t = useT();
   const { motion, setMotion } = useMotion();
 
   return (
     <section className="rounded-md bg-surface-raised border border-line-subtle p-5 space-y-4">
       <div>
-        <h2 className="text-ui-md font-medium text-ink-primary">Animationen</h2>
+        <h2 className="text-ui-md font-medium text-ink-primary">{t("motion.heading")}</h2>
         <p className="text-ui-sm text-ink-tertiary mt-0.5">
           Wie schwungvoll sich das Interface anfühlt. Wer in den
           System-Einstellungen „Bewegung reduzieren" aktiviert hat, sieht
@@ -65,8 +67,8 @@ function MotionSectionInner() {
               }`}
               aria-pressed={active}
             >
-              <div className="text-ui font-medium text-ink-primary">{opt.label}</div>
-              <div className="text-ui-xs text-ink-tertiary mt-1">{opt.description}</div>
+              <div className="text-ui font-medium text-ink-primary">{t(opt.label)}</div>
+              <div className="text-ui-xs text-ink-tertiary mt-1">{t(opt.description)}</div>
             </button>
           );
         })}

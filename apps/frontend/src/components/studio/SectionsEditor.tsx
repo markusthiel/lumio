@@ -528,17 +528,17 @@ function SectionEditForm({
               onClick={syncNow}
               disabled={syncing || saving}
               className="text-ui-sm h-9 px-3 rounded bg-surface-overlay border border-line-subtle hover:bg-surface-raised disabled:opacity-50 whitespace-nowrap"
-              title="Files mit dem Tag in die Section, andere raus"
+              title={t("studio.secSyncTitle")}
             >
-              {syncing ? "Sync…" : "Jetzt synchronisieren"}
+              {syncing ? t("studio.secSyncing") : t("studio.secSyncNow")}
             </button>
           )}
         </div>
         {syncResult && (
           <p className="mt-1.5 text-ui-xs text-ink-secondary">
-            ✓ Synchronisiert: {syncResult.added > 0 && `+${syncResult.added} `}
+            {t("studio.secSynced")} {syncResult.added > 0 && `+${syncResult.added} `}
             {syncResult.removed > 0 && `−${syncResult.removed} `}
-            ({syncResult.totalNow} {syncResult.totalNow === 1 ? "Foto" : "Fotos"} in der Section)
+            ({t(syncResult.totalNow === 1 ? "studio.secInSectionSg" : "studio.secInSectionPl", { n: syncResult.totalNow })})
           </p>
         )}
         {autoTagId && !syncResult && (

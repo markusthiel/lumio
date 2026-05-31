@@ -443,6 +443,12 @@ export const de: Dict = {
         "Wert überschreitet das Hard-Cap dieser Instanz ({cap} MiB).",
     },
     activeUploads: "Aktive Uploads",
+    secSyncTitle: "Files mit dem Tag in die Section, andere raus",
+    secSyncing: "Sync…",
+    secSyncNow: "Jetzt synchronisieren",
+    secSynced: "✓ Synchronisiert:",
+    secInSectionSg: "{n} Foto in der Section",
+    secInSectionPl: "{n} Fotos in der Section",
     tabMedia: "Medien",
     dropzone: "Dateien hier ablegen oder klicken zum Auswählen",
     statusProcessing: "Wird verarbeitet…",
@@ -1896,5 +1902,20 @@ export const de: Dict = {
     unknown: "unbekannt",
     download: "Herunterladen",
     failedShort: "fehlgeschlagen",
+  },
+
+  motion: {
+    off: "Aus",
+    offDesc: "Keine Animationen. Inhalte erscheinen sofort.",
+    subtle: "Subtil",
+    subtleDesc: "Kurze Fades und kleine Bewegungen. Empfohlen.",
+    full: "Spürbar",
+    fullDesc: "Längere Übergänge, deutlichere Reveals beim Scrollen.",
+    heading: "Animationen",
+    hint: "Wie schwungvoll sich das Interface anfühlt. Wer in den System-Einstellungen „Bewegung reduzieren“ aktiviert hat, sieht unabhängig von dieser Wahl keine Animationen.",
+  },
+  passkeys: {
+    add: "Passkey hinzufügen",
+    addError: "Passkey konnte nicht hinzugefügt werden.",
   },
 };

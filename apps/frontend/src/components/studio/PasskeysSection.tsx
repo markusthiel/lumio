@@ -6,6 +6,7 @@ import {
   browserSupportsWebAuthn,
 } from "@simplewebauthn/browser";
 import { api, type WebauthnCredential } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 /**
  * Studio-Settings-Sektion zum Verwalten von Passkeys.
@@ -22,6 +23,7 @@ import { api, type WebauthnCredential } from "@/lib/api";
  * konfiguriert hat, kann auch ohne TOTP-App ein 2FA-Login machen.
  */
 export function PasskeysSection() {
+  const t = useT();
   const [credentials, setCredentials] = useState<WebauthnCredential[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -80,7 +82,7 @@ export function PasskeysSection() {
         setError(
           err instanceof Error
             ? err.message
-            : "Passkey konnte nicht hinzugefügt werden."
+            : t("passkeys.addError")
         );
       }
     } finally {
@@ -129,7 +131,7 @@ export function PasskeysSection() {
           disabled={adding}
           className="text-sm px-3 py-1.5 rounded-md bg-accent text-accent-contrast hover:bg-accent-hover disabled:opacity-50 whitespace-nowrap"
         >
-          {adding ? "Lädt…" : "Passkey hinzufügen"}
+          {adding ? t("common.loading") : t("passkeys.add")}
         </button>
       </div>
 

@@ -443,6 +443,12 @@ export const en: Dict = {
         "Value exceeds the instance hard-cap ({cap} MiB).",
     },
     activeUploads: "Active uploads",
+    secSyncTitle: "Files with the tag into the section, others out",
+    secSyncing: "Sync…",
+    secSyncNow: "Sync now",
+    secSynced: "✓ Synced:",
+    secInSectionSg: "{n} photo in the section",
+    secInSectionPl: "{n} photos in the section",
     tabMedia: "Media",
     dropzone: "Drop files here or click to select",
     statusProcessing: "Processing…",
@@ -1891,5 +1897,20 @@ export const en: Dict = {
     unknown: "unknown",
     download: "Download",
     failedShort: "failed",
+  },
+
+  motion: {
+    off: "Off",
+    offDesc: "No animations. Content appears instantly.",
+    subtle: "Subtle",
+    subtleDesc: "Short fades and small movements. Recommended.",
+    full: "Noticeable",
+    fullDesc: "Longer transitions, more pronounced reveals on scroll.",
+    heading: "Animations",
+    hint: "How lively the interface feels. Anyone who has enabled “Reduce motion” in their system settings sees no animations regardless of this choice.",
+  },
+  passkeys: {
+    add: "Add passkey",
+    addError: "Passkey could not be added.",
   },
 };
