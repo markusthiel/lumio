@@ -623,6 +623,8 @@ export const de: Dict = {
     zoomOut: "Verkleinern",
     zoomReset: "Zoom zurücksetzen",
     comments: "Kommentare",
+    days: "Tage",
+    tenantDefault: "Tenant-Default",
     commentsLoading: "Lädt…",
     commentsEmpty: "Noch keine Kommentare.",
     commentPlaceholder: "Kommentar schreiben…",
@@ -1132,6 +1134,8 @@ export const de: Dict = {
   },
 
   dangerZone: {
+    finalDeletion: "Endgültige Löschung",
+    wrongPassword: "Passwort ist nicht korrekt.",
     title: "Studio löschen",
     description:
       "Dies markiert dein Studio zur endgültigen Löschung. Du hast eine 60-tägige Karenzphase, in der du die Löschung jederzeit zurücknehmen kannst. Nach Ablauf werden alle Bilder, Galerien und Account-Daten unwiderruflich entfernt.",
@@ -1935,5 +1939,30 @@ export const de: Dict = {
     loadingSections: "Lade Sections…",
     noSections: "Keine Sections angelegt. Lege erst in den Galerie-Settings Sections an.",
     noSectionBucket: "ohne Section (Default-Bucket)",
+  },
+
+  collections: {
+    nameIcon: "Name & Icon",
+    filter: "Filter",
+    any: "Beliebig",
+    selProofing: "Auswahl/Proofing",
+    presentation: "Präsentation",
+    draft: "Entwurf",
+    active: "Aktiv",
+    archived: "Archiviert",
+  },
+  templates: {
+    pageTitle: "Galerie-Templates",
+    pageSubtitle: "Wiederverwendbare Einstellungen für neue Galerien.",
+    newTemplate: "Neues Galerie-Template",
+    newTemplateBtn: "Neues Template",
+    comments: "Kommentare",
+    deleteConfirm: "Template löschen? Bereits angelegte Galerien sind nicht betroffen.",
+    defaultDescLabel: "Default-Beschreibung für neue Galerien",
+    defaultDescPlaceholder: "Wird als Default-Text in die Galerie übernommen — pro Galerie editierbar.",
+  },
+  impersonate: {
+    errCookie: "Session-Cookie wurde nicht akzeptiert. Bitte Cookies/Tracking-Schutz für diese Domain erlauben.",
+    errToken: "Token ungültig oder abgelaufen. Bitte erneut vom Super-Admin starten.",
   },
 };

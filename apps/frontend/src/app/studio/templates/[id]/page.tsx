@@ -10,8 +10,10 @@ import {
 } from "@/lib/api";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { Button } from "@/components/ui";
+import { useT } from "@/lib/i18n";
 
 export default function TemplateEditorPage() {
+  const t = useT();
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const id = params.id;
@@ -62,7 +64,7 @@ export default function TemplateEditorPage() {
         router.replace("/login");
         return;
       }
-      setError(err instanceof Error ? err.message : "Fehler");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setLoading(false);
     }
@@ -93,7 +95,7 @@ export default function TemplateEditorPage() {
       });
       setTemplate(updated);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setSaving(false);
     }
@@ -102,7 +104,7 @@ export default function TemplateEditorPage() {
   async function remove() {
     if (
       !confirm(
-        "Template löschen? Bereits angelegte Galerien sind nicht betroffen."
+        t("templates.deleteConfirm")
       )
     )
       return;
@@ -142,7 +144,7 @@ export default function TemplateEditorPage() {
               Löschen
             </Button>
             <Button variant="primary" onClick={save} disabled={saving}>
-              {saving ? "Speichert…" : "Speichern"}
+              {saving ? "Speichert…" : t("common.save")}
             </Button>
           </>
         }
@@ -225,12 +227,12 @@ export default function TemplateEditorPage() {
             />
           </Field>
 
-          <Field label="Default-Beschreibung für neue Galerien">
+          <Field label={t("templates.defaultDescLabel")}>
             <textarea
               value={defaultDescription}
               onChange={(e) => setDefaultDescription(e.target.value)}
               rows={3}
-              placeholder="Wird als Default-Text in die Galerie übernommen — pro Galerie editierbar."
+              placeholder={t("templates.defaultDescPlaceholder")}
               className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm"
             />
           </Field>
@@ -241,7 +243,7 @@ export default function TemplateEditorPage() {
               onChange={(e) => setBrandingId(e.target.value)}
               className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm bg-surface-raised"
             >
-              <option value="">Tenant-Default</option>
+              <option value="">{t("templates.tenantDefault")}</option>
               {brandings.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}

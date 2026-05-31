@@ -622,6 +622,8 @@ export const en: Dict = {
     zoomOut: "Zoom out",
     zoomReset: "Reset zoom",
     comments: "Comments",
+    days: "days",
+    tenantDefault: "Tenant default",
     commentsLoading: "Loading…",
     commentsEmpty: "No comments yet.",
     commentPlaceholder: "Write a comment…",
@@ -1127,6 +1129,8 @@ export const en: Dict = {
   },
 
   dangerZone: {
+    finalDeletion: "Final deletion",
+    wrongPassword: "Password is not correct.",
     title: "Delete studio",
     description:
       "This marks your studio for permanent deletion. You have a 60-day grace period in which you can undo the deletion at any time. After it expires, all images, galleries and account data are removed irreversibly.",
@@ -1930,5 +1934,30 @@ export const en: Dict = {
     loadingSections: "Loading sections…",
     noSections: "No sections created yet. Create sections first in the gallery settings.",
     noSectionBucket: "no section (default bucket)",
+  },
+
+  collections: {
+    nameIcon: "Name & icon",
+    filter: "Filter",
+    any: "Any",
+    selProofing: "Selection/proofing",
+    presentation: "Presentation",
+    draft: "Draft",
+    active: "Active",
+    archived: "Archived",
+  },
+  templates: {
+    pageTitle: "Gallery templates",
+    pageSubtitle: "Reusable settings for new galleries.",
+    newTemplate: "New gallery template",
+    newTemplateBtn: "New template",
+    comments: "Comments",
+    deleteConfirm: "Delete template? Galleries already created are not affected.",
+    defaultDescLabel: "Default description for new galleries",
+    defaultDescPlaceholder: "Used as default text in the gallery — editable per gallery.",
+  },
+  impersonate: {
+    errCookie: "Session cookie was not accepted. Please allow cookies/tracking protection for this domain.",
+    errToken: "Token invalid or expired. Please start again from the super admin.",
   },
 };

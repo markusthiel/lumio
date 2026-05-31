@@ -6,8 +6,10 @@ import Link from "next/link";
 import { api, type GalleryTemplate } from "@/lib/api";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { Button } from "@/components/ui";
+import { useT } from "@/lib/i18n";
 
 export default function TemplatesPage() {
+  const t = useT();
   const router = useRouter();
   const [templates, setTemplates] = useState<GalleryTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,15 +45,13 @@ export default function TemplatesPage() {
     <>
       <PageHeader
         breadcrumb={[
-          { label: "Studio", href: "/studio" },
-          { label: "Templates" },
+          { label: t("nav.studio"), href: "/studio" },
+          { label: t("nav.templates") },
         ]}
-        title="Galerie-Templates"
-        description="Wiederverwendbare Einstellungen für neue Galerien."
+        title={t("templates.pageTitle")}
+        description={t("templates.pageSubtitle")}
         actions={
-          <Button variant="primary" onClick={() => setShowCreate(true)}>
-            Neues Template
-          </Button>
+          <Button variant="primary" onClick={() => setShowCreate(true)}>{t("templates.newTemplateBtn")}</Button>
         }
       />
 
@@ -75,33 +75,33 @@ export default function TemplatesPage() {
           </div>
         ) : (
           <ul className="space-y-3">
-            {templates.map((t) => (
-              <li key={t.id}>
+            {templates.map((tpl) => (
+              <li key={tpl.id}>
                 <Link
-                  href={`/studio/templates/${t.id}`}
+                  href={`/studio/templates/${tpl.id}`}
                   className="block rounded-lg border border-line-subtle bg-surface-raised hover:border-line-strong hover:shadow-sm transition p-4"
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <div className="font-medium">{t.name}</div>
-                      {t.description && (
+                      <div className="font-medium">{tpl.name}</div>
+                      {tpl.description && (
                         <div className="text-xs text-ink-tertiary mt-0.5">
-                          {t.description}
+                          {tpl.description}
                         </div>
                       )}
                     </div>
                     <div className="text-xs text-ink-tertiary font-mono uppercase tracking-wider">
-                      {t.mode}
+                      {tpl.mode}
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-1.5 text-[10px]">
-                    <Badge on={t.downloadEnabled}>Download</Badge>
-                    <Badge on={t.watermarkEnabled}>Watermark</Badge>
-                    <Badge on={t.commentsEnabled}>Kommentare</Badge>
-                    <Badge on={t.ratingsEnabled}>Ratings</Badge>
-                    {t.defaultExpiryDays && (
+                    <Badge on={tpl.downloadEnabled}>Download</Badge>
+                    <Badge on={tpl.watermarkEnabled}>Watermark</Badge>
+                    <Badge on={tpl.commentsEnabled}>{t("templates.comments")}</Badge>
+                    <Badge on={tpl.ratingsEnabled}>Ratings</Badge>
+                    {tpl.defaultExpiryDays && (
                       <span className="px-1.5 py-0.5 rounded bg-surface-sunken text-ink-secondary">
-                        {t.defaultExpiryDays} Tage
+                        {tpl.defaultExpiryDays} {t("templates.days")}
                       </span>
                     )}
                   </div>
@@ -152,6 +152,7 @@ function CreateTemplateDialog({
   onClose: () => void;
   onCreated: (t: GalleryTemplate) => void;
 }) {
+  const t = useT();
   const [name, setName] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -164,7 +165,7 @@ function CreateTemplateDialog({
       const { template } = await api.createTemplate({ name });
       onCreated(template);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setPending(false);
     }
@@ -180,7 +181,7 @@ function CreateTemplateDialog({
         onSubmit={onSubmit}
         className="w-full max-w-sm bg-surface-raised rounded-lg p-6 space-y-4"
       >
-        <h2 className="text-lg font-semibold">Neues Galerie-Template</h2>
+        <h2 className="text-lg font-semibold">{t("templates.newTemplate")}</h2>
         <input
           required
           autoFocus

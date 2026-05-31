@@ -16,6 +16,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 // useSearchParams() erzwingt eine Client-Side-Render-Boundary. Ohne diese
 // Direktive versucht Next.js die Page beim Production-Build statisch
@@ -47,6 +48,7 @@ function LoadingShell() {
 }
 
 function Inner() {
+  const t = useT();
   const params = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   // useRef-Guard: useEffect kann durch React-StrictMode (dev) oder durch
@@ -82,7 +84,7 @@ function Inner() {
         const meResult = await api.me();
         if (!meResult.impersonation) {
           throw new Error(
-            "Session-Cookie wurde nicht akzeptiert. Bitte Cookies/Tracking-Schutz für diese Domain erlauben."
+            t("impersonate.errCookie")
           );
         }
 
@@ -99,7 +101,7 @@ function Inner() {
         setError(
           err instanceof Error
             ? err.message
-            : "Token ungültig oder abgelaufen. Bitte erneut vom Super-Admin starten."
+            : t("impersonate.errToken")
         );
       }
     })();

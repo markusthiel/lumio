@@ -10,6 +10,7 @@ import {
 } from "@/lib/api";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { Button, Input } from "@/components/ui";
+import { useT } from "@/lib/i18n";
 
 /**
  * Smart-Collection-Bearbeiten-Seite. Wird verlinkt aus der Galerien-
@@ -17,6 +18,7 @@ import { Button, Input } from "@/components/ui";
  * und die Filter-Werte zu editieren.
  */
 export default function CollectionEditPage() {
+  const t = useT();
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const id = params.id;
@@ -100,7 +102,7 @@ export default function CollectionEditPage() {
       />
       <div className="px-6 sm:px-8 lg:px-12 py-6 max-w-2xl space-y-6">
         <section className="rounded-lg border border-line-subtle bg-surface-raised p-5 space-y-3">
-          <h2 className="text-sm font-medium">Name & Icon</h2>
+          <h2 className="text-sm font-medium">{t("collections.nameIcon")}</h2>
           <div>
             <label className="block text-ui-xs uppercase tracking-wide text-ink-tertiary mb-1">
               Name
@@ -120,7 +122,7 @@ export default function CollectionEditPage() {
         </section>
 
         <section className="rounded-lg border border-line-subtle bg-surface-raised p-5 space-y-3">
-          <h2 className="text-sm font-medium">Filter</h2>
+          <h2 className="text-sm font-medium">{t("collections.filter")}</h2>
           <p className="text-xs text-ink-tertiary">
             Alle Filter sind UND-verknüpft — eine Galerie muss alle
             gesetzten Bedingungen erfüllen um in der Collection zu
@@ -141,9 +143,9 @@ export default function CollectionEditPage() {
               }
               className="h-9 px-2 rounded-xs text-ui-sm bg-surface-sunken border border-line-subtle w-full"
             >
-              <option value="">Beliebig</option>
-              <option value="collaboration">Auswahl/Proofing</option>
-              <option value="presentation">Präsentation</option>
+              <option value="">{t("collections.any")}</option>
+              <option value="collaboration">{t("collections.selProofing")}</option>
+              <option value="presentation">{t("collections.presentation")}</option>
             </select>
           </div>
 
@@ -162,10 +164,10 @@ export default function CollectionEditPage() {
               }
               className="h-9 px-2 rounded-xs text-ui-sm bg-surface-sunken border border-line-subtle w-full"
             >
-              <option value="">Beliebig</option>
-              <option value="draft">Entwurf</option>
-              <option value="live">Aktiv</option>
-              <option value="archived">Archiviert</option>
+              <option value="">{t("collections.any")}</option>
+              <option value="draft">{t("collections.draft")}</option>
+              <option value="live">{t("collections.active")}</option>
+              <option value="archived">{t("collections.archived")}</option>
             </select>
           </div>
 
@@ -203,7 +205,7 @@ export default function CollectionEditPage() {
             Abbrechen
           </Button>
           <Button variant="primary" onClick={save} disabled={saving || !name.trim()}>
-            {saving ? "Speichert…" : "Speichern"}
+            {saving ? "Speichert…" : t("common.save")}
           </Button>
         </div>
       </div>

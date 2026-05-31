@@ -144,7 +144,7 @@ export function DangerZone({
               </dd>
             </>
           )}
-          <dt className="text-ink-secondary">Endgültige Löschung</dt>
+          <dt className="text-ink-secondary">{t("dangerZone.finalDeletion")}</dt>
           <dd className="text-ink-primary font-medium">
             {scheduledDate.toLocaleDateString("de-DE", {
               day: "2-digit",
@@ -268,7 +268,7 @@ function DeletionModal({
       const msg = err instanceof Error ? err.message : t("common.error");
       // Backend-Fehler in lesbare Strings uebersetzen
       if (msg.includes("password_wrong")) {
-        setError("Passwort ist nicht korrekt.");
+        setError(t("dangerZone.wrongPassword"));
       } else if (msg.includes("studio_name_mismatch")) {
         setError("Der eingegebene Studio-Name stimmt nicht.");
       } else if (msg.includes("owner_required")) {
