@@ -258,7 +258,6 @@ export interface PublicGalleryMeta {
   /** Wenn true: Tag-Filter wird in der Customer-Galerie angezeigt
    *  und Tag-gefilterte ZIP-Downloads sind moeglich. */
   customerTagFilterEnabled?: boolean;
-  publicAccess?: boolean;
   selectionLimit: number | null;
   requiresPassword: boolean;
   publicAccess: boolean;
@@ -907,7 +906,10 @@ export const api = {
       `/search?q=${encodeURIComponent(q)}&limit=${limit}`
     ),
 
-  updateGallery: (id: string, patch: Partial<Gallery>) =>
+  updateGallery: (
+    id: string,
+    patch: Partial<Gallery> & { password?: string | null }
+  ) =>
     request<{ gallery: Gallery }>(`/galleries/${id}`, {
       method: "PATCH",
       body: JSON.stringify(patch),

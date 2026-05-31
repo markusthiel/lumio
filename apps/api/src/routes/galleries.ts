@@ -20,7 +20,7 @@ import { prisma } from "../db.js";
 import { config } from "../config.js";
 import { generateGallerySlug } from "../services/ids.js";
 import { presignGet, presignPut } from "../services/storage.js";
-import { verifyPassword } from "../services/auth.js";
+import { verifyPassword, hashPassword } from "../services/auth.js";
 import { isTenantOperational } from "../services/tenant.js";
 import { enqueue, Queues } from "../services/queue.js";
 import { resolveGalleryBranding } from "../services/branding.js";
@@ -59,6 +59,9 @@ const HEX_RGB_OR_RGBA = /^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 
 const updateGallerySchema = createGallerySchema.partial().extend({
   status: z.enum(["draft", "live", "archived"]).optional(),
+  // Passwortschutz: String = setzen, null = entfernen, weglassen =
+  // unverändert. Wird serverseitig gehasht.
+  password: z.string().min(1).max(200).nullable().optional(),
   // Header-Customization. Alle nullable, damit das Studio Felder
   // wieder leeren kann (null = "wieder Default").
   heroFileId: z.string().uuid().nullable().optional(),
@@ -609,6 +612,8 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           files,
           fileCount: gallery._count.files,
           tags: gallery.tags.map((gt) => gt.tag),
+          hasPassword: !!gallery.passwordHash,
+          passwordHash: undefined,
           _count: undefined,
         },
       };
@@ -638,9 +643,20 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         body.watermarkEnabled === true && !existing.watermarkEnabled;
       const goingLive = body.status === "live" && existing.status !== "live";
 
+      // Passwort-Hash vorbereiten (async → außerhalb des data-Spreads).
+      let passwordHashUpdate: { passwordHash: string | null } | undefined;
+      if (body.password !== undefined) {
+        passwordHashUpdate = {
+          passwordHash: body.password
+            ? await hashPassword(body.password)
+            : null,
+        };
+      }
+
       const gallery = await prisma.gallery.update({
         where: { id: existing.id },
         data: {
+          ...(passwordHashUpdate ?? {}),
           ...(body.title !== undefined ? { title: body.title } : {}),
           ...(body.description !== undefined
             ? { description: body.description }

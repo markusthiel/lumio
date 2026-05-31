@@ -8,13 +8,44 @@ export function SharePanel({
   galleryId,
   gallerySlug,
   initialPublicAccess = true,
+  initialHasPassword = false,
 }: {
   galleryId: string;
   gallerySlug: string;
   initialPublicAccess?: boolean;
+  initialHasPassword?: boolean;
 }) {
   const [publicAccess, setPublicAccess] = useState(initialPublicAccess);
   const [savingAccessMode, setSavingAccessMode] = useState(false);
+
+  // Passwortschutz
+  const [hasPassword, setHasPassword] = useState(initialHasPassword);
+  const [pwInput, setPwInput] = useState("");
+  const [savingPw, setSavingPw] = useState(false);
+
+  async function savePassword() {
+    const pw = pwInput.trim();
+    if (!pw) return;
+    setSavingPw(true);
+    try {
+      await api.updateGallery(galleryId, { password: pw });
+      setHasPassword(true);
+      setPwInput("");
+    } finally {
+      setSavingPw(false);
+    }
+  }
+
+  async function removePassword() {
+    setSavingPw(true);
+    try {
+      await api.updateGallery(galleryId, { password: null });
+      setHasPassword(false);
+      setPwInput("");
+    } finally {
+      setSavingPw(false);
+    }
+  }
 
   async function toggleAccessMode(next: boolean) {
     setSavingAccessMode(true);
@@ -210,6 +241,45 @@ export function SharePanel({
             </span>
           </span>
         </label>
+
+        <div className="border-t border-line-subtle pt-3 space-y-2">
+          <div>
+            <div className="text-sm font-medium">
+              Passwortschutz{" "}
+              <span className="text-ink-tertiary font-normal">(optional)</span>
+            </div>
+            <p className="text-xs text-ink-tertiary mt-0.5">
+              {hasPassword
+                ? "Aktiv — Besucher müssen das Passwort eingeben."
+                : "Zusätzlich: Besucher müssen ein Passwort eingeben, das du ihnen mitteilst."}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={pwInput}
+              onChange={(e) => setPwInput(e.target.value)}
+              placeholder={hasPassword ? "Neues Passwort" : "Passwort festlegen"}
+              className="flex-1 rounded-md border border-line-subtle px-3 py-2 text-sm"
+            />
+            <button
+              onClick={() => void savePassword()}
+              disabled={savingPw || !pwInput.trim()}
+              className="text-xs px-3 py-2 rounded-md bg-accent text-accent-contrast hover:bg-accent-hover disabled:opacity-50 whitespace-nowrap"
+            >
+              {hasPassword ? "Ändern" : "Setzen"}
+            </button>
+            {hasPassword && (
+              <button
+                onClick={() => void removePassword()}
+                disabled={savingPw}
+                className="text-xs px-2 py-2 text-red-600 hover:underline disabled:opacity-50 whitespace-nowrap"
+              >
+                Entfernen
+              </button>
+            )}
+          </div>
+        </div>
       </section>
 
       <section className="rounded-lg border border-line-subtle bg-surface-raised">

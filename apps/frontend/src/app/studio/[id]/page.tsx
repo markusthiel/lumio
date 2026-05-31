@@ -1193,6 +1193,7 @@ export default function GalleryDetailPage() {
             galleryId={gallery.id}
             gallerySlug={gallery.slug}
             initialPublicAccess={gallery.publicAccess ?? true}
+            initialHasPassword={gallery.hasPassword ?? false}
           />
         )}
 
