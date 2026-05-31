@@ -34,6 +34,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
+import { useT } from "@/lib/i18n";
 
 interface DupFile {
   id: string;
@@ -64,6 +65,7 @@ type Phase = "initial" | "scanning" | "loading" | "ready" | "error";
 const POLL_INTERVAL_MS = 2000;
 
 export function DuplicatesDialog({ galleryId, onClose, onDeleted }: Props) {
+  const t = useT();
   const [phase, setPhase] = useState<Phase>("initial");
   const [scanProgress, setScanProgress] = useState<{
     total: number;
@@ -111,7 +113,7 @@ export function DuplicatesDialog({ galleryId, onClose, onDeleted }: Props) {
       initDefaultSelection(res.groups);
       setPhase("ready");
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : "Fehler beim Laden");
+      setErrorMsg(err instanceof Error ? err.message : t("dupes.errorLoad"));
       setPhase("error");
     }
   }, [galleryId, initDefaultSelection]);
@@ -162,14 +164,14 @@ export function DuplicatesDialog({ galleryId, onClose, onDeleted }: Props) {
             pollTimer = setTimeout(poll, POLL_INTERVAL_MS);
           } catch (err) {
             if (cancelled) return;
-            setErrorMsg(err instanceof Error ? err.message : "Fehler beim Polling");
+            setErrorMsg(err instanceof Error ? err.message : t("dupes.errorPoll"));
             setPhase("error");
           }
         }
         pollTimer = setTimeout(poll, POLL_INTERVAL_MS);
       } catch (err) {
         if (cancelled) return;
-        setErrorMsg(err instanceof Error ? err.message : "Fehler beim Scan-Start");
+        setErrorMsg(err instanceof Error ? err.message : t("dupes.errorScanStart"));
         setPhase("error");
       }
     }
@@ -211,7 +213,7 @@ export function DuplicatesDialog({ galleryId, onClose, onDeleted }: Props) {
       onDeleted();
       onClose();
     } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : "Fehler beim Löschen");
+      setErrorMsg(err instanceof Error ? err.message : t("dupes.errorDelete"));
       setDeleting(false);
     }
   }
@@ -233,38 +235,29 @@ export function DuplicatesDialog({ galleryId, onClose, onDeleted }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-line-subtle">
           <div>
-            <h2 className="text-lg font-medium text-ink-primary">
-              Duplikate finden
-            </h2>
+            <h2 className="text-lg font-medium text-ink-primary">{t("dupes.title")}</h2>
             {phase === "ready" && (
               <p className="text-ui-sm text-ink-tertiary mt-0.5">
                 {groupCount === 0
-                  ? "Keine Duplikate gefunden."
-                  : `${groupCount} ${groupCount === 1 ? "Gruppe" : "Gruppen"} mit ${totalDuplicates} ${totalDuplicates === 1 ? "Duplikat" : "Duplikaten"}.`}
+                  ? t("dupes.noneFoundShort")
+                  : t("dupes.summary", { groups: groupCount, groupWord: t(groupCount === 1 ? "dupes.group" : "dupes.groups"), dupes: totalDuplicates, dupeWord: t(totalDuplicates === 1 ? "dupes.duplicate" : "dupes.duplicates") })}
               </p>
             )}
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose}>
-            Schließen
-          </Button>
+          <Button variant="ghost" size="sm" onClick={onClose}>{t("common.close")}</Button>
         </div>
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
           {phase === "initial" && (
-            <div className="text-center py-12 text-ui-sm text-ink-tertiary">
-              Wird gestartet…
-            </div>
+            <div className="text-center py-12 text-ui-sm text-ink-tertiary">{t("dupes.starting")}</div>
           )}
 
           {phase === "scanning" && (
             <div className="py-12 max-w-md mx-auto text-center space-y-4">
-              <div className="text-ui text-ink-primary">
-                Dateien werden gescannt…
-              </div>
+              <div className="text-ui text-ink-primary">{t("dupes.scanning")}</div>
               <div className="text-ui-sm text-ink-tertiary">
-                Beim ersten Scan müssen wir die Bilder einmal hashen. Das
-                kann je nach Galerie-Größe einige Minuten dauern.
+                {t("dupes.scanningDesc")}
               </div>
               <div className="h-2 bg-surface-sunken rounded-xs overflow-hidden">
                 <div
@@ -275,37 +268,29 @@ export function DuplicatesDialog({ galleryId, onClose, onDeleted }: Props) {
               <div className="text-ui-xs text-ink-tertiary tabular-nums">
                 {scanProgress.done} / {scanProgress.total} ({scanPercent}%)
                 {scanProgress.failed > 0 &&
-                  ` · ${scanProgress.failed} fehlgeschlagen`}
+                  t("dupes.failedSuffix", { n: scanProgress.failed })}
               </div>
             </div>
           )}
 
           {phase === "loading" && (
-            <div className="text-center py-12 text-ui-sm text-ink-tertiary">
-              Gruppen werden geladen…
-            </div>
+            <div className="text-center py-12 text-ui-sm text-ink-tertiary">{t("dupes.loadingGroups")}</div>
           )}
 
           {phase === "error" && (
             <div className="py-12 max-w-md mx-auto text-center space-y-3">
               <div className="text-ui text-semantic-danger">
-                {errorMsg ?? "Ein Fehler ist aufgetreten."}
+                {errorMsg ?? t("dupes.genericError")}
               </div>
-              <Button variant="secondary" size="sm" onClick={onClose}>
-                Schließen
-              </Button>
+              <Button variant="secondary" size="sm" onClick={onClose}>{t("common.close")}</Button>
             </div>
           )}
 
           {phase === "ready" && groups.length === 0 && (
             <div className="text-center py-12">
-              <div className="text-ui text-ink-primary">
-                Keine bit-genauen Duplikate gefunden.
-              </div>
+              <div className="text-ui text-ink-primary">{t("dupes.noneBitExact")}</div>
               <div className="text-ui-sm text-ink-tertiary mt-2">
-                Falls du andere Versionen desselben Fotos vermutest (z.B.
-                unterschiedliche JPEG-Exporte mit denselben Pixeln aber
-                anderen EXIF-Tags), erkennt der aktuelle Scan diese nicht.
+                {t("dupes.noneBitExactDesc")}
               </div>
             </div>
           )}
@@ -330,8 +315,8 @@ export function DuplicatesDialog({ galleryId, onClose, onDeleted }: Props) {
           <div className="px-6 py-3 border-t border-line-subtle flex items-center justify-between gap-3 flex-wrap">
             <div className="text-ui-sm text-ink-secondary">
               {selectedToDelete.size === 0
-                ? "Wähle aus, welche Duplikate gelöscht werden sollen."
-                : `${selectedToDelete.size} ${selectedToDelete.size === 1 ? "Datei" : "Dateien"} zum Löschen ausgewählt.`}
+                ? t("dupes.selectHint")
+                : t("dupes.selectedCount", { n: selectedToDelete.size, fileWord: t(selectedToDelete.size === 1 ? "dupes.file" : "dupes.files") })}
             </div>
             <div className="flex gap-2">
               <Button
@@ -339,9 +324,7 @@ export function DuplicatesDialog({ galleryId, onClose, onDeleted }: Props) {
                 size="sm"
                 onClick={onClose}
                 disabled={deleting}
-              >
-                Abbrechen
-              </Button>
+              >{t("common.cancel")}</Button>
               <Button
                 variant="danger"
                 size="sm"
@@ -349,8 +332,8 @@ export function DuplicatesDialog({ galleryId, onClose, onDeleted }: Props) {
                 disabled={deleting || selectedToDelete.size === 0}
               >
                 {deleting
-                  ? "Lösche…"
-                  : `${selectedToDelete.size} ${selectedToDelete.size === 1 ? "Datei" : "Dateien"} löschen`}
+                  ? t("dupes.deleting")
+                  : t("dupes.deleteCount", { n: selectedToDelete.size, fileWord: t(selectedToDelete.size === 1 ? "dupes.file" : "dupes.files") })}
               </Button>
             </div>
           </div>
@@ -392,6 +375,7 @@ function DupGroupCard({
   onToggle: (id: string) => void;
   onZoom: (f: DupFile) => void;
 }) {
+  const t = useT();
   return (
     <div className="rounded-md border border-line-subtle bg-surface-raised p-4">
       <div className="flex items-baseline justify-between mb-3 gap-2">
@@ -419,7 +403,7 @@ function DupGroupCard({
                 type="button"
                 className="block w-full aspect-square bg-surface-sunken relative group"
                 onClick={() => onZoom(f)}
-                title="Klick zum Vergrößern"
+                title={t("dupes.zoomTitle")}
               >
                 {f.thumbUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -429,14 +413,10 @@ function DupGroupCard({
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <div className="flex items-center justify-center h-full text-ui-xs text-ink-tertiary">
-                    Kein Thumbnail
-                  </div>
+                  <div className="flex items-center justify-center h-full text-ui-xs text-ink-tertiary">{t("dupes.noThumbnail")}</div>
                 )}
                 {isOldest && (
-                  <div className="absolute top-2 left-2 bg-accent text-accent-contrast text-ui-xs font-medium px-2 py-0.5 rounded-xs">
-                    Original
-                  </div>
+                  <div className="absolute top-2 left-2 bg-accent text-accent-contrast text-ui-xs font-medium px-2 py-0.5 rounded-xs">{t("dupes.original")}</div>
                 )}
               </button>
               <div className="p-2.5 flex items-center justify-between gap-2">
@@ -456,9 +436,7 @@ function DupGroupCard({
                     checked={isSelected}
                     onChange={() => onToggle(f.id)}
                     className="accent-semantic-danger"
-                  />
-                  Löschen
-                </label>
+                  />{t("common.delete")}</label>
               </div>
             </div>
           );
