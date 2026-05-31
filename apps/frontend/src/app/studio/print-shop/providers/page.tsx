@@ -19,6 +19,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { Button, Input } from "@/components/ui";
+import { useT } from "@/lib/i18n";
 
 type Available = Awaited<
   ReturnType<typeof api.listAvailablePrintProviders>
@@ -28,6 +29,7 @@ type Mine = Awaited<
 >["providers"][number];
 
 export default function PrintProvidersPage() {
+  const t = useT();
   const [available, setAvailable] = useState<Available[] | null>(null);
   const [mine, setMine] = useState<Mine[] | null>(null);
   const [message, setMessage] = useState<
@@ -47,7 +49,7 @@ export default function PrintProvidersPage() {
     } catch (err) {
       setMessage({
         kind: "danger",
-        text: err instanceof Error ? err.message : "Fehler",
+        text: err instanceof Error ? err.message : t("common.error"),
       });
     }
   }, []);
@@ -68,11 +70,11 @@ export default function PrintProvidersPage() {
     try {
       await api.setTenantPrintProvider(key, { isDefault: true });
       await load();
-      setMessage({ kind: "success", text: "Default-Anbieter gesetzt." });
+      setMessage({ kind: "success", text: t("providers.defaultSet") });
     } catch (err) {
       setMessage({
         kind: "danger",
-        text: err instanceof Error ? err.message : "Fehler",
+        text: err instanceof Error ? err.message : t("common.error"),
       });
     } finally {
       setBusy(false);
@@ -87,7 +89,7 @@ export default function PrintProvidersPage() {
     } catch (err) {
       setMessage({
         kind: "danger",
-        text: err instanceof Error ? err.message : "Fehler",
+        text: err instanceof Error ? err.message : t("common.error"),
       });
     } finally {
       setBusy(false);
@@ -97,7 +99,7 @@ export default function PrintProvidersPage() {
   async function remove(p: Mine) {
     if (
       !confirm(
-        `Anbieter '${p.providerLabel}' wirklich entfernen? Die Credentials werden gelöscht.`
+        t("providers.confirmRemove", { name: p.providerLabel })
       )
     ) {
       return;
@@ -106,11 +108,11 @@ export default function PrintProvidersPage() {
     try {
       await api.deleteTenantPrintProvider(p.providerKey);
       await load();
-      setMessage({ kind: "success", text: "Anbieter entfernt." });
+      setMessage({ kind: "success", text: t("providers.removed") });
     } catch (err) {
       setMessage({
         kind: "danger",
-        text: err instanceof Error ? err.message : "Fehler",
+        text: err instanceof Error ? err.message : t("common.error"),
       });
     } finally {
       setBusy(false);
@@ -126,12 +128,12 @@ export default function PrintProvidersPage() {
       await load();
       setMessage({
         kind: "success",
-        text: "Selbst-drucken aktiviert.",
+        text: t("providers.selfPrintEnabled"),
       });
     } catch (err) {
       setMessage({
         kind: "danger",
-        text: err instanceof Error ? err.message : "Fehler",
+        text: err instanceof Error ? err.message : t("common.error"),
       });
     } finally {
       setBusy(false);
@@ -154,11 +156,9 @@ export default function PrintProvidersPage() {
 
       {/* Aktivierte */}
       <section>
-        <h2 className="text-base font-semibold mb-2">Meine Anbieter</h2>
+        <h2 className="text-base font-semibold mb-2">{t("providers.myProviders")}</h2>
         {mine.length === 0 ? (
-          <div className="rounded-md border border-line-subtle bg-surface-raised px-4 py-6 text-sm text-ink-tertiary text-center">
-            Noch kein Anbieter aktiviert. Wähle unten einen aus.
-          </div>
+          <div className="rounded-md border border-line-subtle bg-surface-raised px-4 py-6 text-sm text-ink-tertiary text-center">{t("providers.noneActive")}</div>
         ) : (
           <ul className="space-y-2">
             {mine.map((p) => (
@@ -170,14 +170,10 @@ export default function PrintProvidersPage() {
                   <div className="flex items-center gap-2 flex-wrap mb-0.5">
                     <strong className="text-sm">{p.providerLabel}</strong>
                     {p.isDefault && (
-                      <span className="text-xs px-1.5 py-0.5 rounded bg-accent/15 text-accent">
-                        Default
-                      </span>
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-accent/15 text-accent">{t("providers.defaultBadge")}</span>
                     )}
                     {!p.enabled && (
-                      <span className="text-xs px-1.5 py-0.5 rounded bg-surface-sunken text-ink-tertiary">
-                        inaktiv
-                      </span>
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-surface-sunken text-ink-tertiary">{t("providers.inactive")}</span>
                     )}
                   </div>
                   {p.displayName && (
@@ -187,10 +183,10 @@ export default function PrintProvidersPage() {
                   )}
                   <div className="text-xs text-ink-tertiary mt-0.5">
                     {p.hasCredentials
-                      ? "Credentials gesetzt"
+                      ? t("providers.credsSet")
                       : p.providerKey === "manual_self_print"
-                        ? "Self-Print (keine Credentials nötig)"
-                        : "Keine Credentials hinterlegt"}
+                        ? t("providers.selfPrintNoCreds")
+                        : t("providers.noCreds")}
                   </div>
                 </div>
                 <div className="flex gap-1 flex-wrap">
@@ -200,9 +196,7 @@ export default function PrintProvidersPage() {
                       variant="secondary"
                       onClick={() => setDefault(p.providerKey)}
                       disabled={busy}
-                    >
-                      Als Default
-                    </Button>
+                    >{t("providers.makeDefault")}</Button>
                   )}
                   <Button
                     size="sm"
@@ -210,16 +204,14 @@ export default function PrintProvidersPage() {
                     onClick={() => toggleEnabled(p)}
                     disabled={busy}
                   >
-                    {p.enabled ? "Deaktivieren" : "Aktivieren"}
+                    {p.enabled ? t("providers.disable") : t("providers.enable")}
                   </Button>
                   <Button
                     size="sm"
                     variant="secondary"
                     onClick={() => remove(p)}
                     disabled={busy}
-                  >
-                    Entfernen
-                  </Button>
+                  >{t("providers.removeBtn")}</Button>
                 </div>
               </li>
             ))}
@@ -230,9 +222,7 @@ export default function PrintProvidersPage() {
       {/* Verfügbare */}
       {availableNotInUse.length > 0 && (
         <section>
-          <h2 className="text-base font-semibold mb-2">
-            Verfügbare Anbieter
-          </h2>
+          <h2 className="text-base font-semibold mb-2">{t("providers.availableProviders")}</h2>
           <ul className="space-y-2">
             {availableNotInUse.map((p) => (
               <li
@@ -257,9 +247,7 @@ export default function PrintProvidersPage() {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-accent hover:underline"
-                      >
-                        Website
-                      </a>
+                      >{t("providers.website")}</a>
                       {p.apiKeyHelpUrl && (
                         <>
                           {" · "}
@@ -268,9 +256,7 @@ export default function PrintProvidersPage() {
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-accent hover:underline"
-                          >
-                            API-Setup
-                          </a>
+                          >{t("providers.apiSetup")}</a>
                         </>
                       )}
                     </div>
@@ -281,9 +267,7 @@ export default function PrintProvidersPage() {
                     size="sm"
                     onClick={activateSelfPrint}
                     disabled={busy}
-                  >
-                    Aktivieren
-                  </Button>
+                  >{t("providers.enable")}</Button>
                 ) : p.credentialFields.length === 0 ? (
                   <Button
                     size="sm"
@@ -299,17 +283,13 @@ export default function PrintProvidersPage() {
                       }
                     }}
                     disabled={busy}
-                  >
-                    Aktivieren
-                  </Button>
+                  >{t("providers.enable")}</Button>
                 ) : (
                   <Button
                     size="sm"
                     onClick={() => setSetupProvider(p)}
                     disabled={busy}
-                  >
-                    Anbinden
-                  </Button>
+                  >{t("providers.connect")}</Button>
                 )}
               </li>
             ))}
@@ -327,7 +307,7 @@ export default function PrintProvidersPage() {
             await load();
             setMessage({
               kind: "success",
-              text: "Anbieter angebunden.",
+              text: t("providers.connected"),
             });
           }}
         />
@@ -341,25 +321,20 @@ function StageBadge({
 }: {
   stage: Available["stage"];
 }) {
+  const t = useT();
   if (stage === "production") {
     return (
-      <span className="text-xs px-1.5 py-0.5 rounded bg-semantic-success/15 text-semantic-success">
-        verfügbar
-      </span>
+      <span className="text-xs px-1.5 py-0.5 rounded bg-semantic-success/15 text-semantic-success">{t("providers.stageProduction")}</span>
     );
   }
   if (stage === "beta") {
     return (
-      <span className="text-xs px-1.5 py-0.5 rounded bg-accent/15 text-accent">
-        beta
-      </span>
+      <span className="text-xs px-1.5 py-0.5 rounded bg-accent/15 text-accent">{t("providers.stageBeta")}</span>
     );
   }
   if (stage === "planned") {
     return (
-      <span className="text-xs px-1.5 py-0.5 rounded bg-semantic-warning/15 text-semantic-warning">
-        in Vorbereitung
-      </span>
+      <span className="text-xs px-1.5 py-0.5 rounded bg-semantic-warning/15 text-semantic-warning">{t("providers.stagePlanned")}</span>
     );
   }
   return null;
@@ -374,6 +349,7 @@ function CredentialsDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const t = useT();
   const [values, setValues] = useState<Record<string, string>>({});
   const [displayName, setDisplayName] = useState("");
   const [saving, setSaving] = useState(false);
@@ -387,7 +363,7 @@ function CredentialsDialog({
       // Required-Check clientseitig (Backend prueft nochmal)
       for (const f of provider.credentialFields) {
         if (f.required && !values[f.key]?.trim()) {
-          setError(`Feld '${f.label}' ist erforderlich.`);
+          setError(t("providers.fieldRequired", { field: f.label }));
           setSaving(false);
           return;
         }
@@ -399,7 +375,7 @@ function CredentialsDialog({
       });
       onSaved();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setSaving(false);
     }
@@ -413,7 +389,7 @@ function CredentialsDialog({
     >
       <div className="bg-surface-raised rounded-md border border-line-subtle p-5 max-w-md w-full max-h-[85vh] overflow-y-auto">
         <h3 className="text-lg font-semibold mb-1">
-          {provider.label} anbinden
+          {t("providers.connectTitle", { name: provider.label })}
         </h3>
         <p className="text-xs text-ink-tertiary mb-4">
           {provider.tagline}
@@ -421,22 +397,18 @@ function CredentialsDialog({
 
         {provider.stage === "planned" && (
           <div className="rounded border border-semantic-warning/30 bg-semantic-warning/8 px-2 py-1.5 mb-3 text-xs text-semantic-warning">
-            Achtung: dieser Anbieter ist als „in Vorbereitung" markiert.
-            Die API-Anbindung ist noch nicht aktiv — Bestellungen werden
-            fehlschlagen.
+            {t("providers.plannedWarning")}
           </div>
         )}
 
         <form onSubmit={submit} className="space-y-3">
           <label className="block">
-            <span className="block text-xs text-ink-tertiary mb-1">
-              Anzeigename (optional)
-            </span>
+            <span className="block text-xs text-ink-tertiary mb-1">{t("providers.displayName")}</span>
             <Input
               type="text"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              placeholder={`Mein ${provider.label}-Konto`}
+              placeholder={t("providers.displayNamePlaceholder", { name: provider.label })}
             />
           </label>
 
@@ -474,12 +446,8 @@ function CredentialsDialog({
               variant="secondary"
               onClick={onClose}
               disabled={saving}
-            >
-              Abbrechen
-            </Button>
-            <Button type="submit" disabled={saving}>
-              Anbinden
-            </Button>
+            >{t("common.cancel")}</Button>
+            <Button type="submit" disabled={saving}>{t("providers.connect")}</Button>
           </div>
         </form>
       </div>
