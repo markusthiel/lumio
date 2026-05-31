@@ -240,7 +240,7 @@ export default function StudioPage() {
   // Aktive Collection löschen (nur möglich wenn eine aktiv ist).
   async function deleteActiveCollection() {
     if (!activeCollection) return;
-    if (!confirm("Diese Smart Collection löschen?")) return;
+    if (!confirm(t("studio.deleteCollectionConfirm"))) return;
     await api.deleteCollection(activeCollection);
     setCollections((cs) => cs.filter((c) => c.id !== activeCollection));
     setActiveCollection(null);
@@ -258,7 +258,7 @@ export default function StudioPage() {
   return (
     <>
       <PageHeader
-        title="Galerien"
+        title={t("studio.galleriesTitle")}
         description={user.name ? `Angemeldet als ${user.name}` : user.email}
         actions={
           <Button variant="primary" size="md" onClick={() => setShowCreate(true)}>
@@ -290,8 +290,8 @@ export default function StudioPage() {
               type="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Galerien durchsuchen…"
-              aria-label="Galerien durchsuchen"
+              placeholder={t("studio.galleriesSearchPlaceholder")}
+              aria-label={t("studio.galleriesSearchAria")}
               className="w-full h-8 pl-8 pr-2.5 rounded-md text-ui-sm bg-surface-sunken border border-line-subtle focus:border-accent focus:outline-none transition-colors duration-motion"
             />
           </div>
@@ -396,16 +396,16 @@ export default function StudioPage() {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-              aria-label="Sortierung"
+              aria-label={t("studio.sortAria")}
               className="h-8 px-2 rounded-md text-ui-xs bg-surface-sunken border border-line-subtle"
             >
-              <option value="newest">Neueste zuerst</option>
-              <option value="oldest">Älteste zuerst</option>
-              <option value="activity">Zuletzt bearbeitet</option>
-              <option value="name_asc">Name A–Z</option>
-              <option value="name_desc">Name Z–A</option>
-              <option value="files">Meiste Dateien</option>
-              <option value="visits">Meiste Besuche</option>
+              <option value="newest">{t("studio.sortNewest")}</option>
+              <option value="oldest">{t("studio.sortOldest")}</option>
+              <option value="activity">{t("studio.sortActivity")}</option>
+              <option value="name_asc">{t("studio.sortNameAsc")}</option>
+              <option value="name_desc">{t("studio.sortNameDesc")}</option>
+              <option value="files">{t("studio.sortFiles")}</option>
+              <option value="visits">{t("studio.sortVisits")}</option>
             </select>
           </div>
         </div>
@@ -444,7 +444,7 @@ export default function StudioPage() {
                       ? "border-ink-on-accent/20 hover:bg-black/10"
                       : "border-line-subtle hover:bg-surface-base"
                   }`}
-                  title="Bearbeiten"
+                  title={t("studio.edit")}
                   aria-label={`${c.name} bearbeiten`}
                   onClick={(e) => e.stopPropagation()}
                 >
@@ -471,10 +471,10 @@ export default function StudioPage() {
             type="button"
             onClick={() => setShowSaveCollection(true)}
             className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-ui-xs border border-dashed border-line-strong text-ink-tertiary hover:text-ink-primary hover:border-accent transition-colors duration-motion"
-            title="Neue Smart Collection erstellen"
+            title={t("studio.newCollectionTitle")}
           >
             <span className="text-base leading-none">+</span>
-            <span>Neue Collection</span>
+            <span>{t("studio.newCollection")}</span>
           </button>
           {activeCollection && (
             <button
@@ -494,9 +494,9 @@ export default function StudioPage() {
             onChange={(e) => changeMode(e.target.value as typeof modeFilter)}
             className="h-7 px-2 rounded-xs text-ui-xs bg-surface-sunken border border-line-subtle"
           >
-            <option value="">Alle Modi</option>
-            <option value="collaboration">Auswahl/Proofing</option>
-            <option value="presentation">Präsentation</option>
+            <option value="">{t("studio.allModes")}</option>
+            <option value="collaboration">{t("studio.modeSelection")}</option>
+            <option value="presentation">{t("studio.modePresentation")}</option>
           </select>
           <select
             value={statusFilter}
@@ -505,10 +505,10 @@ export default function StudioPage() {
             }
             className="h-7 px-2 rounded-xs text-ui-xs bg-surface-sunken border border-line-subtle"
           >
-            <option value="">Alle Status</option>
-            <option value="draft">Entwurf</option>
-            <option value="live">Aktiv</option>
-            <option value="archived">Archiviert</option>
+            <option value="">{t("studio.allStatuses")}</option>
+            <option value="draft">{t("studio.statusDraft")}</option>
+            <option value="live">{t("studio.statusLive")}</option>
+            <option value="archived">{t("studio.statusArchived")}</option>
           </select>
           {hasActiveFilter && !activeCollection && (
             <button
@@ -564,7 +564,7 @@ export default function StudioPage() {
           <div className="rounded-md border border-dashed border-line-subtle bg-surface-sunken p-12 text-center">
             <p className="text-ink-tertiary text-ui">
               {searchQuery.trim()
-                ? `Keine Galerie gefunden für „${searchQuery.trim()}".`
+                ? t("studio.noGalleryFound", { query: searchQuery.trim() })
                 : hasActiveFilter
                   ? t("studio.noGalleriesForFilter")
                   : t("studio.noGalleries")}
@@ -649,6 +649,7 @@ function SaveCollectionDialog({
     filter: GalleryFilter
   ) => Promise<void>;
 }) {
+  const t = useT();
   const [name, setName] = useState("");
   const [icon, setIcon] = useState("");
   const [filter, setFilter] = useState<GalleryFilter>(initialFilter);
@@ -688,7 +689,7 @@ function SaveCollectionDialog({
         className="w-full max-w-lg bg-surface-overlay border border-line-subtle rounded-md p-6 space-y-4 shadow-elev-3 max-h-[90vh] overflow-y-auto"
       >
         <div>
-          <h2 className="text-lg font-medium">Neue Smart Collection</h2>
+          <h2 className="text-lg font-medium">{t("studio.newCollectionHeading")}</h2>
           <p className="text-ui-sm text-ink-tertiary mt-1">
             Speichere einen Filter unter einem Namen. Er erscheint dann
             oben in der Galerien-Liste als Schnellzugriff.
@@ -696,21 +697,17 @@ function SaveCollectionDialog({
         </div>
 
         <div>
-          <label className="block text-ui-xs uppercase tracking-wide text-ink-tertiary mb-1">
-            Name
-          </label>
+          <label className="block text-ui-xs uppercase tracking-wide text-ink-tertiary mb-1">{t("studio.nameLabel")}</label>
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="z.B. Hochzeiten 2025 mit offener Auswahl"
+            placeholder={t("studio.collectionNamePlaceholder")}
             autoFocus
           />
         </div>
 
         <div>
-          <label className="block text-ui-xs uppercase tracking-wide text-ink-tertiary mb-1">
-            Icon (Emoji, optional)
-          </label>
+          <label className="block text-ui-xs uppercase tracking-wide text-ink-tertiary mb-1">{t("studio.iconEmoji")}</label>
           <Input
             value={icon}
             onChange={(e) => setIcon(e.target.value)}
@@ -729,9 +726,7 @@ function SaveCollectionDialog({
 
           <div className="space-y-3">
             <div>
-              <label className="block text-ui-xs text-ink-secondary mb-1">
-                Modus
-              </label>
+              <label className="block text-ui-xs text-ink-secondary mb-1">{t("studio.modeLabel")}</label>
               <select
                 value={filter.mode ?? ""}
                 onChange={(e) =>
@@ -743,16 +738,14 @@ function SaveCollectionDialog({
                 }
                 className="h-9 px-2 rounded-xs text-ui-sm bg-surface-sunken border border-line-subtle w-full"
               >
-                <option value="">Beliebig</option>
-                <option value="collaboration">Auswahl/Proofing</option>
-                <option value="presentation">Präsentation</option>
+                <option value="">{t("studio.any")}</option>
+                <option value="collaboration">{t("studio.modeSelection")}</option>
+                <option value="presentation">{t("studio.modePresentation")}</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-ui-xs text-ink-secondary mb-1">
-                Status
-              </label>
+              <label className="block text-ui-xs text-ink-secondary mb-1">{t("studio.statusLabel")}</label>
               <select
                 value={filter.status ?? ""}
                 onChange={(e) =>
@@ -764,10 +757,10 @@ function SaveCollectionDialog({
                 }
                 className="h-9 px-2 rounded-xs text-ui-sm bg-surface-sunken border border-line-subtle w-full"
               >
-                <option value="">Beliebig</option>
-                <option value="draft">Entwurf</option>
-                <option value="live">Aktiv</option>
-                <option value="archived">Archiviert</option>
+                <option value="">{t("studio.any")}</option>
+                <option value="draft">{t("studio.statusDraft")}</option>
+                <option value="live">{t("studio.statusLive")}</option>
+                <option value="archived">{t("studio.statusArchived")}</option>
               </select>
             </div>
 
@@ -807,15 +800,13 @@ function SaveCollectionDialog({
 
         {err && <div className="text-semantic-danger text-ui-sm">{err}</div>}
         <div className="flex justify-end gap-2 border-t border-line-subtle pt-4">
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Abbrechen
-          </Button>
+          <Button type="button" variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
           <Button
             type="submit"
             variant="primary"
             disabled={saving || !name.trim()}
           >
-            {saving ? "Speichert…" : "Speichern"}
+            {saving ? t("common.saving") : t("common.save")}
           </Button>
         </div>
       </form>
@@ -859,6 +850,7 @@ function GalleryCard({
   onTogglePin: () => void;
   onChanged: () => void;
 }) {
+  const t = useT();
   const [menuOpen, setMenuOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -897,7 +889,7 @@ function GalleryCard({
       await api.updateGallery(g.id, { status });
       onChanged();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Fehler");
+      alert(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setBusy(false);
     }
@@ -908,7 +900,7 @@ function GalleryCard({
 
   const statsRow = (
     <div className="flex items-center gap-2.5 text-ui-xs text-ink-tertiary">
-      <span>{g.fileCount ?? 0} Dateien</span>
+      <span>{t("studio.nFiles", { n: g.fileCount ?? 0 })}</span>
       {stats && stats.visits > 0 && (
         <span className="inline-flex items-center gap-1" title="Besuche">
           <svg
@@ -963,8 +955,8 @@ function GalleryCard({
           e.preventDefault();
           onTogglePin();
         }}
-        title={pinned ? "Loslösen" : "Anpinnen"}
-        aria-label={pinned ? "Loslösen" : "Anpinnen"}
+        title={pinned ? t("studio.unpin") : t("studio.pin")}
+        aria-label={pinned ? t("studio.unpin") : t("studio.pin")}
         className={`inline-flex items-center justify-center h-7 w-7 rounded-md transition-all duration-motion ${
           pinned
             ? "text-accent opacity-100"
@@ -993,8 +985,8 @@ function GalleryCard({
             setMenuOpen((o) => !o);
           }}
           disabled={busy}
-          title="Aktionen"
-          aria-label="Aktionen"
+          title={t("studio.actions")}
+          aria-label={t("studio.actions")}
           className={`inline-flex items-center justify-center h-7 w-7 rounded-md text-ink-tertiary hover:text-ink-primary hover:bg-surface-sunken transition-all duration-motion ${
             menuOpen ? "opacity-100" : "opacity-0 group-hover:opacity-100 focus:opacity-100"
           }`}
@@ -1023,7 +1015,7 @@ function GalleryCard({
                 }}
                 className="w-full text-left px-3 py-1.5 text-ink-secondary hover:text-ink-primary hover:bg-surface-sunken"
               >
-                {copied ? "Kopiert!" : "Link kopieren"}
+                {copied ? t("studio.copied") : t("studio.copyLink")}
               </button>
               <button
                 type="button"
@@ -1146,15 +1138,16 @@ function GalleryCard({
 }
 
 function StatusBadge({ status }: { status: Gallery["status"] }) {
+  const t = useT();
   const styles: Record<Gallery["status"], string> = {
     draft: "bg-surface-sunken text-ink-tertiary border-line-subtle",
     live: "bg-semantic-success/12 text-semantic-success border-semantic-success/30",
     archived: "bg-semantic-warning/12 text-semantic-warning border-semantic-warning/30",
   };
   const labels: Record<Gallery["status"], string> = {
-    draft: "Entwurf",
-    live: "Live",
-    archived: "Archiv",
+    draft: t("studio.statusDraft"),
+    live: t("studio.badgeLive"),
+    archived: t("studio.badgeArchived"),
   };
   return (
     <span
@@ -1172,6 +1165,7 @@ function CreateGalleryDialog({
   onClose: () => void;
   onCreated: (g: Gallery) => void;
 }) {
+  const t = useT();
   const [templates, setTemplates] = useState<GalleryTemplate[]>([]);
   const [templateId, setTemplateId] = useState<string>("");
   const [title, setTitle] = useState("");
@@ -1236,23 +1230,21 @@ function CreateGalleryDialog({
         onSubmit={onSubmit}
         className="w-full max-w-md bg-surface-overlay border border-line-subtle rounded-md p-6 space-y-4 shadow-elev-3"
       >
-        <h2 className="text-display-sm font-medium text-ink-primary">
-          Neue Galerie
-        </h2>
+        <h2 className="text-display-sm font-medium text-ink-primary">{t("studio.newGallery")}</h2>
 
         {templates.length > 0 && (
           <Field
-            label="Template"
+            label={t("studio.template")}
             optionalLabel
             htmlFor="template"
-            hint="Vorlage übernimmt Modus, Download-Setting und Beschreibung"
+            hint={t("studio.templateHint")}
           >
             <Select
               id="template"
               value={templateId}
               onChange={(e) => applyTemplate(e.target.value)}
             >
-              <option value="">— ohne Template —</option>
+              <option value="">{t("studio.noTemplate")}</option>
               {templates.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}
@@ -1262,14 +1254,14 @@ function CreateGalleryDialog({
           </Field>
         )}
 
-        <Field label="Titel" htmlFor="title">
+        <Field label={t("studio.titleLabel")} htmlFor="title">
           <Input
             id="title"
             required
             autoFocus
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="z.B. Hochzeit Müller-Schmidt 2026"
+            placeholder={t("studio.titlePlaceholder")}
           />
         </Field>
 
@@ -1285,16 +1277,14 @@ function CreateGalleryDialog({
           />
         </Field>
 
-        <Field label="Modus" htmlFor="mode">
+        <Field label={t("studio.modeLabel")} htmlFor="mode">
           <Select
             id="mode"
             value={mode}
             onChange={(e) => setMode(e.target.value as typeof mode)}
           >
-            <option value="collaboration">
-              Collaboration (Auswahl, Kommentare)
-            </option>
-            <option value="presentation">Presentation (nur Anzeige)</option>
+            <option value="collaboration">{t("studio.modeCollabFull")}</option>
+            <option value="presentation">{t("studio.modePresentationFull")}</option>
           </Select>
         </Field>
 
@@ -1304,9 +1294,7 @@ function CreateGalleryDialog({
             checked={downloadEnabled}
             onChange={(e) => setDownloadEnabled(e.target.checked)}
             className="accent-accent"
-          />
-          Download für Kunden erlauben
-        </label>
+          />{t("studio.allowDownload")}</label>
 
         {error && (
           <div className="text-ui-sm text-semantic-danger bg-semantic-danger/10 border border-semantic-danger/30 rounded-sm px-3 py-2">
@@ -1315,11 +1303,9 @@ function CreateGalleryDialog({
         )}
 
         <div className="flex justify-end gap-2 pt-2">
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Abbrechen
-          </Button>
+          <Button type="button" variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
           <Button type="submit" variant="primary" disabled={pending}>
-            {pending ? "Wird erstellt…" : "Erstellen"}
+            {pending ? t("studio.creating") : t("common.create")}
           </Button>
         </div>
       </form>
