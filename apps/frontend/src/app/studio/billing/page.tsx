@@ -50,7 +50,7 @@ export default function BillingPage() {
         setInterval(s.billingInterval);
       }
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Fehler beim Laden");
+      setErr(e instanceof Error ? e.message : t("common.error"));
     } finally {
       setLoading(false);
     }

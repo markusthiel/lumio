@@ -44,7 +44,7 @@ export function CustomerTagFilter({
   filteredCount,
   downloadEnabled,
 }: Props) {
-  useT(); // Reserviert fuer spaetere i18n-Strings
+  const t = useT();
   const [showAll, setShowAll] = useState(false);
   const [zipJob, setZipJob] = useState<{
     zipId: string;
@@ -129,7 +129,7 @@ export function CustomerTagFilter({
         zipId: "",
         status: "failed",
         fileCount: null,
-        error: err instanceof Error ? err.message : "Fehler",
+        error: err instanceof Error ? err.message : t("common.error"),
       });
     }
   }

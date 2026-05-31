@@ -116,7 +116,7 @@ export default function StudioSettingsPage() {
         router.replace("/login");
         return;
       }
-      setError(err instanceof Error ? err.message : "Fehler");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setLoading(false);
     }
@@ -179,7 +179,7 @@ export default function StudioSettingsPage() {
       setDisplayNameSaved(true);
       setTimeout(() => setDisplayNameSaved(false), 2500);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setDisplayNameSaving(false);
     }
@@ -222,7 +222,7 @@ export default function StudioSettingsPage() {
       });
       setSettings(res.tenant);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setTextSaving(false);
     }
@@ -318,7 +318,7 @@ export default function StudioSettingsPage() {
       await api.completeWatermarkImageUpload(init.key);
       await load();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setImageSaving(false);
     }

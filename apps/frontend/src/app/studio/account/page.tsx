@@ -76,7 +76,7 @@ export default function AccountPage() {
         router.replace("/login");
         return;
       }
-      setError(err instanceof Error ? err.message : "Fehler beim Laden");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setLoading(false);
     }
@@ -200,7 +200,7 @@ function NameSection({
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setPending(false);
     }
@@ -270,7 +270,7 @@ function EmailSection({
       setOpen(false);
       await onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setPending(false);
     }
@@ -283,7 +283,7 @@ function EmailSection({
       setSubmitted(null);
       await onChanged();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler");
+      setError(err instanceof Error ? err.message : t("common.error"));
     }
   }
 
@@ -416,7 +416,7 @@ function PasswordSection() {
       setConfirm("");
       setTimeout(() => setDone(false), 4000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setPending(false);
     }

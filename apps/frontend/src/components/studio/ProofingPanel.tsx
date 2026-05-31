@@ -62,7 +62,7 @@ export function ProofingPanel({
           router.replace("/login");
           return;
         }
-        setError(err instanceof Error ? err.message : "Fehler");
+        setError(err instanceof Error ? err.message : t("common.error"));
       } finally {
         setLoading(false);
       }

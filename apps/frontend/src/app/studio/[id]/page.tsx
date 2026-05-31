@@ -1923,7 +1923,7 @@ export default function GalleryDetailPage() {
                     // Bleibt im Dialog stehen mit Inline-Fehler,
                     // User kann retryen oder abbrechen.
                     setBulkError(
-                      err instanceof Error ? err.message : "Fehler"
+                      err instanceof Error ? err.message : t("common.error")
                     );
                   } finally {
                     setBulkPending(false);
@@ -2550,13 +2550,13 @@ function _FileTile({
             </div>
             <div className="mt-1">
               {file.status === "processing"
-                ? "Wird verarbeitet…"
+                ? t("studio.statusProcessing")
                 : file.status === "uploading"
-                ? "Wird hochgeladen…"
+                ? t("studio.statusUploading")
                 : file.status === "failed"
-                ? "Fehler"
+                ? t("common.error")
                 : file.status === "hidden"
-                ? "Versteckt"
+                ? t("studio.statusHidden")
                 : file.originalFilename}
             </div>
           </div>

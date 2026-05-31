@@ -236,7 +236,7 @@ function EditTagRow({
       await api.updateTag(tag.id, { name, color, parentId });
       await onSaved();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Fehler");
+      setError(e instanceof Error ? e.message : t("common.error"));
     } finally {
       setBusy(false);
     }
@@ -308,7 +308,7 @@ function CreateTagInline({
       await api.createTag({ name, color, parentId });
       await onCreated();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Fehler");
+      setError(e instanceof Error ? e.message : t("common.error"));
     } finally {
       setBusy(false);
     }

@@ -673,7 +673,7 @@ function SaveCollectionDialog({
     try {
       await onSave(name.trim(), icon.trim() || undefined, filter);
     } catch (e2) {
-      setErr(e2 instanceof Error ? e2.message : "Fehler");
+      setErr(e2 instanceof Error ? e2.message : t("common.error"));
       setSaving(false);
     }
   }

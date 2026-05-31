@@ -368,7 +368,7 @@ function EditWebhookForm({
       });
       await onSaved();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Fehler");
+      setError(e instanceof Error ? e.message : t("common.error"));
     } finally {
       setPending(false);
     }
@@ -426,7 +426,7 @@ function CreateWebhookDialog({
       setCreatedSecret(res.secret);
       await onCreated();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Fehler");
+      setError(e instanceof Error ? e.message : t("common.error"));
     } finally {
       setPending(false);
     }

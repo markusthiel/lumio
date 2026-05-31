@@ -68,7 +68,7 @@ export default function TeamPage() {
       setMe({ id: meRes.user.id, role: meRes.user.role });
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler beim Laden");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setLoading(false);
     }
@@ -137,7 +137,7 @@ export default function TeamPage() {
                   }
                   await load();
                 } catch (err) {
-                  setError(err instanceof Error ? err.message : "Fehler");
+                  setError(err instanceof Error ? err.message : t("common.error"));
                 }
               }}
             />
@@ -351,7 +351,7 @@ function InviteDialog({
         await onInvited(null);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler beim Einladen");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setPending(false);
     }
@@ -483,7 +483,7 @@ function EditDialog({
       await api.updateTeamMember(user.id, patch);
       await onSaved();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler beim Speichern");
+      setError(err instanceof Error ? err.message : t("common.error"));
     } finally {
       setPending(false);
     }
