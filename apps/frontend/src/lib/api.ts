@@ -428,6 +428,7 @@ export interface GalleryAccess {
   canSelect: boolean;
   canSeeOthers: boolean;
   expiresAt: string | null;
+  hasPassword?: boolean;
   lastAccessAt: string | null;
   accessCount: number;
   createdAt: string;
@@ -1320,6 +1321,8 @@ export const api = {
       canSelect?: boolean;
       canSeeOthers?: boolean;
       expiresAt?: string;
+      /** Optionales Passwort nur für diesen Link. */
+      password?: string;
       /** Wenn true UND mindestens eine Adresse in emails: direkt nach
        *  dem Anlegen Einladungs-Mails an alle Adressen schicken. */
       sendInvitation?: boolean;
@@ -1345,6 +1348,8 @@ export const api = {
       canSelect?: boolean;
       canSeeOthers?: boolean;
       expiresAt?: string | null;
+      /** Link-Passwort: String = setzen, null = entfernen. */
+      password?: string | null;
     }
   ) =>
     request<{ access: GalleryAccess }>(

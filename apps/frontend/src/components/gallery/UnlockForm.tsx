@@ -8,11 +8,15 @@ export function UnlockForm({
   slug,
   meta,
   urlToken,
+  requirePassword = false,
   onUnlocked,
 }: {
   slug: string;
   meta: PublicGalleryMeta;
   urlToken?: string;
+  /** Erzwingt das Passwortfeld auch ohne Galerie-Passwort — z. B. wenn
+   *  der Freigabe-Link ein eigenes Passwort hat. */
+  requirePassword?: boolean;
   onUnlocked: () => Promise<void> | void;
 }) {
   const t = useT();
@@ -20,13 +24,15 @@ export function UnlockForm({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const showPassword = meta.requiresPassword || requirePassword;
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setPending(true);
     try {
       await api.unlockGallery(slug, {
-        password: meta.requiresPassword ? password : undefined,
+        password: showPassword ? password : undefined,
         token: urlToken,
       });
       await onUnlocked();
@@ -67,12 +73,12 @@ export function UnlockForm({
           className="space-y-5 bg-white/[0.03] border border-white/10 rounded-md p-7 backdrop-blur"
         >
           <div className="text-ui-sm opacity-75">
-            {meta.requiresPassword
+            {showPassword
               ? t("gallery.locked")
               : t("gallery.unlockHint")}
           </div>
 
-          {meta.requiresPassword && (
+          {showPassword && (
             <div className="space-y-1.5">
               <label htmlFor="pw" className="text-ui-sm font-medium opacity-90 block">
                 {t("gallery.password")}

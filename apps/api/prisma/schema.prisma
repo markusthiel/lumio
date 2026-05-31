@@ -698,6 +698,10 @@ model GalleryAccess {
   canSeeOthers  Boolean  @default(false) // sieht Kommentare/Auswahl anderer Teams?
   
   expiresAt     DateTime?
+  // Optionaler Passwortschutz NUR für diesen Link (unabhängig vom
+  // Galerie-Passwort). Sinnvoll, wenn Link und Passwort über getrennte
+  // Kanäle gehen. Null = kein Link-Passwort.
+  passwordHash  String?
   lastAccessAt  DateTime?
   accessCount   Int      @default(0)
   

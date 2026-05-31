@@ -37,6 +37,8 @@ const createAccessSchema = z.object({
   canSelect: z.boolean().default(true),
   canSeeOthers: z.boolean().default(false),
   expiresAt: z.string().datetime().optional(),
+  /** Optionales Passwort NUR für diesen Link. Leer/weggelassen = keins. */
+  password: z.string().min(1).max(200).optional(),
   /** Wenn true UND mindestens eine Adresse in emails: direkt nach dem
    *  Anlegen eine Einladungs-Mail an alle Adressen schicken. */
   sendInvitation: z.boolean().default(false),
@@ -58,6 +60,8 @@ const updateAccessSchema = z
     // nullable, damit ein gesetztes Ablaufdatum auch wieder entfernt
     // werden kann (null = kein Ablauf).
     expiresAt: z.string().datetime().nullable(),
+    // Link-Passwort: String = setzen, null = entfernen.
+    password: z.string().min(1).max(200).nullable(),
   })
   .partial();
 
@@ -119,6 +123,7 @@ export async function registerAccessRoutes(app: FastifyInstance) {
           canSelect: a.canSelect,
           canSeeOthers: a.canSeeOthers,
           expiresAt: a.expiresAt,
+          hasPassword: !!a.passwordHash,
           lastAccessAt: a.lastAccessAt,
           accessCount: a.accessCount,
           createdAt: a.createdAt,
@@ -149,6 +154,9 @@ export async function registerAccessRoutes(app: FastifyInstance) {
           canSelect: body.canSelect,
           canSeeOthers: body.canSeeOthers,
           expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
+          passwordHash: body.password
+            ? await hashPassword(body.password)
+            : null,
         },
       });
 
@@ -199,6 +207,7 @@ export async function registerAccessRoutes(app: FastifyInstance) {
           canSelect: access.canSelect,
           canSeeOthers: access.canSeeOthers,
           expiresAt: access.expiresAt,
+          hasPassword: !!access.passwordHash,
           createdAt: access.createdAt,
         },
         invitationSent,
@@ -223,9 +232,21 @@ export async function registerAccessRoutes(app: FastifyInstance) {
       if (!access) return reply.status(404).send({ error: "not_found" });
 
       const body = updateAccessSchema.parse(req.body);
+
+      // Link-Passwort vorbereiten (async → außerhalb des data-Spreads).
+      let passwordHashUpdate: { passwordHash: string | null } | undefined;
+      if (body.password !== undefined) {
+        passwordHashUpdate = {
+          passwordHash: body.password
+            ? await hashPassword(body.password)
+            : null,
+        };
+      }
+
       const updated = await prisma.galleryAccess.update({
         where: { id: access.id },
         data: {
+          ...(passwordHashUpdate ?? {}),
           ...(body.label !== undefined ? { label: body.label } : {}),
           ...(body.emails !== undefined ? { emails: body.emails } : {}),
           ...(body.canDownload !== undefined
@@ -247,7 +268,13 @@ export async function registerAccessRoutes(app: FastifyInstance) {
             : {}),
         },
       });
-      return { access: updated };
+      return {
+        access: {
+          ...updated,
+          hasPassword: !!updated.passwordHash,
+          passwordHash: undefined,
+        },
+      };
     }
   );
 

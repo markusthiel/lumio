@@ -80,6 +80,27 @@ export function SharePanel({
   const [editingExpiryId, setEditingExpiryId] = useState<string | null>(null);
   const [expiryDraft, setExpiryDraft] = useState("");
   const [savingExpiry, setSavingExpiry] = useState(false);
+  // Inline-Bearbeitung des Link-Passworts.
+  const [editingPwId, setEditingPwId] = useState<string | null>(null);
+  const [pwDraft, setPwDraft] = useState("");
+  const [savingLinkPw, setSavingLinkPw] = useState(false);
+
+  function startEditPw(a: GalleryAccess) {
+    setEditingPwId(a.id);
+    setPwDraft("");
+  }
+
+  async function saveLinkPassword(accessId: string, password: string | null) {
+    setSavingLinkPw(true);
+    try {
+      await api.updateAccess(galleryId, accessId, { password });
+      setEditingPwId(null);
+      setPwDraft("");
+      await load();
+    } finally {
+      setSavingLinkPw(false);
+    }
+  }
 
   /** ISO-UTC-String → datetime-local-Wert ("YYYY-MM-DDTHH:mm") in lokaler
    *  Zeit, damit der native Picker den richtigen Moment anzeigt. */
@@ -501,6 +522,65 @@ export function SharePanel({
                       </>
                     )}
                   </div>
+
+                  <div className="flex items-center gap-2 text-xs mt-1">
+                    {editingPwId === a.id ? (
+                      <>
+                        <input
+                          type="text"
+                          autoFocus
+                          value={pwDraft}
+                          onChange={(e) => setPwDraft(e.target.value)}
+                          placeholder={
+                            a.hasPassword ? "Neues Passwort" : "Passwort"
+                          }
+                          className="flex-1 rounded border border-line-subtle px-2 py-1 text-xs"
+                        />
+                        <button
+                          disabled={savingLinkPw || !pwDraft.trim()}
+                          onClick={() =>
+                            void saveLinkPassword(a.id, pwDraft.trim())
+                          }
+                          className="text-accent hover:underline disabled:opacity-40"
+                        >
+                          Speichern
+                        </button>
+                        {a.hasPassword && (
+                          <button
+                            disabled={savingLinkPw}
+                            onClick={() => void saveLinkPassword(a.id, null)}
+                            className="text-red-600 hover:underline disabled:opacity-40"
+                          >
+                            Entfernen
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setEditingPwId(null)}
+                          className="text-ink-tertiary hover:text-ink-secondary"
+                        >
+                          Abbrechen
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        {a.hasPassword ? (
+                          <span className="text-ink-secondary">
+                            🔒 Passwortgeschützt
+                          </span>
+                        ) : (
+                          <span className="text-ink-tertiary">
+                            Kein Passwort
+                          </span>
+                        )}
+                        <button
+                          onClick={() => startEditPw(a)}
+                          className="text-accent hover:underline"
+                        >
+                          {a.hasPassword ? "Ändern" : "Passwort setzen"}
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </li>
               );
             })}
@@ -681,6 +761,8 @@ function CreateAccessDialog({
   /** Ablauf des Links als datetime-local-Wert ("2026-07-15T14:30"),
    *  leer = kein Ablauf. */
   const [expiresAt, setExpiresAt] = useState("");
+  /** Optionales Passwort nur für diesen Link, leer = keins. */
+  const [linkPassword, setLinkPassword] = useState("");
   /** Wenn keine Adressen drin: Option unwirksam, wird nicht angezeigt. */
   const [sendInvitation, setSendInvitation] = useState(true);
   const [personalMessage, setPersonalMessage] = useState("");
@@ -704,6 +786,7 @@ function CreateAccessDialog({
         expiresAt: expiresAt
           ? new Date(expiresAt).toISOString()
           : undefined,
+        password: linkPassword.trim() ? linkPassword.trim() : undefined,
         sendInvitation: wantsInvitation,
         personalMessage:
           wantsInvitation && personalMessage ? personalMessage : undefined,
@@ -817,6 +900,25 @@ function CreateAccessDialog({
           <p className="text-xs text-ink-tertiary">
             Nach diesem Zeitpunkt kann der Kunde die Galerie nicht mehr
             öffnen. Leer = kein Ablauf.
+          </p>
+        </div>
+
+        <div className="space-y-1">
+          <label htmlFor="linkPw" className="text-sm font-medium">
+            Passwort für diesen Link{" "}
+            <span className="text-ink-tertiary">(optional)</span>
+          </label>
+          <input
+            id="linkPw"
+            type="text"
+            value={linkPassword}
+            onChange={(e) => setLinkPassword(e.target.value)}
+            className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm"
+            placeholder="Leer = kein Passwort"
+          />
+          <p className="text-xs text-ink-tertiary">
+            Sinnvoll, wenn du Link und Passwort getrennt verschickst (z. B.
+            Link per Mail, Passwort per SMS). Sonst nicht nötig.
           </p>
         </div>
 

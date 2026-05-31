@@ -49,6 +49,8 @@ function PublicGalleryInner() {
   const [accessState, setAccessState] = useState<"expired" | "denied" | null>(
     null
   );
+  // Der Freigabe-Link hat ein eigenes Passwort, das noch fehlt.
+  const [needsLinkPassword, setNeedsLinkPassword] = useState(false);
   // Print-Shop: prueft ob fuer diese Galerie verfuegbar (Feature-Flag,
   // Tenant-Config, Galerie-Override). Catalog-Call ist der eindeutige
   // Indikator — er liefert 404 wenn nicht verfuegbar oder 401 wenn
@@ -108,13 +110,19 @@ function PublicGalleryInner() {
             if (!cancelled) await loadFiles();
           } catch (e) {
             // Abgelaufener Link bzw. nicht-öffentliche Galerie ohne
-            // gültigen Link → eigene Hinweis-Seite. Sonst (ungültiges/
-            // fehlendes Token bei öffentlicher Galerie) anonym weiter.
+            // gültigen Link → eigene Hinweis-Seite. Link mit eigenem
+            // Passwort → Passwortformular. Sonst (ungültiges/fehlendes
+            // Token bei öffentlicher Galerie) anonym weiter.
             const msg = e instanceof Error ? e.message : "";
             if (msg.includes("link_expired")) {
               if (!cancelled) setAccessState("expired");
             } else if (msg.includes("access_required")) {
               if (!cancelled) setAccessState("denied");
+            } else if (msg.includes("password_required")) {
+              // Link- oder Galerie-Passwort nötig → UnlockForm rendert
+              // (meta.unlocked ist false). Bei reinem Link-Passwort muss
+              // das Feld erzwungen werden.
+              if (!cancelled) setNeedsLinkPassword(true);
             } else if (!needsPassword) {
               await loadFiles();
             }
@@ -219,6 +227,7 @@ function PublicGalleryInner() {
           slug={slug}
           meta={meta}
           urlToken={urlToken}
+          requirePassword={needsLinkPassword}
           onUnlocked={async () => {
             const { gallery: g2 } = await api.getPublicGallery(slug);
             setMeta(g2);
