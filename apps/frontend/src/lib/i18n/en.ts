@@ -442,6 +442,13 @@ export const en: Dict = {
     selectionLimitReached:
       "You've already selected {limit} photos. Unselect one to pick a different shot.",
     viewOnlyHint: "View only — ask the photographer for a personal link to make selections",
+    // Access denied / expired
+    linkExpiredTitle: "Link expired",
+    linkExpiredBody:
+      "This gallery link has expired. Please ask your photographer for a new link.",
+    noAccessTitle: "No access",
+    noAccessBody:
+      "This gallery is only accessible via a personal share link.",
     // Lightbox
     close: "Close",
     previous: "Previous image",

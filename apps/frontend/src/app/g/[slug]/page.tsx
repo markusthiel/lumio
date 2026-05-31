@@ -195,13 +195,13 @@ function PublicGalleryInner() {
         <div className="text-center py-20 max-w-md mx-auto">
           <div className="text-lg font-medium">
             {accessState === "expired"
-              ? "Link abgelaufen"
-              : "Kein Zugriff"}
+              ? t("gallery.linkExpiredTitle")
+              : t("gallery.noAccessTitle")}
           </div>
           <div className="text-sm opacity-60 mt-2">
             {accessState === "expired"
-              ? "Dieser Galerie-Link ist abgelaufen. Bitte wende dich an deinen Fotografen für einen neuen Link."
-              : "Diese Galerie ist nur über einen persönlichen Freigabe-Link zugänglich."}
+              ? t("gallery.linkExpiredBody")
+              : t("gallery.noAccessBody")}
           </div>
         </div>
       </GalleryShell>

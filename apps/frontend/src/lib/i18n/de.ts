@@ -443,6 +443,13 @@ export const de: Dict = {
     selectionLimitReached:
       "Du hast bereits {limit} Bilder ausgewählt. Wähl eins ab, um ein anderes auszuwählen.",
     viewOnlyHint: "Nur ansehen — für eigene Auswahl brauchst du einen persönlichen Link",
+    // Zugang verweigert / abgelaufen
+    linkExpiredTitle: "Link abgelaufen",
+    linkExpiredBody:
+      "Dieser Galerie-Link ist abgelaufen. Bitte wende dich an deinen Fotografen für einen neuen Link.",
+    noAccessTitle: "Kein Zugriff",
+    noAccessBody:
+      "Diese Galerie ist nur über einen persönlichen Freigabe-Link zugänglich.",
     // Lightbox
     close: "Schließen",
     previous: "Vorheriges Bild",
