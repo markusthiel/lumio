@@ -16,10 +16,11 @@ Drei typische Setups – das Quick-Start unten deckt den ersten ab, alles andere
 | Du bist… | Setup | Doku |
 |---|---|---|
 | **Fotograf:in oder Studio** | Single-Mode, MinIO, eine Domain | [Quick Start](#quick-start) — 5 Minuten |
-| **Agentur mit mehreren Fotograf-Kunden** (selbst hostend, keine Abrechnung über Lumio) | Multi-Mode ohne Billing, Tenants manuell per Super-Admin | [docs/MULTI_TENANT.md](docs/MULTI_TENANT.md) |
-| **SaaS-Anbieter mit zahlenden Kunden** | Multi-Mode mit Stripe-Billing, Self-Service-Signup über Marketing-Site | [docs/SAAS_MODE.md](docs/SAAS_MODE.md) |
+| **Agentur mit mehreren Fotograf-Kunden** (selbst hostend, für die eigene Geschäftstätigkeit) | Multi-Mode ohne Billing, Tenants manuell per Super-Admin | [docs/MULTI_TENANT.md](docs/MULTI_TENANT.md) |
 
 Im **Single-Mode** wird der Tenant beim ersten Start automatisch angelegt – du brauchst nur `create-admin` für deinen ersten User. Kein Super-Admin, kein Stripe.
+
+> **Lumio als SaaS an zahlende Dritte anbieten?** Das ist *Competing Use* und unter der Lizenz nicht ohne Weiteres erlaubt (es ist das Geschäftsmodell hinter unserem eigenen lumio-cloud.de). Dafür gibt es eine kommerzielle Lizenz auf Anfrage – siehe [Lizenz](#lizenz). Der SaaS-Modus ist unter [docs/SAAS_MODE.md](docs/SAAS_MODE.md) dokumentiert.
 
 ---
 
