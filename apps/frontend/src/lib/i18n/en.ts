@@ -54,6 +54,11 @@ export const en: Dict = {
       backupHint:
         "Lost access to your device? Enter a backup code (XXXX-YYYYYY).",
     },
+    passkey: {
+      title: "Sign in with passkey",
+      description: "Confirm the sign-in with your device.",
+      waiting: "Waiting for device…",
+    },
   },
 
   studio: {
@@ -610,6 +615,37 @@ export const en: Dict = {
       "Save these backup codes in a safe place. Each can be used once if you lose access to your device.",
     twoFactorBackupSaved: "I've saved the codes",
     twoFactorConfirmDisable: "Confirm with a current code to disable 2FA:",
+    slugChangeError: "The studio address could not be changed",
+    domainInUse: "This domain is already in use.",
+    watermarkRemoveConfirm: "Really remove the watermark image?",
+    loadError: "Settings could not be loaded.",
+    changing: "Changing…",
+    changeAddress: "Change address",
+    domainPlaceholder: "e.g. photos.my-studio.com",
+    checking: "Checking…",
+    checkNow: "Check now",
+    dnsResolution: "DNS resolution",
+    dnsCorrect: "{domain} points correctly to {ip}.",
+    dnsNotResolvableErr:
+      "Domain is not (yet) resolvable ({error}). Propagation can take up to 1h.",
+    dnsNotResolvable: "Domain is not (yet) resolvable.",
+    dnsWrong:
+      "Domain currently points to {actual} — expected {expected}. Please correct the DNS record.",
+    tlsCert: "TLS certificate",
+    tlsValid: "Active and valid.",
+    tlsNoDns:
+      "Waiting for DNS — once the domain resolves, Caddy will obtain a certificate.",
+    tlsPending: "Caddy is obtaining a certificate (can take 1–2 minutes).",
+    tlsInvalid: "Certificate not yet valid ({detail}).",
+    unknownError: "unknown error",
+    uploading: "Uploading…",
+    replaceImage: "Replace image",
+    uploadImage: "Upload image",
+    imageMaxHint: "Max 20 MiB · PNG/JPEG",
+    noteLabel: "Note:",
+    watermarkHintPre:
+      "A change only takes effect when a gallery's watermark is regenerated. Toggle",
+    watermarkHintPost: "off and on again, or wait for the next upload.",
   },
 
   annotation: {

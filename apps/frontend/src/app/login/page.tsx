@@ -544,12 +544,12 @@ export default function LoginPage() {
           <header className="space-y-1.5">
             <h1 className="text-display-sm text-ink-primary font-medium">
               {stage.hasWebauthn && !stage.hasTotp
-                ? "Mit Passkey anmelden"
+                ? t("login.passkey.title")
                 : t("login.totp.title")}
             </h1>
             <p className="text-ui-sm text-ink-tertiary">
               {stage.hasWebauthn && !stage.hasTotp
-                ? "Bestätige die Anmeldung mit deinem Gerät."
+                ? t("login.passkey.description")
                 : t("login.totp.description")}
             </p>
           </header>
@@ -563,7 +563,7 @@ export default function LoginPage() {
               disabled={pending}
               className="w-full"
             >
-              {pending ? "Wartet auf Gerät…" : "Mit Passkey anmelden"}
+              {pending ? t("login.passkey.waiting") : t("login.passkey.title")}
             </Button>
           )}
 

@@ -54,6 +54,11 @@ export const de: Dict = {
       backupHint:
         "Kein Zugriff aufs Gerät? Gib einen Backup-Code ein (XXXX-YYYYYY).",
     },
+    passkey: {
+      title: "Mit Passkey anmelden",
+      description: "Bestätige die Anmeldung mit deinem Gerät.",
+      waiting: "Wartet auf Gerät…",
+    },
   },
 
   studio: {
@@ -613,6 +618,37 @@ export const de: Dict = {
     twoFactorBackupSaved: "Ich habe die Codes gespeichert",
     twoFactorConfirmDisable:
       "Bestätige mit einem aktuellen Code, um 2FA zu deaktivieren:",
+    slugChangeError: "Studio-Adresse konnte nicht geändert werden",
+    domainInUse: "Diese Domain ist bereits in Benutzung.",
+    watermarkRemoveConfirm: "Watermark-Bild wirklich entfernen?",
+    loadError: "Settings konnten nicht geladen werden.",
+    changing: "Wird geändert…",
+    changeAddress: "Adresse ändern",
+    domainPlaceholder: "z.B. bilder.mein-studio.de",
+    checking: "Prüft…",
+    checkNow: "Jetzt prüfen",
+    dnsResolution: "DNS-Auflösung",
+    dnsCorrect: "{domain} zeigt korrekt auf {ip}.",
+    dnsNotResolvableErr:
+      "Domain ist (noch) nicht auflösbar ({error}). Propagation kann bis zu 1h dauern.",
+    dnsNotResolvable: "Domain ist (noch) nicht auflösbar.",
+    dnsWrong:
+      "Domain zeigt aktuell auf {actual} — erwartet wäre {expected}. Bitte DNS-Eintrag korrigieren.",
+    tlsCert: "TLS-Zertifikat",
+    tlsValid: "Aktiv und gültig.",
+    tlsNoDns:
+      "Wartet auf DNS — sobald die Domain auflöst, holt Caddy ein Zertifikat.",
+    tlsPending: "Caddy holt gerade ein Zertifikat (kann 1–2 Minuten dauern).",
+    tlsInvalid: "Zertifikat noch nicht gültig ({detail}).",
+    unknownError: "unbekannter Fehler",
+    uploading: "Lädt hoch…",
+    replaceImage: "Bild ersetzen",
+    uploadImage: "Bild hochladen",
+    imageMaxHint: "Max. 20 MiB · PNG/JPEG",
+    noteLabel: "Hinweis:",
+    watermarkHintPre:
+      "Eine Änderung wirkt erst, wenn das Wasserzeichen einer Galerie neu generiert wird. Schalte",
+    watermarkHintPost: "aus und wieder an, oder warte auf den nächsten Upload.",
   },
 
   annotation: {

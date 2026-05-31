@@ -207,7 +207,7 @@ export default function StudioSettingsPage() {
       setError(
         err instanceof Error
           ? err.message
-          : "Studio-Adresse konnte nicht geändert werden"
+          : t("settings.slugChangeError")
       );
       setSlugSaving(false);
     }
@@ -243,10 +243,10 @@ export default function StudioSettingsPage() {
         setCustomDomainStatus(null);
       }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Fehler";
+      const msg = err instanceof Error ? err.message : t("common.error");
       setError(
         msg.includes("domain_taken")
-          ? "Diese Domain ist bereits in Benutzung."
+          ? t("settings.domainInUse")
           : msg
       );
     } finally {
@@ -285,7 +285,7 @@ export default function StudioSettingsPage() {
           : ""
       );
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Fehler";
+      const msg = err instanceof Error ? err.message : t("common.error");
       setError(
         msg.includes("exceeds_hard_cap")
           ? t("studio.uploadLimit.errorHardCap", {
@@ -325,7 +325,7 @@ export default function StudioSettingsPage() {
   }
 
   async function removeImage() {
-    if (!confirm("Watermark-Bild wirklich entfernen?")) return;
+    if (!confirm(t("settings.watermarkRemoveConfirm"))) return;
     setImageSaving(true);
     try {
       await api.deleteWatermarkImage();
@@ -346,7 +346,7 @@ export default function StudioSettingsPage() {
     return (
       <div className="px-6 sm:px-8 lg:px-12 py-8">
         <div className="text-ui text-semantic-danger">
-          {error ?? "Settings konnten nicht geladen werden."}
+          {error ?? t("settings.loadError")}
         </div>
       </div>
     );
@@ -356,7 +356,7 @@ export default function StudioSettingsPage() {
     <>
       <PageHeader
         breadcrumb={[
-          { label: "Studio", href: "/studio" },
+          { label: t("nav.studio"), href: "/studio" },
           { label: t("settings.title") },
         ]}
         title={t("settings.title")}
@@ -411,7 +411,7 @@ export default function StudioSettingsPage() {
               }
               className="text-sm px-3 py-1.5 rounded-md border border-line-subtle hover:bg-surface-sunken disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {displayNameSaving ? "Speichert…" : "Speichern"}
+              {displayNameSaving ? t("common.saving") : t("common.save")}
             </button>
           </div>
         </section>
@@ -464,7 +464,7 @@ export default function StudioSettingsPage() {
                   }
                   className="text-sm px-3 py-1.5 rounded-md border border-line-subtle hover:bg-surface-sunken disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {slugSaving ? "Wird geändert…" : "Adresse ändern"}
+                  {slugSaving ? t("settings.changing") : t("settings.changeAddress")}
                 </button>
               </div>
             </section>
@@ -652,7 +652,7 @@ export default function StudioSettingsPage() {
                 <input
                   value={domain}
                   onChange={(e) => setDomain(e.target.value.toLowerCase())}
-                  placeholder="z.B. bilder.mein-studio.de"
+                  placeholder={t("settings.domainPlaceholder")}
                   disabled={!planAllows}
                   className="flex-1 rounded-md border border-line-subtle px-3 py-2 text-sm font-mono disabled:cursor-not-allowed disabled:bg-surface-sunken"
                 />
@@ -661,7 +661,7 @@ export default function StudioSettingsPage() {
                   disabled={domainSaving || !planAllows}
                   className="text-sm px-3 py-2 rounded-md bg-accent text-accent-contrast hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {domainSaving ? "Speichert…" : "Speichern"}
+                  {domainSaving ? t("common.saving") : t("common.save")}
                 </button>
                 {settings.customDomain && (
                   <button
@@ -669,7 +669,7 @@ export default function StudioSettingsPage() {
                     disabled={domainChecking}
                     className="text-sm px-3 py-2 rounded-md border border-line-subtle hover:bg-surface-sunken disabled:opacity-50"
                   >
-                    {domainChecking ? "Prüft…" : "Jetzt prüfen"}
+                    {domainChecking ? t("settings.checking") : t("settings.checkNow")}
                   </button>
                 )}
               </div>
@@ -679,7 +679,7 @@ export default function StudioSettingsPage() {
                 customDomainStatus?.configured === true && (
                   <div className="space-y-2 pt-1">
                     <StatusRow
-                      label="DNS-Auflösung"
+                      label={t("settings.dnsResolution")}
                       state={
                         customDomainStatus.dns.correct
                           ? "ok"
@@ -689,16 +689,16 @@ export default function StudioSettingsPage() {
                       }
                       message={
                         customDomainStatus.dns.correct
-                          ? `${customDomainStatus.domain} zeigt korrekt auf ${customDomainStatus.expectedIp}.`
+                          ? t("settings.dnsCorrect", { domain: customDomainStatus.domain, ip: customDomainStatus.expectedIp })
                           : customDomainStatus.dns.resolved.length === 0
                           ? customDomainStatus.dns.error
-                            ? `Domain ist (noch) nicht auflösbar (${customDomainStatus.dns.error}). Propagation kann bis zu 1h dauern.`
-                            : "Domain ist (noch) nicht auflösbar."
-                          : `Domain zeigt aktuell auf ${customDomainStatus.dns.resolved.join(", ")} — erwartet wäre ${customDomainStatus.expectedIp}. Bitte DNS-Eintrag korrigieren.`
+                            ? t("settings.dnsNotResolvableErr", { error: customDomainStatus.dns.error })
+                            : t("settings.dnsNotResolvable")
+                          : t("settings.dnsWrong", { actual: customDomainStatus.dns.resolved.join(", "), expected: customDomainStatus.expectedIp })
                       }
                     />
                     <StatusRow
-                      label="TLS-Zertifikat"
+                      label={t("settings.tlsCert")}
                       state={
                         customDomainStatus.tls.status === "valid"
                           ? "ok"
@@ -708,12 +708,12 @@ export default function StudioSettingsPage() {
                       }
                       message={
                         customDomainStatus.tls.status === "valid"
-                          ? "Aktiv und gültig."
+                          ? t("settings.tlsValid")
                           : customDomainStatus.tls.status === "no_dns"
-                          ? "Wartet auf DNS — sobald die Domain auflöst, holt Caddy ein Zertifikat."
+                          ? t("settings.tlsNoDns")
                           : customDomainStatus.tls.status === "pending"
-                          ? "Caddy holt gerade ein Zertifikat (kann 1–2 Minuten dauern)."
-                          : `Zertifikat noch nicht gültig (${customDomainStatus.tls.detail ?? "unbekannter Fehler"}).`
+                          ? t("settings.tlsPending")
+                          : t("settings.tlsInvalid", { detail: customDomainStatus.tls.detail ?? t("settings.unknownError") })
                       }
                     />
                   </div>
@@ -796,7 +796,7 @@ export default function StudioSettingsPage() {
               disabled={textSaving}
               className="text-sm px-3 py-2 rounded-md bg-accent text-accent-contrast hover:bg-accent-hover disabled:opacity-50"
             >
-              {textSaving ? "Speichert…" : "Speichern"}
+              {textSaving ? t("common.saving") : t("common.save")}
             </button>
           </div>
         </section>
@@ -847,21 +847,19 @@ export default function StudioSettingsPage() {
               className="text-sm px-3 py-2 rounded-md border border-line-subtle hover:bg-surface-sunken disabled:opacity-50"
             >
               {imageSaving
-                ? "Lädt hoch…"
+                ? t("settings.uploading")
                 : settings.watermarkImageKey
-                ? "Bild ersetzen"
-                : "Bild hochladen"}
+                ? t("settings.replaceImage")
+                : t("settings.uploadImage")}
             </button>
             <span className="text-xs text-ink-tertiary ml-2">
-              Max. 20 MiB · PNG/JPEG
+              {t("settings.imageMaxHint")}
             </span>
           </div>
 
           <div className="text-xs text-ink-tertiary bg-semantic-warning/10 border border-semantic-warning/30 rounded p-2">
-            <strong>Hinweis:</strong> Eine Änderung wirkt erst, wenn das
-            Wasserzeichen einer Galerie neu generiert wird. Schalte
-            <em> watermarkEnabled</em> aus und wieder an, oder warte auf den
-            nächsten Upload.
+            <strong>{t("settings.noteLabel")}</strong> {t("settings.watermarkHintPre")}
+            <em> watermarkEnabled</em> {t("settings.watermarkHintPost")}
           </div>
         </section>
       </div>
