@@ -19,6 +19,7 @@ export const en: Dict = {
     loading: "Loading…",
     back: "Back",
     error: "Error",
+    close: "Close",
   },
 
   nav: {
@@ -866,5 +867,41 @@ export const en: Dict = {
     confirmNewPassword: "Confirm new password",
     settingPassword: "Setting…",
     changePassword: "Change password",
+  },
+
+  team: {
+    title: "Team",
+    descOwner:
+      "Users of this studio. You can invite other members and manage roles.",
+    descAdmin:
+      "Users of this studio. As an admin you can invite and manage members — owner roles are reserved for the owner.",
+    inviteUser: "Invite user",
+    fieldName: "Name",
+    fieldEmail: "Email",
+    fieldRole: "Role",
+    fieldStatus: "Status",
+    namePlaceholder: "Jane Doe",
+    inviting: "Sending invitation…",
+    invite: "Invite",
+    statusActive: "Active",
+    statusInvited: "Invited",
+    statusDisabled: "Disabled",
+    lastOwnerNoDowngrade: "The last active owner cannot be downgraded.",
+    cantDisableSelf: "You can't disable yourself.",
+    lastOwnerNoDisable: "The last active owner cannot be disabled.",
+    deleting: "Deleting…",
+    deleteError: "Error deleting",
+    deleteTitle: "Delete {name}?",
+    deleteWarning:
+      "The user account is removed completely. Sessions, API tokens and 2FA devices are lost with it. If this user still owns galleries, you must transfer or delete those first.",
+    softAltPre: "Softer option:",
+    deactivateBold: "Disable",
+    softAltPost:
+      "instead of deleting — the user can no longer sign in, and their galleries stay under their name.",
+    mailFailedTitle: "Email could not be sent",
+    mailFailedBody:
+      "The invitation to {email} was created, but automatic email delivery failed. Send this user the following setup link manually — it's valid for 72 hours:",
+    copyLink: "Copy link",
+    copied: "Copied!",
   },
 };

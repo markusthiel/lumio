@@ -18,6 +18,7 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { api } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { Button } from "@/components/ui";
 
@@ -38,13 +39,8 @@ const ROLE_LABEL: Record<string, string> = {
   member: "Member",
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  active: "Aktiv",
-  invited: "Eingeladen",
-  disabled: "Deaktiviert",
-};
-
 export default function TeamPage() {
+  const t = useT();
   const [users, setUsers] = useState<TeamUser[]>([]);
   const [me, setMe] = useState<{
     id: string;
@@ -94,11 +90,11 @@ export default function TeamPage() {
   return (
     <>
       <PageHeader
-        title="Team"
+        title={t("team.title")}
         description={
           isOwner
-            ? "User dieses Studios. Du kannst andere Mitglieder einladen und Rollen verwalten."
-            : "User dieses Studios. Als Admin kannst du Mitglieder einladen und verwalten — Owner-Rollen bleiben dem Owner vorbehalten."
+            ? t("team.descOwner")
+            : t("team.descAdmin")
         }
         actions={
           canManage && (
@@ -106,9 +102,7 @@ export default function TeamPage() {
               variant="primary"
               size="sm"
               onClick={() => setInviteOpen(true)}
-            >
-              User einladen
-            </Button>
+            >{t("team.inviteUser")}</Button>
           )
         }
       />
@@ -219,6 +213,7 @@ function UserRow({
   onDelete: () => void;
   onResend: () => void;
 }) {
+  const t = useT();
   // Schutz vor letztem Owner — keine Aktionen die das ändern wuerden.
   const isLastOwner =
     user.role === "owner" &&
@@ -275,7 +270,7 @@ function UserRow({
               variant="ghost"
               size="sm"
               onClick={onDelete}
-              title="Löschen"
+              title={t("common.delete")}
             >
               Löschen
             </Button>
@@ -303,6 +298,7 @@ function RoleBadge({ role }: { role: TeamUser["role"] }) {
 }
 
 function StatusBadge({ status }: { status: TeamUser["status"] }) {
+  const t = useT();
   if (status === "active") return null;
   const cls =
     status === "invited"
@@ -312,7 +308,7 @@ function StatusBadge({ status }: { status: TeamUser["status"] }) {
     <span
       className={`text-ui-xs px-1.5 py-0.5 rounded-xs border ${cls}`}
     >
-      {STATUS_LABEL[status]}
+      {status === "invited" ? t("team.statusInvited") : t("team.statusDisabled")}
     </span>
   );
 }
@@ -328,6 +324,7 @@ function InviteDialog({
     fallback: { setupUrl: string; email: string } | null
   ) => Promise<void>;
 }) {
+  const t = useT();
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [role, setRole] = useState<"owner" | "admin" | "member">("admin");
@@ -362,23 +359,23 @@ function InviteDialog({
 
   return (
     <Modal onClose={pending ? () => {} : onClose}>
-      <h2 className="text-lg font-medium text-ink-primary">User einladen</h2>
+      <h2 className="text-lg font-medium text-ink-primary">{t("team.inviteUser")}</h2>
       <p className="text-ui-sm text-ink-secondary mt-2">
         Der eingeladene User erhält eine E-Mail mit einem Setup-Link (gültig 72
         Stunden) und kann sich danach mit eigenem Passwort einloggen.
       </p>
       <div className="space-y-3 mt-4">
-        <Field label="Name">
+        <Field label={t("team.fieldName")}>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             disabled={pending}
             className={inputCls}
-            placeholder="Anna Musterfrau"
+            placeholder={t("team.namePlaceholder")}
           />
         </Field>
-        <Field label="E-Mail">
+        <Field label={t("team.fieldEmail")}>
           <input
             type="email"
             value={email}
@@ -389,7 +386,7 @@ function InviteDialog({
             autoComplete="off"
           />
         </Field>
-        <Field label="Rolle">
+        <Field label={t("team.fieldRole")}>
           <select
             value={role}
             onChange={(e) =>
@@ -416,16 +413,14 @@ function InviteDialog({
         <p className="text-ui-sm text-semantic-danger mt-3">{error}</p>
       )}
       <DialogActions>
-        <Button variant="ghost" size="sm" onClick={onClose} disabled={pending}>
-          Abbrechen
-        </Button>
+        <Button variant="ghost" size="sm" onClick={onClose} disabled={pending}>{t("common.cancel")}</Button>
         <Button
           variant="primary"
           size="sm"
           onClick={submit}
           disabled={pending || !email.trim() || !name.trim()}
         >
-          {pending ? "Einladung wird gesendet…" : "Einladen"}
+          {pending ? t("team.inviting") : t("team.invite")}
         </Button>
       </DialogActions>
     </Modal>
@@ -447,6 +442,7 @@ function EditDialog({
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
+  const t = useT();
   const [name, setName] = useState(user.name ?? "");
   const [role, setRole] = useState(user.role);
   const [status, setStatus] = useState(user.status);
@@ -502,7 +498,7 @@ function EditDialog({
         {user.email}
       </p>
       <div className="space-y-3 mt-4">
-        <Field label="Name">
+        <Field label={t("team.fieldName")}>
           <input
             type="text"
             value={name}
@@ -512,10 +508,10 @@ function EditDialog({
           />
         </Field>
         <Field
-          label="Rolle"
+          label={t("team.fieldRole")}
           hint={
             roleLocked
-              ? "Letzter aktiver Owner kann nicht herabgestuft werden."
+              ? t("team.lastOwnerNoDowngrade")
               : undefined
           }
         >
@@ -534,12 +530,12 @@ function EditDialog({
         </Field>
         {user.status !== "invited" && (
           <Field
-            label="Status"
+            label={t("team.fieldStatus")}
             hint={
               isMe
-                ? "Du kannst dich nicht selbst deaktivieren."
+                ? t("team.cantDisableSelf")
                 : isLastOwner
-                ? "Letzter aktiver Owner kann nicht deaktiviert werden."
+                ? t("team.lastOwnerNoDisable")
                 : undefined
             }
           >
@@ -551,8 +547,8 @@ function EditDialog({
               disabled={pending || statusLocked}
               className={inputCls}
             >
-              <option value="active">Aktiv</option>
-              <option value="disabled">Deaktiviert</option>
+              <option value="active">{t("team.statusActive")}</option>
+              <option value="disabled">{t("team.statusDisabled")}</option>
             </select>
           </Field>
         )}
@@ -561,16 +557,14 @@ function EditDialog({
         <p className="text-ui-sm text-semantic-danger mt-3">{error}</p>
       )}
       <DialogActions>
-        <Button variant="ghost" size="sm" onClick={onClose} disabled={pending}>
-          Abbrechen
-        </Button>
+        <Button variant="ghost" size="sm" onClick={onClose} disabled={pending}>{t("common.cancel")}</Button>
         <Button
           variant="primary"
           size="sm"
           onClick={save}
           disabled={pending}
         >
-          {pending ? "Speichere…" : "Speichern"}
+          {pending ? t("common.saving") : t("common.save")}
         </Button>
       </DialogActions>
     </Modal>
@@ -586,6 +580,7 @@ function DeleteDialog({
   onClose: () => void;
   onDeleted: () => Promise<void>;
 }) {
+  const t = useT();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [galleryHint, setGalleryHint] = useState<string | null>(null);
@@ -598,7 +593,7 @@ function DeleteDialog({
       await api.deleteTeamMember(user.id);
       await onDeleted();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Fehler beim Löschen";
+      const msg = err instanceof Error ? err.message : t("team.deleteError");
       // Backend liefert bei owns_galleries eine konkrete Meldung —
       // wir lassen sie als-is durch, sie ist schon Owner-freundlich.
       if (msg.toLowerCase().includes("galerie")) {
@@ -614,17 +609,15 @@ function DeleteDialog({
   return (
     <Modal onClose={pending ? () => {} : onClose}>
       <h2 className="text-lg font-medium text-ink-primary">
-        {user.name ?? user.email} löschen?
+        {t("team.deleteTitle", { name: user.name ?? user.email })}
       </h2>
       <p className="text-ui-sm text-ink-secondary mt-2">
-        Der User-Account wird komplett entfernt. Sessions, API-Tokens und 2FA-
-        Geräte gehen mit verloren. Falls dieser User noch Galerien besitzt,
-        musst du die zuerst übergeben oder löschen.
+        {t("team.deleteWarning")}
       </p>
       <p className="text-ui-sm text-ink-secondary mt-2">
-        Soft-Alternative: <span className="font-medium">Deaktivieren</span>{" "}
-        statt löschen — der User kann sich nicht mehr einloggen, seine Galerien
-        bleiben unter seinem Namen.
+        {t("team.softAltPre")}{" "}
+        <span className="font-medium">{t("team.deactivateBold")}</span>{" "}
+        {t("team.softAltPost")}
       </p>
       {galleryHint && (
         <p className="text-ui-sm text-semantic-warning mt-3">{galleryHint}</p>
@@ -633,16 +626,14 @@ function DeleteDialog({
         <p className="text-ui-sm text-semantic-danger mt-3">{error}</p>
       )}
       <DialogActions>
-        <Button variant="ghost" size="sm" onClick={onClose} disabled={pending}>
-          Abbrechen
-        </Button>
+        <Button variant="ghost" size="sm" onClick={onClose} disabled={pending}>{t("common.cancel")}</Button>
         <Button
           variant="danger"
           size="sm"
           onClick={performDelete}
           disabled={pending}
         >
-          {pending ? "Lösche…" : "Löschen"}
+          {pending ? t("team.deleting") : t("common.delete")}
         </Button>
       </DialogActions>
     </Modal>
@@ -658,6 +649,7 @@ function FallbackLinkDialog({
   setupUrl: string;
   onClose: () => void;
 }) {
+  const t = useT();
   const [copied, setCopied] = useState(false);
 
   async function copy() {
@@ -673,22 +665,18 @@ function FallbackLinkDialog({
   return (
     <Modal onClose={onClose}>
       <h2 className="text-lg font-medium text-ink-primary">
-        Mail konnte nicht versendet werden
+        {t("team.mailFailedTitle")}
       </h2>
       <p className="text-ui-sm text-ink-secondary mt-2">
-        Die Einladung an <span className="font-mono">{email}</span> wurde
-        erstellt, aber der automatische Mailversand hat nicht geklappt. Schick
-        diesem User den folgenden Setup-Link manuell — er ist 72 Stunden gültig:
+        {t("team.mailFailedBody", { email })}
       </p>
       <div className="mt-3 rounded bg-surface-sunken border border-line-subtle px-3 py-2 font-mono text-ui-xs text-ink-primary break-all">
         {setupUrl}
       </div>
       <DialogActions>
-        <Button variant="ghost" size="sm" onClick={onClose}>
-          Schließen
-        </Button>
+        <Button variant="ghost" size="sm" onClick={onClose}>{t("common.close")}</Button>
         <Button variant="primary" size="sm" onClick={copy}>
-          {copied ? "Kopiert!" : "Link kopieren"}
+          {copied ? t("team.copied") : t("team.copyLink")}
         </Button>
       </DialogActions>
     </Modal>

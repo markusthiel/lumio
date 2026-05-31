@@ -19,6 +19,7 @@ export const de: Dict = {
     loading: "Lädt…",
     back: "Zurück",
     error: "Fehler",
+    close: "Schließen",
   },
 
   nav: {
@@ -869,5 +870,43 @@ export const de: Dict = {
     confirmNewPassword: "Neues Passwort bestätigen",
     settingPassword: "Wird gesetzt…",
     changePassword: "Passwort ändern",
+  },
+
+  team: {
+    title: "Team",
+    descOwner:
+      "User dieses Studios. Du kannst andere Mitglieder einladen und Rollen verwalten.",
+    descAdmin:
+      "User dieses Studios. Als Admin kannst du Mitglieder einladen und verwalten — Owner-Rollen bleiben dem Owner vorbehalten.",
+    inviteUser: "User einladen",
+    fieldName: "Name",
+    fieldEmail: "E-Mail",
+    fieldRole: "Rolle",
+    fieldStatus: "Status",
+    namePlaceholder: "Anna Musterfrau",
+    inviting: "Einladung wird gesendet…",
+    invite: "Einladen",
+    statusActive: "Aktiv",
+    statusInvited: "Eingeladen",
+    statusDisabled: "Deaktiviert",
+    lastOwnerNoDowngrade:
+      "Letzter aktiver Owner kann nicht herabgestuft werden.",
+    cantDisableSelf: "Du kannst dich nicht selbst deaktivieren.",
+    lastOwnerNoDisable:
+      "Letzter aktiver Owner kann nicht deaktiviert werden.",
+    deleting: "Lösche…",
+    deleteError: "Fehler beim Löschen",
+    deleteTitle: "{name} löschen?",
+    deleteWarning:
+      "Der User-Account wird komplett entfernt. Sessions, API-Tokens und 2FA-Geräte gehen mit verloren. Falls dieser User noch Galerien besitzt, musst du die zuerst übergeben oder löschen.",
+    softAltPre: "Soft-Alternative:",
+    deactivateBold: "Deaktivieren",
+    softAltPost:
+      "statt löschen — der User kann sich nicht mehr einloggen, seine Galerien bleiben unter seinem Namen.",
+    mailFailedTitle: "Mail konnte nicht versendet werden",
+    mailFailedBody:
+      "Die Einladung an {email} wurde erstellt, aber der automatische Mailversand hat nicht geklappt. Schick diesem User den folgenden Setup-Link manuell — er ist 72 Stunden gültig:",
+    copyLink: "Link kopieren",
+    copied: "Kopiert!",
   },
 };
