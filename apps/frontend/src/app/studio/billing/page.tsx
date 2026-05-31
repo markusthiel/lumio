@@ -9,6 +9,7 @@ import {
   type BillingSubscriptionInfo,
 } from "@/lib/api";
 import { PageHeader } from "@/components/studio/PageHeader";
+import { useT } from "@/lib/i18n";
 import { Card } from "@/components/ui";
 
 /**
@@ -20,6 +21,7 @@ import { Card } from "@/components/ui";
  * kommt in Sprint 2).
  */
 export default function BillingPage() {
+  const t = useT();
   const [usage, setUsage] = useState<BillingUsage | null>(null);
   const [plans, setPlans] = useState<BillingPlan[]>([]);
   const [sub, setSub] = useState<BillingSubscriptionInfo | null>(null);
@@ -84,7 +86,7 @@ export default function BillingPage() {
       const { portalUrl } = await api.startBillingPortal();
       window.location.href = portalUrl;
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Portal-Öffnen fehlgeschlagen");
+      setErr(e instanceof Error ? e.message : t("billing.portalFailed"));
       setBusyAction(null);
     }
   }, []);
@@ -96,7 +98,7 @@ export default function BillingPage() {
   if (loading) {
     return (
       <>
-        <PageHeader title="Plan & Speicher" />
+        <PageHeader title={t("billing.title")} />
         <div className="px-6 sm:px-8 lg:px-12 py-6 text-ui-sm text-ink-tertiary">Lädt …</div>
       </>
     );
@@ -105,11 +107,11 @@ export default function BillingPage() {
   if (err || !usage) {
     return (
       <>
-        <PageHeader title="Plan & Speicher" />
+        <PageHeader title={t("billing.title")} />
         <div className="px-6 sm:px-8 lg:px-12 py-6">
           <Card className="p-4 border-semantic-danger/30 bg-semantic-danger/5">
             <div className="text-semantic-danger text-ui-sm">
-              {err ?? "Keine Abrechnungs-Daten gefunden."}
+              {err ?? t("billing.noData")}
             </div>
           </Card>
         </div>
@@ -128,7 +130,7 @@ export default function BillingPage() {
 
   return (
     <>
-      <PageHeader title="Plan & Speicher" />
+      <PageHeader title={t("billing.title")} />
       <div className="px-6 sm:px-8 lg:px-12 py-6 max-w-5xl space-y-6">
 
       {/* Banner: geplante Kündigung — User kann hier rückgängig machen */}
@@ -137,14 +139,10 @@ export default function BillingPage() {
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div>
               <div className="font-medium text-amber-900">
-                Abo endet am{" "}
-                {new Date(sub.currentPeriodEnd).toLocaleDateString("de-DE")}
+                {t("billing.subEndsOn", { date: new Date(sub.currentPeriodEnd).toLocaleDateString("de-DE") })}
               </div>
               <div className="text-ui-sm text-amber-800 mt-1 max-w-2xl">
-                Du hast dein Abo gekündigt. Bis zum genannten Datum kannst
-                du Lumio weiter im vollen Umfang nutzen. Danach geht dein
-                Studio in den Read-Only-Modus. Die Kündigung kannst du
-                jederzeit zurücknehmen.
+                {t("billing.cancelInfo")}
               </div>
             </div>
             <button
@@ -164,8 +162,8 @@ export default function BillingPage() {
               className="shrink-0 px-4 py-2 rounded-md bg-amber-600 text-white text-ui-sm font-medium hover:bg-amber-700 disabled:opacity-50"
             >
               {busyAction === "reactivate"
-                ? "Wird reaktiviert …"
-                : "Abo fortführen"}
+                ? t("billing.reactivating")
+                : t("billing.continueSubscription")}
             </button>
           </div>
         </Card>
@@ -175,9 +173,7 @@ export default function BillingPage() {
       <Card className="p-5">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
-            <div className="text-ui-xs text-ink-tertiary uppercase tracking-wide">
-              Aktueller Plan
-            </div>
+            <div className="text-ui-xs text-ink-tertiary uppercase tracking-wide">{t("billing.currentPlan")}</div>
             <div className="text-2xl font-medium text-ink-primary mt-1">
               {usage.plan.name}
             </div>
@@ -187,9 +183,7 @@ export default function BillingPage() {
             <StatusBadge status={usage.subscriptionStatus} />
           </div>
           {usage.trialEndsAt && (
-            <div className="text-ui-xs text-ink-tertiary text-right">
-              Trial endet am
-              <div className="text-ui-sm text-ink-primary font-medium">
+            <div className="text-ui-xs text-ink-tertiary text-right">{t("billing.trialEndsOn")}<div className="text-ui-sm text-ink-primary font-medium">
                 {new Date(usage.trialEndsAt).toLocaleDateString("de-DE")}
               </div>
             </div>
@@ -200,13 +194,9 @@ export default function BillingPage() {
       {/* Read-only Warnung wenn Karenz Tag 30+ */}
       {usage.readOnlySince && (
         <Card className="p-4 border-semantic-danger/30 bg-semantic-danger/5">
-          <div className="text-semantic-danger font-medium">
-            Konto im Read-only-Modus
-          </div>
+          <div className="text-semantic-danger font-medium">{t("billing.readOnlyTitle")}</div>
           <div className="text-ui-sm text-ink-secondary mt-1">
-            Wegen ausstehender Zahlung sind Uploads und Änderungen
-            deaktiviert. Bestehende Galerien bleiben für deine Kunden
-            sichtbar. Bitte Karte aktualisieren.
+            {t("billing.readOnlyInfo")}
           </div>
         </Card>
       )}
@@ -214,9 +204,9 @@ export default function BillingPage() {
       {/* Storage-Bar */}
       <Card className="p-5">
         <div className="flex items-baseline justify-between mb-2">
-          <h3 className="text-ui-md font-medium">Speicher</h3>
+          <h3 className="text-ui-md font-medium">{t("billing.storage")}</h3>
           <div className="text-ui-xs text-ink-tertiary tabular-nums">
-            {formatBytes(storageUsedBytes)} von {formatBytes(storageLimitBytes)}
+            {t("billing.usedOf", { used: formatBytes(storageUsedBytes), limit: formatBytes(storageLimitBytes) })}
           </div>
         </div>
         <UsageBar
@@ -226,13 +216,13 @@ export default function BillingPage() {
         />
         <div className="grid grid-cols-2 gap-4 mt-3 text-ui-xs text-ink-tertiary">
           <div>
-            Originale:{" "}
+            {t("billing.originals")}{" "}
             <span className="text-ink-secondary tabular-nums">
               {formatBytes(BigInt(usage.storage.breakdown.originalsBytes))}
             </span>
           </div>
           <div>
-            Vorschauen:{" "}
+            {t("billing.previews")}{" "}
             <span className="text-ink-secondary tabular-nums">
               {formatBytes(BigInt(usage.storage.breakdown.renditionsBytes))}
             </span>
@@ -240,7 +230,7 @@ export default function BillingPage() {
         </div>
         {usage.storageAddonGib > 0 && (
           <div className="text-ui-xs text-ink-tertiary mt-2">
-            Inklusive {usage.storageAddonGib} GB Zusatz-Speicher
+            {t("billing.addonStorage", { n: usage.storageAddonGib })}
           </div>
         )}
       </Card>
@@ -248,11 +238,11 @@ export default function BillingPage() {
       {/* Aktive Galerien */}
       <Card className="p-5">
         <div className="flex items-baseline justify-between mb-2">
-          <h3 className="text-ui-md font-medium">Aktive Galerien</h3>
+          <h3 className="text-ui-md font-medium">{t("billing.activeGalleries")}</h3>
           <div className="text-ui-xs text-ink-tertiary tabular-nums">
             {usage.galleries.active}
             {usage.plan.activeGalleries !== null && (
-              <> von {usage.plan.activeGalleries}</>
+              <> {t("billing.ofN", { n: usage.plan.activeGalleries })}</>
             )}
           </div>
         </div>
@@ -263,26 +253,25 @@ export default function BillingPage() {
             warning={galleriesPct > 80}
           />
         ) : (
-          <div className="text-ui-xs text-ink-tertiary">Unbegrenzt</div>
+          <div className="text-ui-xs text-ink-tertiary">{t("billing.unlimited")}</div>
         )}
         {usage.galleries.total > usage.galleries.active && (
           <div className="text-ui-xs text-ink-tertiary mt-2">
-            Plus {usage.galleries.total - usage.galleries.active} archivierte
-            Galerien (zählen nicht zum Limit).
+            {t("billing.archivedGalleries", { n: usage.galleries.total - usage.galleries.active })}
           </div>
         )}
       </Card>
 
       {/* Features-Übersicht */}
       <Card className="p-5">
-        <h3 className="text-ui-md font-medium mb-3">Features in deinem Plan</h3>
+        <h3 className="text-ui-md font-medium mb-3">{t("billing.featuresTitle")}</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-ui-sm">
           <FeatureRow
-            label="Eigenes Branding"
-            value={usage.plan.brandings > 0 ? `${usage.plan.brandings} Profil${usage.plan.brandings > 1 ? "e" : ""}` : null}
+            label={t("billing.featBranding")}
+            value={usage.plan.brandings > 0 ? t(usage.plan.brandings > 1 ? "billing.profileMany" : "billing.profileOne", { n: usage.plan.brandings }) : null}
           />
           <FeatureRow
-            label="Custom-Domain"
+            label={t("billing.featCustomDomain")}
             value={
               usage.plan.customDomains === null
                 ? "Unbegrenzt"
@@ -292,12 +281,12 @@ export default function BillingPage() {
             }
           />
           <FeatureRow
-            label="Watermark"
-            value={usage.plan.watermarkAllowed ? "Verfügbar" : null}
+            label={t("billing.featWatermark")}
+            value={usage.plan.watermarkAllowed ? t("billing.available") : null}
           />
           <FeatureRow
-            label="Team-Mitglieder"
-            value={usage.plan.teamMembers > 1 ? `bis ${usage.plan.teamMembers}` : null}
+            label={t("billing.featTeam")}
+            value={usage.plan.teamMembers > 1 ? t("billing.upToN", { n: usage.plan.teamMembers }) : null}
           />
         </div>
       </Card>
@@ -305,7 +294,7 @@ export default function BillingPage() {
       {/* Plan-Vergleich für Upgrade */}
       <Card className="p-5">
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <h3 className="text-ui-md font-medium">Andere Pläne</h3>
+          <h3 className="text-ui-md font-medium">{t("billing.otherPlans")}</h3>
           {/* Monthly / Yearly Toggle. Yearly = 17% Rabatt (10 Monate
               statt 12) — wir zeigen das als Badge an. */}
           <div className="inline-flex rounded border border-line-subtle p-0.5">
@@ -316,9 +305,7 @@ export default function BillingPage() {
                   ? "bg-surface-canvas text-ink-primary"
                   : "text-ink-tertiary hover:text-ink-secondary"
               }`}
-            >
-              Monatlich
-            </button>
+            >{t("billing.monthly")}</button>
             <button
               onClick={() => setInterval("yearly")}
               className={`text-ui-sm px-3 h-7 rounded transition-colors flex items-center gap-1 ${
@@ -326,9 +313,7 @@ export default function BillingPage() {
                   ? "bg-surface-canvas text-ink-primary"
                   : "text-ink-tertiary hover:text-ink-secondary"
               }`}
-            >
-              Jährlich
-              <span className="text-ui-xs bg-accent/15 text-accent px-1.5 py-0.5 rounded">
+            >{t("billing.yearly")}<span className="text-ui-xs bg-accent/15 text-accent px-1.5 py-0.5 rounded">
                 −17 %
               </span>
             </button>
@@ -356,47 +341,42 @@ export default function BillingPage() {
                   {(priceCents / 100).toFixed(0)} €
                   <span className="text-ui-xs text-ink-tertiary font-normal">
                     {" "}
-                    / {interval === "yearly" ? "Jahr" : "Monat"}
+                    / {interval === "yearly" ? t("billing.perYear") : t("billing.perMonth")}
                   </span>
                 </div>
                 {interval === "yearly" && (
                   <div className="text-ui-xs text-ink-tertiary mt-0.5">
-                    ≈ {(priceCents / 1200).toFixed(0)} €/Monat
+                    {t("billing.approxPerMonth", { price: (priceCents / 1200).toFixed(0) })}
                   </div>
                 )}
                 <div className="text-ui-xs text-ink-secondary mt-3 space-y-1">
-                  <div>{p.storageGib} GB Speicher</div>
+                  <div>{t("billing.gbStorage", { n: p.storageGib })}</div>
                   <div>
                     {p.activeGalleries === null
-                      ? "Unbegrenzte"
-                      : p.activeGalleries}{" "}
-                    aktive Galerien
+                      ? t("billing.unlimitedGalleries")
+                      : t("billing.nActiveGalleries", { n: p.activeGalleries })}
                   </div>
                   {p.brandings > 0 && (
                     <div>
-                      {p.brandings} Branding-Profil
-                      {p.brandings > 1 ? "e" : ""}
+                      {t(p.brandings > 1 ? "billing.brandingProfileCardMany" : "billing.brandingProfileCardOne", { n: p.brandings })}
                     </div>
                   )}
                   {p.customDomains !== 0 && (
                     <div>
                       {p.customDomains === null
-                        ? "Unbegrenzte"
-                        : p.customDomains}{" "}
-                      Custom-Domain{p.customDomains !== 1 ? "s" : ""}
+                        ? t("billing.unlimitedCustomDomains")
+                        : t(p.customDomains !== 1 ? "billing.customDomainCardMany" : "billing.customDomainCardOne", { n: p.customDomains })}
                     </div>
                   )}
                   {p.teamMembers > 1 && (
                     <div>
-                      bis {p.teamMembers} Team-Mitglieder
+                      {t("billing.upToTeamMembers", { n: p.teamMembers })}
                     </div>
                   )}
                 </div>
                 <div className="mt-4">
                   {isCurrent ? (
-                    <div className="text-ui-sm text-accent font-medium">
-                      Aktueller Plan
-                    </div>
+                    <div className="text-ui-sm text-accent font-medium">{t("billing.currentPlan")}</div>
                   ) : (
                     <button
                       onClick={() => handleSelectPlan(slug)}
@@ -404,10 +384,10 @@ export default function BillingPage() {
                       className="w-full text-ui-sm h-9 rounded bg-accent text-accent-contrast font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
                     >
                       {busyAction === `plan:${slug}`
-                        ? "Wird vorbereitet …"
+                        ? t("billing.preparing")
                         : sub?.planSlug === p.slug
-                        ? `Auf ${interval === "yearly" ? "Jahres-" : "Monats-"}Abrechnung wechseln`
-                        : "Diesen Plan wählen"}
+                        ? t(interval === "yearly" ? "billing.switchToYearly" : "billing.switchToMonthly")
+                        : t("billing.selectPlan")}
                     </button>
                   )}
                 </div>
@@ -417,8 +397,7 @@ export default function BillingPage() {
         </div>
         {sub?.hasStripeId && (
           <div className="text-ui-xs text-ink-tertiary mt-3">
-            Plan-Wechsel wird sofort wirksam. Bei höher dann anteilige
-            Berechnung. Bei niedriger Plan: Guthaben fürs nächste Intervall.
+            {t("billing.prorationInfo")}
           </div>
         )}
       </Card>
@@ -427,18 +406,17 @@ export default function BillingPage() {
       {sub?.hasStripeId && (
         <Card className="p-5">
           <h3 className="text-ui-md font-medium mb-1">
-            Karte & Rechnungen verwalten
+            {t("billing.managePortalTitle")}
           </h3>
           <p className="text-ui-sm text-ink-secondary mb-3">
-            Karte aktualisieren, Rechnungen herunterladen, Adresse ändern
-            oder kündigen — alles im Stripe-Portal.
+            {t("billing.managePortalInfo")}
           </p>
           <button
             onClick={handleOpenPortal}
             disabled={busyAction !== null}
             className="text-ui-sm h-9 px-4 rounded border border-line-strong text-ink-primary font-medium hover:bg-surface-sunken disabled:opacity-50 transition-colors"
           >
-            {busyAction === "portal" ? "Wird geöffnet …" : "Portal öffnen"}
+            {busyAction === "portal" ? t("billing.openingPortal") : t("billing.openPortal")}
           </button>
         </Card>
       )}
@@ -448,16 +426,17 @@ export default function BillingPage() {
 }
 
 function StatusBadge({ status }: { status: string }) {
+  const t = useT();
   const map: Record<string, { label: string; cls: string }> = {
-    active: { label: "Aktiv", cls: "bg-semantic-success/15 text-semantic-success" },
-    trialing: { label: "Trial", cls: "bg-accent/15 text-accent" },
+    active: { label: t("billing.statusActive"), cls: "bg-semantic-success/15 text-semantic-success" },
+    trialing: { label: t("billing.statusTrialing"), cls: "bg-accent/15 text-accent" },
     past_due: {
-      label: "Zahlung ausstehend",
+      label: t("billing.statusPastDue"),
       cls: "bg-semantic-warning/15 text-semantic-warning",
     },
-    canceled: { label: "Gekündigt", cls: "bg-ink-tertiary/15 text-ink-tertiary" },
+    canceled: { label: t("billing.statusCanceled"), cls: "bg-ink-tertiary/15 text-ink-tertiary" },
     unpaid: {
-      label: "Unbezahlt",
+      label: t("billing.statusUnpaid"),
       cls: "bg-semantic-danger/15 text-semantic-danger",
     },
   };
