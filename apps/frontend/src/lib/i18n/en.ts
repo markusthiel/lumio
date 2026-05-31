@@ -1172,4 +1172,58 @@ export const en: Dict = {
     errWidthHeight: "Width and height must be positive numbers.",
     errPrice: "Invalid price.",
   },
+
+  printSettings: {
+    onboardingIncomplete:
+      "Stripe onboarding is still incomplete. Click 'Set up' again.",
+    syncFailed: "Sync failed",
+    saved: "Saved.",
+    saveFailed: "Saving failed",
+    onboardingError: "Onboarding error",
+    statusUpdated: "Status updated.",
+    disconnected: "Stripe Connect disconnected.",
+    activationTitle: "Activation",
+    shopActive: "Print shop active",
+    shopActiveHint:
+      "When off: no order buttons in galleries, no client-facing view.",
+    stripeTitle: "Online payment (Stripe Connect)",
+    stripeDesc:
+      "Clients pay for orders directly online. The money goes to your Stripe account, not to Lumio. Alternatively you can work in offline mode (invoice yourself) — then you don't need Stripe.",
+    notConfigured:
+      "Not set up yet. Click below to switch to Stripe and set up your account in a few minutes.",
+    setupConnect: "Set up Stripe Connect",
+    statusLabel: "Status:",
+    statusReady: "✓ Online orders can be enabled",
+    statusSubmitted: "Onboarding submitted — Stripe still verifying",
+    statusIncomplete: "Onboarding incomplete",
+    accountId: "Account ID:",
+    chargesLabel: "Collect payments:",
+    payoutsLabel: "Payouts:",
+    notYet: "not yet",
+    continueOnboarding: "Continue onboarding",
+    refreshStatus: "Refresh status",
+    disconnect: "Disconnect",
+    studioDataTitle: "Studio data",
+    studioDataDesc:
+      "What is your studio called in client emails? Which address should client queries go to?",
+    studioName: "Studio name in emails",
+    studioNamePlaceholder: "e.g. „Müller Studio Wedding Photography“",
+    supportEmail: "Support email",
+    supportEmailPlaceholder: "support@your-studio.com",
+    vatTitle: "VAT & currency",
+    vatDesc:
+      "In Germany, client prices including VAT are common. The default rate is 19% — photobooks often fall under 7%, which you can override per product.",
+    priceDisplay: "Price display",
+    vatInclusive: "Inclusive (gross)",
+    vatExclusive: "Exclusive (net)",
+    defaultVat: "Default VAT (in percent)",
+    currency: "Currency",
+    termsTitle: "Terms & privacy",
+    termsDesc:
+      "Mandatory in DE — clients must agree at checkout. The links should point to your own studio website.",
+    termsUrl: "Terms URL",
+    privacyUrl: "Privacy URL",
+    deactivate: "Deactivate",
+    activate: "Activate",
+  },
 };

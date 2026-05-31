@@ -1177,4 +1177,58 @@ export const de: Dict = {
     errWidthHeight: "Breite und Höhe müssen positive Zahlen sein.",
     errPrice: "Preis ungültig.",
   },
+
+  printSettings: {
+    onboardingIncomplete:
+      "Stripe-Onboarding ist noch unvollständig. Klicke nochmal auf 'Einrichten'.",
+    syncFailed: "Sync fehlgeschlagen",
+    saved: "Gespeichert.",
+    saveFailed: "Speichern fehlgeschlagen",
+    onboardingError: "Onboarding-Fehler",
+    statusUpdated: "Status aktualisiert.",
+    disconnected: "Stripe-Connect getrennt.",
+    activationTitle: "Aktivierung",
+    shopActive: "Print-Shop aktiv",
+    shopActiveHint:
+      "Wenn aus: keine Bestell-Buttons in Galerien, keine Endkunden-Sicht.",
+    stripeTitle: "Online-Bezahlung (Stripe Connect)",
+    stripeDesc:
+      "Endkunden bezahlen Bestellungen direkt online. Geld geht an dein Stripe-Konto, nicht an Lumio. Alternativ kannst du im Offline-Modus arbeiten (Rechnung selbst stellen) — dann brauchst du Stripe nicht.",
+    notConfigured:
+      "Noch nicht eingerichtet. Klicke unten, um zu Stripe zu wechseln und dein Konto in wenigen Minuten einzurichten.",
+    setupConnect: "Stripe-Connect einrichten",
+    statusLabel: "Status:",
+    statusReady: "✓ Online-Bestellungen aktivierbar",
+    statusSubmitted: "Onboarding abgeschickt — Stripe verifiziert noch",
+    statusIncomplete: "Onboarding unvollständig",
+    accountId: "Account-ID:",
+    chargesLabel: "Zahlungen einnehmen:",
+    payoutsLabel: "Auszahlungen:",
+    notYet: "noch nicht",
+    continueOnboarding: "Onboarding fortsetzen",
+    refreshStatus: "Status aktualisieren",
+    disconnect: "Trennen",
+    studioDataTitle: "Studio-Daten",
+    studioDataDesc:
+      "Wie heißt dein Studio in Endkunden-Mails? An welche Adresse sollen Endkunden-Rückfragen gehen?",
+    studioName: "Studio-Name in Mails",
+    studioNamePlaceholder: "z.B. „Studio Müller Hochzeitsfotografie“",
+    supportEmail: "Support-E-Mail",
+    supportEmailPlaceholder: "support@dein-studio.de",
+    vatTitle: "Mehrwertsteuer & Währung",
+    vatDesc:
+      "In Deutschland sind Endkunden-Preise inklusive MwSt. üblich. Standard-Satz ist 19% — Photobooks fallen oft unter 7%, das kannst du dann pro Produkt überschreiben.",
+    priceDisplay: "Preisangabe",
+    vatInclusive: "Inklusive (Brutto)",
+    vatExclusive: "Exklusive (Netto)",
+    defaultVat: "Standard-MwSt (in Prozent)",
+    currency: "Währung",
+    termsTitle: "AGB & Datenschutz",
+    termsDesc:
+      "Pflicht in DE — Endkunden müssen im Checkout zustimmen. Die Links sollten auf deine eigene Studio-Website zeigen.",
+    termsUrl: "AGB-URL",
+    privacyUrl: "Datenschutz-URL",
+    deactivate: "Deaktivieren",
+    activate: "Aktivieren",
+  },
 };

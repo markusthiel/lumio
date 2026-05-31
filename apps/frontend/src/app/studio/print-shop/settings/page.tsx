@@ -14,6 +14,7 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 import { Button, Input, Select } from "@/components/ui";
 
 type Config = Awaited<ReturnType<typeof api.getPrintShopConfig>>["config"];
@@ -28,14 +29,16 @@ type Connect = Awaited<
 export const dynamic = "force-dynamic";
 
 export default function PrintShopSettingsPage() {
+  const t = useT();
   return (
-    <Suspense fallback={<div className="text-sm text-ink-tertiary">Lädt…</div>}>
+    <Suspense fallback={<div className="text-sm text-ink-tertiary">{t("common.loading")}</div>}>
       <SettingsInner />
     </Suspense>
   );
 }
 
 function SettingsInner() {
+  const t = useT();
   const params = useSearchParams();
   const [config, setConfig] = useState<Config | null>(null);
   const [connect, setConnect] = useState<Connect | null>(null);
@@ -52,7 +55,7 @@ function SettingsInner() {
     } catch (err) {
       setMessage({
         kind: "danger",
-        text: err instanceof Error ? err.message : "Fehler",
+        text: err instanceof Error ? err.message : t("common.error"),
       });
     }
   }, []);
@@ -73,7 +76,7 @@ function SettingsInner() {
           kind: "success",
           text: r.stripeConnect.ready
             ? "Stripe-Connect ist startklar — du kannst Online-Bestellungen empfangen."
-            : "Stripe-Onboarding ist noch unvollständig. Klicke nochmal auf 'Einrichten'.",
+            : t("printSettings.onboardingIncomplete"),
         });
         // URL aufraeumen
         if (typeof window !== "undefined") {
@@ -86,7 +89,7 @@ function SettingsInner() {
       } catch (err) {
         setMessage({
           kind: "danger",
-          text: err instanceof Error ? err.message : "Sync fehlgeschlagen",
+          text: err instanceof Error ? err.message : t("printSettings.syncFailed"),
         });
       }
     })();
@@ -98,11 +101,11 @@ function SettingsInner() {
     try {
       await api.updatePrintShopConfig(patch);
       await load();
-      setMessage({ kind: "success", text: "Gespeichert." });
+      setMessage({ kind: "success", text: t("printSettings.saved") });
     } catch (err) {
       setMessage({
         kind: "danger",
-        text: err instanceof Error ? err.message : "Speichern fehlgeschlagen",
+        text: err instanceof Error ? err.message : t("printSettings.saveFailed"),
       });
     } finally {
       setSaving(false);
@@ -118,7 +121,7 @@ function SettingsInner() {
     } catch (err) {
       setMessage({
         kind: "danger",
-        text: err instanceof Error ? err.message : "Onboarding-Fehler",
+        text: err instanceof Error ? err.message : t("printSettings.onboardingError"),
       });
       setSaving(false);
     }
@@ -129,11 +132,11 @@ function SettingsInner() {
     try {
       const r = await api.refreshStripeConnect();
       setConnect(r.stripeConnect);
-      setMessage({ kind: "success", text: "Status aktualisiert." });
+      setMessage({ kind: "success", text: t("printSettings.statusUpdated") });
     } catch (err) {
       setMessage({
         kind: "danger",
-        text: err instanceof Error ? err.message : "Fehler",
+        text: err instanceof Error ? err.message : t("common.error"),
       });
     } finally {
       setSaving(false);
@@ -152,11 +155,11 @@ function SettingsInner() {
     try {
       await api.disconnectStripeConnect();
       await load();
-      setMessage({ kind: "success", text: "Stripe-Connect getrennt." });
+      setMessage({ kind: "success", text: t("printSettings.disconnected") });
     } catch (err) {
       setMessage({
         kind: "danger",
-        text: err instanceof Error ? err.message : "Fehler",
+        text: err instanceof Error ? err.message : t("common.error"),
       });
     } finally {
       setSaving(false);
@@ -164,7 +167,7 @@ function SettingsInner() {
   }
 
   if (!config) {
-    return <div className="text-sm text-ink-tertiary">Lädt…</div>;
+    return <div className="text-sm text-ink-tertiary">{t("common.loading")}</div>;
   }
 
   return (
@@ -189,13 +192,12 @@ function SettingsInner() {
       )}
 
       {/* Master-Schalter */}
-      <Section title="Aktivierung">
+      <Section title={t("printSettings.activationTitle")}>
         <div className="flex items-center justify-between gap-3">
           <div className="flex-1 min-w-0">
-            <div className="text-sm font-medium">Print-Shop aktiv</div>
+            <div className="text-sm font-medium">{t("printSettings.shopActive")}</div>
             <div className="text-xs text-ink-tertiary mt-0.5">
-              Wenn aus: keine Bestell-Buttons in Galerien, keine
-              Endkunden-Sicht.
+              {t("printSettings.shopActiveHint")}
             </div>
           </div>
           <Toggle
@@ -208,70 +210,55 @@ function SettingsInner() {
 
       {/* Stripe-Connect */}
       <Section
-        title="Online-Bezahlung (Stripe Connect)"
-        description="Endkunden bezahlen Bestellungen direkt online. Geld geht an dein Stripe-Konto, nicht an Lumio. Alternativ kannst du im Offline-Modus arbeiten (Rechnung selbst stellen) — dann brauchst du Stripe nicht."
+        title={t("printSettings.stripeTitle")}
+        description={t("printSettings.stripeDesc")}
       >
         {!connect ? null : !connect.configured ? (
           <div>
             <div className="text-sm text-ink-secondary mb-3">
-              Noch nicht eingerichtet. Klicke unten, um zu Stripe zu wechseln
-              und dein Konto in wenigen Minuten einzurichten.
+              {t("printSettings.notConfigured")}
             </div>
-            <Button onClick={startConnect} disabled={saving}>
-              Stripe-Connect einrichten
-            </Button>
+            <Button onClick={startConnect} disabled={saving}>{t("printSettings.setupConnect")}</Button>
           </div>
         ) : (
           <div className="space-y-3">
             <div className="text-sm">
-              Status:{" "}
+              {t("printSettings.statusLabel")}{" "}
               {connect.ready ? (
-                <span className="text-semantic-success">
-                  ✓ Online-Bestellungen aktivierbar
-                </span>
+                <span className="text-semantic-success">{t("printSettings.statusReady")}</span>
               ) : connect.detailsSubmitted ? (
-                <span className="text-semantic-warning">
-                  Onboarding abgeschickt — Stripe verifiziert noch
-                </span>
+                <span className="text-semantic-warning">{t("printSettings.statusSubmitted")}</span>
               ) : (
-                <span className="text-semantic-warning">
-                  Onboarding unvollständig
-                </span>
+                <span className="text-semantic-warning">{t("printSettings.statusIncomplete")}</span>
               )}
             </div>
             <div className="text-xs text-ink-tertiary space-y-0.5">
               <div>
-                Account-ID:{" "}
+                {t("printSettings.accountId")}{" "}
                 <code className="font-mono">{connect.stripeConnectedAccountId}</code>
               </div>
               <div>
-                Zahlungen einnehmen:{" "}
-                {connect.chargesEnabled ? "✓" : "noch nicht"}
+                {t("printSettings.chargesLabel")}{" "}
+                {connect.chargesEnabled ? "✓" : t("printSettings.notYet")}
               </div>
               <div>
-                Auszahlungen: {connect.payoutsEnabled ? "✓" : "noch nicht"}
+                {t("printSettings.payoutsLabel")} {connect.payoutsEnabled ? "✓" : t("printSettings.notYet")}
               </div>
             </div>
             <div className="flex gap-2 flex-wrap">
               {!connect.ready && (
-                <Button onClick={startConnect} disabled={saving}>
-                  Onboarding fortsetzen
-                </Button>
+                <Button onClick={startConnect} disabled={saving}>{t("printSettings.continueOnboarding")}</Button>
               )}
               <Button
                 variant="secondary"
                 onClick={refreshConnect}
                 disabled={saving}
-              >
-                Status aktualisieren
-              </Button>
+              >{t("printSettings.refreshStatus")}</Button>
               <Button
                 variant="secondary"
                 onClick={disconnect}
                 disabled={saving}
-              >
-                Trennen
-              </Button>
+              >{t("printSettings.disconnect")}</Button>
             </div>
           </div>
         )}
@@ -279,24 +266,24 @@ function SettingsInner() {
 
       {/* Studio-Daten */}
       <Section
-        title="Studio-Daten"
-        description="Wie heißt dein Studio in Endkunden-Mails? An welche Adresse sollen Endkunden-Rückfragen gehen?"
+        title={t("printSettings.studioDataTitle")}
+        description={t("printSettings.studioDataDesc")}
       >
         <SaveForm
           fields={[
             {
               key: "studioDisplayName",
-              label: "Studio-Name in Mails",
+              label: t("printSettings.studioName"),
               type: "text",
               value: config.studioDisplayName ?? "",
-              placeholder: "z.B. „Studio Müller Hochzeitsfotografie“",
+              placeholder: t("printSettings.studioNamePlaceholder"),
             },
             {
               key: "supportEmail",
-              label: "Support-E-Mail",
+              label: t("printSettings.supportEmail"),
               type: "email",
               value: config.supportEmail ?? "",
-              placeholder: "support@dein-studio.de",
+              placeholder: t("printSettings.supportEmailPlaceholder"),
             },
           ]}
           onSave={(values) =>
@@ -311,31 +298,31 @@ function SettingsInner() {
 
       {/* MwSt + Währung */}
       <Section
-        title="Mehrwertsteuer & Währung"
-        description="In Deutschland sind Endkunden-Preise inklusive MwSt. üblich. Standard-Satz ist 19% — Photobooks fallen oft unter 7%, das kannst du dann pro Produkt überschreiben."
+        title={t("printSettings.vatTitle")}
+        description={t("printSettings.vatDesc")}
       >
         <SaveForm
           fields={[
             {
               key: "vatHandling",
-              label: "Preisangabe",
+              label: t("printSettings.priceDisplay"),
               type: "select",
               value: config.vatHandling,
               options: [
-                { value: "inclusive", label: "Inklusive (Brutto)" },
-                { value: "exclusive", label: "Exklusive (Netto)" },
+                { value: "inclusive", label: t("printSettings.vatInclusive") },
+                { value: "exclusive", label: t("printSettings.vatExclusive") },
               ],
             },
             {
               key: "defaultVatBps",
-              label: "Standard-MwSt (in Prozent)",
+              label: t("printSettings.defaultVat"),
               type: "number",
               value: String(config.defaultVatBps / 100),
               suffix: "%",
             },
             {
               key: "currency",
-              label: "Währung",
+              label: t("printSettings.currency"),
               type: "select",
               value: config.currency,
               options: [
@@ -359,21 +346,21 @@ function SettingsInner() {
 
       {/* AGB / Privacy */}
       <Section
-        title="AGB & Datenschutz"
-        description="Pflicht in DE — Endkunden müssen im Checkout zustimmen. Die Links sollten auf deine eigene Studio-Website zeigen."
+        title={t("printSettings.termsTitle")}
+        description={t("printSettings.termsDesc")}
       >
         <SaveForm
           fields={[
             {
               key: "termsUrl",
-              label: "AGB-URL",
+              label: t("printSettings.termsUrl"),
               type: "url",
               value: config.termsUrl ?? "",
               placeholder: "https://studio-mueller.de/agb",
             },
             {
               key: "privacyUrl",
-              label: "Datenschutz-URL",
+              label: t("printSettings.privacyUrl"),
               type: "url",
               value: config.privacyUrl ?? "",
               placeholder: "https://studio-mueller.de/datenschutz",
@@ -425,6 +412,7 @@ function Toggle({
   disabled?: boolean;
   onChange: (v: boolean) => void;
 }) {
+  const t = useT();
   return (
     <button
       type="button"
@@ -435,7 +423,7 @@ function Toggle({
           ? "shrink-0 inline-flex items-center h-6 w-11 rounded-full bg-semantic-success transition-colors disabled:opacity-50"
           : "shrink-0 inline-flex items-center h-6 w-11 rounded-full bg-surface-sunken transition-colors disabled:opacity-50"
       }
-      aria-label={checked ? "Deaktivieren" : "Aktivieren"}
+      aria-label={checked ? t("printSettings.deactivate") : t("printSettings.activate")}
     >
       <span
         className={
@@ -474,6 +462,7 @@ function SaveForm({
   onSave: (values: Record<string, string>) => void | Promise<void>;
   saving: boolean;
 }) {
+  const t = useT();
   const initial: Record<string, string> = {};
   for (const f of fields) initial[f.key] = f.value;
   const [values, setValues] = useState<Record<string, string>>(initial);
@@ -527,9 +516,7 @@ function SaveForm({
         ))}
       </div>
       <div className="flex justify-end">
-        <Button type="submit" disabled={!dirty || saving} size="sm">
-          Speichern
-        </Button>
+        <Button type="submit" disabled={!dirty || saving} size="sm">{t("common.save")}</Button>
       </div>
     </form>
   );
