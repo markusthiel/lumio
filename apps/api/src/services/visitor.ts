@@ -26,6 +26,11 @@ export interface VisitorClaims {
   gid: string;
   aid: string | null;
   pw: boolean;
+  /** Fingerabdruck des Passworts, gegen das freigeschaltet wurde
+   *  (Galerie- oder Link-Passwort). Ändert/entfernt der Studio das
+   *  Passwort, passt der Fingerabdruck nicht mehr → neue Eingabe nötig.
+   *  null/fehlt = es war kein Passwort nötig. */
+  pwfp?: string | null;
   exp: number;
 }
 

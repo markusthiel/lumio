@@ -120,6 +120,24 @@ const unlockSchema = z.object({
  * fetchen, weil das Cookie an die galleryId gebunden ist. Caller muss also
  * den Slug → galleryId schon haben (z.B. aus dem Pfad-Param).
  */
+
+/** Kurzer Fingerabdruck eines Passwort-Hashes für das Visitor-Cookie.
+ *  Der bcrypt-Hash ändert sich bei jeder Passwort-Änderung, also auch der
+ *  Fingerabdruck — alte Cookies werden dadurch ungültig. */
+function passwordFingerprint(hash: string): string {
+  return createHash("sha256").update(hash).digest("hex").slice(0, 16);
+}
+
+/** Prüft, ob das Cookie gegen das aktuell geforderte Passwort
+ *  freigeschaltet wurde. Kein Passwort gefordert → immer ok. */
+function cookiePasswordOk(
+  requiredHash: string | null | undefined,
+  claims: { pwfp?: string | null }
+): boolean {
+  if (!requiredHash) return true;
+  return claims.pwfp === passwordFingerprint(requiredHash);
+}
+
 export async function loadVisitor(
   req: FastifyRequest & { params: { slug: string } }
 ): Promise<{ galleryId: string; accessId: string | null } | null> {
@@ -173,13 +191,13 @@ export async function loadVisitor(
     }
     // Token-Inhaber: das Galerie-Passwort gilt NICHT — der Link ist
     // bereits der Ausweis. Nur ein eigenes Link-Passwort muss (falls
-    // gesetzt) eingegeben worden sein.
-    if (access.passwordHash && !claims.pw) return null;
+    // gesetzt) gegen den aktuellen Stand freigeschaltet sein.
+    if (!cookiePasswordOk(access.passwordHash, claims)) return null;
     return { galleryId: gallery.id, accessId: claims.aid };
   }
 
   // Anonymes Cookie (kein Link): Galerie-Passwort und publicAccess gelten.
-  if (gallery.passwordHash && !claims.pw) return null;
+  if (!cookiePasswordOk(gallery.passwordHash, claims)) return null;
   if (!gallery.publicAccess) return null;
   return { galleryId: gallery.id, accessId: null };
 }
@@ -1506,18 +1524,19 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
             (access.expiresAt === null || access.expiresAt >= new Date());
           if (linkValid) {
             // Token-Inhaber: Galerie-Passwort gilt nicht, nur ein
-            // eigenes Link-Passwort (falls gesetzt).
-            unlocked = !access?.passwordHash || claims.pw;
+            // eigenes Link-Passwort (falls gesetzt, gegen aktuellen Stand).
+            unlocked = cookiePasswordOk(access?.passwordHash, claims);
           } else {
             // Link ungültig → wie anonym behandeln.
             unlocked =
               gallery.publicAccess &&
-              (!gallery.passwordHash || claims.pw);
+              cookiePasswordOk(gallery.passwordHash, claims);
           }
         } else {
           // Anonymes Cookie: Galerie-Passwort + publicAccess gelten.
           unlocked =
-            gallery.publicAccess && (!gallery.passwordHash || claims.pw);
+            gallery.publicAccess &&
+            cookiePasswordOk(gallery.passwordHash, claims);
         }
       }
     }
@@ -1783,11 +1802,14 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         }
       }
 
-      // Visitor-Cookie setzen
+      // Visitor-Cookie setzen. pwfp = Fingerabdruck des freigeschalteten
+      // Passworts, damit eine spätere Passwort-Änderung das Cookie
+      // ungültig macht.
       const token = createVisitorToken({
         gid: gallery.id,
         aid: accessId,
         pw: passwordOk,
+        pwfp: requiredHash ? passwordFingerprint(requiredHash) : null,
       });
       reply.setCookie(visitorCookieName(gallery.id), token, {
         path: "/",
