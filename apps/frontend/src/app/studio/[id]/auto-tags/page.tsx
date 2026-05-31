@@ -19,6 +19,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 import { PageHeader } from "@/components/studio/PageHeader";
 
 export const dynamic = "force-dynamic";
@@ -43,6 +44,7 @@ type Group = {
 };
 
 export default function AutoTagsReviewPage() {
+  const t = useT();
   const params = useParams<{ id: string }>();
   const galleryId = params.id;
   const [groups, setGroups] = useState<Group[] | null>(null);
@@ -75,7 +77,7 @@ export default function AutoTagsReviewPage() {
       setSelected(sel);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler");
+      setError(err instanceof Error ? err.message : t("common.error"));
     }
   }, [galleryId]);
 
@@ -144,14 +146,14 @@ export default function AutoTagsReviewPage() {
     <>
       <PageHeader
         breadcrumb={[
-          { label: "Studio", href: "/studio" },
+          { label: t("autoTags.breadcrumbStudio"), href: "/studio" },
           { label: galleryTitle, href: `/studio/${galleryId}` },
-          { label: "KI-Vorschläge" },
+          { label: t("autoTags.reviewTitle") },
         ]}
-        title="KI-Vorschläge"
+        title={t("autoTags.reviewTitle")}
         description={
           groups
-            ? `${groups.reduce((s, g) => s + g.count, 0)} offene Vorschläge in ${groups.length} Tag-Gruppen`
+            ? t("autoTags.reviewDesc", { count: groups.reduce((s, g) => s + g.count, 0), groups: groups.length })
             : ""
         }
       />
@@ -164,25 +166,19 @@ export default function AutoTagsReviewPage() {
         )}
 
         {!groups && !error && (
-          <div className="text-sm text-ink-tertiary">Lädt…</div>
+          <div className="text-sm text-ink-tertiary">{t("common.loading")}</div>
         )}
 
         {groups && groups.length === 0 && (
           <div className="rounded-md border border-line-subtle bg-surface-raised p-8 text-center">
-            <div className="text-ink-secondary mb-2">
-              Keine offenen Vorschläge.
-            </div>
+            <div className="text-ink-secondary mb-2">{t("autoTags.noneOpen")}</div>
             <div className="text-xs text-ink-tertiary">
-              Entweder hast du schon alle reviewt, oder die KI ist noch am
-              Tagging. Du kannst mit „Galerie neu taggen" auf der
-              Galerie-Seite einen erneuten Lauf starten.
+              {t("autoTags.noneOpenDesc")}
             </div>
             <Link
               href={`/studio/${galleryId}`}
               className="inline-block mt-4 text-sm text-accent hover:underline"
-            >
-              ← Zurück zur Galerie
-            </Link>
+            >{t("autoTags.backToGallery")}</Link>
           </div>
         )}
 
@@ -208,13 +204,11 @@ export default function AutoTagsReviewPage() {
                       {g.label}
                     </h2>
                     <span className="text-xs text-ink-tertiary tabular-nums shrink-0">
-                      {g.count} {g.count === 1 ? "Foto" : "Fotos"} ·
+                      {g.count} {t(g.count === 1 ? "autoTags.photo" : "autoTags.photos")} ·
                       ⌀ {Math.round(g.avgConfidence * 100)}%
                     </span>
                     {g.hasMore && (
-                      <span className="text-xs text-semantic-warning shrink-0">
-                        (gekürzt)
-                      </span>
+                      <span className="text-xs text-semantic-warning shrink-0">{t("autoTags.truncated")}</span>
                     )}
                   </div>
                   <span className="text-ink-tertiary text-lg select-none">
@@ -226,22 +220,18 @@ export default function AutoTagsReviewPage() {
                   <>
                     <div className="px-4 py-2 border-b border-line-subtle bg-surface-sunken flex items-center gap-3 text-xs flex-wrap">
                       <span className="text-ink-tertiary">
-                        {sel.size} / {g.suggestions.length} ausgewählt
+                        {sel.size} / {g.suggestions.length} {t("autoTags.selected")}
                       </span>
                       <button
                         type="button"
                         onClick={() => selectAll(g.tagName, g)}
                         className="text-ink-secondary hover:text-accent"
-                      >
-                        Alle
-                      </button>
+                      >{t("autoTags.all")}</button>
                       <button
                         type="button"
                         onClick={() => selectNone(g.tagName)}
                         className="text-ink-secondary hover:text-accent"
-                      >
-                        Keine
-                      </button>
+                      >{t("autoTags.none")}</button>
                       <div className="flex-1" />
                       <button
                         type="button"
@@ -251,7 +241,7 @@ export default function AutoTagsReviewPage() {
                       >
                         {busy === `accept-${g.tagName}`
                           ? "…"
-                          : `${sel.size} übernehmen`}
+                          : t("autoTags.acceptN", { n: sel.size })}
                       </button>
                       <button
                         type="button"
@@ -261,7 +251,7 @@ export default function AutoTagsReviewPage() {
                       >
                         {busy === `reject-${g.tagName}`
                           ? "…"
-                          : `${sel.size} verwerfen`}
+                          : t("autoTags.rejectN", { n: sel.size })}
                       </button>
                     </div>
 

@@ -25,8 +25,10 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 export function AutoTagsToolbar({ galleryId }: { galleryId: string }) {
+  const t = useT();
   const [available, setAvailable] = useState<boolean | null>(null);
   const [busy, setBusy] = useState<"re-tag" | "bulk" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -107,15 +109,14 @@ export function AutoTagsToolbar({ galleryId }: { galleryId: string }) {
     try {
       const r = await api.reTagGallery(galleryId);
       setMessage(
-        `${r.enqueuedFiles} Datei${r.enqueuedFiles === 1 ? "" : "en"} zur Re-Analyse eingereiht. ` +
-          `Vorschlaege erscheinen in ca. 1-2 Minuten.`
+        t("autoTags.reTagQueued", { n: r.enqueuedFiles, fileWord: t(r.enqueuedFiles === 1 ? "autoTags.file" : "autoTags.files") })
       );
       // Stats nach kurzem Delay neu laden — die ersten Tasks sollten
       // schnell durch sein wenn der Worker laeuft.
       setTimeout(() => void refreshStats(), 5000);
     } catch (err) {
       setMessage(
-        "Fehler: " + (err instanceof Error ? err.message : "unbekannt")
+        t("autoTags.errorPrefix") + (err instanceof Error ? err.message : t("autoTags.unknown"))
       );
     } finally {
       setBusy(null);
@@ -129,14 +130,13 @@ export function AutoTagsToolbar({ galleryId }: { galleryId: string }) {
       const r = await api.bulkAcceptAutoTags(galleryId, threshold);
       setMessage(
         r.accepted === 0
-          ? "Keine Vorschlaege über dem Threshold gefunden."
-          : `${r.accepted} Vorschlag${r.accepted === 1 ? "" : "e"} ` +
-            `mit Confidence >= ${Math.round(threshold * 100)}% übernommen.`
+          ? t("autoTags.noneAboveThreshold")
+          : t("autoTags.bulkAccepted", { n: r.accepted, word: t(r.accepted === 1 ? "autoTags.suggestion" : "autoTags.suggestions"), pct: Math.round(threshold * 100) })
       );
       await refreshStats();
     } catch (err) {
       setMessage(
-        "Fehler: " + (err instanceof Error ? err.message : "unbekannt")
+        t("autoTags.errorPrefix") + (err instanceof Error ? err.message : t("autoTags.unknown"))
       );
     } finally {
       setBusy(null);
@@ -146,22 +146,20 @@ export function AutoTagsToolbar({ galleryId }: { galleryId: string }) {
   return (
     <section className="rounded-md border border-line-subtle bg-surface-raised p-4">
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-        <h2 className="text-ui-sm font-semibold">KI-Auto-Tagging</h2>
+        <h2 className="text-ui-sm font-semibold">{t("autoTags.title")}</h2>
         <button
           type="button"
           onClick={() => void refreshStats()}
           className="text-xs text-ink-tertiary hover:text-ink-secondary"
-          title="Status aktualisieren"
-        >
-          ↻ Status
-        </button>
+          title={t("autoTags.refreshStatus")}
+        >{t("autoTags.refreshLabel")}</button>
       </div>
 
       {stats && (
         <dl className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-3 text-xs">
-          <Stat label="Dateien" value={stats.fileCount} />
+          <Stat label={t("autoTags.statFiles")} value={stats.fileCount} />
           <Stat
-            label="Mit Tags"
+            label={t("autoTags.statTagged")}
             value={stats.taggedFiles}
             subtitle={
               stats.fileCount > 0
@@ -169,9 +167,9 @@ export function AutoTagsToolbar({ galleryId }: { galleryId: string }) {
                 : undefined
             }
           />
-          <Stat label="Offene Vorschläge" value={stats.pendingSuggestions} highlight={stats.pendingSuggestions > 0} />
-          <Stat label="Übernommen" value={stats.accepted} />
-          <Stat label="Verworfen" value={stats.rejected} />
+          <Stat label={t("autoTags.statPending")} value={stats.pendingSuggestions} highlight={stats.pendingSuggestions > 0} />
+          <Stat label={t("autoTags.statAccepted")} value={stats.accepted} />
+          <Stat label={t("autoTags.statRejected")} value={stats.rejected} />
         </dl>
       )}
 
@@ -182,7 +180,7 @@ export function AutoTagsToolbar({ galleryId }: { galleryId: string }) {
           disabled={!!busy}
           className="px-3 py-1.5 text-sm rounded bg-surface-sunken border border-line-subtle hover:bg-accent/8 disabled:opacity-50"
         >
-          {busy === "re-tag" ? "Wird eingereiht…" : "Galerie neu taggen"}
+          {busy === "re-tag" ? t("autoTags.queuing") : t("autoTags.reTag")}
         </button>
 
         {stats && stats.pendingSuggestions > 0 && (
@@ -190,14 +188,12 @@ export function AutoTagsToolbar({ galleryId }: { galleryId: string }) {
             href={`/studio/${galleryId}/auto-tags`}
             className="px-3 py-1.5 text-sm rounded bg-accent/15 border border-accent/40 text-accent hover:bg-accent/25 font-medium"
           >
-            {stats.pendingSuggestions} Vorschläge ansehen →
+            {t("autoTags.viewSuggestions", { n: stats.pendingSuggestions })}
           </Link>
         )}
 
         <div className="flex items-center gap-2">
-          <label className="text-xs text-ink-tertiary">
-            Confidence-Schwelle
-          </label>
+          <label className="text-xs text-ink-tertiary">{t("autoTags.confidenceThreshold")}</label>
           <input
             type="range"
             min="0.1"
@@ -218,8 +214,8 @@ export function AutoTagsToolbar({ galleryId }: { galleryId: string }) {
             className="px-3 py-1.5 text-sm rounded bg-accent text-white hover:bg-accent/90 disabled:opacity-50"
           >
             {busy === "bulk"
-              ? "Übernehme…"
-              : "Vorschläge übernehmen"}
+              ? t("autoTags.accepting")
+              : t("autoTags.acceptSuggestions")}
           </button>
         </div>
       </div>
@@ -229,12 +225,10 @@ export function AutoTagsToolbar({ galleryId }: { galleryId: string }) {
       )}
 
       <p className="mt-2 text-xs text-ink-tertiary">
-        Tipp: Niedrigere Schwelle = mehr Tags, weniger Präzision. Für
-        Heuristik-Tags (Hochformat, Hell, …) reichen 70%, für KI-Modell-Tags
-        (Brautpaar, Kuss, …) eher 20-30%.
+        {t("autoTags.tip")}
         {stats?.lastTaggedAt && (
           <>
-            {" · Letztes Tagging: "}
+            {t("autoTags.lastTagging")}
             {new Date(stats.lastTaggedAt).toLocaleString("de-DE")}
           </>
         )}
