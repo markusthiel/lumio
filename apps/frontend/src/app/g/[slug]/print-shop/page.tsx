@@ -25,6 +25,7 @@ import { useRouter } from "next/navigation";
 import { loadStripe, Stripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { api, type PublicFile } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 import { CropFrame, defaultCropForAspect, type Crop } from "@/components/print-shop/CropFrame";
 
 type Catalog = Awaited<ReturnType<typeof api.getGalleryPrintShopCatalog>>;
@@ -49,6 +50,7 @@ export default function GalleryPrintShopPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = use(params);
+  const t = useT();
   const router = useRouter();
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [files, setFiles] = useState<PublicFile[] | null>(null);
@@ -69,7 +71,7 @@ export default function GalleryPrintShopPage({
       } catch (err) {
         // 404 = Print-Shop nicht verfuegbar. 401 = Visitor-Cookie fehlt
         // -> Galerie zuerst freischalten.
-        const msg = err instanceof Error ? err.message : "Fehler";
+        const msg = err instanceof Error ? err.message : t("printShop.error");
         if (msg.includes("401") || msg.toLowerCase().includes("unauth")) {
           router.replace(`/g/${slug}`);
           return;
@@ -83,13 +85,13 @@ export default function GalleryPrintShopPage({
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="max-w-md w-full rounded-md border border-line-subtle bg-surface-raised p-6 text-center">
-          <h1 className="text-lg font-semibold mb-2">Print-Shop nicht verfügbar</h1>
+          <h1 className="text-lg font-semibold mb-2">{t("printShop.unavailable")}</h1>
           <p className="text-sm text-ink-tertiary mb-4">{error}</p>
           <Link
             href={`/g/${slug}`}
             className="text-sm text-accent hover:underline"
           >
-            Zurück zur Galerie
+            {t("printShop.backToGallery")}
           </Link>
         </div>
       </div>
@@ -98,7 +100,7 @@ export default function GalleryPrintShopPage({
   if (!catalog || !files) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-sm text-ink-tertiary">Lädt…</div>
+        <div className="text-sm text-ink-tertiary">{t("common.loading")}</div>
       </div>
     );
   }
@@ -498,6 +500,7 @@ function CartStep({
   onRequirePayment: () => void;
   onConfirmed: (orderNumber: string) => void;
 }) {
+  const t = useT();
   const [shippingMethodId, setShippingMethodId] = useState<string>(
     catalog.shipping[0]?.id ?? ""
   );
@@ -608,7 +611,7 @@ function CartStep({
         onConfirmed(r.orderNumber);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler");
+      setError(err instanceof Error ? err.message : t("printShop.error"));
     } finally {
       setBusy(false);
     }
@@ -655,7 +658,7 @@ function CartStep({
       {/* Cart-Items */}
       <section className="rounded-md border border-line-subtle bg-surface-raised p-4">
         <h2 className="text-sm font-semibold mb-3">
-          Warenkorb ({cart.length})
+          {t("printShop.cart", { count: cart.length })}
         </h2>
         <ul className="divide-y divide-line-subtle">
           {cart.map((it, idx) => (
@@ -699,7 +702,7 @@ function CartStep({
                 type="button"
                 onClick={() => removeItem(idx)}
                 className="text-xs text-ink-tertiary hover:text-semantic-danger"
-                aria-label="Entfernen"
+                aria-label={t("printShop.remove")}
               >
                 ✕
               </button>
@@ -710,7 +713,7 @@ function CartStep({
 
       {/* Versand */}
       <section className="rounded-md border border-line-subtle bg-surface-raised p-4">
-        <h2 className="text-sm font-semibold mb-3">Versand</h2>
+        <h2 className="text-sm font-semibold mb-3">{t("printShop.shipping")}</h2>
         <select
           className="w-full rounded border border-line-subtle bg-surface-raised px-2 py-1.5 text-sm"
           value={shippingMethodId}
@@ -720,7 +723,7 @@ function CartStep({
             <option key={m.id} value={m.id}>
               {m.name} — {formatPrice(m.priceCents, catalog.config.currency)}
               {m.estimatedDaysMin &&
-                ` (ca. ${m.estimatedDaysMin}-${m.estimatedDaysMax ?? m.estimatedDaysMin} Tage)`}
+                ` (${t("printShop.shippingDays", { min: m.estimatedDaysMin, max: m.estimatedDaysMax ?? m.estimatedDaysMin })})`}
             </option>
           ))}
         </select>
@@ -728,54 +731,54 @@ function CartStep({
 
       {/* Lieferadresse */}
       <section className="rounded-md border border-line-subtle bg-surface-raised p-4">
-        <h2 className="text-sm font-semibold mb-3">Lieferadresse</h2>
+        <h2 className="text-sm font-semibold mb-3">{t("printShop.shippingAddress")}</h2>
         <div className="grid sm:grid-cols-2 gap-3">
           <FieldRow
-            label="Vor- und Nachname"
+            label={t("printShop.fullName")}
             required
             value={guestName}
             onChange={setGuestName}
           />
           <FieldRow
-            label="E-Mail"
+            label={t("printShop.email")}
             type="email"
             required
             value={guestEmail}
             onChange={setGuestEmail}
           />
           <FieldRow
-            label="Straße + Hausnr."
+            label={t("printShop.street")}
             required
             value={addr.street}
             onChange={(v) => setAddr({ ...addr, street: v })}
             className="sm:col-span-2"
           />
           <FieldRow
-            label="Adresszusatz"
+            label={t("printShop.addressExtra")}
             value={addr.street2}
             onChange={(v) => setAddr({ ...addr, street2: v })}
             className="sm:col-span-2"
           />
           <FieldRow
-            label="PLZ"
+            label={t("printShop.postalCode")}
             required
             value={addr.postalCode}
             onChange={(v) => setAddr({ ...addr, postalCode: v })}
           />
           <FieldRow
-            label="Ort"
+            label={t("printShop.city")}
             required
             value={addr.city}
             onChange={(v) => setAddr({ ...addr, city: v })}
           />
           <FieldRow
-            label="Land"
+            label={t("printShop.country")}
             required
             value={addr.countryCode}
             onChange={(v) => setAddr({ ...addr, countryCode: v.toUpperCase() })}
           />
           <FieldRow
-            label="Telefon (optional)"
+            label={t("printShop.phone")}
             value={addr.phone}
             onChange={(v) => setAddr({ ...addr, phone: v })}
           />
@@ -786,13 +789,13 @@ function CartStep({
       <section className="rounded-md border border-line-subtle bg-surface-raised p-4">
         <label className="block">
           <span className="block text-sm font-semibold mb-2">
-            Hinweis (optional)
+            {t("printShop.note")}
           </span>
           <textarea
             value={guestNote}
             onChange={(e) => setGuestNote(e.target.value)}
             rows={2}
-            placeholder="z.B. „Bitte als Geschenk verpacken"
+            placeholder={t("printShop.notePlaceholder")}
             className="w-full rounded border border-line-subtle bg-surface-raised px-2 py-1.5 text-sm"
           />
         </label>
@@ -800,7 +803,7 @@ function CartStep({
 
       {/* Bezahlmodus */}
       <section className="rounded-md border border-line-subtle bg-surface-raised p-4">
-        <h2 className="text-sm font-semibold mb-3">Bezahlung</h2>
+        <h2 className="text-sm font-semibold mb-3">{t("printShop.payment")}</h2>
         <div className="space-y-2">
           {catalog.payment.stripeConnectReady && (
             <label className="flex items-start gap-3 cursor-pointer">
@@ -813,9 +816,9 @@ function CartStep({
                 className="mt-1"
               />
               <span className="text-sm">
-                <strong>Online bezahlen (Kreditkarte, Apple/Google Pay)</strong>
+                <strong>{t("printShop.payOnline")}</strong>
                 <span className="block text-xs text-ink-tertiary">
-                  Sichere Bezahlung über Stripe.
+                  {t("printShop.payOnlineHint")}
                 </span>
               </span>
             </label>
@@ -830,10 +833,9 @@ function CartStep({
               className="mt-1"
             />
             <span className="text-sm">
-              <strong>Rechnung per E-Mail</strong>
+              <strong>{t("printShop.payInvoice")}</strong>
               <span className="block text-xs text-ink-tertiary">
-                Das Studio schickt dir eine Rechnung. Produktion startet nach
-                Zahlungseingang.
+                {t("printShop.payInvoiceHint")}
               </span>
             </span>
           </label>
@@ -845,23 +847,23 @@ function CartStep({
         <section className="rounded-md border border-line-subtle bg-surface-raised p-4">
           <dl className="text-sm space-y-1">
             <div className="flex justify-between">
-              <dt className="text-ink-tertiary">Zwischensumme</dt>
+              <dt className="text-ink-tertiary">{t("printShop.subtotal")}</dt>
               <dd className="tabular-nums">
                 {formatPrice(totals.subtotalCents, totals.currency)}
               </dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-ink-tertiary">Versand</dt>
+              <dt className="text-ink-tertiary">{t("printShop.shipping")}</dt>
               <dd className="tabular-nums">
                 {formatPrice(totals.shippingCents, totals.currency)}
               </dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-ink-tertiary">
-                MwSt (
+                {t("printShop.vat")} (
                 {catalog.config.vatHandling === "inclusive"
-                  ? "enthalten"
-                  : "wird aufgeschlagen"}
+                  ? t("printShop.vatIncluded")
+                  : t("printShop.vatAdded")}
                 )
               </dt>
               <dd className="tabular-nums">
@@ -869,7 +871,7 @@ function CartStep({
               </dd>
             </div>
             <div className="flex justify-between pt-2 border-t border-line-subtle font-semibold">
-              <dt>Gesamtsumme</dt>
+              <dt>{t("printShop.total")}</dt>
               <dd className="tabular-nums">
                 {formatPrice(totals.totalCents, totals.currency)}
               </dd>
@@ -888,7 +890,7 @@ function CartStep({
             className="mt-1"
           />
           <span>
-            Ich akzeptiere die{" "}
+            {t("printShop.acceptTermsPre")}{" "}
             {catalog.config.termsUrl && (
               <a
                 href={catalog.config.termsUrl}
@@ -896,10 +898,12 @@ function CartStep({
                 rel="noopener noreferrer"
                 className="text-accent hover:underline"
               >
-                AGB
+                {t("printShop.terms")}
               </a>
             )}
-            {catalog.config.termsUrl && catalog.config.privacyUrl && " und die "}
+            {catalog.config.termsUrl &&
+              catalog.config.privacyUrl &&
+              ` ${t("printShop.and")} `}
             {catalog.config.privacyUrl && (
               <a
                 href={catalog.config.privacyUrl}
@@ -907,7 +911,7 @@ function CartStep({
                 rel="noopener noreferrer"
                 className="text-accent hover:underline"
               >
-                Datenschutzerklärung
+                {t("printShop.privacy")}
               </a>
             )}
             .
@@ -922,7 +926,7 @@ function CartStep({
             onChange={(e) => setAcceptedTerms(e.target.checked)}
             className="mt-1"
           />
-          <span>Ich bestätige meine Bestellung und stimme der Verarbeitung der Daten zu.</span>
+          <span>{t("printShop.confirmNoTerms")}</span>
         </label>
       )}
 
@@ -939,10 +943,10 @@ function CartStep({
         className="w-full px-4 py-3 rounded bg-accent text-white font-medium disabled:opacity-50"
       >
         {busy
-          ? "Wird bestellt…"
+          ? t("printShop.ordering")
           : paymentMode === "stripe_connect"
-            ? "Zur Bezahlung"
-            : "Bestellung abschicken"}
+            ? t("printShop.toPayment")
+            : t("printShop.submitOrder")}
       </button>
     </div>
   );
@@ -1011,6 +1015,7 @@ function StripePaymentStep({
   onSuccess: () => void;
   onCancel: () => void;
 }) {
+  const t = useT();
   const stripePromise = useMemo(
     () =>
       getStripePromise(
@@ -1027,10 +1032,10 @@ function StripePaymentStep({
         onClick={onCancel}
         className="text-xs text-accent hover:underline"
       >
-        ← Zurück zum Warenkorb
+        ← {t("printShop.backToCart")}
       </button>
       <section className="rounded-md border border-line-subtle bg-surface-raised p-4">
-        <h2 className="text-sm font-semibold mb-3">Bezahlung</h2>
+        <h2 className="text-sm font-semibold mb-3">{t("printShop.payment")}</h2>
         <Elements
           stripe={stripePromise}
           options={{ clientSecret: stripeIntent.clientSecret }}
@@ -1043,6 +1048,7 @@ function StripePaymentStep({
 }
 
 function PaymentForm({ onSuccess }: { onSuccess: () => void }) {
+  const t = useT();
   const stripe = useStripe();
   const elements = useElements();
   const [busy, setBusy] = useState(false);
@@ -1058,7 +1064,7 @@ function PaymentForm({ onSuccess }: { onSuccess: () => void }) {
       redirect: "if_required",
     });
     if (result.error) {
-      setError(result.error.message ?? "Bezahlung fehlgeschlagen");
+      setError(result.error.message ?? t("printShop.paymentFailed"));
       setBusy(false);
       return;
     }
@@ -1069,7 +1075,7 @@ function PaymentForm({ onSuccess }: { onSuccess: () => void }) {
     ) {
       onSuccess();
     } else {
-      setError("Unerwarteter Zustand. Bitte erneut versuchen.");
+      setError(t("printShop.unexpectedState"));
       setBusy(false);
     }
   }
@@ -1087,7 +1093,7 @@ function PaymentForm({ onSuccess }: { onSuccess: () => void }) {
         disabled={!stripe || busy}
         className="w-full px-4 py-3 rounded bg-accent text-white font-medium disabled:opacity-50"
       >
-        {busy ? "Wird verarbeitet…" : "Jetzt bezahlen"}
+        {busy ? t("printShop.processing") : t("printShop.payNow")}
       </button>
     </form>
   );
