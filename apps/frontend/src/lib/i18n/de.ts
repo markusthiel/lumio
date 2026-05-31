@@ -374,6 +374,78 @@ export const de: Dict = {
       errorHardCap:
         "Wert überschreitet das Hard-Cap dieser Instanz ({cap} MiB).",
     },
+    activeUploads: "Aktive Uploads",
+    zeroSizeTitleAll: "Dateien konnten nicht gelesen werden",
+    zeroSizeTitleSome: "{count} von {total} Dateien übersprungen",
+    zeroSizeMessage:
+      "Diese Dateien hatten keine Daten — das passiert auf iPhone/iPad, wenn die Fotos noch in iCloud liegen und nicht lokal geladen sind. Tipp: Lade sie über „Dateien durchsuchen“ statt „Fotomediathek“ hoch, oder öffne die Fotos kurz in der Fotos-App (damit iOS das Original herunterlädt) und versuche es erneut.",
+    limitTitle: "Speicher-Limit erreicht",
+    limitMessageDefault:
+      "Dein Plan erlaubt keinen weiteren Upload. Upgrade auf einen größeren Plan oder kaufe ein Storage-Pack.",
+    uploadFailedTitle: "Upload fehlgeschlagen",
+    uploadFailedMessage:
+      "Die Dateien konnten nicht hochgeladen werden. Häufigste Ursache ist eine unterbrochene Verbindung — gerade auf dem Handy/Tablet. Bitte prüfe deine Internetverbindung und versuche es erneut. Bei iPhone/iPad-Fotos kann es zudem helfen, sie über „Dateien durchsuchen“ statt der Fotomediathek auszuwählen.",
+    deleteFileTitleOne: "Datei löschen?",
+    deleteFileTitleMany: "{count} Dateien löschen?",
+    deleting: "Lösche…",
+    deletingMany: "Lösche… ({count} Dateien, das dauert kurz)",
+    cleanupStuckTitle: "{count} hängende Uploads aufräumen?",
+    cleanupStuckMessage:
+      "File-Records werden entfernt und ggf. vorhandene S3-Objekte mit. Du kannst die Dateien danach erneut hochladen.",
+    cleanup: "Aufräumen",
+    cleaningUp: "Räume auf…",
+    cleanupFailedTitle: "{count} fehlgeschlagene Dateien löschen?",
+    cleanupFailedMessage:
+      "Diese Dateien konnten nicht verarbeitet werden — z.B. wegen ungültigen Formaten oder Worker-Fehlern. File-Records werden entfernt und ggf. vorhandene S3-Objekte mit.",
+    modeLabel: "Modus",
+    modeSelection: "Auswahl / Proofing",
+    modeSelectionDesc: "Kunde kann Medien auswählen, kommentieren und markieren.",
+    modePresentation: "Präsentation",
+    modePresentationDesc:
+      "Reine Anzeige. Keine Auswahl, keine Markierungen, keine Kommentare.",
+    switchToPresentationTitle: "Auf Präsentation umstellen?",
+    switchToPresentationMessage:
+      "Bestehende Kunden-Auswahl, Markierungen und Kommentare bleiben in der Datenbank erhalten, sind aber für Kunden nicht mehr sichtbar. Du kannst jederzeit zurück auf Auswahl/Proofing wechseln.",
+    switchAction: "Umstellen",
+    switching: "Stelle um…",
+    presentationHintPre: "Diese Galerie ist im",
+    presentationModeBold: "Präsentations-Modus",
+    presentationHintPost:
+      ". Der Kunde kann Medien ansehen, aber keine Auswahl treffen, Medien markieren oder kommentieren. Einstellungen unten, die nur im Auswahl/Proofing-Modus wirken, sind ausgegraut.",
+    selectModeOnly: "Nur im Auswahl/Proofing-Modus verfügbar.",
+    tagFilterLabel: "Kunde darf nach Tags filtern",
+    tagFilterDesc:
+      "Wenn aktiv, sieht die Kundin in ihrer Galerie die zugewiesenen Tags und kann damit filtern + Tag-gefilterte ZIPs herunterladen. Default aus — Tags bleiben dann eine interne Studio-Information.",
+    printShopLabel: "Print-Shop für diese Galerie",
+    printShopDescOff:
+      "Endkunden sehen den Print-Shop-Button NICHT, auch wenn er für das Studio aktiv ist.",
+    printShopDescOn:
+      "Wenn der Print-Shop im Studio aktiv ist, sehen Endkunden hier den Bestell-Button.",
+    exitSelection: "Auswahl-Modus beenden",
+    dragToSort: "Ziehen zum Sortieren — wird automatisch gespeichert.",
+    findDuplicates: "Duplikate finden",
+    findDuplicatesTitle: "Medien mit identischem Inhalt finden und aufräumen",
+    sortAction: "Sortieren",
+    sortFilterHint: "Sortieren ist nur ohne aktiven Filter möglich",
+    stuckUploadOne: "hängender Upload",
+    stuckUploadMany: "hängende Uploads",
+    stuckBannerHint:
+      "– seit über 5 Minuten in „wird hochgeladen“. Wahrscheinlich ist das Browser-Upload geknallt. Du kannst sie aufräumen und neu hochladen.",
+    cleanupCount: "{count} aufräumen",
+    failedFileOne: "fehlgeschlagene Datei",
+    failedFileMany: "fehlgeschlagene Dateien",
+    failedBannerHint:
+      "– Verarbeitung war nicht möglich (ungültiges Format, Worker-Fehler …). Du kannst sie aufräumen und ggf. neu hochladen.",
+    deleteCount: "{count} löschen",
+    lbClose: "Schließen",
+    lbPrev: "Vorheriges",
+    lbNext: "Nächstes",
+    lbZoomOut: "Verkleinern",
+    lbZoomOutTitle: "Verkleinern (−)",
+    lbZoomIn: "Vergrößern",
+    lbZoomInTitle: "Vergrößern (+)",
+    lbActualSize: "Originalgröße",
+    lbActualSizeTitle: "Originalgröße (0)",
   },
 
   gallery: {

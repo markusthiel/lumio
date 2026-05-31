@@ -374,6 +374,78 @@ export const en: Dict = {
       errorHardCap:
         "Value exceeds the instance hard-cap ({cap} MiB).",
     },
+    activeUploads: "Active uploads",
+    zeroSizeTitleAll: "Files could not be read",
+    zeroSizeTitleSome: "{count} of {total} files skipped",
+    zeroSizeMessage:
+      "These files had no data — this happens on iPhone/iPad when the photos are still in iCloud and not loaded locally. Tip: upload them via “Browse files” instead of “Photo library”, or briefly open the photos in the Photos app (so iOS downloads the original) and try again.",
+    limitTitle: "Storage limit reached",
+    limitMessageDefault:
+      "Your plan doesn't allow any more uploads. Upgrade to a larger plan or buy a storage pack.",
+    uploadFailedTitle: "Upload failed",
+    uploadFailedMessage:
+      "The files could not be uploaded. The most common cause is an interrupted connection — especially on phones/tablets. Please check your internet connection and try again. For iPhone/iPad photos it can also help to pick them via “Browse files” instead of the photo library.",
+    deleteFileTitleOne: "Delete file?",
+    deleteFileTitleMany: "Delete {count} files?",
+    deleting: "Deleting…",
+    deletingMany: "Deleting… ({count} files, this takes a moment)",
+    cleanupStuckTitle: "Clean up {count} stuck uploads?",
+    cleanupStuckMessage:
+      "File records are removed, along with any existing S3 objects. You can re-upload the files afterwards.",
+    cleanup: "Clean up",
+    cleaningUp: "Cleaning up…",
+    cleanupFailedTitle: "Delete {count} failed files?",
+    cleanupFailedMessage:
+      "These files could not be processed — e.g. due to invalid formats or worker errors. File records are removed, along with any existing S3 objects.",
+    modeLabel: "Mode",
+    modeSelection: "Selection / Proofing",
+    modeSelectionDesc: "The client can select, comment on and flag media.",
+    modePresentation: "Presentation",
+    modePresentationDesc:
+      "Display only. No selection, no flags, no comments.",
+    switchToPresentationTitle: "Switch to presentation?",
+    switchToPresentationMessage:
+      "Existing client selections, flags and comments stay in the database but are no longer visible to clients. You can switch back to Selection/Proofing at any time.",
+    switchAction: "Switch",
+    switching: "Switching…",
+    presentationHintPre: "This gallery is in",
+    presentationModeBold: "presentation mode",
+    presentationHintPost:
+      ". The client can view media but cannot select, flag or comment. Settings below that only apply in selection/proofing mode are greyed out.",
+    selectModeOnly: "Only available in selection/proofing mode.",
+    tagFilterLabel: "Client may filter by tags",
+    tagFilterDesc:
+      "When enabled, the client sees the assigned tags in their gallery and can filter by them + download tag-filtered ZIPs. Off by default — tags then stay internal studio information.",
+    printShopLabel: "Print shop for this gallery",
+    printShopDescOff:
+      "Clients do NOT see the print shop button, even if it's active for the studio.",
+    printShopDescOn:
+      "When the print shop is active in the studio, clients see the order button here.",
+    exitSelection: "Exit selection mode",
+    dragToSort: "Drag to reorder — saved automatically.",
+    findDuplicates: "Find duplicates",
+    findDuplicatesTitle: "Find and clean up media with identical content",
+    sortAction: "Sort",
+    sortFilterHint: "Sorting is only possible without an active filter",
+    stuckUploadOne: "stuck upload",
+    stuckUploadMany: "stuck uploads",
+    stuckBannerHint:
+      "– stuck in “uploading” for over 5 minutes. The browser upload most likely crashed. You can clean them up and re-upload.",
+    cleanupCount: "Clean up {count}",
+    failedFileOne: "failed file",
+    failedFileMany: "failed files",
+    failedBannerHint:
+      "– processing was not possible (invalid format, worker error …). You can clean them up and re-upload if needed.",
+    deleteCount: "Delete {count}",
+    lbClose: "Close",
+    lbPrev: "Previous",
+    lbNext: "Next",
+    lbZoomOut: "Zoom out",
+    lbZoomOutTitle: "Zoom out (−)",
+    lbZoomIn: "Zoom in",
+    lbZoomInTitle: "Zoom in (+)",
+    lbActualSize: "Actual size",
+    lbActualSizeTitle: "Actual size (0)",
   },
 
   gallery: {

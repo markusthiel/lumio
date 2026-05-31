@@ -587,14 +587,9 @@ export default function GalleryDetailPage() {
       setLimitDialog({
         title:
           zeroSize.length === arr.length
-            ? "Dateien konnten nicht gelesen werden"
-            : `${zeroSize.length} von ${arr.length} Dateien übersprungen`,
-        message:
-          "Diese Dateien hatten keine Daten — das passiert auf iPhone/iPad, " +
-          "wenn die Fotos noch in iCloud liegen und nicht lokal geladen sind. " +
-          'Tipp: Lade sie über "Dateien durchsuchen" statt "Fotomediathek" hoch, ' +
-          "oder öffne die Fotos kurz in der Fotos-App (damit iOS das Original " +
-          "herunterlädt) und versuche es erneut.",
+            ? t("studio.zeroSizeTitleAll")
+            : t("studio.zeroSizeTitleSome", { count: zeroSize.length, total: arr.length }),
+        message: t("studio.zeroSizeMessage"),
       });
     }
 
@@ -664,10 +659,8 @@ export default function GalleryDetailPage() {
       // Dialog mit der Nachricht aus der API + Link zur Plan-Seite.
       if (err instanceof ApiError && err.status === 402) {
         setLimitDialog({
-          title: "Speicher-Limit erreicht",
-          message:
-            err.message ||
-            "Dein Plan erlaubt keinen weiteren Upload. Upgrade auf einen größeren Plan oder kaufe ein Storage-Pack.",
+          title: t("studio.limitTitle"),
+          message: err.message || t("studio.limitMessageDefault"),
         });
       } else {
         // Bisher still verschluckt (nur Konsole) — der User sah einen
@@ -675,13 +668,8 @@ export default function GalleryDetailPage() {
         // abbruch während des Init-Requests häufig. Jetzt sichtbar.
         console.error("upload failed", err);
         setLimitDialog({
-          title: "Upload fehlgeschlagen",
-          message:
-            "Die Dateien konnten nicht hochgeladen werden. Häufigste Ursache " +
-            "ist eine unterbrochene Verbindung — gerade auf dem Handy/Tablet. " +
-            "Bitte prüfe deine Internetverbindung und versuche es erneut. " +
-            "Bei iPhone/iPad-Fotos kann es zudem helfen, sie über " +
-            '"Dateien durchsuchen" statt der Fotomediathek auszuwählen.',
+          title: t("studio.uploadFailedTitle"),
+          message: t("studio.uploadFailedMessage"),
         });
       }
     } finally {
@@ -793,14 +781,14 @@ export default function GalleryDetailPage() {
           ? t("studio.confirmDeleteOne")
           : t("studio.confirmDeleteMany", { count });
       openConfirm({
-        title: count === 1 ? "Datei löschen?" : `${count} Dateien löschen?`,
+        title: count === 1 ? t("studio.deleteFileTitleOne") : t("studio.deleteFileTitleMany", { count }),
         message,
-        confirmLabel: "Löschen",
+        confirmLabel: t("common.delete"),
         confirmVariant: "danger",
         pendingLabel:
           count > 500
-            ? `Lösche… (${count} Dateien, das dauert kurz)`
-            : "Lösche…",
+            ? t("studio.deletingMany", { count })
+            : t("studio.deleting"),
         onConfirm: async () => {
           await bulkDeleteIds(Array.from(selected));
           exitSelectionMode();
@@ -828,7 +816,7 @@ export default function GalleryDetailPage() {
         await load();
       } catch (err) {
         console.error(err);
-        setBulkError(err instanceof Error ? err.message : "Fehler");
+        setBulkError(err instanceof Error ? err.message : t("common.error"));
       } finally {
         setBulkPending(false);
       }
@@ -841,11 +829,11 @@ export default function GalleryDetailPage() {
   function cleanupStuckUploads(stuckIds: string[]) {
     if (!gallery || stuckIds.length === 0) return;
     openConfirm({
-      title: `${stuckIds.length} hängende Uploads aufräumen?`,
-      message: `File-Records werden entfernt und ggf. vorhandene S3-Objekte mit. Du kannst die Dateien danach erneut hochladen.`,
-      confirmLabel: "Aufräumen",
+      title: t("studio.cleanupStuckTitle", { count: stuckIds.length }),
+      message: t("studio.cleanupStuckMessage"),
+      confirmLabel: t("studio.cleanup"),
       confirmVariant: "danger",
-      pendingLabel: "Räume auf…",
+      pendingLabel: t("studio.cleaningUp"),
       onConfirm: async () => {
         await bulkDeleteIds(stuckIds);
         await load();
@@ -861,11 +849,11 @@ export default function GalleryDetailPage() {
   function cleanupFailedFiles(failedIds: string[]) {
     if (!gallery || failedIds.length === 0) return;
     openConfirm({
-      title: `${failedIds.length} fehlgeschlagene Dateien löschen?`,
-      message: `Diese Dateien konnten nicht verarbeitet werden — z.B. wegen ungültigen Formaten oder Worker-Fehlern. File-Records werden entfernt und ggf. vorhandene S3-Objekte mit.`,
-      confirmLabel: "Löschen",
+      title: t("studio.cleanupFailedTitle", { count: failedIds.length }),
+      message: t("studio.cleanupFailedMessage"),
+      confirmLabel: t("common.delete"),
       confirmVariant: "danger",
-      pendingLabel: "Lösche…",
+      pendingLabel: t("studio.deleting"),
       onConfirm: async () => {
         await bulkDeleteIds(failedIds);
         await load();
@@ -1119,7 +1107,7 @@ export default function GalleryDetailPage() {
         {(Object.keys(uploads).length > 0 || pendingInitCount > 0) && (
           <section className="rounded-md border border-line-subtle bg-surface-raised">
             <div className="px-4 py-2 border-b border-line-subtle text-ui-sm font-medium text-ink-secondary flex items-center justify-between">
-              <span>Aktive Uploads</span>
+              <span>{t("studio.activeUploads")}</span>
               {pendingInitCount > 0 && (
                 <span className="text-ui-xs text-ink-tertiary font-normal">
                   {pendingInitCount} {pendingInitCount === 1 ? "Datei wird" : "Dateien werden"} vorbereitet…
@@ -1265,7 +1253,7 @@ export default function GalleryDetailPage() {
               versteckt werden. Wechsel auf Collaboration ist
               unkritisch — alles wird wieder sichtbar. */}
           <div className="space-y-1">
-            <div className="text-ui text-ink-primary">Modus</div>
+            <div className="text-ui text-ink-primary">{t("studio.modeLabel")}</div>
             <div className="flex gap-2">
               <button
                 type="button"
@@ -1285,22 +1273,20 @@ export default function GalleryDetailPage() {
                     : "border-line-subtle bg-surface-sunken text-ink-secondary hover:border-line-strong"
                 }`}
               >
-                <div className="text-ui-sm font-medium">Auswahl / Proofing</div>
-                <div className="text-ui-xs text-ink-tertiary mt-0.5">
-                  Kunde kann Medien auswählen, kommentieren und markieren.
-                </div>
+                <div className="text-ui-sm font-medium">{t("studio.modeSelection")}</div>
+                <div className="text-ui-xs text-ink-tertiary mt-0.5">{t("studio.modeSelectionDesc")}</div>
               </button>
               <button
                 type="button"
                 onClick={() => {
                   if (gallery.mode === "presentation") return;
                   openConfirm({
-                    title: "Auf Präsentation umstellen?",
+                    title: t("studio.switchToPresentationTitle"),
                     message:
-                      "Bestehende Kunden-Auswahl, Markierungen und Kommentare bleiben in der Datenbank erhalten, sind aber für Kunden nicht mehr sichtbar. Du kannst jederzeit zurück auf Auswahl/Proofing wechseln.",
-                    confirmLabel: "Umstellen",
+                      t("studio.switchToPresentationMessage"),
+                    confirmLabel: t("studio.switchAction"),
                     confirmVariant: "primary",
-                    pendingLabel: "Stelle um…",
+                    pendingLabel: t("studio.switching"),
                     onConfirm: async () => {
                       await api.updateGallery(gallery.id, {
                         mode: "presentation",
@@ -1315,10 +1301,8 @@ export default function GalleryDetailPage() {
                     : "border-line-subtle bg-surface-sunken text-ink-secondary hover:border-line-strong"
                 }`}
               >
-                <div className="text-ui-sm font-medium">Präsentation</div>
-                <div className="text-ui-xs text-ink-tertiary mt-0.5">
-                  Reine Anzeige. Keine Auswahl, keine Markierungen, keine Kommentare.
-                </div>
+                <div className="text-ui-sm font-medium">{t("studio.modePresentation")}</div>
+                <div className="text-ui-xs text-ink-tertiary mt-0.5">{t("studio.modePresentationDesc")}</div>
               </button>
             </div>
           </div>
@@ -1331,11 +1315,9 @@ export default function GalleryDetailPage() {
               wieder — grauen wir sie aus und erklaeren warum. */}
           {gallery.mode === "presentation" && (
             <div className="rounded-xs bg-surface-sunken px-3 py-2 text-ui-xs text-ink-secondary">
-              Diese Galerie ist im{" "}
-              <span className="font-medium">Präsentations-Modus</span>. Der
-              Kunde kann Medien ansehen, aber keine Auswahl treffen, Medien
-              markieren oder kommentieren. Einstellungen unten, die nur im
-              Auswahl/Proofing-Modus wirken, sind ausgegraut.
+              {t("studio.presentationHintPre")}{" "}
+              <span className="font-medium">{t("studio.presentationModeBold")}</span>
+              {t("studio.presentationHintPost")}
             </div>
           )}
           <BrandingPicker
@@ -1371,23 +1353,23 @@ export default function GalleryDetailPage() {
             disabled={gallery.mode === "presentation"}
             disabledHint={
               gallery.mode === "presentation"
-                ? "Nur im Auswahl/Proofing-Modus verfügbar."
+                ? t("studio.selectModeOnly")
                 : undefined
             }
           />
           <SettingToggle
-            label="Kunde darf nach Tags filtern"
-            description="Wenn aktiv, sieht die Kundin in ihrer Galerie die zugewiesenen Tags und kann damit filtern + Tag-gefilterte ZIPs herunterladen. Default aus — Tags bleiben dann eine interne Studio-Information."
+            label={t("studio.tagFilterLabel")}
+            description={t("studio.tagFilterDesc")}
             value={gallery.customerTagFilterEnabled ?? false}
             onChange={(v) => toggleSetting("customerTagFilterEnabled", v)}
           />
           {tenantFeatures?.includes("print_shop") && (
             <SettingToggle
-              label="Print-Shop für diese Galerie"
+              label={t("studio.printShopLabel")}
               description={
                 gallery.printShopEnabled === false
-                  ? "Endkunden sehen den Print-Shop-Button NICHT, auch wenn er für das Studio aktiv ist."
-                  : "Wenn der Print-Shop im Studio aktiv ist, sehen Endkunden hier den Bestell-Button."
+                  ? t("studio.printShopDescOff")
+                  : t("studio.printShopDescOn")
               }
               value={gallery.printShopEnabled !== false}
               onChange={(v) => togglePrintShop(v)}
@@ -1402,7 +1384,7 @@ export default function GalleryDetailPage() {
             disabled={gallery.mode === "presentation"}
             disabledHint={
               gallery.mode === "presentation"
-                ? "Nur im Auswahl/Proofing-Modus verfügbar."
+                ? t("studio.selectModeOnly")
                 : undefined
             }
           />
@@ -1561,23 +1543,19 @@ export default function GalleryDetailPage() {
                       size="sm"
                       variant="ghost"
                       onClick={exitSelectionMode}
-                      aria-label="Auswahl-Modus beenden"
+                      aria-label={t("studio.exitSelection")}
                     >
                       ✕
                     </Button>
                   </>
                 ) : gridMode === "sort" ? (
                   <>
-                    <span className="text-ui-sm text-ink-tertiary mr-1">
-                      Ziehen zum Sortieren — wird automatisch gespeichert.
-                    </span>
+                    <span className="text-ui-sm text-ink-tertiary mr-1">{t("studio.dragToSort")}</span>
                     <Button
                       size="sm"
                       variant="primary"
                       onClick={() => setGridMode("view")}
-                    >
-                      Fertig
-                    </Button>
+                    >{t("common.done")}</Button>
                   </>
                 ) : (
                   <>
@@ -1597,10 +1575,8 @@ export default function GalleryDetailPage() {
                       size="sm"
                       variant="ghost"
                       onClick={() => setShowDuplicatesDialog(true)}
-                      title="Medien mit identischem Inhalt finden und aufräumen"
-                    >
-                      Duplikate finden
-                    </Button>
+                      title={t("studio.findDuplicatesTitle")}
+                    >{t("studio.findDuplicates")}</Button>
                     <Button
                       size="sm"
                       variant="secondary"
@@ -1615,12 +1591,10 @@ export default function GalleryDetailPage() {
                       disabled={fileFilter !== "all"}
                       title={
                         fileFilter !== "all"
-                          ? "Sortieren ist nur ohne aktiven Filter möglich"
+                          ? t("studio.sortFilterHint")
                           : undefined
                       }
-                    >
-                      Sortieren
-                    </Button>
+                    >{t("studio.sortAction")}</Button>
                   </>
                 )}
               </div>
@@ -1637,12 +1611,10 @@ export default function GalleryDetailPage() {
                   <span className="font-medium text-ink-primary">
                     {stuckFiles.length}{" "}
                     {stuckFiles.length === 1
-                      ? "hängender Upload"
-                      : "hängende Uploads"}
+                      ? t("studio.stuckUploadOne")
+                      : t("studio.stuckUploadMany")}
                   </span>{" "}
-                  – seit über 5 Minuten in „wird hochgeladen“. Wahrscheinlich
-                  ist das Browser-Upload geknallt. Du kannst sie aufräumen
-                  und neu hochladen.
+                  {t("studio.stuckBannerHint")}
                 </div>
                 <Button
                   size="sm"
@@ -1653,8 +1625,8 @@ export default function GalleryDetailPage() {
                   disabled={bulkPending}
                 >
                   {bulkPending
-                    ? "Räume auf…"
-                    : `${stuckFiles.length} aufräumen`}
+                    ? t("studio.cleaningUp")
+                    : t("studio.cleanupCount", { count: stuckFiles.length })}
                 </Button>
               </div>
             )}
@@ -1671,12 +1643,10 @@ export default function GalleryDetailPage() {
                   <span className="font-medium text-ink-primary">
                     {failedFiles.length}{" "}
                     {failedFiles.length === 1
-                      ? "fehlgeschlagene Datei"
-                      : "fehlgeschlagene Dateien"}
+                      ? t("studio.failedFileOne")
+                      : t("studio.failedFileMany")}
                   </span>{" "}
-                  – Verarbeitung war nicht möglich (ungültiges Format,
-                  Worker-Fehler …). Du kannst sie aufräumen und ggf.
-                  neu hochladen.
+                  {t("studio.failedBannerHint")}
                 </div>
                 <Button
                   size="sm"
@@ -1687,8 +1657,8 @@ export default function GalleryDetailPage() {
                   disabled={bulkPending}
                 >
                   {bulkPending
-                    ? "Lösche…"
-                    : `${failedFiles.length} löschen`}
+                    ? t("studio.deleting")
+                    : t("studio.deleteCount", { count: failedFiles.length })}
                 </Button>
               </div>
             )}
@@ -2249,6 +2219,7 @@ function Lightbox({
   currentId: string;
   onClose: () => void;
 }) {
+  const t = useT();
   const start = files.findIndex((f) => f.id === currentId);
   const [i, setI] = useState(start >= 0 ? start : 0);
 
@@ -2301,7 +2272,7 @@ function Lightbox({
       <button
         type="button"
         onClick={onClose}
-        aria-label="Schließen"
+        aria-label={t("studio.lbClose")}
         className="absolute top-3 left-4 z-30 flex items-center gap-2 text-white/80 hover:text-white transition-colors text-ui-sm leading-none"
       >
         <span className="text-xl leading-none">✕</span> Schließen
@@ -2317,7 +2288,7 @@ function Lightbox({
             e.stopPropagation();
             prev();
           }}
-          aria-label="Vorheriges"
+          aria-label={t("studio.lbPrev")}
           className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-20 h-10 w-10 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm text-white/90 transition-colors text-2xl leading-none"
         >
           ‹
@@ -2365,7 +2336,7 @@ function Lightbox({
             e.stopPropagation();
             next();
           }}
-          aria-label="Nächstes"
+          aria-label={t("studio.lbNext")}
           className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-20 h-10 w-10 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-sm text-white/90 transition-colors text-2xl leading-none"
         >
           ›
@@ -2388,8 +2359,8 @@ function Lightbox({
             onClick={() => zoom.zoomOut()}
             disabled={!zoom.zoomed}
             className="w-8 h-8 rounded-full hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white/90 flex items-center justify-center transition-colors duration-motion"
-            aria-label="Verkleinern"
-            title="Verkleinern (−)"
+            aria-label={t("studio.lbZoomOut")}
+            title={t("studio.lbZoomOutTitle")}
           >
             <svg
               width="16"
@@ -2407,8 +2378,8 @@ function Lightbox({
           <button
             onClick={() => zoom.zoomIn()}
             className="w-8 h-8 rounded-full hover:bg-white/10 text-white/90 flex items-center justify-center transition-colors duration-motion"
-            aria-label="Vergrößern"
-            title="Vergrößern (+)"
+            aria-label={t("studio.lbZoomIn")}
+            title={t("studio.lbZoomInTitle")}
           >
             <svg
               width="16"
@@ -2427,8 +2398,8 @@ function Lightbox({
             <button
               onClick={() => zoom.reset()}
               className="h-8 px-2.5 rounded-full hover:bg-white/10 text-ui-xs text-white/90 transition-colors duration-motion"
-              aria-label="Originalgröße"
-              title="Originalgröße (0)"
+              aria-label={t("studio.lbActualSize")}
+              title={t("studio.lbActualSizeTitle")}
             >
               1:1
             </button>
