@@ -121,7 +121,7 @@ Nach dem Login findest du oben links die Galerie-Erstellung. Lade ein Foto hoch,
 ## Es läuft. Was jetzt?
 
 - **Eigene Domain dranhängen** → [docs/SELFHOSTING.md](docs/SELFHOSTING.md) (15-Min-Setup mit HTTPS)
-- **Bilder gehen verloren beim Container-Restart?** → MinIO speichert in `caddy_data`-Volume, das persistiert. Sicher dass du das Volume nicht versehentlich `docker volume rm`'st.
+- **Bilder gehen verloren beim Container-Restart?** → MinIO speichert im `minio_data`-Volume, das persistiert. Sicher dass du das Volume nicht versehentlich `docker volume rm`'st.
 - **Backups einrichten** → [docs/BACKUP.md](docs/BACKUP.md)
 - **Was läuft schief?** → [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
 
