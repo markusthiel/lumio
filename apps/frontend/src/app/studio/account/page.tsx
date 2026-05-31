@@ -24,6 +24,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { api } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { Button } from "@/components/ui";
 import { DangerZone } from "@/components/studio/DangerZone";
@@ -59,6 +60,7 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 export default function AccountPage() {
+  const t = useT();
   const router = useRouter();
   const [data, setData] = useState<AccountData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -87,7 +89,7 @@ export default function AccountPage() {
   if (loading || !data) {
     return (
       <div className="px-6 py-8 text-ui-sm text-ink-tertiary">
-        {error ?? "Lädt…"}
+        {error ?? t("common.loading")}
       </div>
     );
   }
@@ -95,8 +97,8 @@ export default function AccountPage() {
   return (
     <>
       <PageHeader
-        title="Mein Konto"
-        description="Deine persönlichen Zugangsdaten und Anzeige-Einstellungen."
+        title={t("account.title")}
+        description={t("account.description")}
       />
       <div className="px-6 sm:px-8 lg:px-12 py-6 max-w-5xl space-y-6">
 
@@ -107,13 +109,13 @@ export default function AccountPage() {
       )}
 
       {/* Profil-Karte: Identitaet + Rolle (read-only). */}
-      <Section title="Profil">
-        <Row label="Rolle">
+      <Section title={t("account.profile")}>
+        <Row label={t("account.role")}>
           <span className="text-ui text-ink-primary">
             {ROLE_LABEL[data.user.role] ?? data.user.role}
           </span>
         </Row>
-        <Row label="Mitglied seit">
+        <Row label={t("account.memberSince")}>
           <span className="text-ui text-ink-primary">
             {new Date(data.user.createdAt).toLocaleDateString("de-DE", {
               year: "numeric",
@@ -123,13 +125,13 @@ export default function AccountPage() {
           </span>
         </Row>
         {data.user.lastLoginAt && (
-          <Row label="Zuletzt eingeloggt">
+          <Row label={t("account.lastLogin")}>
             <span className="text-ui text-ink-primary">
               {new Date(data.user.lastLoginAt).toLocaleString("de-DE")}
             </span>
           </Row>
         )}
-        <Row label="2-Faktor-Authentifizierung">
+        <Row label={t("account.twoFactor")}>
           <span
             className={
               data.user.totpEnabled
@@ -138,8 +140,8 @@ export default function AccountPage() {
             }
           >
             {data.user.totpEnabled
-              ? "Aktiviert"
-              : "Nicht aktiviert — empfohlen für besseren Schutz"}
+              ? t("account.enabled")
+              : t("account.notEnabled")}
           </span>
         </Row>
       </Section>
@@ -181,6 +183,7 @@ function NameSection({
   currentName: string | null;
   onSaved: (newName: string) => void;
 }) {
+  const t = useT();
   const [name, setName] = useState(currentName ?? "");
   const [pending, setPending] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -204,8 +207,8 @@ function NameSection({
   }
 
   return (
-    <Section title="Anzeigename">
-      <Row label="Name">
+    <Section title={t("account.displayName")}>
+      <Row label={t("account.name")}>
         <input
           type="text"
           value={name}
@@ -229,7 +232,7 @@ function NameSection({
           onClick={save}
           disabled={pending || !changed || !name.trim()}
         >
-          {pending ? "Speichert…" : "Speichern"}
+          {pending ? t("common.saving") : t("common.save")}
         </Button>
       </div>
     </Section>
@@ -245,6 +248,7 @@ function EmailSection({
   pendingChange: AccountData["pendingEmailChange"];
   onChanged: () => Promise<void>;
 }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -273,7 +277,7 @@ function EmailSection({
   }
 
   async function cancel() {
-    if (!confirm("Ausstehenden E-Mail-Wechsel zurückziehen?")) return;
+    if (!confirm(t("account.cancelEmailChangeConfirm"))) return;
     try {
       await api.cancelAccountEmailChange();
       setSubmitted(null);
@@ -284,8 +288,8 @@ function EmailSection({
   }
 
   return (
-    <Section title="E-Mail-Adresse">
-      <Row label="Aktuell">
+    <Section title={t("account.email")}>
+      <Row label={t("account.current")}>
         <span className="text-ui text-ink-primary font-mono">
           {currentEmail}
         </span>
@@ -294,49 +298,39 @@ function EmailSection({
       {pendingChange && pendingChange.newEmail && (
         <div className="rounded-md border border-semantic-warning/30 bg-semantic-warning/8 px-4 py-3 text-ui-sm space-y-2">
           <div>
-            <span className="text-ink-primary font-medium">
-              Wechsel ausstehend:
-            </span>{" "}
+            <span className="text-ink-primary font-medium">{t("account.changePending")}</span>{" "}
             <span className="font-mono text-ink-primary">
               {pendingChange.newEmail}
             </span>
           </div>
           <div className="text-ui-xs text-ink-tertiary">
-            Eine Bestätigungsmail wurde an die neue Adresse geschickt. Klick
-            den Link in der Mail, um den Wechsel abzuschließen. Gültig bis{" "}
-            {new Date(pendingChange.expiresAt).toLocaleString("de-DE")}.
+            {t("account.changePendingHint", { date: new Date(pendingChange.expiresAt).toLocaleString("de-DE") })}
           </div>
           <div>
             <button
               type="button"
               onClick={cancel}
               className="text-ui-xs text-semantic-danger hover:underline"
-            >
-              Wechsel zurückziehen
-            </button>
+            >{t("account.cancelChange")}</button>
           </div>
         </div>
       )}
 
       {submitted && !pendingChange && (
         <div className="rounded-md border border-semantic-success/30 bg-semantic-success/8 px-4 py-3 text-ui-sm text-ink-primary">
-          Eine Bestätigungsmail wurde an{" "}
-          <span className="font-mono">{submitted}</span> geschickt. Klick den
-          Link in der Mail, um den Wechsel abzuschließen.
+          {t("account.confirmationSentTo", { email: submitted })}
         </div>
       )}
 
       {!open && !pendingChange && (
         <div className="flex justify-end pt-1">
-          <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
-            E-Mail-Adresse ändern
-          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>{t("account.changeEmail")}</Button>
         </div>
       )}
 
       {open && (
         <div className="space-y-3 pt-2">
-          <Row label="Neue E-Mail-Adresse">
+          <Row label={t("account.newEmail")}>
             <input
               type="email"
               value={newEmail}
@@ -345,7 +339,7 @@ function EmailSection({
               autoComplete="off"
             />
           </Row>
-          <Row label="Aktuelles Passwort">
+          <Row label={t("account.currentPassword")}>
             <input
               type="password"
               value={password}
@@ -373,16 +367,14 @@ function EmailSection({
                 setPassword("");
               }}
               disabled={pending}
-            >
-              Abbrechen
-            </Button>
+            >{t("common.cancel")}</Button>
             <Button
               variant="primary"
               size="sm"
               onClick={submit}
               disabled={pending || !newEmail.trim() || !password}
             >
-              {pending ? "Wird angefordert…" : "Wechsel anfordern"}
+              {pending ? t("account.requesting") : t("account.requestChange")}
             </Button>
           </div>
         </div>
@@ -392,6 +384,7 @@ function EmailSection({
 }
 
 function PasswordSection() {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
@@ -407,7 +400,7 @@ function PasswordSection() {
       return;
     }
     if (next !== confirm) {
-      setError("Die beiden Passwörter stimmen nicht überein.");
+      setError(t("account.passwordMismatch"));
       return;
     }
     setPending(true);
@@ -430,12 +423,12 @@ function PasswordSection() {
   }
 
   return (
-    <Section title="Passwort">
+    <Section title={t("account.password")}>
       {!open && (
         <div className="flex items-center justify-between gap-3">
           <p className="text-ui-sm text-ink-tertiary">
             {done
-              ? "Passwort geändert. Andere aktive Sitzungen wurden beendet."
+              ? t("account.passwordChanged")
               : "Empfehlung: mindestens 12 Zeichen, kein Wiedergebrauch von anderen Accounts."}
           </p>
           <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
@@ -446,7 +439,7 @@ function PasswordSection() {
 
       {open && (
         <div className="space-y-3">
-          <Row label="Aktuelles Passwort">
+          <Row label={t("account.currentPassword")}>
             <input
               type="password"
               value={current}
@@ -455,7 +448,7 @@ function PasswordSection() {
               autoComplete="current-password"
             />
           </Row>
-          <Row label="Neues Passwort">
+          <Row label={t("account.newPassword")}>
             <input
               type="password"
               value={next}
@@ -465,7 +458,7 @@ function PasswordSection() {
               minLength={12}
             />
           </Row>
-          <Row label="Neues Passwort bestätigen">
+          <Row label={t("account.confirmNewPassword")}>
             <input
               type="password"
               value={confirm}
@@ -493,16 +486,14 @@ function PasswordSection() {
                 setConfirm("");
               }}
               disabled={pending}
-            >
-              Abbrechen
-            </Button>
+            >{t("common.cancel")}</Button>
             <Button
               variant="primary"
               size="sm"
               onClick={submit}
               disabled={pending || !current || !next || !confirm}
             >
-              {pending ? "Wird gesetzt…" : "Passwort ändern"}
+              {pending ? t("account.settingPassword") : t("account.changePassword")}
             </Button>
           </div>
         </div>
