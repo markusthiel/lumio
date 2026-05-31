@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { api, type AuditEvent, type Gallery } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { Button } from "@/components/ui";
 
@@ -13,30 +14,31 @@ const PAGE_SIZE = 100;
 // werden roh angezeigt — das ist ok, weil der Action-Name selbst schon
 // punktnotiert und einigermaßen lesbar ist.
 const ACTION_LABELS: Record<string, string> = {
-  "auth.login": "Login",
-  "auth.login.failed": "Login fehlgeschlagen",
-  "auth.login.totp": "Login (2FA)",
-  "auth.login.totp.failed": "2FA fehlgeschlagen",
-  "auth.logout": "Logout",
-  "gallery.create": "Galerie erstellt",
-  "gallery.update": "Galerie geändert",
-  "gallery.delete": "Galerie gelöscht",
-  "file.delete": "Datei gelöscht",
-  "file.bulk": "Massenoperation",
-  "share.create": "Share-Link erstellt",
-  "share.delete": "Share-Link gelöscht",
-  "share.unlock": "Galerie entsperrt",
-  "share.unlock.failed": "Entsperren fehlgeschlagen",
-  "selection.finalize": "Auswahl abgeschlossen",
-  "branding.create": "Branding erstellt",
-  "branding.update": "Branding geändert",
-  "branding.delete": "Branding gelöscht",
-  "branding.set_default": "Branding als Standard",
+  "auth.login": "audit.actLogin",
+  "auth.login.failed": "audit.actLoginFailed",
+  "auth.login.totp": "audit.actLoginTotp",
+  "auth.login.totp.failed": "audit.actTotpFailed",
+  "auth.logout": "audit.actLogout",
+  "gallery.create": "audit.actGalleryCreate",
+  "gallery.update": "audit.actGalleryUpdate",
+  "gallery.delete": "audit.actGalleryDelete",
+  "file.delete": "audit.actFileDelete",
+  "file.bulk": "audit.actFileBulk",
+  "share.create": "audit.actShareCreate",
+  "share.delete": "audit.actShareDelete",
+  "share.unlock": "audit.actShareUnlock",
+  "share.unlock.failed": "audit.actUnlockFailed",
+  "selection.finalize": "audit.actSelectionFinalize",
+  "branding.create": "audit.actBrandingCreate",
+  "branding.update": "audit.actBrandingUpdate",
+  "branding.delete": "audit.actBrandingDelete",
+  "branding.set_default": "audit.actBrandingDefault",
 };
 
 const ACTION_OPTIONS = Object.keys(ACTION_LABELS);
 
 export default function AuditPage() {
+  const t = useT();
   const router = useRouter();
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -132,16 +134,16 @@ export default function AuditPage() {
   return (
     <>
       <PageHeader
-        breadcrumb={[{ label: "Studio", href: "/studio" }, { label: "Audit" }]}
-        title="Audit-Log"
-        description="Logins, Galerie-Änderungen, Kunden-Aktivität. Read-only, gefiltert nach deinem Tenant."
+        breadcrumb={[{ label: t("audit.breadcrumbStudio"), href: "/studio" }, { label: t("audit.breadcrumb") }]}
+        title={t("audit.title")}
+        description={t("audit.description")}
         actions={
           <Button
             variant="secondary"
             onClick={exportCsv}
             disabled={events.length === 0}
           >
-            CSV exportieren ({events.length})
+            {t("audit.exportCsv", { n: events.length })}
           </Button>
         }
       />
@@ -150,13 +152,13 @@ export default function AuditPage() {
         {/* Filter-Bar */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
           <div>
-            <label className="block text-xs text-ink-tertiary mb-1">Galerie</label>
+            <label className="block text-xs text-ink-tertiary mb-1">{t("audit.gallery")}</label>
             <select
               value={galleryId}
               onChange={(e) => setGalleryId(e.target.value)}
               className="w-full rounded-md border border-line-subtle px-2 py-1.5 bg-surface-raised"
             >
-              <option value="">Alle</option>
+              <option value="">{t("audit.all")}</option>
               {galleries.map((g) => (
                 <option key={g.id} value={g.id}>
                   {g.title}
@@ -165,22 +167,22 @@ export default function AuditPage() {
             </select>
           </div>
           <div>
-            <label className="block text-xs text-ink-tertiary mb-1">Aktion</label>
+            <label className="block text-xs text-ink-tertiary mb-1">{t("audit.action")}</label>
             <select
               value={action}
               onChange={(e) => setAction(e.target.value)}
               className="w-full rounded-md border border-line-subtle px-2 py-1.5 bg-surface-raised"
             >
-              <option value="">Alle</option>
+              <option value="">{t("audit.all")}</option>
               {ACTION_OPTIONS.map((a) => (
                 <option key={a} value={a}>
-                  {ACTION_LABELS[a] ?? a}
+                  {ACTION_LABELS[a] ? t(ACTION_LABELS[a]) : a}
                 </option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block text-xs text-ink-tertiary mb-1">Von</label>
+            <label className="block text-xs text-ink-tertiary mb-1">{t("audit.from")}</label>
             <input
               type="datetime-local"
               value={since}
@@ -189,7 +191,7 @@ export default function AuditPage() {
             />
           </div>
           <div>
-            <label className="block text-xs text-ink-tertiary mb-1">Bis</label>
+            <label className="block text-xs text-ink-tertiary mb-1">{t("audit.until")}</label>
             <input
               type="datetime-local"
               value={until}
@@ -202,19 +204,17 @@ export default function AuditPage() {
         {/* Tabelle */}
         <section className="rounded-lg border border-line-subtle bg-surface-raised overflow-x-auto">
           {events.length === 0 && !loading ? (
-            <div className="p-8 text-sm text-ink-tertiary text-center">
-              Keine Events für diesen Filter.
-            </div>
+            <div className="p-8 text-sm text-ink-tertiary text-center">{t("audit.noEvents")}</div>
           ) : (
             <table className="w-full text-xs">
               <thead className="bg-surface-sunken text-ink-secondary">
                 <tr>
-                  <th className="text-left p-2 font-medium">Zeitpunkt</th>
-                  <th className="text-left p-2 font-medium">Aktion</th>
-                  <th className="text-left p-2 font-medium">Akteur</th>
-                  <th className="text-left p-2 font-medium">Ziel</th>
-                  <th className="text-left p-2 font-medium">IP</th>
-                  <th className="text-left p-2 font-medium">Details</th>
+                  <th className="text-left p-2 font-medium">{t("audit.colTime")}</th>
+                  <th className="text-left p-2 font-medium">{t("audit.colAction")}</th>
+                  <th className="text-left p-2 font-medium">{t("audit.colActor")}</th>
+                  <th className="text-left p-2 font-medium">{t("audit.colTarget")}</th>
+                  <th className="text-left p-2 font-medium">{t("audit.colIp")}</th>
+                  <th className="text-left p-2 font-medium">{t("audit.colDetails")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -229,19 +229,17 @@ export default function AuditPage() {
         {/* Pagination */}
         <div className="flex items-center justify-center gap-3 pt-2">
           {loading && (
-            <div className="text-xs text-ink-tertiary">Lädt…</div>
+            <div className="text-xs text-ink-tertiary">{t("common.loading")}</div>
           )}
           {nextCursor && !loading && (
             <button
               type="button"
               onClick={() => void fetchPage(false)}
               className="text-sm rounded-md border border-line-subtle px-3 py-1.5 hover:bg-surface-sunken"
-            >
-              Mehr laden
-            </button>
+            >{t("audit.loadMore")}</button>
           )}
           {!nextCursor && events.length > 0 && !loading && (
-            <div className="text-xs text-ink-tertiary">— Ende —</div>
+            <div className="text-xs text-ink-tertiary">{t("audit.end")}</div>
           )}
         </div>
       </div>
@@ -256,7 +254,8 @@ function EventRow({
   event: AuditEvent;
   galleries: Gallery[];
 }) {
-  const label = ACTION_LABELS[event.action] ?? event.action;
+  const t = useT();
+  const label = ACTION_LABELS[event.action] ? t(ACTION_LABELS[event.action]) : event.action;
 
   // Failure-Aktionen rot hinterlegen — die fallen beim Scrollen sofort auf
   const failed = event.action.endsWith(".failed");
