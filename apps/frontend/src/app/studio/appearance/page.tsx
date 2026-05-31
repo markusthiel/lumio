@@ -500,9 +500,9 @@ export default function AppearancePage() {
     <>
       <PageHeader
         breadcrumb={[
-          { label: "Studio", href: "/studio" },
-          { label: "Gestaltung", href: "/studio/brandings" },
-          { label: "Studio & Login" },
+          { label: t("nav.studio"), href: "/studio" },
+          { label: t("nav.design"), href: "/studio/brandings" },
+          { label: t("subtabs.studioLogin") },
         ]}
         title={t("appearance.title")}
         description={t("appearance.description")}
@@ -527,28 +527,28 @@ export default function AppearancePage() {
             {/* ============ STUDIO-BACKEND ============ */}
             <Section
               title={t("appearance.studioBackend")}
-              description="So sieht deine Arbeitsumgebung aus, wenn du eingeloggt bist."
+              description={t("appearance.studioBackendHint")}
             >
               <Field
                 label={t("appearance.baseTone")}
-                hint="Hell oder dunkel — wirkt sofort als Vorschau, gespeichert wird mit „Speichern“."
+                hint={t("appearance.baseToneHint")}
               >
                 <div className="inline-flex rounded-md border border-line-subtle overflow-hidden">
-                  {(["dark", "light"] as const).map((t) => (
+                  {(["dark", "light"] as const).map((mode) => (
                     <button
-                      key={t}
+                      key={mode}
                       type="button"
                       onClick={() => {
-                        setStudioTheme(t);
-                        applyStudioTheme(t);
+                        setStudioTheme(mode);
+                        applyStudioTheme(mode);
                       }}
                       className={`px-4 py-1.5 text-sm transition-colors ${
-                        studioTheme === t
+                        studioTheme === mode
                           ? "bg-accent text-accent-contrast"
                           : "text-ink-secondary hover:bg-surface-sunken"
                       }`}
                     >
-                      {t === "dark" ? "Dunkel" : "Hell"}
+                      {mode === "dark" ? t("appearance.dark") : t("appearance.light")}
                     </button>
                   ))}
                 </div>
@@ -578,7 +578,7 @@ export default function AppearancePage() {
                         applyStudioAccent(null);
                       }}
                     >
-                      Zurücksetzen
+                      {t("appearance.reset")}
                     </button>
                   )}
                 </div>
@@ -615,7 +615,7 @@ export default function AppearancePage() {
             {/* ============ LOGIN-SEITE ============ */}
             <Section
               title={t("appearance.loginPage")}
-              description="Die Seite, auf der du (und dein Team) euch anmeldet."
+              description={t("appearance.loginPageHint")}
             >
               <Field
                 label={t("appearance.layout")}
@@ -639,7 +639,7 @@ export default function AppearancePage() {
                 />
                 <Field
                   label={t("appearance.accentColor")}
-                  hint="Login-Button und Links. Leer = Standard."
+                  hint={t("appearance.loginAccentHint")}
                 >
                   <ColorField
                     value={loginAccent}
@@ -728,7 +728,7 @@ export default function AppearancePage() {
             {/* ============ E-MAILS ============ */}
             <Section
               title={t("appearance.emails")}
-              description="Logo in den E-Mails, die Lumio in deinem Namen verschickt (Galerie-Einladungen, Benachrichtigungen)."
+              description={t("appearance.emailLogoHint")}
             >
               <AssetField
                 label={t("appearance.emailLogo")}

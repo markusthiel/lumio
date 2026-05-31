@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useT } from "@/lib/i18n";
 
 /**
  * Farb-Eingabe: sichtbares Swatch + nativer Picker als unsichtbares
@@ -15,12 +16,13 @@ export function ColorField({
   onChange: (v: string) => void;
 }) {
   const valid = /^#[0-9a-fA-F]{6}$/.test(value.trim());
+  const t = useT();
   return (
     <div className="flex items-center gap-2">
       <label
         className="relative w-10 h-9 rounded border border-line-subtle cursor-pointer overflow-hidden shrink-0"
         style={{ backgroundColor: valid ? value : "transparent" }}
-        title="Farbe wählen"
+        title={t("appearance.colorPick")}
       >
         <input
           type="color"
@@ -65,12 +67,13 @@ export function OverlayField({
     return `${h6}${alpha}`;
   }
 
+  const t = useT();
   return (
     <div className="flex items-center gap-3 flex-wrap">
       <label
         className="relative w-10 h-9 rounded border border-line-subtle cursor-pointer overflow-hidden shrink-0"
         style={{ backgroundColor: value ?? "transparent" }}
-        title="Farbe wählen"
+        title={t("appearance.colorPick")}
       >
         <input
           type="color"
@@ -100,9 +103,7 @@ export function OverlayField({
           type="button"
           onClick={() => onChange(null)}
           className="text-sm text-ink-tertiary hover:text-ink-primary"
-        >
-          Entfernen
-        </button>
+        >{t("common.remove")}</button>
       )}
     </div>
   );
@@ -170,6 +171,7 @@ export function AssetField({
   const previewStyle = previewBgColor
     ? { backgroundColor: previewBgColor }
     : undefined;
+  const t = useT();
   return (
     <div className="space-y-1">
       <label className="text-xs font-medium text-ink-secondary">{label}</label>
@@ -207,14 +209,14 @@ export function AssetField({
             disabled={uploading}
             className="text-xs px-2 py-1 rounded border border-line-subtle hover:bg-surface-raised disabled:opacity-50"
           >
-            {uploading ? "…" : imageUrl ? "Ersetzen" : "Hochladen"}
+            {uploading ? "…" : imageUrl ? t("common.replace") : t("common.upload")}
           </button>
           {imageUrl && (
             <button
               onClick={onRemove}
               className="text-xs text-semantic-danger hover:underline"
             >
-              Entfernen
+              {t("common.remove")}
             </button>
           )}
         </div>

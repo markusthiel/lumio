@@ -97,9 +97,9 @@ export function ProofingPanel({
           breadcrumb={[
             { label: "Studio", href: "/studio" },
             { label: data.gallery.title, href: `/studio/${data.gallery.id}` },
-            { label: "Auswahl-Übersicht" },
+            { label: t("annotation.selectionOverview") },
           ]}
-          title="Auswahl-Übersicht"
+          title={t("annotation.selectionOverview")}
           description={data.gallery.title}
         />
       )}
@@ -199,7 +199,7 @@ export function ProofingPanel({
                   }}
                   className="text-ui-xs text-ink-tertiary hover:text-ink-secondary ml-1"
                 >
-                  Zurücksetzen
+                  {t("common.reset")}
                 </button>
               )}
             </div>

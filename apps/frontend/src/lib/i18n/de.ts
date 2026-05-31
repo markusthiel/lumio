@@ -20,6 +20,10 @@ export const de: Dict = {
     back: "Zurück",
     error: "Fehler",
     close: "Schließen",
+    reset: "Zurücksetzen",
+    remove: "Entfernen",
+    upload: "Hochladen",
+    replace: "Ersetzen",
   },
 
   nav: {
@@ -724,6 +728,7 @@ export const de: Dict = {
   },
 
   annotation: {
+    selectionOverview: "Auswahl-Übersicht",
     freehand: "Frei-Hand",
     arrow: "Pfeil",
     undo: "Letzte Markierung zurück",
@@ -1054,6 +1059,15 @@ export const de: Dict = {
     description:
       "Eigenes Erscheinungsbild für dein Studio-Backend, die Login-Seite und E-Mails — unabhängig vom Galerie-Branding.",
     studioBackend: "Studio-Backend",
+    studioBackendHint: "So sieht deine Arbeitsumgebung aus, wenn du eingeloggt bist.",
+    colorPick: "Farbe wählen",
+    baseToneHint: "Hell oder dunkel — wirkt sofort als Vorschau, gespeichert wird mit „Speichern“.",
+    dark: "Dunkel",
+    light: "Hell",
+    reset: "Zurücksetzen",
+    loginPageHint: "Die Seite, auf der du (und dein Team) euch anmeldet.",
+    loginAccentHint: "Login-Button und Links. Leer = Standard.",
+    emailLogoHint: "Logo in den E-Mails, die Lumio in deinem Namen verschickt (Galerie-Einladungen, Benachrichtigungen).",
     baseTone: "Grundton",
     accentColor: "Akzentfarbe",
     accentHint:
@@ -1785,5 +1799,15 @@ export const de: Dict = {
     sinceYesterday: "seit gestern",
     sinceDaysN: "seit {n} Tagen",
     openInStripe: "↗ In Stripe öffnen",
+  },
+
+  slowConn: {
+    titleEnable: "Reduziert die Anzahl paralleler Uploads für langsame Verbindungen (z.B. mobiles Netz).",
+    trigger: "Langsame Verbindung?",
+    detectedAuto: "Langsame Verbindung erkannt — Uploads laufen seriell.",
+    activeManual: "Langsame Verbindung aktiv — Uploads laufen seriell.",
+    titleForceFast: "Auto-Erkennung überschreiben und schnelle Uploads erzwingen",
+    titleResetAuto: "Auf Auto-Erkennung zurücksetzen",
+    forceFast: "Schnell trotzdem",
   },
 };

@@ -20,6 +20,10 @@ export const en: Dict = {
     back: "Back",
     error: "Error",
     close: "Close",
+    reset: "Reset",
+    remove: "Remove",
+    upload: "Upload",
+    replace: "Replace",
   },
 
   nav: {
@@ -721,6 +725,7 @@ export const en: Dict = {
   },
 
   annotation: {
+    selectionOverview: "Selection overview",
     freehand: "Freehand",
     arrow: "Arrow",
     undo: "Undo last mark",
@@ -1049,6 +1054,15 @@ export const en: Dict = {
     description:
       "A custom look for your studio backend, the login page and emails — independent of the gallery branding.",
     studioBackend: "Studio backend",
+    studioBackendHint: "This is what your workspace looks like when you're logged in.",
+    colorPick: "Pick colour",
+    baseToneHint: "Light or dark — applies instantly as a preview, saved with “Save”.",
+    dark: "Dark",
+    light: "Light",
+    reset: "Reset",
+    loginPageHint: "The page where you (and your team) log in.",
+    loginAccentHint: "Login button and links. Empty = default.",
+    emailLogoHint: "Logo in the emails Lumio sends on your behalf (gallery invitations, notifications).",
     baseTone: "Base tone",
     accentColor: "Accent color",
     accentHint:
@@ -1780,5 +1794,15 @@ export const en: Dict = {
     sinceYesterday: "since yesterday",
     sinceDaysN: "for {n} days",
     openInStripe: "↗ Open in Stripe",
+  },
+
+  slowConn: {
+    titleEnable: "Reduces the number of parallel uploads for slow connections (e.g. mobile network).",
+    trigger: "Slow connection?",
+    detectedAuto: "Slow connection detected — uploads run sequentially.",
+    activeManual: "Slow connection active — uploads run sequentially.",
+    titleForceFast: "Override auto-detection and force fast uploads",
+    titleResetAuto: "Reset to auto-detection",
+    forceFast: "Fast anyway",
   },
 };

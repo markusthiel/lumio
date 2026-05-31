@@ -15,8 +15,10 @@
  *    X-Button zum Aufheben.
  */
 import { useSlowConnection } from "@/lib/useSlowConnection";
+import { useT } from "@/lib/i18n";
 
 export function SlowConnectionToggle() {
+  const t = useT();
   const { slow, source, setOverride } = useSlowConnection();
 
   if (!slow) {
@@ -25,9 +27,9 @@ export function SlowConnectionToggle() {
         type="button"
         onClick={() => setOverride(true)}
         className="text-ui-xs text-ink-tertiary hover:text-ink-secondary underline-offset-2 hover:underline transition-colors duration-motion"
-        title="Reduziert die Anzahl paralleler Uploads für langsame Verbindungen (z.B. mobiles Netz)."
+        title={t("slowConn.titleEnable")}
       >
-        Langsame Verbindung?
+        {t("slowConn.trigger")}
       </button>
     );
   }
@@ -35,8 +37,8 @@ export function SlowConnectionToggle() {
   // slow === true: entweder auto oder manuell
   const label =
     source === "auto"
-      ? "Langsame Verbindung erkannt — Uploads laufen seriell."
-      : "Langsame Verbindung aktiv — Uploads laufen seriell.";
+      ? t("slowConn.detectedAuto")
+      : t("slowConn.activeManual");
 
   return (
     <div className="flex items-center gap-2 text-ui-xs text-ink-secondary">
@@ -60,11 +62,11 @@ export function SlowConnectionToggle() {
         className="text-ui-xs text-ink-tertiary hover:text-ink-primary underline-offset-2 hover:underline transition-colors duration-motion"
         title={
           source === "auto"
-            ? "Auto-Erkennung überschreiben und schnelle Uploads erzwingen"
-            : "Auf Auto-Erkennung zurücksetzen"
+            ? t("slowConn.titleForceFast")
+            : t("slowConn.titleResetAuto")
         }
       >
-        {source === "auto" ? "Schnell trotzdem" : "Zurücksetzen"}
+        {source === "auto" ? t("slowConn.forceFast") : t("common.reset")}
       </button>
     </div>
   );
