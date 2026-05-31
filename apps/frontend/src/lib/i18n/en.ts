@@ -1074,4 +1074,57 @@ export const en: Dict = {
     headerLine: "Simple line",
     headerBanner: "Accent banner",
   },
+
+  dangerZone: {
+    title: "Delete studio",
+    description:
+      "This marks your studio for permanent deletion. You have a 60-day grace period in which you can undo the deletion at any time. After it expires, all images, galleries and account data are removed irreversibly.",
+    stripeNote:
+      "Your Stripe subscription is cancelled immediately — no further billing.",
+    deleteButton: "Delete studio…",
+    cancelDeletionConfirm:
+      "Really undo the deletion? Your studio becomes active again. The Stripe subscription must be restarted separately.",
+    cancelling: "Undoing…",
+    cancelDeletion: "Undo deletion",
+    modalTitle: "Delete studio \"{name}\"",
+    modalDesc:
+      "Please confirm with your password and by retyping the studio name. The deletion is scheduled with a 60-day grace period — you can undo it any time until the deadline is reached.",
+    password: "Current password",
+    confirmNameLabel: "Studio name for confirmation",
+    typeExact: "Type \"{name}\" exactly.",
+    onlyOwner: "Only the studio owner can delete the studio.",
+    requesting: "Creating…",
+    unlockIn: "Unlockable in {seconds}s",
+    requestDeletion: "Request permanent deletion",
+    errorCancel: "Error undoing",
+    bannerTitle: "Your studio is being deleted.",
+    bannerDaysOne: "Permanent deletion in 1 day ({date}).",
+    bannerDaysMany: "Permanent deletion in {days} days ({date}).",
+    bannerExecuting: "Permanent deletion is being carried out.",
+  },
+
+  resetPw: {
+    noToken: "No token in the link.",
+    invalidToken: "Token invalid",
+    minLength: "Password must be at least 12 characters long.",
+    mismatch: "The two passwords don't match.",
+    failed: "Reset failed",
+    checkingToken: "Checking token…",
+    invalidTitle: "Link invalid or expired",
+    invalidDesc:
+      "The reset link no longer works. It may have expired (links are valid for 24 hours) or has already been used.",
+    requestNewIntro: "Request a new link:",
+    requestNewLink: "Request new reset link",
+    setNewTitle: "Set a new password",
+    forStudio: "For {email} in studio {tenant}.",
+    newPassword: "New password",
+    minPlaceholder: "At least 12 characters",
+    confirmPassword: "Confirm password",
+    setting: "Setting…",
+    setPassword: "Set password",
+    doneTitle: "Password set",
+    doneDesc:
+      "Your new password is active. All existing sessions have been ended — please sign in again.",
+    toLogin: "To login",
+  },
 };

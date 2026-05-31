@@ -1079,4 +1079,57 @@ export const de: Dict = {
     headerLine: "Schlichte Linie",
     headerBanner: "Akzent-Banner",
   },
+
+  dangerZone: {
+    title: "Studio löschen",
+    description:
+      "Dies markiert dein Studio zur endgültigen Löschung. Du hast eine 60-tägige Karenzphase, in der du die Löschung jederzeit zurücknehmen kannst. Nach Ablauf werden alle Bilder, Galerien und Account-Daten unwiderruflich entfernt.",
+    stripeNote:
+      "Deine Stripe-Subscription wird sofort gekündigt — keine weitere Abrechnung.",
+    deleteButton: "Studio löschen…",
+    cancelDeletionConfirm:
+      "Loeschung wirklich zuruecknehmen? Dein Studio wird wieder aktiv. Die Stripe-Subscription muss separat neu gestartet werden.",
+    cancelling: "Wird zurückgenommen…",
+    cancelDeletion: "Löschung zurücknehmen",
+    modalTitle: "Studio „{name}\" löschen",
+    modalDesc:
+      "Bitte bestätige mit deinem Passwort und durch erneutes Eintippen des Studio-Namens. Die Löschung wird mit 60-tägiger Karenzphase geplant — du kannst sie jederzeit zurücknehmen, bis der Stichtag erreicht ist.",
+    password: "Aktuelles Passwort",
+    confirmNameLabel: "Studio-Name zur Bestätigung",
+    typeExact: "Tippe „{name}\" exakt ein.",
+    onlyOwner: "Nur der Studio-Owner kann das Studio löschen.",
+    requesting: "Wird angelegt…",
+    unlockIn: "In {seconds}s freischaltbar",
+    requestDeletion: "Endgültig löschen anfordern",
+    errorCancel: "Fehler beim Zurücknehmen",
+    bannerTitle: "Dein Studio wird gelöscht.",
+    bannerDaysOne: "Endgültige Löschung in 1 Tag ({date}).",
+    bannerDaysMany: "Endgültige Löschung in {days} Tagen ({date}).",
+    bannerExecuting: "Endgültige Löschung wird gerade ausgeführt.",
+  },
+
+  resetPw: {
+    noToken: "Kein Token im Link.",
+    invalidToken: "Token ungültig",
+    minLength: "Passwort muss mindestens 12 Zeichen lang sein.",
+    mismatch: "Die beiden Passwörter stimmen nicht überein.",
+    failed: "Reset fehlgeschlagen",
+    checkingToken: "Token wird geprüft…",
+    invalidTitle: "Link ungültig oder abgelaufen",
+    invalidDesc:
+      "Der Reset-Link funktioniert nicht mehr. Vielleicht ist er abgelaufen (Links sind 24 Stunden gültig) oder wurde bereits eingelöst.",
+    requestNewIntro: "Fordere einen neuen Link an:",
+    requestNewLink: "Neuen Reset-Link anfordern",
+    setNewTitle: "Neues Passwort setzen",
+    forStudio: "Für {email} im Studio {tenant}.",
+    newPassword: "Neues Passwort",
+    minPlaceholder: "Mindestens 12 Zeichen",
+    confirmPassword: "Passwort bestätigen",
+    setting: "Wird gesetzt…",
+    setPassword: "Passwort setzen",
+    doneTitle: "Passwort gesetzt",
+    doneDesc:
+      "Dein neues Passwort ist aktiv. Alle bestehenden Sitzungen wurden beendet — bitte logge dich neu ein.",
+    toLogin: "Zum Login",
+  },
 };

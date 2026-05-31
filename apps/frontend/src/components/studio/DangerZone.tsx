@@ -27,6 +27,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui";
+import { useT } from "@/lib/i18n";
 
 interface DeletionStatus {
   isPendingDeletion: boolean;
@@ -79,6 +80,7 @@ export function DangerZone({
   userRole: "owner" | "admin" | "member";
   onMutated?: () => void;
 }) {
+  const t = useT();
   const [showModal, setShowModal] = useState(false);
   const { status, reload } = useDeletionStatus();
   const [cancelling, setCancelling] = useState(false);
@@ -103,9 +105,7 @@ export function DangerZone({
 
     async function onCancelClick() {
       if (
-        !confirm(
-          "Loeschung wirklich zuruecknehmen? Dein Studio wird wieder aktiv. Die Stripe-Subscription muss separat neu gestartet werden."
-        )
+        !confirm(t("dangerZone.cancelDeletionConfirm"))
       )
         return;
       setCancelling(true);
@@ -114,7 +114,7 @@ export function DangerZone({
         await reload();
         onMutated?.();
       } catch (err) {
-        alert(err instanceof Error ? err.message : "Fehler");
+        alert(err instanceof Error ? err.message : t("common.error"));
       } finally {
         setCancelling(false);
       }
@@ -166,7 +166,7 @@ export function DangerZone({
           disabled={cancelling}
           className="mt-2"
         >
-          {cancelling ? "Wird zurückgenommen…" : "Löschung zurücknehmen"}
+          {cancelling ? t("dangerZone.cancelling") : t("dangerZone.cancelDeletion")}
         </Button>
       </section>
     );
@@ -194,26 +194,18 @@ export function DangerZone({
             </svg>
           </span>
           <div className="space-y-3 min-w-0">
-            <h2 className="text-ui font-medium text-ink-primary">
-              Studio löschen
-            </h2>
+            <h2 className="text-ui font-medium text-ink-primary">{t("dangerZone.title")}</h2>
             <p className="text-ui-sm text-ink-secondary leading-relaxed">
-              Dies markiert dein Studio zur endgültigen Löschung. Du hast eine
-              60-tägige Karenzphase, in der du die Löschung jederzeit
-              zurücknehmen kannst. Nach Ablauf werden alle Bilder, Galerien
-              und Account-Daten unwiderruflich entfernt.
+              {t("dangerZone.description")}
             </p>
             <p className="text-ui-sm text-ink-tertiary leading-relaxed">
-              Deine Stripe-Subscription wird sofort gekündigt — keine weitere
-              Abrechnung.
+              {t("dangerZone.stripeNote")}
             </p>
             <Button
               variant="danger"
               onClick={() => setShowModal(true)}
               className="mt-1"
-            >
-              Studio löschen…
-            </Button>
+            >{t("dangerZone.deleteButton")}</Button>
           </div>
         </div>
       </section>
@@ -242,6 +234,7 @@ function DeletionModal({
   onClose: () => void;
   onDone: () => void;
 }) {
+  const t = useT();
   const [password, setPassword] = useState("");
   const [confirmName, setConfirmName] = useState("");
   const [pending, setPending] = useState(false);
@@ -272,14 +265,14 @@ function DeletionModal({
       });
       onDone();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Fehler";
+      const msg = err instanceof Error ? err.message : t("common.error");
       // Backend-Fehler in lesbare Strings uebersetzen
       if (msg.includes("password_wrong")) {
         setError("Passwort ist nicht korrekt.");
       } else if (msg.includes("studio_name_mismatch")) {
         setError("Der eingegebene Studio-Name stimmt nicht.");
       } else if (msg.includes("owner_required")) {
-        setError("Nur der Studio-Owner kann das Studio löschen.");
+        setError(t("dangerZone.onlyOwner"));
       } else {
         setError(msg);
       }
@@ -300,20 +293,15 @@ function DeletionModal({
       >
         <div>
           <h2 className="text-lg font-semibold text-ink-primary">
-            Studio „{studioName}" löschen
+            {t("dangerZone.modalTitle", { name: studioName })}
           </h2>
           <p className="text-ui-sm text-ink-secondary mt-2 leading-relaxed">
-            Bitte bestätige mit deinem Passwort und durch erneutes Eintippen
-            des Studio-Namens. Die Löschung wird mit 60-tägiger Karenzphase
-            geplant — du kannst sie jederzeit zurücknehmen, bis der Stichtag
-            erreicht ist.
+            {t("dangerZone.modalDesc")}
           </p>
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="del-password" className="text-ui-sm font-medium">
-            Aktuelles Passwort
-          </label>
+          <label htmlFor="del-password" className="text-ui-sm font-medium">{t("dangerZone.password")}</label>
           <input
             id="del-password"
             type="password"
@@ -326,9 +314,7 @@ function DeletionModal({
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="del-name" className="text-ui-sm font-medium">
-            Studio-Name zur Bestätigung
-          </label>
+          <label htmlFor="del-name" className="text-ui-sm font-medium">{t("dangerZone.confirmNameLabel")}</label>
           <input
             id="del-name"
             required
@@ -338,7 +324,7 @@ function DeletionModal({
             className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm font-mono"
           />
           <p className="text-xs text-ink-tertiary">
-            Tippe „{studioName}" exakt ein.
+            {t("dangerZone.typeExact", { name: studioName })}
           </p>
         </div>
 
@@ -349,15 +335,13 @@ function DeletionModal({
         )}
 
         <div className="flex justify-end gap-2 pt-2 border-t border-line-subtle">
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Abbrechen
-          </Button>
+          <Button type="button" variant="ghost" onClick={onClose}>{t("common.cancel")}</Button>
           <Button type="submit" variant="danger" disabled={!canSubmit}>
             {pending
-              ? "Wird angelegt…"
+              ? t("dangerZone.requesting")
               : secondsLeft > 0
-                ? `In ${secondsLeft}s freischaltbar`
-                : "Endgültig löschen anfordern"}
+                ? t("dangerZone.unlockIn", { seconds: secondsLeft })
+                : t("dangerZone.requestDeletion")}
           </Button>
         </div>
       </form>
@@ -376,6 +360,7 @@ export function PendingDeletionBanner({
   status: DeletionStatus | null;
   onCancelled?: () => void;
 }) {
+  const t = useT();
   const [pending, setPending] = useState(false);
 
   if (!status?.isPendingDeletion || !status.scheduledFor) return null;
@@ -392,7 +377,7 @@ export function PendingDeletionBanner({
       await api.cancelStudioDeletion();
       onCancelled?.();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Fehler beim Zuruecknehmen");
+      alert(err instanceof Error ? err.message : t("dangerZone.errorCancel"));
     } finally {
       setPending(false);
     }
@@ -402,28 +387,24 @@ export function PendingDeletionBanner({
     <div className="bg-semantic-danger/10 border-b border-semantic-danger/25 px-4 py-3">
       <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
         <div className="text-ui-sm text-semantic-danger">
-          <strong>Dein Studio wird gelöscht.</strong>{" "}
-          {daysLeft > 0 ? (
-            <>
-              Endgültige Löschung in {daysLeft}{" "}
-              {daysLeft === 1 ? "Tag" : "Tagen"} (
-              {scheduledDate.toLocaleDateString("de-DE", {
-                day: "2-digit",
-                month: "long",
-                year: "numeric",
-              })}
-              ).
-            </>
-          ) : (
-            <>Endgültige Löschung wird gerade ausgeführt.</>
-          )}
+          <strong>{t("dangerZone.bannerTitle")}</strong>{" "}
+          {daysLeft > 0
+            ? daysLeft === 1
+              ? t("dangerZone.bannerDaysOne", {
+                  date: scheduledDate.toLocaleDateString("de-DE", { day: "2-digit", month: "long", year: "numeric" }),
+                })
+              : t("dangerZone.bannerDaysMany", {
+                  days: daysLeft,
+                  date: scheduledDate.toLocaleDateString("de-DE", { day: "2-digit", month: "long", year: "numeric" }),
+                })
+            : t("dangerZone.bannerExecuting")}
         </div>
         <button
           onClick={onCancelClick}
           disabled={pending || daysLeft === 0}
           className="text-ui-sm font-medium text-semantic-danger underline hover:opacity-80 disabled:opacity-50"
         >
-          {pending ? "Wird zurückgenommen…" : "Löschung zurücknehmen"}
+          {pending ? t("dangerZone.cancelling") : t("dangerZone.cancelDeletion")}
         </button>
       </div>
     </div>

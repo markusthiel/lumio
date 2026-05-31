@@ -24,6 +24,7 @@ import Link from "next/link";
 
 import { api } from "@/lib/api";
 import { Button, Input } from "@/components/ui";
+import { useT } from "@/lib/i18n";
 
 type State =
   | { kind: "loading" }
@@ -51,6 +52,7 @@ export default function ResetPasswordPage() {
 }
 
 function ResetPasswordInner() {
+  const t = useT();
   const params = useSearchParams();
   const token = params.get("token") ?? "";
 
@@ -62,7 +64,7 @@ function ResetPasswordInner() {
 
   useEffect(() => {
     if (!token) {
-      setState({ kind: "invalid", reason: "Kein Token im Link." });
+      setState({ kind: "invalid", reason: t("resetPw.noToken") });
       return;
     }
     let cancelled = false;
@@ -78,7 +80,7 @@ function ResetPasswordInner() {
         });
       } catch (err) {
         if (cancelled) return;
-        const msg = err instanceof Error ? err.message : "Token ungültig";
+        const msg = err instanceof Error ? err.message : t("resetPw.invalidToken");
         setState({ kind: "invalid", reason: msg });
       }
     })();
@@ -91,11 +93,11 @@ function ResetPasswordInner() {
     e.preventDefault();
     setSubmitError(null);
     if (password.length < 12) {
-      setSubmitError("Passwort muss mindestens 12 Zeichen lang sein.");
+      setSubmitError(t("resetPw.minLength"));
       return;
     }
     if (password !== confirm) {
-      setSubmitError("Die beiden Passwörter stimmen nicht überein.");
+      setSubmitError(t("resetPw.mismatch"));
       return;
     }
     setPending(true);
@@ -104,7 +106,7 @@ function ResetPasswordInner() {
       setState({ kind: "done" });
     } catch (err) {
       setSubmitError(
-        err instanceof Error ? err.message : "Reset fehlgeschlagen"
+        err instanceof Error ? err.message : t("resetPw.failed")
       );
     } finally {
       setPending(false);
@@ -129,30 +131,20 @@ function ResetPasswordInner() {
         </div>
 
         {state.kind === "loading" && (
-          <div className="text-center text-ui-sm text-ink-tertiary">
-            Token wird geprüft…
-          </div>
+          <div className="text-center text-ui-sm text-ink-tertiary">{t("resetPw.checkingToken")}</div>
         )}
 
         {state.kind === "invalid" && (
           <div className="bg-surface-raised border border-line-subtle rounded-md p-7 shadow-elev-2 space-y-4">
-            <h1 className="text-display-sm text-ink-primary font-medium">
-              Link ungültig oder abgelaufen
-            </h1>
+            <h1 className="text-display-sm text-ink-primary font-medium">{t("resetPw.invalidTitle")}</h1>
             <p className="text-ui-sm text-ink-secondary leading-relaxed">
-              Der Reset-Link funktioniert nicht mehr. Vielleicht ist er
-              abgelaufen (Links sind 24 Stunden gültig) oder wurde bereits
-              eingelöst.
+              {t("resetPw.invalidDesc")}
             </p>
-            <p className="text-ui-sm text-ink-tertiary">
-              Fordere einen neuen Link an:
-            </p>
+            <p className="text-ui-sm text-ink-tertiary">{t("resetPw.requestNewIntro")}</p>
             <Link
               href="/auth/forgot-password"
               className="inline-block text-ui-sm text-accent hover:underline"
-            >
-              Neuen Reset-Link anfordern
-            </Link>
+            >{t("resetPw.requestNewLink")}</Link>
           </div>
         )}
 
@@ -162,15 +154,9 @@ function ResetPasswordInner() {
             className="space-y-5 bg-surface-raised border border-line-subtle rounded-md p-7 shadow-elev-2"
           >
             <header className="space-y-1.5">
-              <h1 className="text-display-sm text-ink-primary font-medium">
-                Neues Passwort setzen
-              </h1>
+              <h1 className="text-display-sm text-ink-primary font-medium">{t("resetPw.setNewTitle")}</h1>
               <p className="text-ui-sm text-ink-tertiary">
-                Für{" "}
-                <span className="font-medium text-ink-secondary">
-                  {state.email}
-                </span>{" "}
-                im Studio {state.tenantName}.
+                {t("resetPw.forStudio", { email: state.email, tenant: state.tenantName })}
               </p>
             </header>
 
@@ -178,9 +164,7 @@ function ResetPasswordInner() {
               <label
                 htmlFor="password"
                 className="text-ui-sm font-medium text-ink-primary block"
-              >
-                Neues Passwort
-              </label>
+              >{t("resetPw.newPassword")}</label>
               <Input
                 id="password"
                 type="password"
@@ -189,7 +173,7 @@ function ResetPasswordInner() {
                 minLength={12}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Mindestens 12 Zeichen"
+                placeholder={t("resetPw.minPlaceholder")}
               />
             </div>
 
@@ -197,9 +181,7 @@ function ResetPasswordInner() {
               <label
                 htmlFor="confirm"
                 className="text-ui-sm font-medium text-ink-primary block"
-              >
-                Passwort bestätigen
-              </label>
+              >{t("resetPw.confirmPassword")}</label>
               <Input
                 id="confirm"
                 type="password"
@@ -226,26 +208,21 @@ function ResetPasswordInner() {
               disabled={pending || !password || !confirm}
               className="w-full"
             >
-              {pending ? "Wird gesetzt…" : "Passwort setzen"}
+              {pending ? t("resetPw.setting") : t("resetPw.setPassword")}
             </Button>
           </form>
         )}
 
         {state.kind === "done" && (
           <div className="bg-surface-raised border border-line-subtle rounded-md p-7 shadow-elev-2 space-y-4">
-            <h1 className="text-display-sm text-ink-primary font-medium">
-              Passwort gesetzt
-            </h1>
+            <h1 className="text-display-sm text-ink-primary font-medium">{t("resetPw.doneTitle")}</h1>
             <p className="text-ui-sm text-ink-secondary leading-relaxed">
-              Dein neues Passwort ist aktiv. Alle bestehenden Sitzungen
-              wurden beendet — bitte logge dich neu ein.
+              {t("resetPw.doneDesc")}
             </p>
             <Link
               href="/login"
               className="inline-block text-ui-sm text-accent hover:underline"
-            >
-              Zum Login
-            </Link>
+            >{t("resetPw.toLogin")}</Link>
           </div>
         )}
       </div>
