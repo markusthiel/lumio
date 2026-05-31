@@ -12,6 +12,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 
 import { api } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { Button } from "@/components/ui";
 
@@ -38,14 +39,8 @@ interface ExportData {
   items: ExportItem[];
 }
 
-const STATUS_LABEL: Record<string, string> = {
-  pending: "Wartet",
-  building: "Wird erstellt",
-  ready: "Fertig",
-  failed: "Fehlgeschlagen",
-};
-
 export default function ExportDetailPage() {
+  const t = useT();
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const id = params.id;
@@ -60,7 +55,7 @@ export default function ExportDetailPage() {
       const res = await api.getExport(id);
       setData(res.export);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler beim Laden");
+      setError(err instanceof Error ? err.message : t("exportDetail.errorLoad"));
     } finally {
       setLoading(false);
     }
@@ -89,7 +84,7 @@ export default function ExportDetailPage() {
       await api.deleteExport(id);
       router.push("/studio/exports");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Fehler beim Löschen");
+      setError(err instanceof Error ? err.message : t("exportDetail.errorDelete"));
       setDeleting(false);
       setConfirmDelete(false);
     }
@@ -97,23 +92,19 @@ export default function ExportDetailPage() {
 
   if (loading) {
     return (
-      <div className="max-w-4xl mx-auto py-8 px-6 text-ui-sm text-ink-tertiary">
-        Wird geladen…
-      </div>
+      <div className="max-w-4xl mx-auto py-8 px-6 text-ui-sm text-ink-tertiary">{t("exportDetail.loading")}</div>
     );
   }
   if (error || !data) {
     return (
       <div className="max-w-4xl mx-auto py-8 px-6">
         <div className="text-ui text-semantic-danger mb-4">
-          {error ?? "Export nicht gefunden"}
+          {error ?? t("exportDetail.notFound")}
         </div>
         <Link
           href="/studio/exports"
           className="text-ui-sm text-accent hover:text-accent-hover"
-        >
-          ← Zurück zur Übersicht
-        </Link>
+        >{t("exportDetail.backToOverview")}</Link>
       </div>
     );
   }
@@ -129,25 +120,23 @@ export default function ExportDetailPage() {
       <Link
         href="/studio/exports"
         className="text-ui-xs text-ink-tertiary hover:text-ink-secondary mb-3 inline-block"
-      >
-        ← Datenexport
-      </Link>
+      >{t("exportDetail.backLink")}</Link>
       <PageHeader
-        title="Export-Details"
-        description={`Erstellt am ${new Date(data.createdAt).toLocaleString("de-DE")} · läuft ab am ${new Date(data.expiresAt).toLocaleDateString("de-DE")}`}
+        title={t("exportDetail.title")}
+        description={t("exportDetail.createdExpires", { created: new Date(data.createdAt).toLocaleString("de-DE"), expires: new Date(data.expiresAt).toLocaleDateString("de-DE") })}
       />
 
       <div className="mb-5 flex items-center justify-between gap-3">
         <div className="text-ui-sm text-ink-secondary">
-          {readyCount} / {data.items.length} fertig
+          {readyCount} / {data.items.length} {t("exportDetail.ready")}
           {failedCount > 0 && (
             <span className="text-semantic-danger ml-2">
-              · {failedCount} fehlgeschlagen
+              {t("exportDetail.failedCount", { n: failedCount })}
             </span>
           )}
           {activeCount > 0 && (
             <span className="text-ink-tertiary ml-2">
-              · {activeCount} in Arbeit
+              {t("exportDetail.activeCount", { n: activeCount })}
             </span>
           )}
         </div>
@@ -156,9 +145,7 @@ export default function ExportDetailPage() {
           size="sm"
           onClick={() => setConfirmDelete(true)}
           disabled={deleting}
-        >
-          Export löschen
-        </Button>
+        >{t("exportDetail.deleteExport")}</Button>
       </div>
 
       <section className="rounded-md border border-line-subtle bg-surface-raised divide-y divide-line-subtle">
@@ -176,13 +163,9 @@ export default function ExportDetailPage() {
             className="bg-surface-base rounded-lg border border-line-subtle shadow-2xl max-w-md w-full p-6"
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-lg font-medium text-ink-primary">
-              Export löschen?
-            </h2>
+            <h2 className="text-lg font-medium text-ink-primary">{t("exportDetail.deleteTitle")}</h2>
             <p className="text-ui-sm text-ink-secondary mt-2">
-              Alle Download-Links werden ungültig. Die ZIP-Dateien werden bei
-              der nächsten Cleanup-Runde aus dem Storage entfernt. Diese
-              Aktion lässt sich nicht rückgängig machen.
+              {t("exportDetail.deleteDesc")}
             </p>
             <div className="flex gap-2 justify-end mt-5">
               <Button
@@ -190,16 +173,14 @@ export default function ExportDetailPage() {
                 size="sm"
                 onClick={() => setConfirmDelete(false)}
                 disabled={deleting}
-              >
-                Abbrechen
-              </Button>
+              >{t("common.cancel")}</Button>
               <Button
                 variant="danger"
                 size="sm"
                 onClick={performDelete}
                 disabled={deleting}
               >
-                {deleting ? "Lösche…" : "Löschen"}
+                {deleting ? t("exportDetail.deleting") : t("common.delete")}
               </Button>
             </div>
           </div>
@@ -210,6 +191,7 @@ export default function ExportDetailPage() {
 }
 
 function ItemRow({ item }: { item: ExportItem }) {
+  const t = useT();
   return (
     <div className="flex items-center gap-4 px-4 py-3">
       <div className="min-w-0 flex-1">
@@ -218,10 +200,10 @@ function ItemRow({ item }: { item: ExportItem }) {
         </div>
         <div className="text-ui-xs text-ink-tertiary mt-0.5">
           {item.status === "ready" && item.fileCount !== null
-            ? `${item.fileCount} Dateien · ${formatBytes(item.sizeBytes ?? 0)}`
+            ? t("exportDetail.itemFiles", { n: item.fileCount, size: formatBytes(item.sizeBytes ?? 0) })
             : item.status === "failed"
-            ? `Fehler: ${item.errorMessage ?? "unbekannt"}`
-            : STATUS_LABEL[item.status]}
+            ? t("exportDetail.itemError", { msg: item.errorMessage ?? t("exportDetail.unknown") })
+            : t(`exportDetail.status_${item.status}`)}
         </div>
       </div>
       <div>
@@ -230,16 +212,12 @@ function ItemRow({ item }: { item: ExportItem }) {
             href={item.downloadUrl}
             className="inline-flex items-center h-8 px-3 rounded text-ui-sm bg-accent text-accent-contrast hover:bg-accent-hover transition-colors duration-motion"
             download={`${item.gallerySlug}.zip`}
-          >
-            Herunterladen
-          </a>
+          >{t("exportDetail.download")}</a>
         ) : item.status === "failed" ? (
-          <span className="text-ui-xs text-semantic-danger">
-            fehlgeschlagen
-          </span>
+          <span className="text-ui-xs text-semantic-danger">{t("exportDetail.failedShort")}</span>
         ) : (
           <span className="text-ui-xs text-ink-tertiary">
-            {STATUS_LABEL[item.status]}…
+            {t(`exportDetail.status_${item.status}`)}…
           </span>
         )}
       </div>
