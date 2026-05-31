@@ -21,6 +21,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
 import { api } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 interface PublicExportItem {
   id: string;
@@ -44,13 +45,14 @@ interface PublicExportData {
 }
 
 const STATUS_LABEL: Record<string, string> = {
-  pending: "Wartet",
-  building: "Wird erstellt",
-  ready: "Fertig",
-  failed: "Fehlgeschlagen",
+  pending: "exportPage.statusPending",
+  building: "exportPage.statusBuilding",
+  ready: "exportPage.statusReady",
+  failed: "exportPage.statusFailed",
 };
 
 export default function PublicExportPage() {
+  const t = useT();
   const params = useParams<{ token: string }>();
   const token = params.token;
   const [data, setData] = useState<PublicExportData | null>(null);
@@ -66,7 +68,7 @@ export default function PublicExportPage() {
       setData(res);
       setError(null);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Fehler";
+      const msg = err instanceof Error ? err.message : t("common.error");
       // Backend-Fehler: 404 = not_found, 410 = expired
       const code: "expired" | "not_found" | "generic" = msg.includes("expired")
         ? "expired"
@@ -109,16 +111,16 @@ export default function PublicExportPage() {
         <div className="max-w-md text-center space-y-3">
           <h1 className="text-2xl font-semibold text-ink-primary">
             {error.code === "expired"
-              ? "Download-Link ist abgelaufen"
+              ? t("exportPage.titleExpired")
               : error.code === "not_found"
-              ? "Download-Link ungültig"
-              : "Fehler"}
+              ? t("exportPage.titleInvalid")
+              : t("common.error")}
           </h1>
           <p className="text-ui-sm text-ink-secondary">
             {error.code === "expired"
-              ? "Dieser Datenexport ist 30 Tage nach Erstellung abgelaufen. Falls Sie weiterhin Zugriff benötigen, kontaktieren Sie bitte den Support."
+              ? t("exportPage.bodyExpired")
               : error.code === "not_found"
-              ? "Der Link konnte nicht gefunden werden. Möglicherweise ist er nicht korrekt kopiert."
+              ? t("exportPage.bodyInvalid")
               : error.message}
           </p>
         </div>
@@ -139,7 +141,7 @@ export default function PublicExportPage() {
     <div className="min-h-screen bg-surface-base">
       <div className="max-w-2xl mx-auto px-6 py-12">
         <h1 className="text-3xl font-semibold text-ink-primary">
-          Ihr Datenexport
+          {t("exportPage.heading")}
         </h1>
         <div className="text-ui-md text-ink-secondary mt-1">
           {data.tenant.name}
@@ -147,40 +149,34 @@ export default function PublicExportPage() {
 
         <div className="mt-6 rounded-md bg-surface-raised border border-line-subtle p-4 space-y-2">
           <p className="text-ui-sm text-ink-secondary">
-            Dies sind Ihre Lumio-Daten als ZIP-Archive — eine Datei pro
-            Galerie. Jedes ZIP enthält:
+            {t("exportPage.intro")}
           </p>
           <ul className="list-disc pl-5 text-ui-sm text-ink-secondary space-y-0.5">
             <li>
-              Verzeichnis <span className="font-mono">originals/</span> mit
-              allen Originaldateien
+              {t("exportPage.liOriginalsPre")} <span className="font-mono">originals/</span> {t("exportPage.liOriginalsPost")}
             </li>
             <li>
-              <span className="font-mono">metadata.json</span> mit Tags,
-              Kunden-Auswahl und Kommentaren
+              <span className="font-mono">metadata.json</span> {t("exportPage.liMetadataPost")}
             </li>
             <li>
-              <span className="font-mono">README.txt</span> mit Hinweisen zum
-              Inhalt
+              <span className="font-mono">README.txt</span> {t("exportPage.liReadmePost")}
             </li>
           </ul>
           <p className="text-ui-xs text-ink-tertiary pt-2">
-            Verfügbar bis{" "}
-            {new Date(data.export.expiresAt).toLocaleDateString("de-DE")}.
-            Nach diesem Datum werden die Dateien automatisch gelöscht.
+            {t("exportPage.availableUntil", { date: new Date(data.export.expiresAt).toLocaleDateString("de-DE") })}
           </p>
         </div>
 
         <div className="mt-6 mb-3 text-ui-sm text-ink-secondary">
-          {readyCount} / {data.export.items.length} fertig
+          {t("exportPage.readyProgress", { ready: readyCount, total: data.export.items.length })}
           {failedCount > 0 && (
             <span className="text-semantic-danger ml-2">
-              · {failedCount} fehlgeschlagen
+              {t("exportPage.failedSuffix", { n: failedCount })}
             </span>
           )}
           {activeCount > 0 && (
             <span className="text-ink-tertiary ml-2">
-              · {activeCount} werden noch erstellt
+              {t("exportPage.activeSuffix", { n: activeCount })}
             </span>
           )}
         </div>
@@ -192,8 +188,7 @@ export default function PublicExportPage() {
         </section>
 
         <p className="text-ui-xs text-ink-tertiary text-center mt-8">
-          Lumio · Datenexport gemäß DSGVO Art. 20 (Recht auf
-          Datenübertragbarkeit)
+          {t("exportPage.footer")}
         </p>
       </div>
     </div>
@@ -207,6 +202,7 @@ function ItemRow({
   item: PublicExportItem;
   token: string;
 }) {
+  const t = useT();
   const downloadHref = api.getPublicExportItemDownloadUrl(token, item.id);
   return (
     <div className="flex items-center gap-4 px-4 py-3">
@@ -216,10 +212,10 @@ function ItemRow({
         </div>
         <div className="text-ui-xs text-ink-tertiary mt-0.5">
           {item.status === "ready" && item.fileCount !== null
-            ? `${item.fileCount} Dateien · ${formatBytes(item.sizeBytes ?? 0)}`
+            ? t("exportPage.itemReady", { n: item.fileCount, size: formatBytes(item.sizeBytes ?? 0) })
             : item.status === "failed"
-            ? `Fehler: ${item.errorMessage ?? "unbekannt"}`
-            : STATUS_LABEL[item.status]}
+            ? t("exportPage.itemError", { msg: item.errorMessage ?? t("exportPage.unknown") })
+            : t(STATUS_LABEL[item.status])}
         </div>
       </div>
       <div>
@@ -229,15 +225,15 @@ function ItemRow({
             className="inline-flex items-center h-8 px-3 rounded text-ui-sm bg-accent text-accent-contrast hover:bg-accent-hover transition-colors duration-motion"
             download={`${item.gallerySlug}.zip`}
           >
-            Herunterladen
+            {t("exportPage.download")}
           </a>
         ) : item.status === "failed" ? (
           <span className="text-ui-xs text-semantic-danger">
-            fehlgeschlagen
+            {t("exportPage.failedShort")}
           </span>
         ) : (
           <span className="text-ui-xs text-ink-tertiary">
-            {STATUS_LABEL[item.status]}…
+            {t(STATUS_LABEL[item.status])}…
           </span>
         )}
       </div>
