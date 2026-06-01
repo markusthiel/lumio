@@ -18,8 +18,10 @@ import Link from "next/link";
 
 import { api } from "@/lib/api";
 import { Button, Input } from "@/components/ui";
+import { useT } from "@/lib/i18n";
 
 export default function ForgotPasswordPage() {
+  const t = useT();
   const [email, setEmail] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [pending, setPending] = useState(false);
@@ -38,7 +40,7 @@ export default function ForgotPasswordPage() {
       setError(
         err instanceof Error
           ? err.message
-          : "Es ist ein Fehler aufgetreten."
+          : t("forgotPassword.error")
       );
     } finally {
       setPending(false);
@@ -65,24 +67,20 @@ export default function ForgotPasswordPage() {
         {submitted ? (
           <div className="bg-surface-raised border border-line-subtle rounded-md p-7 shadow-elev-2 space-y-4">
             <h1 className="text-display-sm text-ink-primary font-medium">
-              Mail unterwegs
+              {t("forgotPassword.sentTitle")}
             </h1>
             <p className="text-ui-sm text-ink-secondary leading-relaxed">
-              Falls ein Konto mit dieser E-Mail-Adresse existiert, haben wir
-              dir gerade einen Reset-Link geschickt. Schau in deinen
-              Posteingang (und ggf. in den Spam-Ordner). Der Link ist 24
-              Stunden gültig.
+              {t("forgotPassword.sentBody")}
             </p>
             <p className="text-ui-sm text-ink-tertiary leading-relaxed">
-              Keine Mail bekommen? Möglicherweise ist die Adresse nicht in
-              diesem Studio registriert. Wende dich an den Studio-Owner.
+              {t("forgotPassword.sentHint")}
             </p>
             <div className="pt-2">
               <Link
                 href="/login"
                 className="text-ui-sm text-accent hover:underline"
               >
-                ← Zurück zum Login
+                {t("forgotPassword.backToLogin")}
               </Link>
             </div>
           </div>
@@ -93,11 +91,10 @@ export default function ForgotPasswordPage() {
           >
             <header className="space-y-1.5">
               <h1 className="text-display-sm text-ink-primary font-medium">
-                Passwort vergessen?
+                {t("forgotPassword.title")}
               </h1>
               <p className="text-ui-sm text-ink-tertiary">
-                Gib deine E-Mail-Adresse ein. Wir schicken dir einen Link
-                zum Zurücksetzen.
+                {t("forgotPassword.subtitle")}
               </p>
             </header>
 
@@ -106,7 +103,7 @@ export default function ForgotPasswordPage() {
                 htmlFor="email"
                 className="text-ui-sm font-medium text-ink-primary block"
               >
-                E-Mail-Adresse
+                {t("forgotPassword.emailLabel")}
               </label>
               <Input
                 id="email"
@@ -134,7 +131,7 @@ export default function ForgotPasswordPage() {
               disabled={pending || !email.trim()}
               className="w-full"
             >
-              {pending ? "Wird gesendet…" : "Reset-Link senden"}
+              {pending ? t("forgotPassword.sending") : t("forgotPassword.submit")}
             </Button>
 
             <div className="text-center pt-1">
@@ -142,7 +139,7 @@ export default function ForgotPasswordPage() {
                 href="/login"
                 className="text-ui-xs text-ink-tertiary hover:text-ink-primary"
               >
-                ← Zurück zum Login
+                {t("forgotPassword.backToLogin")}
               </Link>
             </div>
           </form>

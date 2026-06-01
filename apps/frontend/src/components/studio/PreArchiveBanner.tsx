@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 /**
  * Pre-Archive-Banner — zeigt sich am oberen Rand der Studio-Main-Area,
@@ -19,6 +20,7 @@ import { api } from "@/lib/api";
  * Banner-Status stabil — kein Polling nötig.
  */
 export function PreArchiveBanner() {
+  const t = useT();
   const [scheduledAt, setScheduledAt] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -54,10 +56,10 @@ export function PreArchiveBanner() {
     : "bg-accent/10 border-accent/30 text-accent";
 
   const headline = reached
-    ? "Archivierung steht unmittelbar bevor"
+    ? t("preArchive.imminent")
     : urgent
-    ? `Konto wird in ${daysLeft} Tag${daysLeft === 1 ? "" : "en"} archiviert`
-    : `Konto wird am ${scheduledAt.toLocaleDateString("de-DE")} archiviert (in ${daysLeft} Tagen)`;
+    ? t(daysLeft === 1 ? "preArchive.inDaysSg" : "preArchive.inDaysPl", { n: daysLeft })
+    : t("preArchive.onDate", { date: scheduledAt.toLocaleDateString("de-DE"), n: daysLeft });
 
   return (
     <div className={`border-b px-6 py-3 ${cls}`}>
@@ -65,16 +67,14 @@ export function PreArchiveBanner() {
         <div className="text-ui-sm min-w-0 flex-1">
           <div className="font-medium">{headline}</div>
           <div className="text-ui-xs opacity-80 mt-0.5">
-            Nach der Archivierung kannst du dich nicht mehr einloggen. Bitte
-            exportiere jetzt deine Daten — pro Galerie wird ein ZIP-Archiv mit
-            Originaldateien und Metadaten erstellt.
+            {t("preArchive.body")}
           </div>
         </div>
         <Link
           href="/studio/exports"
           className="inline-flex items-center h-8 px-3 rounded text-ui-sm bg-current text-surface-base hover:opacity-90 transition-opacity duration-motion"
         >
-          Zum Datenexport
+          {t("preArchive.toExport")}
         </Link>
       </div>
     </div>

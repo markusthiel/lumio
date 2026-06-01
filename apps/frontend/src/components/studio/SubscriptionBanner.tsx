@@ -22,8 +22,10 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { api, type BillingSubscriptionInfo } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 export function SubscriptionBanner() {
+  const t = useT();
   const [sub, setSub] = useState<BillingSubscriptionInfo | null>(null);
   const [busy, setBusy] = useState(false);
   const [dismissed, setDismissed] = useState(false);
@@ -80,16 +82,15 @@ export function SubscriptionBanner() {
       <div className="bg-semantic-danger/15 border-b border-semantic-danger/40 px-4 py-3">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-3 flex-wrap">
           <div className="text-ui-sm text-ink-primary">
-            <strong className="font-medium">Read-Only-Modus aktiv.</strong>{" "}
-            Du kannst nichts mehr ändern. In {daysToSuspension} Tagen werden
-            die Galerien archiviert. Plan abonnieren, um wieder freizuschalten.
+            <strong className="font-medium">{t("subBanner.readonlyTitle")}</strong>{" "}
+            {t("subBanner.readonlyBody", { n: daysToSuspension })}
           </div>
           <button
             onClick={goToCheckout}
             disabled={busy}
             className="text-ui-sm px-3 h-8 rounded bg-semantic-danger text-surface-canvas font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
-            Plan abonnieren
+            {t("subBanner.subscribe")}
           </button>
         </div>
       </div>
@@ -102,16 +103,15 @@ export function SubscriptionBanner() {
       <div className="bg-semantic-warning/15 border-b border-semantic-warning/40 px-4 py-3">
         <div className="max-w-5xl mx-auto flex items-center justify-between gap-3 flex-wrap">
           <div className="text-ui-sm text-ink-primary">
-            <strong className="font-medium">Zahlung gescheitert.</strong>{" "}
-            Bitte aktualisiere deine Karte im Stripe-Portal, sonst geht der
-            Account in den Read-only-Modus.
+            <strong className="font-medium">{t("subBanner.pastDueTitle")}</strong>{" "}
+            {t("subBanner.pastDueBody")}
           </div>
           <button
             onClick={goToPortal}
             disabled={busy}
             className="text-ui-sm px-3 h-8 rounded bg-semantic-warning text-surface-canvas font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
           >
-            Karte verwalten
+            {t("subBanner.manageCard")}
           </button>
         </div>
       </div>
@@ -148,20 +148,19 @@ export function SubscriptionBanner() {
           <div className="text-ui-sm">
             {sub.trialDaysRemaining === 0 ? (
               <>
-                <strong className="font-medium">Trial endet heute.</strong>{" "}
+                <strong className="font-medium">{t("subBanner.trialTodayTitle")}</strong>{" "}
                 {hasCard
-                  ? "Deine Karte wird morgen belastet."
-                  : "Hinterlege eine Karte, sonst geht der Account morgen in Read-only."}
+                  ? t("subBanner.trialTodayCard")
+                  : t("subBanner.trialTodayNoCard")}
               </>
             ) : (
               <>
                 <strong className="font-medium">
-                  Trial endet in {sub.trialDaysRemaining}{" "}
-                  {sub.trialDaysRemaining === 1 ? "Tag" : "Tagen"}.
+                  {t(sub.trialDaysRemaining === 1 ? "subBanner.trialDaysSg" : "subBanner.trialDaysPl", { n: sub.trialDaysRemaining })}
                 </strong>{" "}
                 {hasCard
-                  ? `Erste Abrechnung am ${new Date(sub.trialEndsAt!).toLocaleDateString("de-DE")}.`
-                  : "Hinterlege jetzt eine Karte, damit dein Studio aktiv bleibt."}
+                  ? t("subBanner.trialFirstBill", { date: new Date(sub.trialEndsAt!).toLocaleDateString("de-DE") })
+                  : t("subBanner.trialNoCard")}
               </>
             )}
           </div>
@@ -172,14 +171,14 @@ export function SubscriptionBanner() {
                 disabled={busy}
                 className="text-ui-sm px-3 h-8 rounded bg-accent text-accent-contrast font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
               >
-                Karte hinterlegen
+                {t("subBanner.depositCard")}
               </button>
             )}
             {sub.trialDaysRemaining > 1 && (
               <button
                 onClick={() => setDismissed(true)}
                 className="text-ui-sm text-ink-tertiary hover:text-ink-secondary px-2"
-                aria-label="Hinweis ausblenden"
+                aria-label={t("subBanner.dismiss")}
               >
                 ×
               </button>

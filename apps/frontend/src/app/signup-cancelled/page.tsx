@@ -10,8 +10,10 @@
  */
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui";
+import { useT } from "@/lib/i18n";
 
 export default function SignupCancelledPage() {
+  const t = useT();
   const router = useRouter();
   return (
     <main className="min-h-screen bg-surface-canvas flex items-center justify-center p-6">
@@ -19,11 +21,10 @@ export default function SignupCancelledPage() {
         <div className="text-6xl">😌</div>
         <div>
           <h1 className="text-display-md text-ink-primary font-medium mb-2">
-            Kein Problem
+            {t("signupCancelled.title")}
           </h1>
           <p className="text-ui text-ink-secondary">
-            Dein Account ist trotzdem angelegt. Du hast 14 Tage Zeit, dich
-            zu entscheiden. Karte kannst du jederzeit nachreichen.
+            {t("signupCancelled.body")}
           </p>
         </div>
         <div className="flex flex-col gap-2">
@@ -32,14 +33,14 @@ export default function SignupCancelledPage() {
             onClick={() => router.push("/studio")}
             className="w-full"
           >
-            Trial-Zugang ins Studio
+            {t("signupCancelled.trialAccess")}
           </Button>
           <Button
             variant="ghost"
             onClick={() => router.push("/login")}
             className="w-full"
           >
-            Zum Login
+            {t("signupCancelled.toLogin")}
           </Button>
         </div>
       </div>
