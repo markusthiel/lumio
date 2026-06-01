@@ -1,10 +1,10 @@
 # Lumio — Roadmap
 
-Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
+Stand: Juni 2026. Lebendiges Dokument — Priorisierung kann sich verschieben. Der App-Kern ist gebaut und in Produktion; die SaaS-Variante läuft live unter lumio-cloud.de.
 
 ---
 
-## Phase 0 — Skeleton & Infrastruktur ✅ in Arbeit
+## Phase 0 — Skeleton & Infrastruktur ✅
 
 - [x] Monorepo-Struktur (apps/api, apps/frontend, apps/worker, packages/shared)
 - [x] Docker-Compose-Stack mit Postgres, Redis, MinIO, Caddy
@@ -15,6 +15,8 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 - [x] Konzept-Dokument
 - [x] CI-Pipeline (Forgejo Actions) — Lint, Build, Test
 - [x] Container-Images automatisch nach Container-Registry (Forgejo, mit `docker-compose.prod.yml`-Override und `LUMIO_TAG`-Pin)
+- [x] Wildcard-TLS für Tenant-Subdomains via acme-dns (Compose-Profil `wildcard`; siehe docs/WILDCARD.md)
+- [x] Horizontale Worker-Skalierung über mehrere Nodes (Hetzner Private Network, passwortgeschütztes Redis; siehe docs/SCALING.md)
 
 ---
 
@@ -99,13 +101,15 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 - [ ] Automatisches TLS für Custom Domains (aktuell: Caddy muss manuell konfiguriert sein)
 - [ ] DNS-Verifizierung (TXT-Record-Challenge)
 
-### Multi-Tenancy & Billing (Hosted Mode)
+### Multi-Tenancy & Billing (Hosted Mode) ✅
 
-- [ ] Billing-Plan-Editor (CLI + UI)
-- [ ] Stripe-Integration: Checkout, Webhooks, Customer Portal
-- [ ] Usage-Tracking-Cronjob (storage + bandwidth)
-- [ ] Limit-Enforcement bei Upload + Download
-- [ ] Self-Service-Tenant-Registrierung
+Vollständig gebaut — ausführliche Details in Phase 5.
+
+- [x] Plan-Definitionen (`services/plans.ts`) + Seed-Migration
+- [x] Stripe-Integration: Checkout, Webhooks, Customer Portal (`routes/billing.ts`)
+- [x] Usage-Tracking-Cronjob (`worker/tasks/billing.py`, Storage + Bandwidth)
+- [x] Limit-Enforcement bei Upload + Galerie/Custom-Domain/Branding
+- [x] Self-Service-Tenant-Registrierung (`routes/signup.ts`)
 
 ### Collaboration
 
@@ -134,9 +138,9 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 - [ ] Public API mit OAuth2
 - [x] Webhooks für Studio-Events (HMAC-SHA256-signiert, async-Delivery mit Exponential-Backoff-Retry, /studio/webhooks-UI mit Test-Button und Delivery-Log)
 - [x] Detaillierte Galerie-Statistiken (Aufrufe über 30 Tage, Pro-Access-Aufschlüsselung mit Visits/Likes/Kommentare/Finalized-Status, Top-Files nach Likes, Downloads nach Typ; `/studio/[id]/stats` mit SVG-Sparklines)
-- [ ] Optionales KI-Tagging (lokal über Ollama, opt-in)
+- [x] Optionales KI-Tagging — **CLIP** lokal auf dem Server (kein externer API-Call), opt-in über das ML-Worker-Image (`docker-compose.ml.yml`, CPU/GPU), Schwelle via `LUMIO_CLIP_THRESHOLD`; siehe docs/ML.md
 - [ ] E-Signatures für Modelverträge / Rechte-Freigaben
-- [ ] Online-Shop (Bilder verkaufen, Stripe)
+- [x] Print-Shop / Bilderverkauf — Produkte/Varianten/Versand/Anbieter, Crop, Warenkorb, Stripe-Checkout (Stripe Connect), Bestellbestätigung + Mail (`services/print/*`, `routes/print-shop-public.ts`)
 - [x] 2FA für Studio-Logins: TOTP (otplib + 8 Backup-Codes) + WebAuthn/Passkeys (@simplewebauthn, Touch-ID/Windows-Hello/Security-Keys, mehrere Credentials pro User)
 - [x] Audit-Log-Viewer im Studio (instrumented: login/logout, gallery CRUD, file delete/bulk, share create/delete/unlock, selection.finalize, branding CRUD; /studio/audit mit Galerie/Action/Zeit-Filter + Client-CSV-Export; Server-CSV-Export für große Logs steht noch aus)
 
@@ -167,8 +171,8 @@ Stand: Mai 2026. Lebendiges Dokument — Priorisierung kann sich verschieben.
 
 **Ziel:** Lumio als Managed Service unter `lumio-cloud.de` mit Self-
 Service-Sign-Up und automatischer Abrechnung. Der App-Kern bleibt
-weiter Open-Source und self-hostbar — diese Phase betrifft nur den
-Hosted-Service-Layer obendrauf.
+weiter source-available (FSL) und self-hostbar — diese Phase betrifft nur den
+Hosted-Service-Layer obendrauf. **Status: live unter lumio-cloud.de.**
 
 ### Plan-Modell & Limits ✅ (Commit `e15c5bc`)
 
@@ -200,76 +204,55 @@ Hosted-Service-Layer obendrauf.
 - [x] MULTI_TENANT.md: App-Referenzen auf studio.lumio-cloud.de,
       Tenant-Subdomains bleiben bewusst auf `*.lumio-cloud.de`
       (DNS-Wildcard ist getrennt von Marketing-Site-Root)
-- [ ] DNS: A-Record `studio.lumio-cloud.de` → Server-IP setzen
-- [ ] Externer Reverse-Proxy: `studio.lumio-cloud.de` → App-Container
-- [ ] Tenant-Subdomain-Frage (`<slug>.lumio-cloud.de` vs.
-      `<slug>.studio.lumio-cloud.de`) bewusst aufgeschoben — kommt
-      mit echtem Multi-Tenant-Setup
+- [x] DNS: `studio.lumio-cloud.de` zeigt auf den App-Server
+- [x] Caddy serviert App-Domain + Wildcard `*.lumio-cloud.de`
+- [x] Tenant-Subdomain-Frage entschieden: `<slug>.lumio-cloud.de`
+      via acme-dns-Wildcard
 
-### Stripe-Integration (Sprint 2 — offen)
+### Stripe-Integration ✅
 
-- [ ] Stripe-Konto + Produkte/Prices anlegen, IDs in
-      `billing_plans` nachtragen
-- [ ] `POST /billing/subscription` — Stripe Checkout Session
-      erstellen mit Trial 14 Tage + Karte
-- [ ] `POST /billing/portal` — Customer-Portal-Link für Karten-
-      Update, Plan-Wechsel, Kündigung
-- [ ] `POST /billing/webhook` — Stripe-Webhooks signature-verified:
-      - `checkout.session.completed` → Tenant aktivieren
-      - `customer.subscription.updated` → Plan-Wechsel reflektieren
-      - `customer.subscription.deleted` → Auf canceled setzen
-      - `invoice.payment_succeeded` → past_due → active
-      - `invoice.payment_failed` → past_due-State + Karenz-Counter
-- [ ] Storage-Pack als Add-on-Subscription-Item (+50 GB für +€9/Mo)
-- [ ] Zahlungsmethoden: Karte, SEPA, Sofort, Klarna (Stripe macht das)
-- [ ] Mail-Templates: Trial-Bestätigung, Trial-Ende-Reminder,
-      Zahlung-fehlgeschlagen (Tag 0/3/7), Read-only-Eskalation
-      (Tag 14/30), Lösch-Ankündigung (Tag 60/90)
+Gebaut in `routes/billing.ts` + `services/stripe-service.ts`/`stripe-client.ts`:
 
-### Karenz-Logik (Sprint 2 — offen)
+- [x] `POST /billing/subscription` — Checkout-Session mit 14-Tage-Trial
+- [x] `POST /billing/portal` — Customer-Portal (Karte/Plan/Kündigung)
+- [x] `POST /billing/webhook` — signature-verified; verarbeitet
+      `checkout.session.completed`, `customer.subscription.updated/deleted`,
+      `invoice.payment_succeeded/failed`
+- [x] `/billing/plans`, `/billing/usage`, Reactivate-Route
+- [x] Storage-Add-on + Zahlungsmethoden (über Stripe)
+- [ ] Operativ je Deployment: Stripe-Produkte/Prices bootstrappen
+      (`docker compose exec api npm run stripe-bootstrap`)
 
-Cronjob (täglich) der Tenants mit `subscriptionStatus = past_due`
-durch eine State-Machine schiebt:
+### Karenz-Logik ✅
 
-- Tag 0: Stripe-Retry läuft + erste Mail
-- Tag 3, 7: weitere Mahnungen
-- Tag 14: Studio-Login geblockt, Customer-Galerien laufen weiter
-- Tag 30: alles read-only, `readOnlySince` gesetzt
-- Tag 60: finale Mahnung + Lösch-Ankündigung
-- Tag 90: Tenant-Hard-Delete mit DSGVO-konformem Daten-Export-
-  Angebot vor Löschung
+State-Machine für `past_due`-Tenants gebaut (`worker/tasks/billing.py`,
+`plugins/read-only.ts`, Feld `readOnlySince`): Stripe-Retry + Mahnungen →
+Login-Block → Read-only → Lösch-Ankündigung → Hard-Delete mit DSGVO-konformem
+Daten-Export-Angebot vor der Löschung.
 
-### Sign-Up-Flow (Sprint 3 — offen)
+### Sign-Up-Flow ✅
 
-- [ ] Selbstregistrierung an `/cloud-signup` mit Email + Plan-Wahl
-- [ ] Tenant-Provisionierung: Tenant + Owner-User + initiale
-      Subscription (trialing) + Stripe-Customer in einer Transaktion
-- [ ] Onboarding-Mail mit Setup-Link
-- [ ] Trial-Ende-Auto-Charge wenn Karte hinterlegt; sonst auf
-      Read-only
+- [x] Selbstregistrierung (`routes/signup.ts`: `/signup`,
+      `/signup/check-email`, `/signup/check-slug`)
+- [x] Tenant + Owner-User + Trial-Subscription + Stripe-Customer in einer Transaktion
+- [x] Onboarding-/Setup-Mail
+- [x] Trial-Ende → Auto-Charge bzw. Read-only
 
-### Landing-Page `lumio-cloud.de` (Sprint 3 — offen)
+### Landing-Page `lumio-cloud.de` ✅ (live)
 
-- [ ] Eigenes Repo `lumio-cloud-de` (separates Next.js-Projekt)
-- [ ] Hero + DSGVO-Trust-Signale (DE-Server prominent)
-- [ ] Features-Sektion mit echten Studio-Screenshots
-- [ ] Pricing-Seite mit den drei Plänen
-- [ ] FAQ
-- [ ] Impressum, Datenschutz, AGB, AVV-Template zum Download
-- [ ] Cookie-Banner
-- [ ] Sign-Up-CTA führt zum Cloud-Signup-Flow
+Eigenes Repo `lumio-cloud-de` (Astro), live als SaaS-Mode mit Sign-up + Stripe.
+Der detaillierte Seiten-Stand wird in jenem Repo gepflegt.
 
-### Landing-Page `lumio-app.de` (Sprint 4 — offen, parallel)
+- [ ] Offen: Rechtstexte (Impressum/Datenschutz/AGB/AVV) anwaltlich prüfen
+      lassen; Legal-URLs via ENV (`LUMIO_LEGAL_*`) setzen
 
-- [ ] Eigenes Repo `lumio-app-de` (URL kommt vom User)
-- [ ] Open-Source-Pitch für Self-Hoster
-- [ ] Docker-Setup-Guide mit Copy-Paste-Snippets
-- [ ] Doku-Integration aus dem Haupt-Repo (Markdown via Build-Step)
-- [ ] Roadmap-Page (importiert aus diesem Dokument)
-- [ ] Forgejo-Link prominent (kein GitHub-Mirror)
-- [ ] FSL-Lizenz-Hinweise
-- [ ] Screenshots Studio + Customer-View
-- [ ] Demo-Galerie-Link
+### Landing-Page `lumio-app.de` ✅ (live)
+
+Eigenes Repo `lumio-app-de` (Astro), live als Self-Host-Pitch.
+
+- [x] Source-available-Pitch (FSL) für Self-Hoster
+- [x] Öffentlicher Repo-Link → **GitHub-Mirror** (Forgejo ist privat)
+- [ ] Offen: Demo-Galerie-Link, fortlaufender Screenshot-/Doku-Sync
 
 ### Zukünftige Erweiterungen (offen, kein Sprint geplant)
 
@@ -290,4 +273,3 @@ Bewusst weggelassen — soweit nicht zwingend nachgefragt:
 
 - ❌ Eigener Editor für Bilder (Cropping, Filter) — bleibt im Workflow von Lightroom/Capture One.
 - ❌ Komplexes Rechtemanagement mit dutzenden Rollen — Lumio bleibt schlank.
-- ❌ Print-Druckdienste — kann später optional, kein Kern.
