@@ -77,6 +77,10 @@ export default function StudioSettingsPage() {
   const [domainChecking, setDomainChecking] = useState(false);
   const [imageSaving, setImageSaving] = useState(false);
   const [maxUploadSaving, setMaxUploadSaving] = useState(false);
+  const [kinds, setKinds] = useState<string[]>([]);
+  const [kindsDefault, setKindsDefault] = useState<string[]>([]);
+  const [allKinds, setAllKinds] = useState<string[]>([]);
+  const [kindsSaving, setKindsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement | null>(null);
 
@@ -85,6 +89,16 @@ export default function StudioSettingsPage() {
       const res = await api.getTenantSettings();
       setSettings(res.tenant);
       setUploadLimits(res.uploadLimits);
+      setKindsDefault(res.allowedKinds.default);
+      setAllKinds(res.allowedKinds.all);
+      setKinds(
+        res.tenant.uploadAllowedKinds
+          ? res.tenant.uploadAllowedKinds
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean)
+          : res.allowedKinds.default
+      );
       setDeployment(res.deployment);
       setDisplayName(res.tenant.displayName ?? "");
       setSlug(res.tenant.slug);
@@ -297,6 +311,40 @@ export default function StudioSettingsPage() {
       setMaxUploadSaving(false);
     }
   }
+
+  function toggleKind(k: string) {
+    setKinds((prev) =>
+      prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k]
+    );
+  }
+
+  async function saveKinds() {
+    setKindsSaving(true);
+    setError(null);
+    try {
+      // Auswahl == Default -> null (Default erben), sonst explizite Liste.
+      const sameAsDefault =
+        kinds.length === kindsDefault.length &&
+        kinds.every((k) => kindsDefault.includes(k));
+      const res = await api.updateTenantSettings({
+        uploadAllowedKinds: sameAsDefault ? null : kinds,
+      });
+      setSettings(res.tenant);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("common.error"));
+    } finally {
+      setKindsSaving(false);
+    }
+  }
+
+  const kindLabel: Record<string, string> = {
+    image: t("studio.uploadAllow.kindImage"),
+    heic: t("studio.uploadAllow.kindHeic"),
+    raw: t("studio.uploadAllow.kindRaw"),
+    video: t("studio.uploadAllow.kindVideo"),
+    pdf: t("studio.uploadAllow.kindPdf"),
+    other: t("studio.uploadAllow.kindOther"),
+  };
 
   async function uploadImage(file: File) {
     setImageSaving(true);
@@ -753,6 +801,42 @@ export default function StudioSettingsPage() {
               )}
             </div>
           )}
+        </section>
+
+        {/* Erlaubte Dateitypen */}
+        <section className="rounded-lg border border-line-subtle bg-surface-raised p-5 space-y-3">
+          <h2 className="text-sm font-medium">
+            {t("studio.uploadAllow.heading")}
+          </h2>
+          <p className="text-xs text-ink-tertiary">
+            {t("studio.uploadAllow.description")}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {allKinds.map((k) => (
+              <label
+                key={k}
+                className="flex items-center gap-2 text-ui-sm text-ink-secondary"
+              >
+                <input
+                  type="checkbox"
+                  checked={kinds.includes(k)}
+                  onChange={() => toggleKind(k)}
+                  className="accent-accent"
+                />
+                {kindLabel[k] ?? k}
+              </label>
+            ))}
+          </div>
+          <p className="text-xs text-ink-tertiary italic">
+            {t("studio.uploadAllow.note")}
+          </p>
+          <button
+            onClick={saveKinds}
+            disabled={kindsSaving || kinds.length === 0}
+            className="h-10 px-4 rounded bg-accent text-accent-contrast text-ui-sm font-medium disabled:opacity-50 hover:bg-accent-hover transition-colors duration-motion"
+          >
+            {kindsSaving ? t("common.saving") : t("common.save")}
+          </button>
         </section>
 
         {/* Watermark-Text */}

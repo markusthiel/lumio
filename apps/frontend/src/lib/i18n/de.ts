@@ -455,6 +455,18 @@ export const de: Dict = {
       errorHardCap:
         "Wert überschreitet das Hard-Cap dieser Instanz ({cap} MiB).",
     },
+    uploadAllow: {
+      heading: "Erlaubte Dateitypen",
+      description:
+        "Legt fest, welche Dateiarten hochgeladen werden dürfen (Studio + Upload-Links). Alles andere wird beim Upload abgelehnt.",
+      note: "„Andere Dateien“ zu erlauben hebt den Filter praktisch auf.",
+      kindImage: "Bilder (JPEG, PNG, WebP, …)",
+      kindHeic: "HEIC/HEIF (iPhone)",
+      kindRaw: "RAW (Kamera-Rohdaten)",
+      kindVideo: "Video",
+      kindPdf: "PDF",
+      kindOther: "Andere Dateien",
+    },
     activeUploads: "Aktive Uploads",
     galleryTags: "Galerie-Tags",
     galleryTagsDesc: "Ordnen die ganze Galerie in der Übersicht ein (nicht zu verwechseln mit Tags auf einzelnen Bildern).",

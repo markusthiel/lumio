@@ -1852,6 +1852,7 @@ export const api = {
     request<{
       tenant: TenantSettings;
       uploadLimits: UploadLimits;
+      allowedKinds: { default: string[]; all: string[] };
       deployment: {
         mode: "single" | "multi";
         domainBase: string | null;
@@ -1909,6 +1910,7 @@ export const api = {
     watermarkText?: string | null;
     customDomain?: string | null;
     maxUploadMib?: number | null;
+    uploadAllowedKinds?: string[] | null;
   }) =>
     request<{ tenant: TenantSettings }>(`/settings`, {
       method: "PATCH",
@@ -3580,6 +3582,8 @@ export interface TenantSettings {
   customDomain?: string | null;
   /** Pro-File Upload-Limit-Override in MiB. Null = ENV-Default. */
   maxUploadMib: number | null;
+  /** Erlaubte Datei-Arten (kommagetrennt). Null = ENV-Default erben. */
+  uploadAllowedKinds: string | null;
 }
 
 /** Limits-Hilfsinfo aus dem Settings-GET — sagt der UI was Default

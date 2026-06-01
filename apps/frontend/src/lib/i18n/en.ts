@@ -455,6 +455,18 @@ export const en: Dict = {
       errorHardCap:
         "Value exceeds the instance hard-cap ({cap} MiB).",
     },
+    uploadAllow: {
+      heading: "Allowed file types",
+      description:
+        "Controls which file kinds can be uploaded (studio + upload links). Everything else is rejected on upload.",
+      note: "Allowing \"Other files\" effectively disables the filter.",
+      kindImage: "Images (JPEG, PNG, WebP, …)",
+      kindHeic: "HEIC/HEIF (iPhone)",
+      kindRaw: "RAW (camera raw)",
+      kindVideo: "Video",
+      kindPdf: "PDF",
+      kindOther: "Other files",
+    },
     activeUploads: "Active uploads",
     galleryTags: "Gallery tags",
     galleryTagsDesc: "Categorize the whole gallery in the overview (not to be confused with tags on individual images).",
