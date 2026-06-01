@@ -17,6 +17,7 @@
  * macht keinen Sinn und waere ein Datenschutz-Footgun.
  */
 import { useState, type KeyboardEvent, type ClipboardEvent } from "react";
+import { useT } from "@/lib/i18n";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_EMAILS = 10;
@@ -32,6 +33,7 @@ export function EmailChipsInput({
   placeholder?: string;
   id?: string;
 }) {
+  const t = useT();
   const [draft, setDraft] = useState("");
 
   function tryCommit(raw: string): boolean {
@@ -102,7 +104,7 @@ export function EmailChipsInput({
                 ? "bg-surface-sunken text-ink-primary"
                 : "bg-red-50 text-red-700 border border-red-200")
             }
-            title={valid ? undefined : "Diese Adresse sieht nicht gültig aus"}
+            title={valid ? undefined : t("printAdmin.invalidEmail")}
           >
             {email}
             <button

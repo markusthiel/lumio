@@ -115,13 +115,12 @@ export default function PrintProductsPage() {
   if (enabledProviders.length === 0) {
     return (
       <div className="rounded-md border border-semantic-warning/30 bg-semantic-warning/8 px-3 py-4 text-sm text-semantic-warning">
-        Du hast noch keinen aktiven Anbieter — Produkte können erst
-        angelegt werden, wenn mindestens ein Anbieter konfiguriert ist.{" "}
+        {t("printAdmin.noProvider")}{" "}
         <a
           href="/studio/print-shop/providers"
           className="underline font-medium"
         >
-          Zu den Anbietern
+          {t("printAdmin.toProviders")}
         </a>
       </div>
     );

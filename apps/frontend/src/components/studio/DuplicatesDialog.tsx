@@ -197,7 +197,7 @@ export function DuplicatesDialog({ galleryId, onClose, onDeleted }: Props) {
   async function performDelete() {
     if (selectedToDelete.size === 0) return;
     const ids = Array.from(selectedToDelete);
-    const msg = `${ids.length} Duplikate löschen? Die S3-Objekte werden mit entfernt — das lässt sich nicht rückgängig machen.`;
+    const msg = t("printAdmin.dupDeleteConfirm", { n: ids.length });
     if (!confirm(msg)) return;
     setDeleting(true);
     try {

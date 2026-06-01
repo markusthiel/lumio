@@ -10,22 +10,25 @@
  * rendert bereits den StudioShell. Hier nur die Tab-Bar darunter.
  */
 import Link from "next/link";
+import { useT } from "@/lib/i18n";
 import { usePathname } from "next/navigation";
 
 const TABS: ReadonlyArray<{ href: string; label: string; exact?: boolean }> = [
-  { href: "/studio/print-shop", label: "Übersicht", exact: true },
-  { href: "/studio/print-shop/orders", label: "Bestellungen" },
-  { href: "/studio/print-shop/settings", label: "Einstellungen" },
-  { href: "/studio/print-shop/providers", label: "Anbieter" },
-  { href: "/studio/print-shop/products", label: "Produkte" },
-  { href: "/studio/print-shop/shipping", label: "Versand" },
+  { href: "/studio/print-shop", label: "printAdmin.navOverview", exact: true },
+  { href: "/studio/print-shop/orders", label: "printAdmin.navOrders" },
+  { href: "/studio/print-shop/settings", label: "printAdmin.navSettings" },
+  { href: "/studio/print-shop/providers", label: "printAdmin.navProviders" },
+  { href: "/studio/print-shop/products", label: "printAdmin.navProducts" },
+  { href: "/studio/print-shop/shipping", label: "printAdmin.navShipping" },
 ];
 
 export default function PrintShopLayout({
+
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const t = useT();
   const pathname = usePathname() ?? "";
   return (
     <>
@@ -34,8 +37,7 @@ export default function PrintShopLayout({
           Print-Shop
         </h1>
         <p className="text-ui text-ink-tertiary mt-1.5">
-          Verkaufe Prints, Leinwände und Photobooks direkt aus deinen
-          Galerien. Konfiguriere Anbieter, Produkte und Versand.
+          {t("printAdmin.layoutDesc")}
         </p>
       </header>
 
@@ -59,7 +61,7 @@ export default function PrintShopLayout({
                     : "border-transparent text-ink-secondary hover:text-ink-primary"
                 }`}
               >
-                {tab.label}
+                {t(tab.label)}
               </Link>
             );
           })}

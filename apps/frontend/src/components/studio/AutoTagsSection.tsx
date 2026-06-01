@@ -18,6 +18,7 @@
  */
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 type AutoTag = {
   id: string;
@@ -32,6 +33,7 @@ type AutoTag = {
 };
 
 export function AutoTagsSection({ fileId }: { fileId: string }) {
+  const t = useT();
   const [tags, setTags] = useState<AutoTag[] | null>(null);
   const [available, setAvailable] = useState<boolean | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -108,29 +110,29 @@ export function AutoTagsSection({ fileId }: { fileId: string }) {
   return (
     <div className="border-b border-line-subtle">
       <div className="px-4 py-3 text-ui-sm font-medium text-ink-primary flex items-center gap-2">
-        <span>KI-Tag-Vorschläge</span>
+        <span>{t("printAdmin.aiTagTitle")}</span>
         {suggested.length > 0 && (
           <span className="text-ui-xs text-ink-tertiary font-normal">
-            ({suggested.length} unreviewt)
+            {t("printAdmin.aiTagUnreviewed", { n: suggested.length })}
           </span>
         )}
       </div>
 
       <div className="px-4 pb-4 space-y-2">
-        {suggested.map((t) => (
+        {suggested.map((tag) => (
           <div
-            key={t.id}
+            key={tag.id}
             className="rounded border border-line-subtle bg-surface-sunken p-2"
           >
             <div className="flex items-center justify-between gap-2 mb-1.5">
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <span
                   className="inline-block w-2.5 h-2.5 rounded-full shrink-0"
-                  style={{ backgroundColor: t.color }}
+                  style={{ backgroundColor: tag.color }}
                 />
-                <span className="text-sm truncate">{t.label}</span>
+                <span className="text-sm truncate">{tag.label}</span>
                 <span className="text-xs text-ink-tertiary tabular-nums shrink-0">
-                  {Math.round(t.confidence * 100)}%
+                  {Math.round(tag.confidence * 100)}%
                 </span>
               </div>
             </div>
@@ -139,27 +141,27 @@ export function AutoTagsSection({ fileId }: { fileId: string }) {
               <div
                 className="h-full"
                 style={{
-                  width: `${Math.round(t.confidence * 100)}%`,
-                  backgroundColor: t.color,
+                  width: `${Math.round(tag.confidence * 100)}%`,
+                  backgroundColor: tag.color,
                 }}
               />
             </div>
             <div className="flex gap-1.5">
               <button
                 type="button"
-                onClick={() => onAccept(t.id)}
-                disabled={busyId === t.id}
+                onClick={() => onAccept(tag.id)}
+                disabled={busyId === tag.id}
                 className="flex-1 px-2 py-1 text-xs rounded bg-accent text-white hover:bg-accent/90 disabled:opacity-50"
               >
-                Übernehmen
+                {t("printAdmin.apply")}
               </button>
               <button
                 type="button"
-                onClick={() => onReject(t.id)}
-                disabled={busyId === t.id}
+                onClick={() => onReject(tag.id)}
+                disabled={busyId === tag.id}
                 className="flex-1 px-2 py-1 text-xs rounded bg-surface-raised border border-line-subtle text-ink-secondary hover:bg-surface-sunken disabled:opacity-50"
               >
-                Verwerfen
+                {t("printAdmin.reject")}
               </button>
             </div>
           </div>
@@ -168,20 +170,20 @@ export function AutoTagsSection({ fileId }: { fileId: string }) {
         {accepted.length > 0 && (
           <div className="pt-2">
             <div className="text-ui-xs uppercase tracking-[0.12em] text-ink-tertiary mb-1.5">
-              Übernommen
+              {t("printAdmin.accepted")}
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {accepted.map((t) => (
+              {accepted.map((tag) => (
                 <span
-                  key={t.id}
+                  key={tag.id}
                   className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded"
                   style={{
-                    backgroundColor: `${t.color}20`,
-                    color: t.color,
+                    backgroundColor: `${tag.color}20`,
+                    color: tag.color,
                   }}
                 >
                   <span>✓</span>
-                  <span>{t.label}</span>
+                  <span>{tag.label}</span>
                 </span>
               ))}
             </div>

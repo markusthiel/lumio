@@ -186,8 +186,7 @@ function SettingsInner() {
 
       {!config.featureFlagEnabled && (
         <div className="rounded-md border border-semantic-warning/30 bg-semantic-warning/8 px-3 py-2 text-sm text-semantic-warning">
-          Das Print-Shop-Feature ist für dein Studio noch nicht freigeschaltet.
-          Bitte kontaktiere den Support, falls du das nutzen möchtest.
+          {t("printAdmin.featureNotEnabled")}
         </div>
       )}
 
