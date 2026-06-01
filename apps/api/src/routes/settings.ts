@@ -16,6 +16,10 @@ import { config } from "../config.js";
 import { checkFeatureAvailable } from "../services/usage.js";
 import { validateSlugFormat } from "../services/slugs.js";
 import {
+  defaultAllowedKinds,
+  ALL_FILE_KINDS,
+} from "../services/upload-allow.js";
+import {
   presignPut,
   deleteObject,
 } from "../services/storage.js";
@@ -53,6 +57,11 @@ const updateSettingsSchema = z.object({
    * API-Validation greift nicht hier (Schema kennt kein Hard-Cap),
    * sondern in der PATCH-Route. */
   maxUploadMib: z.number().int().positive().nullable().optional(),
+  /** Erlaubte Datei-Arten beim Upload. Null/leer = ENV-Default erben. */
+  uploadAllowedKinds: z
+    .array(z.enum(["image", "heic", "raw", "video", "pdf", "other"]))
+    .nullable()
+    .optional(),
 });
 
 const initWatermarkUploadSchema = z.object({
@@ -80,6 +89,7 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
         watermarkImageKey: true,
         customDomain: true,
         maxUploadMib: true,
+        uploadAllowedKinds: true,
       },
     });
     if (!tenant) return reply.status(404).send({ error: "not_found" });
@@ -90,6 +100,11 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
       uploadLimits: {
         defaultMib: config.MAX_FILE_SIZE_MIB,
         hardCapMib: config.MAX_UPLOAD_HARD_CAP_MIB,
+      },
+      allowedKinds: {
+        // ENV-Default + alle waehlbaren Arten fuer die UI.
+        default: defaultAllowedKinds(),
+        all: ALL_FILE_KINDS,
       },
       // Deployment-Kontext fuer Mode-spezifische UI-Entscheidungen.
       // Single-Mode-Self-Hoster sollen z.B. die "Studio-URL"-Sektion
@@ -215,6 +230,14 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
         ...(body.maxUploadMib !== undefined
           ? { maxUploadMib: body.maxUploadMib }
           : {}),
+        ...(body.uploadAllowedKinds !== undefined
+          ? {
+              uploadAllowedKinds:
+                body.uploadAllowedKinds && body.uploadAllowedKinds.length > 0
+                  ? body.uploadAllowedKinds.join(",")
+                  : null,
+            }
+          : {}),
       },
       select: {
         id: true,
@@ -225,6 +248,7 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
         watermarkImageKey: true,
         customDomain: true,
         maxUploadMib: true,
+        uploadAllowedKinds: true,
       },
     });
     return { tenant };

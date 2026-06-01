@@ -110,6 +110,10 @@ model Tenant {
   // sowohl für Studio-Uploads als auch für Uploads via UploadLink
   // (Upload-Link kann nur darunter sein, nie darüber).
   maxUploadMib Int?
+  // Allowlist erlaubter Datei-Arten beim Upload (kommagetrennt:
+  // image,heic,raw,video,pdf,other). Null = ENV-Default
+  // (UPLOAD_ALLOWED_KINDS). Gilt fuer Studio- und Upload-Link-Uploads.
+  uploadAllowedKinds String?
   
   // Billing (siehe BillingSubscription)
   subscription BillingSubscription?

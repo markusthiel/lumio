@@ -21,6 +21,7 @@ import { z } from "zod";
 import { prisma } from "../db.js";
 import { config } from "../config.js";
 import { detectFileKind } from "../services/filekind.js";
+import { effectiveAllowedKinds, isKindAllowed } from "../services/upload-allow.js";
 import {
   effectiveUploadLimitBytes,
   formatLimit,
@@ -92,7 +93,7 @@ export async function registerFileRoutes(app: FastifyInstance) {
       },
       select: {
         id: true,
-        tenant: { select: { maxUploadMib: true } },
+        tenant: { select: { maxUploadMib: true, uploadAllowedKinds: true } },
       },
     });
     if (!gallery) {
@@ -113,6 +114,23 @@ export async function registerFileRoutes(app: FastifyInstance) {
           error: "file_too_large",
           message: `File ${f.filename} exceeds limit of ${formatLimit(maxBytes)}`,
           limitBytes: maxBytes.toString(),
+        });
+      }
+    }
+
+    // Typ-Allowlist: nur erlaubte Datei-Arten annehmen. Effektiv aus
+    // Tenant-Setting (Override) oder ENV-Default.
+    const allowedKinds = effectiveAllowedKinds(
+      gallery.tenant.uploadAllowedKinds
+    );
+    for (const f of body.files) {
+      const kind = detectFileKind(f.filename, f.mimeType);
+      if (!isKindAllowed(kind, allowedKinds)) {
+        return reply.status(415).send({
+          error: "file_type_not_allowed",
+          message: `${f.filename}: Dieser Dateityp ist nicht erlaubt.`,
+          kind,
+          allowedKinds,
         });
       }
     }

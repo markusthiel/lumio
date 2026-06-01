@@ -25,6 +25,7 @@ import { prisma } from "../db.js";
 import { config } from "../config.js";
 import { hashPassword, verifyPassword } from "../services/auth.js";
 import { detectFileKind } from "../services/filekind.js";
+import { effectiveAllowedKinds, isKindAllowed } from "../services/upload-allow.js";
 import {
   effectiveUploadLimitBytes,
   formatLimit,
@@ -156,7 +157,7 @@ async function loadLink(token: string) {
           status: true,
           // tenant.maxUploadMib brauchen wir im Init-Endpoint zur
           // effektiven Limit-Berechnung
-          tenant: { select: { maxUploadMib: true } },
+          tenant: { select: { maxUploadMib: true, uploadAllowedKinds: true } },
         },
       },
     },
@@ -859,6 +860,22 @@ export async function registerUploadLinkRoutes(app: FastifyInstance) {
             error: "file_too_large",
             message: `${f.filename}: max ${formatLimit(maxBytes)}`,
             limitBytes: maxBytes.toString(),
+          });
+        }
+      }
+
+      // Typ-Allowlist (identisch zum Studio-Upload).
+      const allowedKinds = effectiveAllowedKinds(
+        link.gallery.tenant.uploadAllowedKinds
+      );
+      for (const f of body.files) {
+        const kind = detectFileKind(f.filename, f.mimeType);
+        if (!isKindAllowed(kind, allowedKinds)) {
+          return reply.status(415).send({
+            error: "file_type_not_allowed",
+            message: `${f.filename}: Dieser Dateityp ist nicht erlaubt.`,
+            kind,
+            allowedKinds,
           });
         }
       }

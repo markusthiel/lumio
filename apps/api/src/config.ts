@@ -68,6 +68,10 @@ const envSchema = z.object({
    * über MAX_UPLOAD_HARD_CAP_MIB. Self-Hoster setzen das auf was
    * sie eben für ihren Storage praktisch finden. */
   MAX_FILE_SIZE_MIB: z.coerce.number().int().default(10240),
+  /** Default-Allowlist erlaubter Datei-Arten beim Upload (kommagetrennt).
+   *  Werte: image,heic,raw,video,pdf,other. "other" aufnehmen = Filter aus.
+   *  Pro Studio via tenants.uploadAllowedKinds uebersteuerbar. */
+  UPLOAD_ALLOWED_KINDS: z.string().default("image,heic,raw,video,pdf"),
   /** Hard-Cap für ALLE pro-File-Limits in MiB. Letzte Schutzlinie
    * gegen versehentliche Misskonfiguration und gegen SaaS-Miss-
    * brauch. Tenant-Settings dürfen nicht über diesen Wert. */
