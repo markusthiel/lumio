@@ -113,19 +113,20 @@ def upsert_rendition(
     height: int | None,
     size_bytes: int,
     metadata: dict | None = None,
+    page: int = 0,
 ) -> None:
-    """Insert oder Update (auf fileId+kind unique)."""
+    """Insert oder Update (auf fileId+kind+page unique)."""
     import json
     meta_json = json.dumps(metadata) if metadata is not None else None
     with get_conn() as conn:
         conn.execute(
             """
             INSERT INTO renditions
-                (id, "fileId", kind, "storageKey", format, width, height,
+                (id, "fileId", kind, page, "storageKey", format, width, height,
                  "sizeBytes", metadata, "createdAt")
             VALUES
-                (gen_random_uuid(), %s, %s, %s, %s, %s, %s, %s, %s::jsonb, NOW())
-            ON CONFLICT ("fileId", kind) DO UPDATE
+                (gen_random_uuid(), %s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, NOW())
+            ON CONFLICT ("fileId", kind, page) DO UPDATE
                 SET "storageKey" = EXCLUDED."storageKey",
                     format = EXCLUDED.format,
                     width = EXCLUDED.width,
@@ -133,6 +134,15 @@ def upsert_rendition(
                     "sizeBytes" = EXCLUDED."sizeBytes",
                     metadata = EXCLUDED.metadata
             """,
-            (file_id, kind, storage_key, fmt, width, height,
+            (file_id, kind, page, storage_key, fmt, width, height,
              size_bytes, meta_json),
+        )
+
+
+def set_page_count(file_id: str, page_count: int) -> None:
+    """Setzt die Seitenzahl eines mehrseitigen Dokuments (PDF)."""
+    with get_conn() as conn:
+        conn.execute(
+            'UPDATE files SET "pageCount" = %s, "updatedAt" = NOW() WHERE id = %s',
+            (page_count, file_id),
         )

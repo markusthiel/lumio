@@ -1081,6 +1081,7 @@ export async function registerUploadLinkRoutes(app: FastifyInstance) {
       // Worker-Job enqueuen — gleiches Pattern wie Studio-Upload
       const isRaw = file.kind === "raw";
       const isVideo = file.kind === "video";
+      const isPdf = file.kind === "pdf";
       await enqueue(
         isVideo ? Queues.VIDEO_PROCESSING : Queues.FILE_PROCESSING,
         {
@@ -1088,6 +1089,8 @@ export async function registerUploadLinkRoutes(app: FastifyInstance) {
             ? "process_video"
             : isRaw
             ? "process_raw"
+            : isPdf
+            ? "process_pdf"
             : "process_file",
           fileId: file.id,
           tenantId: link.gallery.tenantId,

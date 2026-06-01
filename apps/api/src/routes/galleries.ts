@@ -551,6 +551,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
               errorMessage: true,
               width: true,
               height: true,
+              pageCount: true,
               sortIndex: true,
               sectionId: true,
               createdAt: true,
@@ -562,7 +563,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
               rejectedAt: true,
               rejectedReason: true,
               renditions: {
-                select: { kind: true, storageKey: true, format: true },
+                select: { kind: true, storageKey: true, format: true, page: true },
               },
               tags: {
                 select: {
@@ -589,9 +590,15 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
       // ein Original ausliefern müssen.
       const files = await Promise.all(
         gallery.files.map(async (f) => {
-          const thumb = f.renditions.find((r) => r.kind === "thumb");
-          const web = f.renditions.find((r) => r.kind === "web");
-          const preview = f.renditions.find((r) => r.kind === "preview");
+          const thumb = f.renditions.find(
+            (r) => r.kind === "thumb" && r.page === 0
+          );
+          const web = f.renditions.find(
+            (r) => r.kind === "web" && r.page === 0
+          );
+          const preview = f.renditions.find(
+            (r) => r.kind === "preview" && r.page === 0
+          );
           const thumbUrl = thumb
             ? await presignGet({ key: thumb.storageKey })
             : null;
@@ -600,6 +607,32 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
             : preview
             ? await presignGet({ key: preview.storageKey })
             : null;
+          const pages =
+            f.pageCount && f.pageCount > 1
+              ? await Promise.all(
+                  Array.from({ length: f.pageCount }, async (_, p) => {
+                    const pt = f.renditions.find(
+                      (r) => r.kind === "thumb" && r.page === p
+                    );
+                    const pw =
+                      f.renditions.find(
+                        (r) => r.kind === "web" && r.page === p
+                      ) ??
+                      f.renditions.find(
+                        (r) => r.kind === "preview" && r.page === p
+                      );
+                    return {
+                      page: p,
+                      thumbUrl: pt
+                        ? await presignGet({ key: pt.storageKey })
+                        : null,
+                      webUrl: pw
+                        ? await presignGet({ key: pw.storageKey })
+                        : null,
+                    };
+                  })
+                )
+              : undefined;
           return {
             id: f.id,
             originalFilename: f.originalFilename,
@@ -615,6 +648,8 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
             createdAt: f.createdAt,
             thumbUrl,
             webUrl,
+            pageCount: f.pageCount,
+            pages,
             tags: f.tags.map((ft) => ft.tag),
             uploadedVia: f.uploadedVia,
             uploadLinkId: f.uploadLinkId,
@@ -1865,6 +1900,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           kind: true,
           width: true,
           height: true,
+          pageCount: true,
           sortIndex: true,
           sectionId: true,
           renditions: {
@@ -1874,6 +1910,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
               width: true,
               height: true,
               metadata: true,
+              page: true,
             },
           },
         },
@@ -1915,9 +1952,15 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
       // preview-/web-URLs durch deren signierten Pfad.
       const items = await Promise.all(
         files.map(async (f) => {
-          const thumb = f.renditions.find((r) => r.kind === "thumb");
-          const preview = f.renditions.find((r) => r.kind === "preview");
-          const web = f.renditions.find((r) => r.kind === "web");
+          const thumb = f.renditions.find(
+            (r) => r.kind === "thumb" && r.page === 0
+          );
+          const preview = f.renditions.find(
+            (r) => r.kind === "preview" && r.page === 0
+          );
+          const web = f.renditions.find(
+            (r) => r.kind === "web" && r.page === 0
+          );
           const watermarked = f.renditions.find((r) => r.kind === "watermarked");
           const hls = f.renditions.find((r) => r.kind === "hls");
           const sprite = f.renditions.find((r) => r.kind === "sprite");
@@ -1949,6 +1992,32 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
                 }
               : null;
 
+          const pages =
+            f.pageCount && f.pageCount > 1
+              ? await Promise.all(
+                  Array.from({ length: f.pageCount }, async (_, p) => {
+                    const pt = f.renditions.find(
+                      (r) => r.kind === "thumb" && r.page === p
+                    );
+                    const pw =
+                      f.renditions.find(
+                        (r) => r.kind === "web" && r.page === p
+                      ) ??
+                      f.renditions.find(
+                        (r) => r.kind === "preview" && r.page === p
+                      );
+                    return {
+                      page: p,
+                      thumbUrl: pt
+                        ? await presignGet({ key: pt.storageKey })
+                        : null,
+                      webUrl: pw
+                        ? await presignGet({ key: pw.storageKey })
+                        : null,
+                    };
+                  })
+                )
+              : undefined;
           return {
             id: f.id,
             filename: f.originalFilename,
@@ -1969,6 +2038,8 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
               : null,
             hlsUrl,
             sprite: spritePayload,
+            pageCount: f.pageCount,
+            pages,
             previewWidth: preview?.width ?? null,
             previewHeight: preview?.height ?? null,
             // Tags nur wenn customerTagFilterEnabled — sonst leer/undefined.

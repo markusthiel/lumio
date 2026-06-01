@@ -25,7 +25,7 @@
  * nur eine eigene Klassifikation hier oben.
  */
 
-export type FileKind = "image" | "heic" | "raw" | "video" | "other";
+export type FileKind = "image" | "heic" | "raw" | "video" | "pdf" | "other";
 
 const RAW_EXTENSIONS = new Set([
   "cr2", "cr3", "crw",       // Canon
@@ -68,6 +68,7 @@ export function detectFileKind(
   mimeType?: string
 ): FileKind {
   const ext = filename.toLowerCase().split(".").pop() ?? "";
+  if (ext === "pdf") return "pdf";
   if (RAW_EXTENSIONS.has(ext)) return "raw";
   if (VIDEO_EXTENSIONS.has(ext)) return "video";
   if (HEIC_EXTENSIONS.has(ext)) return "heic";
@@ -79,6 +80,7 @@ export function detectFileKind(
   if (mimeType) {
     const lower = mimeType.toLowerCase();
     if (HEIC_MIME_PREFIX.some((p) => lower.startsWith(p))) return "heic";
+    if (lower === "application/pdf") return "pdf";
     if (lower.startsWith("video/")) return "video";
     if (lower.startsWith("image/")) return "image";
   }

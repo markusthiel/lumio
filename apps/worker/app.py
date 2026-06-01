@@ -46,6 +46,7 @@ app = Celery(
     backend=REDIS_URL,
     include=[
         "tasks.process_file",
+        "tasks.process_pdf",
         "tasks.process_raw",
         "tasks.process_video",
         "tasks.process_watermark",

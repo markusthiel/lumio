@@ -35,6 +35,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ffmpeg \
         libmagic1 \
         exiftool \
+        poppler-utils \
         libpq5 \
         tini \
         ca-certificates \

@@ -125,8 +125,12 @@ export function renditionKey(opts: {
   fileId: string;
   kind: string; // thumb | preview | web | watermarked | poster | hls | sprite
   extension: string; // webp | jpg | mp4 | m3u8 | ...
+  // Seiten-Index fuer mehrseitige Dokumente (PDF). 0/undefined = keine
+  // Seite (unveraenderter Key, rueckwaertskompatibel zu Bestands-Renditions).
+  page?: number;
 }): string {
-  return `t/${opts.tenantId}/g/${opts.galleryId}/r/${opts.fileId}/${opts.kind}.${opts.extension}`;
+  const pageSuffix = opts.page && opts.page > 0 ? `_p${opts.page}` : "";
+  return `t/${opts.tenantId}/g/${opts.galleryId}/r/${opts.fileId}/${opts.kind}${pageSuffix}.${opts.extension}`;
 }
 
 export function downloadKey(opts: {

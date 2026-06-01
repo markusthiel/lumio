@@ -37,6 +37,12 @@ describe("detectFileKind", () => {
       expect(detectFileKind("clip.webm")).toBe("video");
     });
 
+    it("classifies PDFs by extension and MIME", () => {
+      expect(detectFileKind("album.pdf")).toBe("pdf");
+      expect(detectFileKind("ALBUM.PDF")).toBe("pdf");
+      expect(detectFileKind("file.unknown", "application/pdf")).toBe("pdf");
+    });
+
     it("falls through to 'other' for unknown extensions", () => {
       expect(detectFileKind("notes.txt")).toBe("other");
       expect(detectFileKind("archive.zip")).toBe("other");

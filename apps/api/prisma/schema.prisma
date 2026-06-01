@@ -801,6 +801,7 @@ model File {
   width           Int?
   height          Int?
   durationMs      Int?     // bei Videos
+  pageCount       Int?     // Seitenzahl bei mehrseitigen Dokumenten (PDF)
   
   // Kategorisierung
   kind            String   // image | raw | video | other
@@ -877,6 +878,8 @@ model Rendition {
   file        File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
   
   kind        String   // thumb | preview | web | watermarked | download | hls | poster | sprite
+  // Seiten-Index fuer mehrseitige Dokumente (PDF). Bilder/Videos = 0.
+  page        Int      @default(0)
   storageKey  String
   format      String   // webp | avif | jpeg | mp4 | m3u8 | ...
   width       Int?
@@ -889,7 +892,7 @@ model Rendition {
   
   createdAt   DateTime @default(now())
   
-  @@unique([fileId, kind])
+  @@unique([fileId, kind, page])
   @@index([fileId])
   @@map("renditions")
 }

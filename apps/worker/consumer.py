@@ -89,6 +89,10 @@ def _dispatch(stream: str, payload: dict) -> None:
         app.send_task(
             "tasks.process_file.generate_renditions", args=[file_id]
         )
+    elif job_type == "process_pdf":
+        app.send_task(
+            "tasks.process_pdf.generate_pdf_renditions", args=[file_id]
+        )
     elif job_type == "process_raw":
         app.send_task(
             "tasks.process_raw.generate_raw_preview", args=[file_id]

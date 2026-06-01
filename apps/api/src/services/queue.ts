@@ -59,7 +59,12 @@ export type QueueName = (typeof Queues)[keyof typeof Queues];
 
 export type FileProcessingJob =
   | {
-      type: "process_file" | "process_raw" | "process_watermark" | "auto_tag";
+      type:
+        | "process_file"
+        | "process_raw"
+        | "process_pdf"
+        | "process_watermark"
+        | "auto_tag";
       fileId: string;
       tenantId: string;
       galleryId: string;

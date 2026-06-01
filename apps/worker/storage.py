@@ -44,9 +44,13 @@ def get_bucket() -> str:
 
 
 def rendition_key(tenant_id: str, gallery_id: str, file_id: str,
-                  kind: str, extension: str) -> str:
-    """Muss identisch zur Funktion in apps/api/src/services/storage.ts sein."""
-    return f"t/{tenant_id}/g/{gallery_id}/r/{file_id}/{kind}.{extension}"
+                  kind: str, extension: str, page: int = 0) -> str:
+    """Muss identisch zur Funktion in apps/api/src/services/storage.ts sein.
+
+    page > 0 haengt ein _p<page>-Suffix an (mehrseitige PDFs). page 0
+    bleibt unveraendert -> rueckwaertskompatibel zu Bestands-Renditions."""
+    page_suffix = f"_p{page}" if page and page > 0 else ""
+    return f"t/{tenant_id}/g/{gallery_id}/r/{file_id}/{kind}{page_suffix}.{extension}"
 
 
 def download_to_file(storage_key: str, dest_path: str) -> str:
