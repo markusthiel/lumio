@@ -6,6 +6,7 @@
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 type Order = Awaited<ReturnType<typeof api.getGalleryPrintOrder>>;
 
@@ -15,6 +16,7 @@ export default function PrintOrderConfirmationPage({
   params: Promise<{ slug: string; orderNumber: string }>;
 }) {
   const { slug, orderNumber } = use(params);
+  const t = useT();
   const [order, setOrder] = useState<Order | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -24,7 +26,7 @@ export default function PrintOrderConfirmationPage({
         const r = await api.getGalleryPrintOrder(slug, orderNumber);
         setOrder(r);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Fehler");
+        setError(err instanceof Error ? err.message : t("common.error"));
       }
     })();
   }, [slug, orderNumber]);
@@ -39,7 +41,7 @@ export default function PrintOrderConfirmationPage({
   if (!order) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-sm text-ink-tertiary">Lädt…</div>
+        <div className="text-sm text-ink-tertiary">{t("common.loading")}</div>
       </div>
     );
   }
@@ -53,16 +55,16 @@ export default function PrintOrderConfirmationPage({
               ✓
             </div>
             <h1 className="text-xl font-semibold mb-1">
-              Vielen Dank, {order.guestName}!
+              {t("orderPage.thanks", { name: order.guestName })}
             </h1>
             <p className="text-sm text-ink-tertiary">
-              Deine Bestellung wurde aufgenommen.
+              {t("orderPage.received")}
             </p>
           </div>
 
           <div className="text-center mb-6">
             <div className="text-xs text-ink-tertiary uppercase tracking-wide mb-1">
-              Bestellnummer
+              {t("orderPage.orderNumber")}
             </div>
             <div className="text-lg font-mono">{order.orderNumber}</div>
           </div>
@@ -70,20 +72,17 @@ export default function PrintOrderConfirmationPage({
           <div className="bg-surface-sunken rounded p-3 text-sm text-center mb-6">
             {order.paymentMode === "offline_invoice" ? (
               <>
-                Du bekommst in Kürze eine Rechnung per E-Mail. Sobald die
-                Zahlung eingeht, wird deine Bestellung produziert und
-                verschickt.
+                {t("orderPage.invoiceComing")}
               </>
             ) : (
               <>
-                Wir haben deine Zahlung empfangen. Die Produktion startet
-                jetzt.
+                {t("orderPage.paymentReceived")}
               </>
             )}
           </div>
 
           {/* Artikel-Liste */}
-          <h2 className="text-sm font-semibold mb-2">Artikel</h2>
+          <h2 className="text-sm font-semibold mb-2">{t("orderPage.items")}</h2>
           <ul className="divide-y divide-line-subtle text-sm mb-3">
             {order.items.map((it, i) => (
               <li key={i} className="py-2 flex justify-between gap-3">
@@ -104,27 +103,27 @@ export default function PrintOrderConfirmationPage({
 
           <dl className="text-sm pt-3 border-t border-line-subtle space-y-1">
             <div className="flex justify-between">
-              <dt className="text-ink-tertiary">Zwischensumme</dt>
+              <dt className="text-ink-tertiary">{t("orderPage.subtotal")}</dt>
               <dd className="tabular-nums">
                 {formatPrice(order.totals.subtotalCents, order.currency)}
               </dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-ink-tertiary">
-                Versand{order.shippingMethod && ` (${order.shippingMethod})`}
+                {t("orderPage.shipping")}{order.shippingMethod && ` (${order.shippingMethod})`}
               </dt>
               <dd className="tabular-nums">
                 {formatPrice(order.totals.shippingCents, order.currency)}
               </dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-ink-tertiary">MwSt</dt>
+              <dt className="text-ink-tertiary">{t("orderPage.vat")}</dt>
               <dd className="tabular-nums">
                 {formatPrice(order.totals.taxCents, order.currency)}
               </dd>
             </div>
             <div className="flex justify-between pt-2 border-t border-line-subtle font-semibold">
-              <dt>Gesamt</dt>
+              <dt>{t("orderPage.total")}</dt>
               <dd className="tabular-nums">
                 {formatPrice(order.totals.totalCents, order.currency)}
               </dd>
@@ -134,9 +133,9 @@ export default function PrintOrderConfirmationPage({
 
         {order.trackingNumber && (
           <div className="rounded-md border border-line-subtle bg-surface-raised p-4 mb-6">
-            <h2 className="text-sm font-semibold mb-2">Versand</h2>
+            <h2 className="text-sm font-semibold mb-2">{t("orderPage.shipping")}</h2>
             <div className="text-sm">
-              Sendungsnummer:{" "}
+              {t("orderPage.trackingNumber")}{" "}
               <strong className="font-mono">{order.trackingNumber}</strong>
               {order.trackingCarrier && ` (${order.trackingCarrier})`}
             </div>
@@ -147,7 +146,7 @@ export default function PrintOrderConfirmationPage({
                 rel="noopener noreferrer"
                 className="text-sm text-accent hover:underline"
               >
-                Paket verfolgen →
+                {t("orderPage.trackPackage")}
               </a>
             )}
           </div>
@@ -158,7 +157,7 @@ export default function PrintOrderConfirmationPage({
             href={`/g/${slug}`}
             className="text-sm text-accent hover:underline"
           >
-            ← Zurück zur Galerie
+            {t("orderPage.backToGallery")}
           </Link>
         </div>
       </div>

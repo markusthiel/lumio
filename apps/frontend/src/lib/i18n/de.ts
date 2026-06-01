@@ -2155,4 +2155,20 @@ export const de: Dict = {
     depositCard: "Karte hinterlegen",
     dismiss: "Hinweis ausblenden",
   },
+
+  orderPage: {
+    thanks: "Vielen Dank, {name}!",
+    received: "Deine Bestellung wurde aufgenommen.",
+    orderNumber: "Bestellnummer",
+    invoiceComing: "Du bekommst in Kürze eine Rechnung per E-Mail. Sobald die Zahlung eingeht, wird deine Bestellung produziert und verschickt.",
+    paymentReceived: "Wir haben deine Zahlung empfangen. Die Produktion startet jetzt.",
+    items: "Artikel",
+    subtotal: "Zwischensumme",
+    shipping: "Versand",
+    vat: "MwSt",
+    total: "Gesamt",
+    trackingNumber: "Sendungsnummer:",
+    trackPackage: "Paket verfolgen →",
+    backToGallery: "← Zurück zur Galerie",
+  },
 };

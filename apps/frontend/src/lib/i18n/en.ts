@@ -2150,4 +2150,20 @@ export const en: Dict = {
     depositCard: "Add card",
     dismiss: "Dismiss notice",
   },
+
+  orderPage: {
+    thanks: "Thank you, {name}!",
+    received: "Your order has been received.",
+    orderNumber: "Order number",
+    invoiceComing: "You'll receive an invoice by email shortly. Once payment is received, your order will be produced and shipped.",
+    paymentReceived: "We've received your payment. Production starts now.",
+    items: "Items",
+    subtotal: "Subtotal",
+    shipping: "Shipping",
+    vat: "VAT",
+    total: "Total",
+    trackingNumber: "Tracking number:",
+    trackPackage: "Track package →",
+    backToGallery: "← Back to gallery",
+  },
 };
