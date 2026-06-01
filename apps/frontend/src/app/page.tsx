@@ -95,7 +95,7 @@ export default async function HomePage() {
           </Link>
           <span>·</span>
           <a
-            href="https://forgejo.thiel.tools/thiel/lumio"
+            href="https://github.com/markusthiel/lumio"
             className="hover:text-ink-secondary"
           >
             Quellcode

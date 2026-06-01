@@ -7,6 +7,10 @@
 # der Production-Host nichts mehr selbst bauen — `docker compose pull`
 # reicht.
 #
+# Hinweis: Diese Images liegen in einer PRIVATEN Registry (maintainer-intern).
+# Self-Hoster nutzen stattdessen die Basis-`docker-compose.yml` und bauen aus
+# dem Quellcode (`docker compose up -d --build`) — kein Registry-Zugang nötig.
+#
 # Verwendung:
 #
 #   docker compose \

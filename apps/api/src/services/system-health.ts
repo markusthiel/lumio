@@ -307,7 +307,7 @@ export async function checkForUpdate(force = false): Promise<UpdateInfo> {
 
   const repoBase =
     process.env.LUMIO_UPDATE_REPO_URL ??
-    "https://forgejo.thiel.tools/api/v1/repos/thiel/lumio";
+    "https://api.github.com/repos/markusthiel/lumio";
 
   try {
     const resp = await fetch(`${repoBase}/releases/latest`, {

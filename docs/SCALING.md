@@ -155,7 +155,7 @@ Beide "open/succeeded" → weiter. Sonst privates Netz prüfen (`ip addr | grep 
 
 ```bash
 mkdir -p /opt/docker/lumio && cd /opt/docker/lumio
-git clone https://<FORGEJO_TOKEN>@forgejo.thiel.tools/thiel/lumio.git lumio
+git clone https://github.com/markusthiel/lumio.git lumio
 cd lumio
 ```
 

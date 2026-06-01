@@ -243,7 +243,7 @@ Und vorher mal in einem **frischen** Verzeichnis Lumio neu clonen, um sicherzuge
 
 ## Issue melden
 
-Wenn du einen Fehler gefunden hast, der hier nicht steht: Issue auf https://forgejo.thiel.tools/thiel/lumio/issues mit:
+Wenn du einen Fehler gefunden hast, der hier nicht steht: Issue auf https://github.com/markusthiel/lumio/issues mit:
 
 1. Was wolltest du tun?
 2. Was ist passiert?

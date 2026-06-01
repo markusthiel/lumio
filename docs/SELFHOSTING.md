@@ -46,7 +46,7 @@ ufw enable
 
 ```bash
 mkdir -p /opt/docker && cd /opt/docker
-git clone https://forgejo.thiel.tools/thiel/lumio.git
+git clone https://github.com/markusthiel/lumio.git
 cd lumio
 cp .env.example .env
 ```

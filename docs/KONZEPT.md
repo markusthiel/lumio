@@ -6,7 +6,7 @@
 **Inspiration:** Picdrop, Pixieset, Pic-Time, ShootProof
 **Stand:** Juni 2026
 **Status:** In Produktion. Dieses Dokument beschreibt das **tatsächlich gebaute und deployte** System (ursprünglich als Planungsdokument im Mai 2026 begonnen, seitdem fortlaufend an die Realität angeglichen).
-**Repositories:** App-Code (Studio + Kundengalerien): https://forgejo.thiel.tools/thiel/lumio · SaaS-Marketing/Sign-up: lumio-cloud-de.git · Self-Host-Marketing: lumio-app-de.git. Forgejo ist primär, GitHub dient als öffentlicher Mirror.
+**Repository (öffentlich):** https://github.com/markusthiel/lumio — App-Code für Studio + Kundengalerien. Intern primär über Forgejo gepflegt und nach GitHub gespiegelt; die beiden Astro-Marketing-Sites liegen in separaten, internen Repos.
 
 ---
 

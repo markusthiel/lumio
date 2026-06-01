@@ -72,7 +72,7 @@ Das Studio — Galerien verwalten, Smart Collections, Tag-Filter, Team-Proofing:
 ### 1. Repo holen und Secrets setzen
 
 ```bash
-git clone https://forgejo.thiel.tools/thiel/lumio.git
+git clone https://github.com/markusthiel/lumio.git
 cd lumio
 cp .env.example .env
 
@@ -192,4 +192,4 @@ Für ein gehostetes/konkurrierendes Angebot ist eine kommerzielle Lizenz auf Anf
 
 Pull Requests willkommen. Siehe [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Issues & Diskussionen: https://forgejo.thiel.tools/thiel/lumio/issues
+Issues & Diskussionen: https://github.com/markusthiel/lumio/issues

@@ -11,7 +11,7 @@
 ## Erstes Setup
 
 ```bash
-git clone https://forgejo.thiel.tools/thiel/lumio.git
+git clone https://github.com/markusthiel/lumio.git
 cd lumio
 cp .env.example .env
 ```
@@ -253,6 +253,10 @@ das und fällt entsprechend zurück, eine Warnung landet im Worker-Log
 (`encoder.requested_unavailable`).
 
 ### Deployment aus der Container-Registry
+
+> **Hinweis:** Dieser Weg ist maintainer-intern (private Registry). Self-Hoster
+> und externe Mitwirkende bauen die Images aus dem Quellcode
+> (`docker compose up -d --build`) und brauchen keinen Registry-Zugang.
 
 Die CI baut bei jedem Push auf `main` drei Container-Images und schiebt
 sie in die Forgejo Container Registry:

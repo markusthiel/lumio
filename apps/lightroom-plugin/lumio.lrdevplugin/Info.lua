@@ -29,7 +29,7 @@ return {
 
     LrToolkitIdentifier = "tools.thiel.lumio",
     LrPluginName        = "Lumio",
-    LrPluginInfoUrl     = "https://forgejo.thiel.tools/thiel/lumio",
+    LrPluginInfoUrl     = "https://github.com/markusthiel/lumio",
 
     -- Sektion im Plug-in-Manager: Host + Token + Test-Button
     LrPluginInfoProvider = "PluginManager.lua",
