@@ -4,8 +4,9 @@
 **Typ:** Source-available, selbst-gehostete Plattform zum Teilen, Proofing und Ausliefern von Foto- und Video-Shootings
 **Lizenz:** FSL-1.1-ALv2 (Functional Source License — source-available, nicht OSI-Open-Source)
 **Inspiration:** Picdrop, Pixieset, Pic-Time, ShootProof
-**Stand:** Mai 2026
-**Repository:** https://forgejo.thiel.tools/thiel/lumio
+**Stand:** Juni 2026
+**Status:** In Produktion. Dieses Dokument beschreibt das **tatsächlich gebaute und deployte** System (ursprünglich als Planungsdokument im Mai 2026 begonnen, seitdem fortlaufend an die Realität angeglichen).
+**Repositories:** App-Code (Studio + Kundengalerien): https://forgejo.thiel.tools/thiel/lumio · SaaS-Marketing/Sign-up: lumio-cloud-de.git · Self-Host-Marketing: lumio-app-de.git. Forgejo ist primär, GitHub dient als öffentlicher Mirror.
 
 ---
 
@@ -21,23 +22,23 @@ Eine selbst-gehostete, schnelle, datenschutzfreundliche Alternative zu Picdrop �
 
 ---
 
-## 2. Tech-Stack-Empfehlung
+## 2. Tech-Stack
 
-Nach Abwägung (Performance, Bildverarbeitung, Entwicklungsgeschwindigkeit, Ökosystem) **empfehle ich folgenden Stack**:
+Der real eingesetzte Stack (nach Abwägung von Performance, Bildverarbeitung, Entwicklungsgeschwindigkeit und Ökosystem):
 
 | Schicht                   | Technologie                                    | Begründung                                                                                                                  |
 | ------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| **Frontend**              | **Next.js 15 (App Router) + React + TypeScript** | Server Components für schnelles Initial-Rendering, gute Bilder-Pipeline (next/image), riesiges Ökosystem.                   |
+| **Frontend**              | **Next.js 16 (App Router, Turbopack) + React 19 + TypeScript** | Server Components für schnelles Initial-Rendering, gute Bilder-Pipeline, riesiges Ökosystem. Marketing-Sites separat in Astro. |
 | **UI**                    | Tailwind CSS + shadcn/ui + Radix              | Hochwertige, anpassbare Komponenten ohne Bloat. Whitelabel-freundlich.                                                      |
 | **Bild-Viewer**           | PhotoSwipe v5 oder OpenSeadragon              | Industrie-Standard für Lightbox/Deep-Zoom. Touch-Gesten, Keyboard, Fullscreen, Pinch-Zoom.                                  |
 | **Video-Player**          | Video.js oder Vidstack                        | HLS-Streaming, adaptive Bitrate, Captions, Vorschaubilder beim Scrubbing.                                                   |
-| **API-Backend**           | **Node.js + Fastify + TypeScript**            | Sehr schnell, gleiche Sprache wie Frontend → geteilte Types, Zod-Schemas. Fastify schlägt Express um Faktor 2–3.            |
+| **API-Backend**           | **Node.js + Fastify + TypeScript + Prisma (PostgreSQL)** | Sehr schnell, gleiche Sprache wie Frontend → geteilte Types (`packages/shared`), Zod-Schemas. Prisma als ORM mit versionierten Migrationen. |
 | **Worker (Verarbeitung)** | **Python + Celery** (separater Container)     | Für RAW/Video-Processing schlägt das Python-Ökosystem (rawpy, Pillow, OpenCV, PyAV) Node deutlich. Klare Trennung API ↔ CPU. |
-| **Queue**                 | Redis (Bull/BullMQ für Node, Celery-Broker)   | Job-Queue für Thumbnail-/Transcode-Jobs, Rate-Limiting, Sessions.                                                            |
+| **Queue / Cache**         | Redis (ioredis im API für Rate-Limiting/Sessions, Celery-Broker für Worker-Jobs) | Job-Queue für Thumbnail-/Transcode-/Tagging-Jobs, Rate-Limiting, Sessions. Redis ist passwortgeschützt. |
 | **Datenbank**             | **PostgreSQL 16**                              | JSONB für flexible Metadaten (EXIF), Volltextsuche, ausgereift, transaktionssicher.                                         |
-| **Object Storage**        | **S3-kompatibel** (MinIO lokal / AWS S3 / Cloudflare R2 / Backblaze B2) | Skaliert horizontal, einfache Backups, Presigned URLs für direkten Browser-Upload (entlastet Backend).                       |
+| **Object Storage**        | **S3-kompatibel**, frei wählbar via `STORAGE_PROVIDER` (MinIO mitgeliefert; Prod auf lumio-cloud.de: **Hetzner Object Storage**) | Skaliert horizontal, einfache Backups, Presigned URLs für direkten Browser-Upload (entlastet Backend). |
 | **Reverse Proxy**         | Caddy oder Traefik                            | Automatisches Let's-Encrypt, HTTP/3, einfache Compose-Integration.                                                          |
-| **Auth (Studio-Seite)**   | Lucia Auth / Auth.js                           | Sessions, 2FA, OAuth (Google/Apple optional).                                                                                |
+| **Auth (Studio-Seite)**   | Eigene Session-Auth (argon2id-Hashing, Redis-gestützte Sessions) | HTTP-only-Cookies, TOTP-2FA, Passkeys/WebAuthn, API-Tokens für Plugins.                                            |
 | **Auth (Galerie-Seite)**  | Signed URL-Tokens (JWT) + optional Passwort   | Picdrop-Style: kein Account für Kunden.                                                                                      |
 
 ### Storage-Provider-Wahl
@@ -53,7 +54,7 @@ Da Foto-Sharing **schreib-leicht, lese-schwer** ist (einmal hochgeladen, viele D
 | **Wasabi**         | günstig         | inkl.           | "All-inclusive"-Modell, keine versteckten Egress-Gebühren    |
 | **Hetzner Object Storage** | günstig | inkl. (in DE)   | DSGVO-freundlich, europäischer Anbieter                      |
 
-Konkrete Preise schwanken — bitte beim Anbieter prüfen. Die Logik: für eine Hosted-Variante mit viel Kunden-Traffic ist **Cloudflare R2** wirtschaftlich kaum zu schlagen, weil Downloads dort kostenlos sind. Für reine Self-Hosting-Setups ist **MinIO im selben Compose** der einfachste Weg.
+Konkrete Preise schwanken — bitte beim Anbieter prüfen. Für reine Self-Hosting-Setups ist **MinIO im selben Compose** der einfachste Weg (Default). Die produktive SaaS-Instanz **lumio-cloud.de** läuft bewusst auf **Hetzner Object Storage** (EU/DSGVO, Egress inklusive). Für traffic-starke Setups ohne DSGVO-Bindung bleibt **Cloudflare R2** (0 € Egress) wirtschaftlich attraktiv.
 
 Wechsel zwischen Providern ist möglich (`rclone sync s3-old:bucket s3-new:bucket` plus `S3_ENDPOINT` umstellen) — alle Renditions sind über deterministische Keys auffindbar.
 
@@ -124,7 +125,7 @@ Der einzige Sprach-Übergang ist API ↔ Worker via Redis-Queue mit JSON-Payload
 
 **6. Redis** — Job-Queue, Rate-Limiting, optional Session-Store, Pub/Sub für WebSocket-Fanout.
 
-**7. Object Storage (MinIO)** — Originale + abgeleitete Renditions (Thumbnail, Preview, Web, Watermarked). Kein direktes Filesystem — verhindert Skalierungsprobleme.
+**7. Object Storage (S3-kompatibel)** — Originale + abgeleitete Renditions (Thumbnail, Preview, Web, Watermarked). Kein direktes Filesystem — verhindert Skalierungsprobleme. MinIO ist für Self-Hosting mitgeliefert; die SaaS-Instanz nutzt Hetzner Object Storage.
 
 ---
 
@@ -313,62 +314,38 @@ Picdrops Killer-Feature: Kundenauswahl zurück in Lightroom. Wir bieten:
 
 ## 6. Feature-Matrix
 
-### MVP (Phase 1 — was am Tag 1 funktionieren muss)
+Lumio ist über das ursprüngliche MVP hinaus. Der folgende Stand spiegelt das **real ausgelieferte** System wider.
 
-| Feature                                         | Status |
-| ----------------------------------------------- | ------ |
-| Galerie erstellen, Bilder/Videos hochladen      | ✓      |
-| RAW-Support: CR2, CR3, NEF, ARW, RAF, DNG, ORF, PEF, RW2, X3F | ✓      |
-| Bildformate: JPEG, PNG, WebP, AVIF, TIFF, HEIC, PSD-Preview  | ✓      |
-| Video: MP4, MOV, AVI, MKV, HEVC, ProRes        | ✓      |
-| Galerie per Link teilen (mit/ohne Passwort)    | ✓      |
-| Kunden-Seite ohne Login                         | ✓      |
-| Lightbox mit Tastatur + Touch + Pinch-Zoom     | ✓      |
-| Like / Color-Tag / Stern-Rating                 | ✓      |
-| Kommentare pro Bild                             | ✓      |
-| Download an/aus                                 | ✓      |
-| ZIP-Download (Streaming)                        | ✓      |
-| Watermark wenn Download deaktiviert            | ✓      |
-| Branding pro Studio (Logo, Farbe, Domain)      | ✓      |
-| Email-Notifications (Auswahl fertig, neuer Kommentar) | ✓ |
-| Mobile-optimiertes Frontend                    | ✓      |
-| Docker-Compose + Portainer-tauglich            | ✓      |
-| Backups: pg_dump + S3-Sync-Script              | ✓      |
+### Gebaut & in Produktion
 
-### Phase 2 — sehr bald danach
+| Bereich | Features |
+| ------- | -------- |
+| **Galerien** | Erstellen, Upload (Browser→S3, parallele Chunks), Draft/Live/Archiviert, Passwortschutz, Ablaufdatum, Cover, Galerie-Tags, Kapitel (Chapters), Galerie-Templates/Presets |
+| **Medien** | RAW (CR2/CR3/NEF/ARW/RAF/DNG/ORF/PEF/RW2/X3F), JPEG/PNG/WebP/AVIF/TIFF/HEIC, Video (MP4/MOV/AVI/MKV/HEVC/ProRes), HLS-Transcoding, Slideshow |
+| **Kunden-Erlebnis** | Login-freie Galerie, Lightbox (Tastatur/Touch/Pinch), Like / Color-Tag / Stern-Rating, Kommentare, Scribble-Annotationen direkt aufs Bild, Auswahl-Limit, ZIP-Streaming-Download, mobile-first |
+| **Branding** | Pro-Studio- und Pro-Galerie-Branding (Logo, Farben, Schrift, Footer), Custom Domains, Hero/Welcome-Texte, Animations-Stufen |
+| **Studio** | Team-Mitglieder + Rollen (Owner/Member), granularer Galerie-Team-Zugriff, Bulk-Aktionen, manuelles + KI-gestütztes Tagging, Duplikat-Erkennung, Audit-Log, Statistiken/Analytics, API-Tokens |
+| **Sicherheit** | TOTP-2FA, Passkeys/WebAuthn, argon2id, Signed URLs, Rate-Limiting, DSGVO-Datenexport (pro Galerie als ZIP), automatische Lösch-/Archiv-Fristen |
+| **Print-Shop** | Print-Verkauf aus der Galerie (Produkte/Varianten/Versand/Anbieter), Crop, Warenkorb, Checkout mit Stripe, Bestellbestätigung & Sendungsverfolgung |
+| **Plugins** | Lightroom-Classic-Plugin (Publish-Service), Capture-One-Plugin, Webhooks |
+| **Mehrsprachigkeit** | Studio-Oberfläche Deutsch + Englisch (vollständig i18n, umschaltbar) |
+| **Multi-Tenancy & Billing** | Single-/Multi-Mode, Self-Service-Signup, Stripe-Abos + Trial + Read-only-Stufen, Plan-Limits, Banner |
+| **Betrieb** | Docker-Compose-Stack, horizontale Worker-Skalierung über mehrere Nodes (Hetzner Private Network), Wildcard-TLS via acme-dns, Umami-Analytics (cookielos, optional) |
 
-| Feature                                    |
-| ------------------------------------------ |
-| Live-Collaboration (Cursor anderer Viewer in Echtzeit) |
-| Scribbles / Anmerkungen direkt auf Bild   |
-| Team-Voting (mehrere Personen pro Zugriff)|
-| Selection-Limit ("Kunde darf max. 50 wählen") |
-| Presentation Mode (volle Bildschirmpräsentation, autoplay) |
-| Slideshow mit Musik                        |
-| Multi-Tenant (mehrere Studios auf einer Instanz) |
-| 2FA für Studio-Logins                      |
-| Bulk-Aktionen (mehrere Bilder gleichzeitig taggen) |
-| XMP-Sidecar-Export                         |
-| Galerie-Templates / Presets                |
-| Suchfunktion innerhalb Galerie (Filename, EXIF) |
-| Detaillierte Statistiken (Aufrufe, Downloads pro Bild) |
+### KI-Tagging (bewusst Opt-in)
 
-### Phase 3 — "Nice to have"
+Picdrop ist absichtlich KI-frei. Lumio bietet automatisches Tagging als **abschaltbares Opt-in** über ein separates ML-Worker-Image (`docker-compose.ml.yml`, CPU; GPU optional). Vorschläge werden dem Studio zur Bestätigung angezeigt, nichts wird ungefragt übernommen.
 
-| Feature                                    |
-| ------------------------------------------ |
-| Lightroom Classic Plugin (Lua)             |
-| Capture One Plugin                         |
-| Custom Domains pro Galerie (eigene SSL)    |
-| Online-Shop (Bilder verkaufen, Stripe)     |
-| E-Signatures für Rechte-Freigaben          |
-| KI-Tagging optional / lokal abschaltbar (Picdrop ist bewusst KI-frei — wir bieten es als Opt-in) |
-| Webhooks                                   |
-| Public API + OAuth                         |
-| Mobile App (React Native) für Upload aus iPhone |
-| Sprachen: DE, EN, FR, ES, IT              |
+### Geplant / offen
 
----
+| Feature |
+| ------- |
+| Weitere Sprachen (FR, ES, IT) |
+| Nutzungsbasierte Zusatzabrechnung (Storage-Add-ons via Stripe Metered) |
+| Globale Suche über alle Galerien („DAM-Light") |
+| Öffentliche API + OAuth |
+| Mobile App (Upload vom iPhone) |
+| Live-Collaboration mit Echtzeit-Cursorn anderer Viewer |
 
 ## 7. Multi-Tenancy — eine Instanz für ein oder viele Studios
 
@@ -400,7 +377,7 @@ Welcher Tenant gerade aktiv ist, ergibt sich aus dem Request (in dieser Reihenfo
 4. **Studio-Login** — die Session-ID ist an `tenant_id` gekoppelt.
 5. **Single-Mode-Fallback** — der einzige existierende Tenant wird automatisch verwendet.
 
-Caddy macht das alles transparent: ein Wildcard-Cert (oder per-Domain ACME) auf `*.lumio.example.com` plus dynamische Custom-Domain-Validierung über die HTTP-API.
+Caddy macht das transparent: ein Wildcard-Zertifikat (`LUMIO_WILDCARD_HOST=*.lumio-cloud.de`) über das **acme-dns**-Verfahren (eigener acme-dns-Container als DNS-Vermittler, kein DNS-Provider-API-Key nötig) plus per-Domain-ACME für Custom Domains. Die Wildcard ist opt-in über das Compose-Profil `wildcard`.
 
 ### 7.3 Branding-Isolation
 
@@ -472,22 +449,22 @@ Bei **fehlgeschlagener Zahlung** (`status=past_due`) bleibt der Tenant für 7 Ta
 
 ### 8.5 Onboarding-Flow im Multi-Mode
 
-1. Besucher kommt auf die Landing-Page der Hosted-Instanz.
-2. Klick auf "Get started" → Self-Service-Registrierung: E-Mail + Passwort + Studio-Name + Wunsch-Subdomain.
-3. Tenant wird angelegt mit `status=active`, Free-Plan, automatischem 30-Tage-Pro-Trial (optional).
-4. Bestätigungs-Mail mit Aktivierungslink.
-5. Nach Trial-Ende: Plan-Auswahl, ansonsten Downgrade auf Free.
+Es gibt drei Onboarding-Pfade, je nach Modus:
+
+1. **Self-Host, Single-Mode** (`DEPLOYMENT_MODE=single`, kein Stripe): Default-Tenant wird beim ersten Start automatisch angelegt; nur ein `create-admin`-Aufruf für den ersten User nötig.
+2. **Self-Host, Multi-Mode** (Agentur ohne Billing): Super-Admin legt Tenants manuell an.
+3. **SaaS-Mode** (`multi` + `BILLING_ENABLED=true` + Stripe): Self-Service-Signup über die Marketing-Site (lumio-cloud.de) — E-Mail + Passwort + Studio-Name + Wunsch-Subdomain, 14-Tage-Trial, danach Plan-Auswahl oder Read-only.
 
 ### 8.6 Operative Themen
 
 - **Backups** im Hosted-Mode sind Pflicht: `pg_dump` täglich, S3-Bucket mit Object-Versioning und Cross-Region-Replikation.
-- **Monitoring**: Sentry für Errors, Plausible für Nutzer-Analytics (privacy-friendly), Prometheus für Infra-Metriken.
+- **Monitoring**: cookielose **Umami**-Analytics (mitgelieferter Stack unter `infra/umami`, opt-in via `LUMIO_UMAMI_HOST`); Errors/Infra-Metriken nach Bedarf (z.B. Sentry/Prometheus).
 - **Support-Kanal**: Helpscout, Crisp oder einfach E-Mail. Tenant-ID in jeder Anfrage mitschicken.
 - **SLA**: für zahlende Kunden mindestens 99,5 % Uptime versprechen; Ausfälle werden in `events` getrackt und auf Statuspage gespiegelt.
 
 ### 8.7 Wann Hosted Mode deaktiviert lassen?
 
-Wenn du die Software **rein selbst hostest** oder **als reine Open-Source-Community-Lösung** veröffentlichst: `BILLING_ENABLED=false`. Dann existieren die Billing-Tabellen zwar, aber keine Limits werden durchgesetzt und keine Stripe-Webhooks aktiv. Alle Features sind für alle Tenants freigeschaltet.
+Wenn du die Software **rein selbst hostest** (Single- oder Multi-Mode ohne Verkauf): `BILLING_ENABLED=false`. Dann existieren die Billing-Tabellen zwar, aber keine Limits werden durchgesetzt und keine Stripe-Webhooks sind aktiv. Alle Features sind für alle Tenants freigeschaltet.
 
 ---
 
@@ -512,107 +489,44 @@ Da Zielgruppe Profis mit NDAs sind, ist das kein "Add-on", sondern Kern.
 
 ## 10. Deployment — Docker Compose
 
-Vereinfachtes `docker-compose.yml`:
+Der Stack wird über **mehrere zusammensetzbare Compose-Dateien** betrieben. Die Basis (`docker-compose.yml`) baut die Images lokal; Overrides aktivieren produktive bzw. optionale Bausteine:
 
-```yaml
-version: "3.9"
+| Datei | Zweck |
+| ----- | ----- |
+| `docker-compose.yml` | Basis: caddy, frontend, api, worker, postgres, redis, minio (lokaler Build) |
+| `docker-compose.prod.yml` | Ersetzt die `build:`-Blöcke durch fertige Images aus der **Forgejo Container Registry** (`forgejo.thiel.tools/thiel/lumio-{api,frontend,worker}:${LUMIO_TAG}`) |
+| `docker-compose.ml.yml` | Zusätzlicher ML-Worker für KI-Tagging (CPU) |
+| `docker-compose.gpu.yml` | GPU-Beschleunigung (NVIDIA) für Transcoding/ML |
+| `docker-compose.worker.yml` | Reine Worker-Node für horizontale Skalierung (eigener Server) |
 
-services:
-  caddy:
-    image: caddy:2-alpine
-    ports: ["80:80", "443:443", "443:443/udp"]
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on: [frontend, api]
+**Self-Hosting (Single-Mode), einfachster Fall:**
 
-  frontend:
-    image: ghcr.io/<org>/photoshare-frontend:latest
-    environment:
-      - NEXT_PUBLIC_API_URL=https://photos.example.com/api
-    restart: unless-stopped
-
-  api:
-    image: ghcr.io/<org>/photoshare-api:latest
-    environment:
-      - DATABASE_URL=postgres://photoshare:${DB_PASSWORD}@postgres:5432/photoshare
-      - REDIS_URL=redis://redis:6379
-      - S3_ENDPOINT=http://minio:9000
-      - S3_BUCKET=photoshare
-      - S3_ACCESS_KEY=${S3_ACCESS_KEY}
-      - S3_SECRET_KEY=${S3_SECRET_KEY}
-      - JWT_SECRET=${JWT_SECRET}
-      - SMTP_HOST=${SMTP_HOST}
-    depends_on: [postgres, redis, minio]
-    restart: unless-stopped
-
-  worker:
-    image: ghcr.io/<org>/photoshare-worker:latest
-    environment:
-      - REDIS_URL=redis://redis:6379
-      - DATABASE_URL=postgres://photoshare:${DB_PASSWORD}@postgres:5432/photoshare
-      - S3_ENDPOINT=http://minio:9000
-      - S3_BUCKET=photoshare
-      - S3_ACCESS_KEY=${S3_ACCESS_KEY}
-      - S3_SECRET_KEY=${S3_SECRET_KEY}
-    deploy:
-      replicas: 2          # so viele du brauchst, einfach hochskalieren
-    # devices: ["/dev/dri:/dev/dri"]   # für GPU-Beschleunigung (Intel QSV)
-    restart: unless-stopped
-
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      - POSTGRES_DB=photoshare
-      - POSTGRES_USER=photoshare
-      - POSTGRES_PASSWORD=${DB_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    restart: unless-stopped
-
-  redis:
-    image: redis:7-alpine
-    command: redis-server --save 60 1 --loglevel warning
-    volumes:
-      - redis_data:/data
-    restart: unless-stopped
-
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
-    environment:
-      - MINIO_ROOT_USER=${S3_ACCESS_KEY}
-      - MINIO_ROOT_PASSWORD=${S3_SECRET_KEY}
-    volumes:
-      - minio_data:/data
-    restart: unless-stopped
-
-volumes:
-  postgres_data:
-  redis_data:
-  minio_data:
-  caddy_data:
-  caddy_config:
+```bash
+cp .env.example .env      # Secrets setzen (S3-Keys, DB-Passwort, JWT_SECRET …)
+docker compose up -d      # acme-dns ist profilegated und bleibt aus
 ```
 
-**Caddyfile** (drei Zeilen für TLS + Routing):
+Damit läuft alles auf einem Host inklusive MinIO; `DEPLOYMENT_MODE=single` legt den Default-Tenant beim ersten Start an.
 
-```caddy
-photos.example.com {
-    reverse_proxy /api/* api:3000
-    reverse_proxy frontend:3000
-}
+**Produktiver SaaS-Betrieb (Referenz: lumio-cloud.de):** Wildcard-TLS für Tenant-Subdomains erfordert das Profil `wildcard` (sonst startet acme-dns nicht und das Wildcard-Zertifikat bricht):
+
+```bash
+cd /opt/docker/lumio/lumio && git pull && \
+  docker compose --profile wildcard \
+    -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.ml.yml \
+    up -d --build
 ```
 
-**Portainer-tauglich:** Das gesamte Setup wird als **Stack** in Portainer eingespielt. Environment-Variablen lassen sich dort komfortabel pflegen, und Portainer kann Pull/Restart pro Service triggern.
+**Horizontale Skalierung:** Worker lassen sich auf zusätzliche Nodes auslagern. Haupt-Server und Worker-Nodes hängen in einem privaten Netz (Hetzner Private Network); Redis ist passwortgeschützt und bindet nur auf die interne IP. Eine Worker-Node deployt mit `docker-compose.worker.yml` + eigener `.env.worker`; Celery clustert automatisch. Wichtig: `apps/frontend` und `apps/api` betreffen nur den Haupt-Server, `apps/worker`-Änderungen alle Nodes (Nodes immer **nach** dem Haupt-Server wegen DB-Migrationen). Details: `docs/SCALING.md`.
 
-**Empfohlene Mindest-Hardware:**
+**Reverse Proxy:** Caddy serviert App-Domains (Studio + Wildcard) und die Marketing-Sites über separate Blöcke (Konfiguration unter `infra/caddy/Caddyfile`, gesteuert über `LUMIO_WILDCARD_HOST`).
+
+**Referenz-Hardware (Prod):** Hetzner CCX in Falkenstein (fsn1), 12 vCPU / 24 GB RAM / 480 GB, Hetzner Object Storage statt MinIO.
+
+**Empfohlene Mindest-Hardware (Self-Host):**
 - 4 vCPU, 8 GB RAM (kleines Studio, ~50 GB/Monat Traffic)
-- 8 vCPU, 16 GB RAM (mehrere Tausend Fotos/Monat, mehrere parallele Uploads)
-- GPU optional, drastische Beschleunigung bei 4K-Video
-
----
+- 8 vCPU, 16 GB RAM (mehrere parallele Uploads, KI-Tagging aktiv)
+- GPU optional, deutliche Beschleunigung bei 4K-Video und ML-Tagging
 
 ## 11. Performance-Optimierungen
 
@@ -634,23 +548,21 @@ Wo Picdrop sich "schnell" anfühlt — und wie wir das nachbauen:
 
 ---
 
-## 12. Open-Source-Strategie
+## 12. Repo, Release & Lizenz
 
-- **Repo-Struktur**: Monorepo (pnpm workspaces) mit `apps/frontend`, `apps/api`, `apps/worker`, `packages/shared-types`.
+- **Repo-Struktur**: Monorepo (pnpm workspaces) — `apps/frontend`, `apps/api`, `apps/worker` (Python/Celery), `apps/lightroom-plugin`, `apps/capture-one-plugin`, `packages/shared` (geteilte Types).
+- **Drei Repositories**: App-Code (`lumio.git`) plus zwei Astro-Marketing-Sites — `lumio-cloud-de.git` (SaaS + Sign-up + Stripe) und `lumio-app-de.git` (Self-Host-Pitch).
+- **Hosting**: **Forgejo** (`forgejo.thiel.tools/thiel/*`) ist primär; **GitHub** dient als öffentlicher Push-Mirror.
 - **Lizenz**: **FSL-1.1-ALv2** (Functional Source License) — source-available. Verbietet konkurrierendes SaaS-Hosting (*Competing Use*), konvertiert aber 2 Jahre nach jedem Release automatisch zu Apache 2.0. Kommerzielle Lizenz für gehostete/konkurrierende Angebote auf Anfrage.
-- **CI/CD**: GitHub Actions → Docker Images nach `ghcr.io`, Tags pro Release + `:latest` + `:main`.
-- **Docs**: VitePress oder MkDocs Material, gehostet auf GitHub Pages.
-- **Demo**: öffentliche Demo-Instanz auf einem Hetzner-Server (wichtig für Adoption).
-- **Community**: GitHub Discussions + Discord/Matrix-Server.
-- **Roadmap öffentlich** in GitHub Projects.
-
----
+- **Images/CI**: Container-Images liegen in der **Forgejo Container Registry**; Deployment per `git pull` + `docker compose … up -d --build`.
+- **Docs**: im Repo unter `docs/` (u.a. `STORAGE.md`, `SCALING.md`, `SAAS_MODE.md`).
+- **Demo/Launch**: Self-Host zuerst (r/selfhosted, awesome-selfhosted, Hacker News, Mastodon) — kommuniziert als *source-available*, nicht „Open Source". DSGVO / „Daten bleiben in Deutschland" als zentraler Differenzierer.
 
 ## 13. Was Picdrop kann, was wir bewusst weglassen (zumindest am Anfang)
 
 - Globale Suche über alle Galerien einer Agentur ("DAM-Light") — Phase 2/3.
 - Cloud-Speicher-Anbindung (Dropbox, Drive) — Self-Hosted braucht das nicht so dringend.
-- Bezahl-Abo-Logik — bei Self-Hosted irrelevant. (Für eine optionale Cloud-Variante deinerseits: Stripe.)
+- Bezahl-Abo-Logik ist im Self-Host-Modus deaktiviert (`BILLING_ENABLED=false`); für die eigene Cloud-Variante über Stripe aktiv. (Der **Print-Shop** zum Bilderverkauf ist inzwischen gebaut und nicht mehr ausgeklammert.)
 - Komplexes Rechtemanagement mit hundert Rollen — wir bleiben bei: Owner, Team-Member, Galerie-Gast.
 
 ---
@@ -662,33 +574,36 @@ Wo Picdrop sich "schnell" anfühlt — und wie wir das nachbauen:
 3. **Adobe DNG-Special-Cases** — LibRaw behandelt DNG-Whitebalance anders als dcraw, das kann zu sichtbar anderen Previews führen — meist akzeptabel für Galerien, aber dokumentieren.
 4. **Mobile Upload großer RAWs aus iPhone** — Safari hat Upload-Limits, evtl. Tus-Protokoll (resumable uploads) statt Plain-Multipart erwägen.
 5. **Skalierung bei riesigen Galerien (10.000+ Bilder)** — Pagination + virtuelles Scrolling sind eingeplant, aber Last-Tests müssen folgen.
-6. **Domain "Konkurrenz mit Picdrop"** — Picdrop ist ein etabliertes Tool. Differenzierung: Self-Hosted, Open Source, kein Lock-in, NDA-tauglich. Nicht "Picdrop killen", sondern eine Lücke füllen.
+6. **Domain "Konkurrenz mit Picdrop"** — Picdrop ist ein etabliertes Tool. Differenzierung: Self-Hosted, source-available, Daten bleiben in Deutschland/EU, kein Lock-in, NDA-tauglich. Nicht "Picdrop killen", sondern eine Lücke füllen.
 
 ---
 
-## 15. Vorgeschlagene nächste Schritte
+## 15. Status & nächste Schritte
 
-1. **Repo-Skeleton aufsetzen** — Monorepo mit allen Apps als Stubs, CI grün, Docker-Compose startet leeres System.
-2. **Daten-Modell + Migrationen** — Prisma oder Drizzle Schema, Migration-Skripte.
-3. **Upload-Flow MVP** — Studio-Login, eine Galerie, Foto hochladen, Thumbnail erscheint.
-4. **Kunden-Galerie MVP** — Link teilen, Bilder anschauen, einen Like setzen.
-5. **RAW + Video Worker** — rawpy + ffmpeg in Worker-Container, Jobs end-to-end durch.
-6. **Branding + Passwort + ZIP-Download** — die "Pro"-Features.
-7. **Public Alpha** — auf GitHub veröffentlichen, Feedback sammeln.
-8. **Lightroom-XMP-Export** — der Wow-Moment für Profis.
+Das ursprüngliche MVP (Abschnitte unten) ist vollständig ausgeliefert und produktiv, ebenso ein Großteil der einstigen Phase-2/3-Features (Multi-Tenancy, Billing, 2FA/Passkeys, Print-Shop, KI-Tagging, Plugins, DE/EN-i18n, Multi-Node-Skalierung).
 
----
+**Offene Punkte:**
+
+1. **GitHub-Mirror** sauber halten (synct von Forgejo).
+2. **Stripe-Bootstrap** für neue SaaS-Tarife (`docker compose exec api npm run stripe-bootstrap`) — nur SaaS-Mode.
+3. **Rechtstexte** (AVV/Art. 28 DSGVO, AGB, Datenschutz) anwaltlich prüfen lassen; Impressums-/Datenschutz-URLs in der lumio-cloud.de-ENV setzen.
+4. **Umami-Analytics** scharfschalten (A-Record `stats.lumio-cloud.de`, `LUMIO_UMAMI_HOST`).
+5. **Capture-One-Plugin** finalisieren.
+6. **Weitere Sprachen** (FR/ES/IT) nach Bedarf.
+7. **Launch** der Self-Host-Variante (Communities) + öffentliche Demo-Instanz.
 
 ## Anhang: Wichtige Bibliotheken & Tools
 
-- **Bildverarbeitung**: libvips (über pyvips), Pillow, OpenCV (für Histogramme/Analyse), libheif
+- **Bildverarbeitung**: libvips (über pyvips), Pillow, libheif; imageio als Bridge
 - **RAW**: rawpy (LibRaw-Wrapper), exiftool (Metadaten)
-- **Video**: ffmpeg, PyAV (Python-Bindings)
-- **Backend**: Fastify, Zod, BullMQ, Lucia Auth, Prisma oder Drizzle
-- **Frontend**: Next.js 15, React 19, TanStack Query, Zustand, PhotoSwipe v5, Video.js, react-photo-album, react-window
-- **DevOps**: Docker, Docker Compose, GitHub Actions, Renovate (Dep-Updates), Sentry (Errors), Plausible (Privacy-Analytics)
+- **Video**: ffmpeg (HLS/Transcoding)
+- **Backend**: Fastify, Zod, **Prisma** (PostgreSQL), ioredis, Stripe, argon2 (eigene Session-/2FA-/Passkey-Auth)
+- **Worker**: Python, **Celery** (Redis-Broker), boto3, separates ML-Image für KI-Tagging
+- **Frontend**: **Next.js 16**, **React 19**, Tailwind CSS, TanStack Query; Marketing-Sites in **Astro**
+- **DevOps**: Docker Compose, Caddy (+ acme-dns für Wildcard-TLS), Forgejo (Code + Container Registry, GitHub-Mirror), **Umami** (cookielose Analytics)
+- **i18n**: eigenes leichtgewichtiges Dictionary-System (`apps/frontend/src/lib/i18n`, DE/EN)
 - **Testing**: Vitest, Playwright (E2E), pytest (Worker)
 
 ---
 
-*Ende des Konzepts. Bei Rückfragen, Priorisierung oder Wunsch nach detaillierterem Ausarbeiten einzelner Abschnitte — sag Bescheid.*
+*Ende des Konzepts.*
