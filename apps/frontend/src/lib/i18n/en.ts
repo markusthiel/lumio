@@ -2108,6 +2108,7 @@ export const en: Dict = {
   },
 
   galleryShare: {
+    changeFailed: "Change failed.",
     teamAccess: "Team access",
     whoCanSee: "Who may see and edit this gallery",
     sharedCount: " · {n} shared",

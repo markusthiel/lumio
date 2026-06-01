@@ -2113,6 +2113,7 @@ export const de: Dict = {
   },
 
   galleryShare: {
+    changeFailed: "Änderung fehlgeschlagen.",
     teamAccess: "Team-Zugriff",
     whoCanSee: "Wer diese Galerie sehen und bearbeiten darf",
     sharedCount: " · {n} freigegeben",

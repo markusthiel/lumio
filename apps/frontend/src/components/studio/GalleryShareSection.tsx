@@ -61,7 +61,7 @@ export function GalleryShareSection({ galleryId }: { galleryId: string }) {
         (cur) =>
           cur?.map((x) => (x.id === m.id ? { ...x, shared: !next } : x)) ?? cur
       );
-      setError("Änderung fehlgeschlagen.");
+      setError(t("galleryShare.changeFailed"));
     } finally {
       setBusy(null);
     }
