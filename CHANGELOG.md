@@ -22,16 +22,28 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ## [Unreleased]
 
 ### Added
-- Kunden-Galerie: Einzelbild-Download auf iOS sichert über das native
-  Teilen-Sheet direkt in die Foto-App ("In Fotos sichern") statt in die
-  "Dateien"-App. Gleiche Download-Buttons, Desktop/Android unverändert.
-  Dafür neuer Stream-Endpoint `GET /g/:slug/files/:fileId/blob`.
+-
 
 ### Changed
 -
 
 ### Fixed
 -
+
+## [0.10.0] - 2026-06-01
+
+Abwärtskompatibles Feature-Release. Für Self-Hoster genügt `git pull` +
+regulärer Deploy — keine `.env`-, Compose- oder DB-Änderungen nötig.
+
+### Added
+- Kunden-Galerie: Einzelbild-Download auf iOS sichert über das native
+  Teilen-Sheet direkt in die Foto-App ("In Fotos sichern") statt in die
+  "Dateien"-App. Gleiche Download-Buttons, Desktop/Android unverändert.
+  Dafür neuer Stream-Endpoint `GET /g/:slug/files/:fileId/blob`.
+
+### Changed
+- Doku: `docs/OPERATIONS.md` um den Abschnitt „Secrets & Passwörter
+  rotieren" ergänzt.
 
 ## [0.9.0] - 2026-06-01
 
