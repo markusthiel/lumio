@@ -20,7 +20,7 @@
       4b. Publish:          Bibliothek → Veroeffentlichungsdienste → "Lumio einrichten…"
 
     Author: Lumio
-    License: AGPL-3.0
+    License: FSL-1.1-ALv2
 ]]
 
 return {

@@ -267,7 +267,7 @@ durch eine State-Machine schiebt:
 - [ ] Doku-Integration aus dem Haupt-Repo (Markdown via Build-Step)
 - [ ] Roadmap-Page (importiert aus diesem Dokument)
 - [ ] Forgejo-Link prominent (kein GitHub-Mirror)
-- [ ] AGPL-Lizenz-Hinweise
+- [ ] FSL-Lizenz-Hinweise
 - [ ] Screenshots Studio + Customer-View
 - [ ] Demo-Galerie-Link
 
@@ -277,7 +277,7 @@ durch eine State-Machine schiebt:
 - [ ] Einmalkauf-Variante für Hochzeitspaare („€49 einmalig,
       Galerie 12 Monate aktiv") als separater Use-Case
 - [ ] Affiliate-/Partner-Programm
-- [ ] Open Core: Pro-Features aus dem AGPL-Repo ausgliedern
+- [ ] Open Core: Pro-Features aus dem FSL-Repo ausgliedern
       (z.B. SSO, Team-Accounts) wenn Markt-Druck besteht
 - [ ] Dual-Licensing-Option (kommerzielle Lizenz auf Anfrage)
       wenn ein konkreter Use-Case kommt

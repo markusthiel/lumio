@@ -149,4 +149,4 @@ Plugin-Logs liegen unter:
 
 ## Lizenz
 
-AGPL-3.0, wie der Rest von Lumio.
+FSL-1.1-ALv2 (Functional Source License), wie der Rest von Lumio.
