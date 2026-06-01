@@ -26,7 +26,7 @@ export type ApiUser = {
 export type GalleryMode = "collaboration" | "presentation";
 export type GalleryStatus = "draft" | "live" | "archived";
 export type FileStatus = "uploading" | "processing" | "ready" | "failed" | "hidden";
-export type FileKind = "image" | "heic" | "raw" | "video" | "other";
+export type FileKind = "image" | "heic" | "raw" | "video" | "pdf" | "other";
 export type ZipStatus = "pending" | "building" | "ready" | "failed";
 
 export interface Tag {
@@ -375,6 +375,14 @@ export interface PublicFile {
   previewUrl: string | null;
   webUrl: string | null;
   hlsUrl: string | null;
+  /** Mehrseitiges Dokument (PDF): Seitenzahl + Pro-Seiten-URLs. Null/
+   *  undefined bei normalen Bildern/Videos. */
+  pageCount?: number | null;
+  pages?: Array<{
+    page: number;
+    thumbUrl: string | null;
+    webUrl: string | null;
+  }> | null;
   sprite: SpriteSheet | null;
   previewWidth: number | null;
   previewHeight: number | null;

@@ -1139,6 +1139,16 @@ function Lightbox({
   const [commentPending, setCommentPending] = useState(false);
   const [limitMessage, setLimitMessage] = useState<string | null>(null);
 
+  // PDF: aktuelle Seite im mehrseitigen Dokument. pdfPages ist leer bei
+  // normalen Bildern/Videos -> isPdfDoc false -> kein Paging-UI. Reset
+  // bei Datei-Wechsel.
+  const pdfPages = file.pages ?? [];
+  const isPdfDoc = file.kind === "pdf" && pdfPages.length > 1;
+  const [pdfPage, setPdfPage] = useState(0);
+  useEffect(() => {
+    setPdfPage(0);
+  }, [file.id]);
+
   // Annotation-Editor — eigene Strokes pro Bild im State. Wird beim
   // Bild-Wechsel gespült (siehe useEffect unten) und vorher als
   // Comment persistiert wenn was gemalt wurde.
@@ -1513,11 +1523,18 @@ function Lightbox({
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={file.webUrl ?? file.previewUrl ?? ""}
+                  src={
+                    isPdfDoc
+                      ? pdfPages[pdfPage]?.webUrl ??
+                        pdfPages[pdfPage]?.thumbUrl ??
+                        file.webUrl ??
+                        ""
+                      : file.webUrl ?? file.previewUrl ?? ""
+                  }
                   alt={file.filename}
                   className="max-h-[calc(100vh-160px)] max-w-full object-contain animate-fade-in block"
                   draggable={false}
-                  key={file.id}
+                  key={`${file.id}-${pdfPage}`}
                 />
                 {/* Annotation-Overlay deckt das Bild exakt ab (gleiche
                     width/height über inset-0). Da das Overlay mit
@@ -1570,6 +1587,39 @@ function Lightbox({
           ) : (
             <div className="opacity-50 text-ui">
               {t("gallery.previewMissing")}
+            </div>
+          )}
+
+          {/* PDF-Seiten-Navigation — nur bei mehrseitigen Dokumenten.
+              Eigene Leiste, damit die Links/Rechts-Pfeile weiterhin
+              zwischen Dateien blättern und diese hier zwischen Seiten. */}
+          {isPdfDoc && (
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full px-2 py-1 text-white/90">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPdfPage((p) => Math.max(0, p - 1));
+                }}
+                disabled={pdfPage === 0}
+                className="w-8 h-8 rounded-full hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-xl flex items-center justify-center transition-colors duration-motion"
+                aria-label={t("gallery.previous")}
+              >
+                ‹
+              </button>
+              <span className="text-ui-xs tabular-nums select-none px-1 min-w-[3.5rem] text-center">
+                {pdfPage + 1} / {pdfPages.length}
+              </span>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPdfPage((p) => Math.min(pdfPages.length - 1, p + 1));
+                }}
+                disabled={pdfPage >= pdfPages.length - 1}
+                className="w-8 h-8 rounded-full hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-xl flex items-center justify-center transition-colors duration-motion"
+                aria-label={t("gallery.next")}
+              >
+                ›
+              </button>
             </div>
           )}
 
