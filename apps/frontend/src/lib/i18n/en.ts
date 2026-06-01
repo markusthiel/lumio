@@ -58,6 +58,17 @@ export const en: Dict = {
   },
 
   login: {
+    loginFailed: "Login failed",
+    verifyFailed: "Verification failed",
+    passkeyFailed: "Passkey login failed",
+    archivedMsg: "The studio “{name}” has been archived. If you need access to your data, contact support.",
+    dormantMsg: "The studio “{name}” is currently dormant.",
+    studioNotFound: "Studio not found",
+    studioNotFoundDesc: "There's no studio at this address. Check the name or select your studio again.",
+    selectStudio: "Select studio",
+    chooseStudio: "Choose studio",
+    multiStudioDesc: "Your email address is linked to multiple studios. Choose which one to sign in to.",
+    back: "← Back",
     title: "Studio sign-in",
     email: "Email",
     password: "Password",

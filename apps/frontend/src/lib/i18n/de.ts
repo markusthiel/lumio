@@ -58,6 +58,17 @@ export const de: Dict = {
   },
 
   login: {
+    loginFailed: "Anmeldung fehlgeschlagen",
+    verifyFailed: "Verifikation fehlgeschlagen",
+    passkeyFailed: "Passkey-Anmeldung fehlgeschlagen",
+    archivedMsg: "Das Studio „{name}“ wurde archiviert. Falls du Zugriff auf deine Daten brauchst, kontaktiere den Support.",
+    dormantMsg: "Das Studio „{name}“ ist aktuell stillgelegt.",
+    studioNotFound: "Studio nicht gefunden",
+    studioNotFoundDesc: "Unter dieser Adresse gibt es kein Studio. Prüfe den Namen oder wähle dein Studio erneut aus.",
+    selectStudio: "Studio auswählen",
+    chooseStudio: "Studio wählen",
+    multiStudioDesc: "Deine E-Mail-Adresse ist mit mehreren Studios verknüpft. Wähle aus, in welches du dich anmelden möchtest.",
+    back: "← Zurück",
     title: "Studio-Anmeldung",
     email: "E-Mail",
     password: "Passwort",

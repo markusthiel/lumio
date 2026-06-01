@@ -163,8 +163,8 @@ export default function LoginPage() {
           if (r.tenant.status !== "active") {
             setError(
               r.tenant.status === "archived"
-                ? `Das Studio „${r.tenant.name}" wurde archiviert. Falls du Zugriff auf deine Daten brauchst, kontaktiere den Support.`
-                : `Das Studio „${r.tenant.name}" ist aktuell stillgelegt.`
+                ? t("login.archivedMsg", { name: r.tenant.name })
+                : t("login.dormantMsg", { name: r.tenant.name })
             );
           }
         }
@@ -230,7 +230,7 @@ export default function LoginPage() {
         router.push("/studio");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Anmeldung fehlgeschlagen");
+      setError(err instanceof Error ? err.message : t("login.loginFailed"));
     } finally {
       setPending(false);
     }
@@ -257,7 +257,7 @@ export default function LoginPage() {
         router.push("/studio");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Anmeldung fehlgeschlagen");
+      setError(err instanceof Error ? err.message : t("login.loginFailed"));
     } finally {
       setPending(false);
     }
@@ -272,7 +272,7 @@ export default function LoginPage() {
       await api.loginTotp(stage.challenge, code);
       router.push("/studio");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Verifikation fehlgeschlagen");
+      setError(err instanceof Error ? err.message : t("login.verifyFailed"));
     } finally {
       setPending(false);
     }
@@ -294,7 +294,7 @@ export default function LoginPage() {
       if (err instanceof Error && err.name === "NotAllowedError") {
         // User-Cancel ist kein Fehler
       } else {
-        setError(err instanceof Error ? err.message : "Passkey-Anmeldung fehlgeschlagen");
+        setError(err instanceof Error ? err.message : t("login.passkeyFailed"));
       }
     } finally {
       setPending(false);
@@ -329,17 +329,16 @@ export default function LoginPage() {
       <main className="min-h-screen flex items-center justify-center bg-surface-canvas p-8">
         <div className="max-w-md w-full text-center space-y-4 animate-fade-in">
           <h1 className="text-display-sm font-medium text-ink-primary">
-            Studio nicht gefunden
+            {t("login.studioNotFound")}
           </h1>
           <p className="text-ui text-ink-tertiary leading-relaxed">
-            Unter dieser Adresse gibt es kein Studio. Prüfe den Namen
-            oder wähle dein Studio erneut aus.
+            {t("login.studioNotFoundDesc")}
           </p>
           <a
             href={pickerHref}
             className="inline-flex items-center justify-center h-9 px-4 rounded bg-accent text-accent-contrast text-ui-sm font-medium hover:bg-accent-hover transition-colors duration-motion"
           >
-            Studio auswählen
+            {t("login.selectStudio")}
           </a>
         </div>
       </main>
@@ -492,11 +491,10 @@ export default function LoginPage() {
         <div className="space-y-5 bg-surface-raised border border-line-subtle rounded-md p-7 shadow-elev-2">
           <header className="space-y-1.5">
             <h1 className="text-display-sm text-ink-primary font-medium">
-              Studio wählen
+              {t("login.chooseStudio")}
             </h1>
             <p className="text-ui-sm text-ink-tertiary">
-              Deine E-Mail-Adresse ist mit mehreren Studios verknüpft.
-              Wähle aus, in welches du dich anmelden möchtest.
+              {t("login.multiStudioDesc")}
             </p>
           </header>
 
@@ -536,7 +534,7 @@ export default function LoginPage() {
             }}
             className="text-ui-xs text-ink-tertiary hover:text-ink-primary transition-colors duration-motion"
           >
-            ← Zurück
+            {t("login.back")}
           </button>
         </div>
       ) : (
