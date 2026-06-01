@@ -171,6 +171,7 @@ function Header({
   cartCount: number;
   onGoToCart: () => void;
 }) {
+  const t = useT();
   return (
     <header className="flex items-center justify-between mb-6 pb-4 border-b border-line-subtle">
       <div>
@@ -179,7 +180,7 @@ function Header({
           href={`/g/${slug}`}
           className="text-xs text-accent hover:underline"
         >
-          ← Zurück zur Galerie
+          ← {t("printShop.backToGallery")}
         </Link>
       </div>
       {step === "browse" && cartCount > 0 && (
@@ -188,7 +189,7 @@ function Header({
           onClick={onGoToCart}
           className="px-4 py-2 text-sm rounded bg-accent text-white"
         >
-          Warenkorb ({cartCount})
+          {t("printShop.cart", { count: cartCount })}
         </button>
       )}
     </header>
@@ -207,10 +208,11 @@ function BrowseStep({
   cart: CartItem[];
   onPickFile: (f: PublicFile) => void;
 }) {
+  const t = useT();
   return (
     <div>
       <p className="text-sm text-ink-tertiary mb-4">
-        Wähle ein Bild aus der Galerie um es als Print zu bestellen.
+        {t("printShop.pickImage")}
       </p>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
         {files.map((f) => {
@@ -236,7 +238,7 @@ function BrowseStep({
               )}
               <div className="absolute inset-0 flex items-end justify-end p-2 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-t from-black/50 to-transparent">
                 <span className="text-xs text-white bg-accent px-2 py-1 rounded">
-                  Bestellen
+                  {t("printShop.orderBtn")}
                 </span>
               </div>
               {inCart > 0 && (
@@ -267,6 +269,7 @@ function PickerDialog({
   onClose: () => void;
   onAdd: (item: CartItem) => void;
 }) {
+  const t = useT();
   const [selectedProduct, setSelectedProduct] = useState<ProductRow | null>(
     catalog.products[0] ?? null
   );
@@ -359,17 +362,17 @@ function PickerDialog({
             )}
           </div>
           <div className="p-5 space-y-4">
-            <h3 className="text-lg font-semibold">Print bestellen</h3>
+            <h3 className="text-lg font-semibold">{t("printShop.orderPrint")}</h3>
 
             {catalog.products.length === 0 ? (
               <p className="text-sm text-ink-tertiary">
-                Keine Produkte verfügbar.
+                {t("printShop.noProducts")}
               </p>
             ) : (
               <>
                 <label className="block">
                   <span className="block text-xs text-ink-tertiary mb-1">
-                    Produkt
+                    {t("printShop.product")}
                   </span>
                   <select
                     className="w-full rounded border border-line-subtle bg-surface-raised px-2 py-1.5 text-sm"
@@ -399,7 +402,7 @@ function PickerDialog({
                   selectedProduct.variants.length > 0 && (
                     <label className="block">
                       <span className="block text-xs text-ink-tertiary mb-1">
-                        Variante
+                        {t("printShop.variant")}
                       </span>
                       <select
                         className="w-full rounded border border-line-subtle bg-surface-raised px-2 py-1.5 text-sm"
@@ -422,7 +425,7 @@ function PickerDialog({
 
                 <label className="block">
                   <span className="block text-xs text-ink-tertiary mb-1">
-                    Anzahl
+                    {t("printShop.quantity")}
                   </span>
                   <input
                     type="number"
@@ -440,13 +443,12 @@ function PickerDialog({
 
                 {cropActive && (
                   <p className="text-xs text-ink-tertiary bg-surface-sunken rounded px-2 py-1.5">
-                    Verschiebe den Rahmen oder ziehe an den Ecken, um
-                    deinen Bildausschnitt zu wählen.
+                    {t("printShop.cropHint")}
                   </p>
                 )}
 
                 <div className="text-sm pt-2 border-t border-line-subtle flex justify-between">
-                  <span className="text-ink-tertiary">Zwischensumme</span>
+                  <span className="text-ink-tertiary">{t("printShop.subtotal")}</span>
                   <span className="font-semibold tabular-nums">
                     {formatPrice(
                       (selectedVariant?.priceCents ?? 0) * quantity,
@@ -463,7 +465,7 @@ function PickerDialog({
                 onClick={onClose}
                 className="flex-1 px-3 py-2 text-sm rounded border border-line-subtle"
               >
-                Abbrechen
+                {t("common.cancel")}
               </button>
               <button
                 type="button"
@@ -471,7 +473,7 @@ function PickerDialog({
                 disabled={!selectedVariant}
                 className="flex-1 px-3 py-2 text-sm rounded bg-accent text-white disabled:opacity-50"
               >
-                Zum Warenkorb
+                {t("printShop.toCart")}
               </button>
             </div>
           </div>
@@ -621,14 +623,14 @@ function CartStep({
     return (
       <div className="text-center py-12">
         <p className="text-sm text-ink-tertiary mb-4">
-          Dein Warenkorb ist leer.
+          {t("printShop.cartEmpty")}
         </p>
         <button
           type="button"
           onClick={onBack}
           className="px-4 py-2 text-sm rounded border border-line-subtle"
         >
-          ← Bilder auswählen
+          {t("printShop.cartButtonArrow")}
         </button>
       </div>
     );
@@ -652,7 +654,7 @@ function CartStep({
         onClick={onBack}
         className="text-xs text-accent hover:underline"
       >
-        ← Weiter shoppen
+        {t("printShop.continueShopping")}
       </button>
 
       {/* Cart-Items */}

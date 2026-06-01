@@ -823,6 +823,18 @@ export const en: Dict = {
 
   printShop: {
     cart: "Cart ({count})",
+    cartButtonArrow: "← Select images",
+    continueShopping: "← Continue shopping",
+    pickImage: "Choose an image from the gallery to order it as a print.",
+    orderBtn: "Order",
+    orderPrint: "Order print",
+    noProducts: "No products available.",
+    product: "Product",
+    variant: "Variant",
+    quantity: "Quantity",
+    cropHint: "Move the frame or drag the corners to choose your crop.",
+    toCart: "Add to cart",
+    cartEmpty: "Your cart is empty.",
     remove: "Remove",
     shipping: "Shipping",
     shippingDays: "approx. {min}–{max} days",

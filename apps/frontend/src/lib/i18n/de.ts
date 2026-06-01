@@ -826,6 +826,18 @@ export const de: Dict = {
 
   printShop: {
     cart: "Warenkorb ({count})",
+    cartButtonArrow: "← Bilder auswählen",
+    continueShopping: "← Weiter shoppen",
+    pickImage: "Wähle ein Bild aus der Galerie um es als Print zu bestellen.",
+    orderBtn: "Bestellen",
+    orderPrint: "Print bestellen",
+    noProducts: "Keine Produkte verfügbar.",
+    product: "Produkt",
+    variant: "Variante",
+    quantity: "Anzahl",
+    cropHint: "Verschiebe den Rahmen oder ziehe an den Ecken, um deinen Bildausschnitt zu wählen.",
+    toCart: "Zum Warenkorb",
+    cartEmpty: "Dein Warenkorb ist leer.",
     remove: "Entfernen",
     shipping: "Versand",
     shippingDays: "ca. {min}–{max} Tage",
