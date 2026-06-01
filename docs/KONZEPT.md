@@ -413,15 +413,16 @@ Pläne werden in der Tabelle `billing_plans` definiert. Jeder Plan setzt Limits 
 | `price_monthly_cents`, `price_yearly_cents`, `currency` | Preis                |
 | `stripe_price_id_monthly`, `stripe_price_id_yearly`     | Stripe-Anbindung      |
 
-Vorschlag für Standard-Pläne (anpassbar):
+Die real implementierten Pläne (Quelle: `apps/api/src/services/plans.ts`):
 
-| Plan      | Speicher  | Galerien | Custom Domain | Whitelabel | Preis/Monat |
-| --------- | --------- | -------- | ------------- | ---------- | ----------- |
-| Free      | 5 GiB     | 3        | nein          | nein       | 0 €         |
-| Starter   | 100 GiB   | 50       | nein          | nein       | 9 €         |
-| Pro       | 500 GiB   | unbegr.  | ja            | ja         | 19 €        |
-| Studio    | 2 TiB     | unbegr.  | ja            | ja         | 49 €        |
-| Custom    | individuell — Onboarding-Gespräch                                 |
+| Plan   | Speicher | Aktive Galerien | Branding-Profile | Custom Domain | Team  | Watermark | Preis/Monat |
+| ------ | -------- | --------------- | ---------------- | ------------- | ----- | --------- | ----------- |
+| Start  | 150 GB   | 5               | –                | nein          | 1     | nein      | 9 €         |
+| Solo   | 500 GB   | 10              | –                | nein          | 1     | nein      | 19 €        |
+| Studio | 1.000 GB | 50              | 1                | 1             | 1     | ja        | 39 €        |
+| Pro    | 3.000 GB | unbegrenzt      | 5                | unbegrenzt    | bis 3 | ja        | 89 €        |
+
+Dazu ein **14-Tage-Trial** (100 GB, 10 Galerien, Vollzugriff) und ein **Storage-Add-on** (+50 GB für +9 €/Monat). Jahreszahlung ist ~17 % günstiger (2 Monate gratis).
 
 ### 8.2 Stripe-Integration
 

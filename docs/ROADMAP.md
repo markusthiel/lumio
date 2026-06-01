@@ -176,8 +176,8 @@ Hosted-Service-Layer obendrauf. **Status: live unter lumio-cloud.de.**
 
 ### Plan-Modell & Limits ✅ (Commit `e15c5bc`)
 
-- [x] Plan-Definitionen (Solo €19, Studio €39, Pro €89) als zentrales
-      Modul in `services/plans.ts`
+- [x] Plan-Definitionen (Start €9, Solo €19, Studio €39, Pro €89; + 14-Tage-Trial)
+      als zentrales Modul in `services/plans.ts`
 - [x] Live-Aggregation des Storage-Verbrauchs ohne Counter-Drift
 - [x] Limit-Enforcement in den existierenden Routes:
       Upload-Init, Galerie-Create, Custom-Domain, Branding
