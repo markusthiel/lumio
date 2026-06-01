@@ -21,6 +21,10 @@ permissions:
 
 jobs:
   github-release:
+    # Nur auf GitHub ausführen. Forgejo scannt .github/workflows ebenfalls —
+    # dieser Guard verhindert, dass der GitHub-Release-Job auf der Forgejo-
+    # Seite (mit gh gegen github.com) läuft bzw. dort hängen bleibt.
+    if: ${{ github.server_url == 'https://github.com' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

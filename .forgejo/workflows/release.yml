@@ -1,0 +1,37 @@
+name: Release
+
+# Läuft auf der FORGEJO-Seite und erzeugt beim Tag-Push (v*) ein Forgejo-
+# Release aus dem passenden CHANGELOG.md-Abschnitt. Das Pendant für das
+# gespiegelte GitHub-Repo liegt unter .github/workflows/release.yml.
+#
+# Forgejo scannt auch .github/workflows — der server_url-Guard sorgt dafür,
+# dass jede Forge nur ihren eigenen Release-Workflow ausführt und nicht den
+# der anderen.
+#
+# Auth: automatischer Actions-Token (github.token) mit Repo-Schreibrecht;
+# kein zusätzliches Secret nötig. Mit diesem Token ausgelöste Änderungen
+# triggern keine weiteren Workflows (kein Loop).
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  forgejo-release:
+    # Nur auf Forgejo, nicht wenn dieselbe Datei auf GitHub gescannt wird.
+    if: ${{ github.server_url != 'https://github.com' }}
+    runs-on: docker
+    container:
+      image: node:20-alpine
+    steps:
+      - name: Checkout
+        uses: https://code.forgejo.org/actions/checkout@v4
+
+      - name: Forgejo-Release anlegen/aktualisieren
+        env:
+          FORGE_URL: ${{ github.server_url }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+          TOKEN: ${{ github.token }}
+        run: node scripts/forgejo-release.mjs
