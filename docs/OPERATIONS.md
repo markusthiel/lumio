@@ -33,17 +33,18 @@ Für die Lesbarkeit schreiben wir das im Cookbook abgekürzt als
 1. [Deploy](#deploy)
 2. [Service-Lifecycle](#service-lifecycle)
 3. [ENV-Variable ändern und neu laden](#env-variable-ändern-und-neu-laden)
-4. [Logs ansehen](#logs-ansehen)
-5. [Datenbank-Zugriff](#datenbank-zugriff)
-6. [Redis / Job-Streams](#redis--job-streams)
-7. [Failed Files re-queuen](#failed-files-re-queuen)
-8. [Worker-Backfills](#worker-backfills)
-9. [Storage-Inspektion (S3 / MinIO)](#storage-inspektion-s3--minio)
-10. [Tenant-Verwaltung](#tenant-verwaltung)
-11. [Diagnose: ist das wirklich kaputt?](#diagnose-ist-das-wirklich-kaputt)
-12. [Backup & Restore](#backup--restore)
-13. [Storage-Aufräumen](#storage-aufräumen)
-14. [Häufige Probleme](#häufige-probleme)
+4. [Secrets & Passwörter rotieren](#secrets--passwörter-rotieren)
+5. [Logs ansehen](#logs-ansehen)
+6. [Datenbank-Zugriff](#datenbank-zugriff)
+7. [Redis / Job-Streams](#redis--job-streams)
+8. [Failed Files re-queuen](#failed-files-re-queuen)
+9. [Worker-Backfills](#worker-backfills)
+10. [Storage-Inspektion (S3 / MinIO)](#storage-inspektion-s3--minio)
+11. [Tenant-Verwaltung](#tenant-verwaltung)
+12. [Diagnose: ist das wirklich kaputt?](#diagnose-ist-das-wirklich-kaputt)
+13. [Backup & Restore](#backup--restore)
+14. [Storage-Aufräumen](#storage-aufräumen)
+15. [Häufige Probleme](#häufige-probleme)
 
 ---
 
@@ -186,6 +187,110 @@ expliziter („ich wollte wirklich nur ENV neu laden").
 **Warum nicht `kill -HUP`?** Node-Apps haben kein SIGHUP-Reload. Bei
 Caddy ginge das, aber wir nutzen für alle Services dasselbe Pattern
 weil's leichter zu merken ist.
+
+---
+
+## Secrets & Passwörter rotieren
+
+> ⚠️ Hier gibt es zwei Fallen, die jeweils einen Ausfall verursachen, wenn
+> man "einfach nur die `.env` ändert". Bitte den passenden Abschnitt
+> komplett lesen, bevor du etwas änderst.
+
+### Boot-Guard: Platzhalter-Secrets blockieren den Start
+
+Die API **verweigert den Start**, wenn `JWT_SECRET` oder `SESSION_SECRET`
+noch die öffentlich bekannten Platzhalter aus `.env.example` sind:
+
+```
+[lumio:api] Refusing to start: insecure secret(s) detected: JWT_SECRET, SESSION_SECRET.
+```
+
+Das ist Absicht — diese Werte sind im Repo einsehbar, jeder könnte damit
+Tokens fälschen. Starke Werte setzen:
+
+```
+openssl rand -base64 32   # → JWT_SECRET
+openssl rand -base64 32   # → SESSION_SECRET
+```
+
+### App-Secrets rotieren (`JWT_SECRET` / `SESSION_SECRET`)
+
+Sessions und API-Tokens werden **DB-seitig gehasht** und hängen NICHT an
+diesen Secrets. Heißt: eine Rotation **loggt niemanden aus**, eingeloggte
+User bleiben drin. Was `SESSION_SECRET` aber sehr wohl betrifft (es ist
+HMAC-/Ableitungs-Basis):
+
+- **Galerie-Visitor-Cookies** sind HMAC-signiert über `SESSION_SECRET`.
+  Nach Rotation müssen aktive Galerie-Besucher das Galerie-Passwort einmal
+  neu eingeben. Die geteilten Links selbst bleiben gültig — nichts neu
+  erzeugen.
+- **Print-Shop-Credentials** werden mit einem Key verschlüsselt, der per
+  HKDF aus `SESSION_SECRET` abgeleitet wird. Nach Rotation sind zuvor
+  gespeicherte Lab-Zugangsdaten nicht mehr entschlüsselbar → einmal neu
+  hinterlegen. (Wer das Print-Feature nicht nutzt: irrelevant.)
+- Login-Challenge-Tokens sind kurzlebig → unkritisch.
+
+`JWT_SECRET` wird zwar erzwungen, signiert im aktuellen Code aber nichts,
+woran bestehende Sessions/Tokens hängen → Rotation ohne User-Impact.
+Trotzdem stark halten.
+
+Vorgehen (kein Build, kein `git pull`):
+
+```
+# .env auf dem Hauptserver anpassen, dann:
+docker compose --profile wildcard \
+  -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.ml.yml \
+  up -d --force-recreate api
+```
+
+### DB-Passwort rotieren (`POSTGRES_PASSWORD`) — die größere Falle
+
+Das Postgres-Image liest `POSTGRES_PASSWORD` **nur beim allerersten Init**
+eines leeren Datenverzeichnisses. Bei vorhandenem Volume wird die Variable
+beim Neustart **ignoriert** — das echte Passwort der Rolle liegt in der DB.
+Wer nur die `.env` ändert und neu startet, verbindet die API mit dem neuen
+Passwort gegen eine DB mit dem alten → Auth-Fehler → API unten.
+
+Das Passwort muss also **zuerst in Postgres selbst** geändert werden:
+
+```
+# 1) Backup als Sicherheitsnetz (Hauptserver)
+docker exec lumio_postgres pg_dump -U lumio lumio | gzip > ~/lumio-db-$(date +%F).sql.gz
+
+# 2) Neues Passwort OHNE Sonderzeichen (sonst bricht die DATABASE_URL-Syntax)
+openssl rand -hex 24        # → im Folgenden NEUESPW
+
+# 3) Passwort in Postgres ändern (ändert nur das Passwort, keine Daten)
+docker exec -it lumio_postgres psql -U lumio -d lumio
+#   im psql-Prompt:  \password lumio   (fragt 2× ab, ohne Echo)  →  \q
+```
+
+Danach das neue Passwort überall nachziehen, **wo die `lumio`-Rolle genutzt
+wird**:
+
+- **Hauptserver** `.env`: `POSTGRES_PASSWORD=NEUESPW`
+- **Jede Worker-Node** `.env.worker`:
+  `DATABASE_URL=postgres://lumio:NEUESPW@10.0.0.2:5432/lumio`
+
+Und neu erzeugen:
+
+```
+# Hauptserver
+cd /opt/docker/lumio/lumio && docker compose --profile wildcard \
+  -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.ml.yml up -d
+
+# danach jede Worker-Node
+cd /opt/docker/lumio/lumio && docker compose \
+  -f docker-compose.worker.yml --env-file .env.worker up -d
+```
+
+Postgres wird dabei zwar mit-recreated, läuft aber **nicht** erneut durch den
+Init (Volume ist voll) — das Passwort aus Schritt 3 bleibt gültig.
+Verifizieren: `curl -s https://<deine-domain>/health` → `status: ok` heißt,
+die API hat sich mit dem neuen Passwort verbunden.
+
+**Nicht betroffen** von dieser Rotation: Umami (eigene Postgres-Instanz mit
+eigenem `UMAMI_DB_PASSWORD`) und acme-dns (eigene DB-Rolle).
 
 ---
 
