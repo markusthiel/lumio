@@ -90,7 +90,7 @@ Stand: Juni 2026. Lebendiges Dokument — Priorisierung kann sich verschieben. D
 - [x] HW-Beschleunigung optional (NVENC/QSV/VAAPI via LUMIO_HW_ENCODER, fällt auf libx264 zurück; siehe DEVELOPMENT.md)
 - [x] HEIC/HEIF in der API als eigene Kind detection (eigene `"heic"`-Variante, Format-Badge im Studio + Customer-Tile, Windows-Hinweis am Lightbox-Download)
 - [x] Video-Web-Download als standalone-MP4 (neue `video_mp4`-Rendition: 1080p oder Quellauflösung, +faststart, encoder via select_encoder()/profile_for(); Customer-Single-Download und ZIP-Builder beide angepasst; Backfill-Task `backfill_video_mp4` für Altbestand pro Galerie oder global)
-- [ ] PSD-Preview-Extraktion
+- [x] PSD-Preview-Extraktion (Composite via Pillow, `apps/worker/psd.py`; libvips kann PSD nicht direkt lesen)
 
 ### Branding & Whitelabel ✅ (Phase 1)
 
@@ -115,7 +115,7 @@ Vollständig gebaut — ausführliche Details in Phase 5.
 
 - [ ] Team-Voting (mehrere Personen pro Access-Token)
 - [ ] Live-Cursor in der Lightbox (WebSocket-Fanout)
-- [ ] Scribbles/Annotationen auf Bild
+- [x] Scribbles/Annotationen auf Bild (`AnnotationOverlay.tsx` + Schema-Feld `annotation`, in Customer-Galerie und Studio-Proofing)
 - [x] Selection-Limit ("Kunde darf max. N wählen") — Galerie-Setting im Studio, Counter "X von Y" in der Customer-Hero, Optimistic-Update-Rollback bei Limit-Verletzung mit Toast
 - [x] Real-time Sync der Auswahl zwischen Studio und Kunde (Studio bekommt live Toasts bei Selection-Changes, Comments und Finalize via WebSocket; Customer-Side bleibt single-user wie Picdrop)
 
@@ -238,25 +238,9 @@ Daten-Export-Angebot vor der Löschung.
 - [x] Onboarding-/Setup-Mail
 - [x] Trial-Ende → Auto-Charge bzw. Read-only
 
-### Landing-Page `lumio-cloud.de` ✅ (live)
-
-Eigenes Repo `lumio-cloud-de` (Astro), live als SaaS-Mode mit Sign-up + Stripe.
-Der detaillierte Seiten-Stand wird in jenem Repo gepflegt.
-
-- [ ] Offen: Rechtstexte (Impressum/Datenschutz/AGB/AVV) anwaltlich prüfen
-      lassen; Legal-URLs via ENV (`LUMIO_LEGAL_*`) setzen
-
-### Landing-Page `lumio-app.de` ✅ (live)
-
-Eigenes Repo `lumio-app-de` (Astro), live als Self-Host-Pitch.
-
-- [x] Source-available-Pitch (FSL) für Self-Hoster
-- [x] Öffentlicher Repo-Link → **GitHub-Mirror** (Forgejo ist privat)
-- [ ] Offen: Demo-Galerie-Link, fortlaufender Screenshot-/Doku-Sync
-
 ### Zukünftige Erweiterungen (offen, kein Sprint geplant)
 
-- [ ] Jahresrabatt (-15 bis -20%)
+- [x] Jahresrabatt (~17 %: Jahrespreis = 10 Monatspreise, `priceYearlyCents` in `plans.ts`; Jahres-Toggle in der Billing-UI)
 - [ ] Einmalkauf-Variante für Hochzeitspaare („€49 einmalig,
       Galerie 12 Monate aktiv") als separater Use-Case
 - [ ] Affiliate-/Partner-Programm
