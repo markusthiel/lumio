@@ -598,6 +598,7 @@ export const de: Dict = {
       "Reduzierte Version (~2560px JPEG), gut zum Online-Posten und Teilen",
     downloadWebVideoHint:
       "Komprimiertes 1080p-MP4, sofort abspielbar — viel kleiner als das Original",
+    downloadSharing: "Wird vorbereitet…",
     originalsDisabled:
       "Originale sind für diese Galerie deaktiviert — du kannst die Web-Version herunterladen.",
     share: "Teilen",

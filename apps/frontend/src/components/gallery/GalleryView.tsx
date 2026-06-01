@@ -1089,6 +1089,23 @@ function FilterChip({
 // -----------------------------------------------------------------------------
 // Lightbox
 // -----------------------------------------------------------------------------
+// iOS lässt sich nicht zuverlässig allein über die UA erkennen — iPadOS
+// gibt sich als "Macintosh" aus. Wir kombinieren die klassische iPhone/iPad-
+// Erkennung mit dem iPad-auf-macOS-Sonderfall (Touch + Macintosh). Nur auf
+// iOS lohnt der Web-Share-Umweg: dort landet ein normaler Browser-Download
+// in der "Dateien"-App statt in der Foto-App. Desktop und Android behalten
+// den direkten Download (dort funktioniert die Galerie-Integration ohnehin).
+function isIosDevice(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  const iOSClassic = /iP(hone|ad|od)/.test(ua);
+  const iPadOS =
+    /Macintosh/.test(ua) &&
+    typeof navigator.maxTouchPoints === "number" &&
+    navigator.maxTouchPoints > 1;
+  return iOSClassic || iPadOS;
+}
+
 function Lightbox({
   files,
   index,
@@ -1138,6 +1155,12 @@ function Lightbox({
   const [newComment, setNewComment] = useState("");
   const [commentPending, setCommentPending] = useState(false);
   const [limitMessage, setLimitMessage] = useState<string | null>(null);
+  // Welche Variante gerade für den iOS-Web-Share vorbereitet wird (Bytes
+  // werden geladen). null = nichts läuft. Steuert den Busy-Zustand der
+  // Download-Buttons.
+  const [sharingVariant, setSharingVariant] = useState<
+    "original" | "web" | null
+  >(null);
 
   // PDF: aktuelle Seite im mehrseitigen Dokument. pdfPages ist leer bei
   // normalen Bildern/Videos -> isPdfDoc false -> kein Paging-UI. Reset
@@ -1401,6 +1424,65 @@ function Lightbox({
     ? api.publicDownloadUrl(slug, file.id, "web")
     : null;
 
+  // Download bzw. — auf iOS — "In Fotos sichern". Ein normaler Browser-
+  // Download landet auf iOS in der "Dateien"-App; das ist für Kunden, die
+  // ihre Bilder erwarten, unintuitiv. Auf iOS holen wir daher die Bytes über
+  // den Blob-Endpoint (gleiche Origin wie die API → CORS ok) und reichen sie
+  // ans native Teilen-Sheet weiter, wo "In Fotos sichern" zur Verfügung steht.
+  // Überall sonst (Desktop, Android) bleibt es beim direkten Download.
+  // Jeder Fehler fällt sauber auf den normalen Download zurück; ein vom
+  // Nutzer abgebrochenes Teilen-Sheet (AbortError) tut nichts.
+  const handleSaveOrDownload = useCallback(
+    async (variant: "original" | "web") => {
+      const downloadUrl = api.publicDownloadUrl(slug, file.id, variant);
+
+      const triggerDownload = () => {
+        const a = document.createElement("a");
+        a.href = downloadUrl;
+        a.rel = "noopener";
+        // download-Attribut wird cross-origin ignoriert; der Server setzt
+        // Content-Disposition: attachment, daher lädt es trotzdem herunter.
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+      };
+
+      if (!isIosDevice() || typeof navigator.share !== "function") {
+        triggerDownload();
+        return;
+      }
+
+      setSharingVariant(variant);
+      try {
+        const res = await fetch(api.publicBlobUrl(slug, file.id, variant), {
+          credentials: "include",
+        });
+        if (!res.ok) throw new Error(`blob status ${res.status}`);
+        const blob = await res.blob();
+        const shareFile = new File([blob], file.filename, {
+          type: blob.type || file.mimeType || "application/octet-stream",
+        });
+        if (
+          typeof navigator.canShare === "function" &&
+          navigator.canShare({ files: [shareFile] })
+        ) {
+          await navigator.share({ files: [shareFile] });
+        } else {
+          // Browser kann doch keine Dateien teilen → normaler Download.
+          triggerDownload();
+        }
+      } catch (err) {
+        // Nutzer hat das Teilen-Sheet abgebrochen → nichts tun.
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        // Alles andere (Netz, CORS, Berechtigung) → sauberer Fallback.
+        triggerDownload();
+      } finally {
+        setSharingVariant(null);
+      }
+    },
+    [slug, file.id, file.filename, file.mimeType]
+  );
+
   return (
     <div className="fixed inset-0 bg-black text-white z-50 flex flex-col animate-fade-in">
       {/* Top Bar */}
@@ -1430,40 +1512,54 @@ function Lightbox({
             </button>
           )}
           {originalDownloadUrl && (
-            <a
-              href={originalDownloadUrl}
-              className="h-8 px-3 rounded text-ui-xs inline-flex items-center text-white/70 hover:text-white hover:bg-white/10 transition-colors duration-motion"
+            <button
+              onClick={() => handleSaveOrDownload("original")}
+              disabled={sharingVariant !== null}
+              className="h-8 px-3 rounded text-ui-xs inline-flex items-center text-white/70 hover:text-white hover:bg-white/10 disabled:opacity-50 disabled:cursor-wait transition-colors duration-motion"
               title={
                 file.kind === "heic"
                   ? t("gallery.downloadHeicHint")
                   : t("gallery.downloadOriginalHint")
               }
             >
-              ↓ {t("gallery.downloadOriginal")}
-              {file.kind === "heic" && (
-                <span className="ml-1.5 font-mono text-[10px] opacity-70">
-                  HEIC
-                </span>
+              {sharingVariant === "original" ? (
+                t("gallery.downloadSharing")
+              ) : (
+                <>
+                  ↓ {t("gallery.downloadOriginal")}
+                  {file.kind === "heic" && (
+                    <span className="ml-1.5 font-mono text-[10px] opacity-70">
+                      HEIC
+                    </span>
+                  )}
+                </>
               )}
-            </a>
+            </button>
           )}
           {webDownloadUrl && (
-            <a
-              href={webDownloadUrl}
-              className="h-8 px-3 rounded text-ui-xs inline-flex items-center text-white/70 hover:text-white hover:bg-white/10 transition-colors duration-motion"
+            <button
+              onClick={() => handleSaveOrDownload("web")}
+              disabled={sharingVariant !== null}
+              className="h-8 px-3 rounded text-ui-xs inline-flex items-center text-white/70 hover:text-white hover:bg-white/10 disabled:opacity-50 disabled:cursor-wait transition-colors duration-motion"
               title={
                 file.kind === "video"
                   ? t("gallery.downloadWebVideoHint")
                   : t("gallery.downloadWebHint")
               }
             >
-              ↓ {t("gallery.downloadWeb")}
-              {file.kind === "video" && (
-                <span className="ml-1.5 font-mono text-[10px] opacity-70">
-                  MP4
-                </span>
+              {sharingVariant === "web" ? (
+                t("gallery.downloadSharing")
+              ) : (
+                <>
+                  ↓ {t("gallery.downloadWeb")}
+                  {file.kind === "video" && (
+                    <span className="ml-1.5 font-mono text-[10px] opacity-70">
+                      MP4
+                    </span>
+                  )}
+                </>
               )}
-            </a>
+            </button>
           )}
         </div>
       </div>

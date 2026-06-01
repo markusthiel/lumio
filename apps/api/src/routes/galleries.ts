@@ -19,7 +19,7 @@ import { randomBytes, createHash } from "node:crypto";
 import { prisma } from "../db.js";
 import { config } from "../config.js";
 import { generateGallerySlug } from "../services/ids.js";
-import { presignGet, presignPut } from "../services/storage.js";
+import { presignGet, presignPut, getObjectStream } from "../services/storage.js";
 import { verifyPassword, hashPassword } from "../services/auth.js";
 import { isTenantOperational } from "../services/tenant.js";
 import { enqueue, Queues } from "../services/queue.js";
@@ -33,6 +33,117 @@ import {
   verifyVisitorToken,
   visitorCookieName,
 } from "../services/visitor.js";
+
+// ---------------------------------------------------------------------------
+// Customer-Download: Variant-Auflösung (geteilt)
+// ---------------------------------------------------------------------------
+// Renditions haben kein mimeType-Feld, nur `format`. Für den Blob-Stream-
+// Endpoint brauchen wir aber einen korrekten Content-Type, damit iOS die
+// geteilte Datei als Bild erkennt und "In Fotos sichern" anbietet.
+function renditionFormatToMime(format: string): string {
+  switch (format.toLowerCase()) {
+    case "jpg":
+    case "jpeg":
+      return "image/jpeg";
+    case "webp":
+      return "image/webp";
+    case "avif":
+      return "image/avif";
+    case "png":
+      return "image/png";
+    case "mp4":
+      return "video/mp4";
+    default:
+      return "application/octet-stream";
+  }
+}
+
+type DownloadTarget =
+  | {
+      ok: true;
+      storageKey: string;
+      filename: string;
+      contentType: string;
+      bytes: bigint | null;
+    }
+  | { ok: false; status: number; error: string };
+
+// Löst aus File + Variant den konkreten Storage-Key, Dateinamen und
+// Content-Type auf. Geteilt zwischen dem (redirect-)Download-Endpoint und
+// dem (stream-)Blob-Endpoint, damit die Rendition-Auswahl nur an EINER
+// Stelle lebt. Die Permission-Checks (Visitor, downloadEnabled, canDownload,
+// originals) bleiben in den jeweiligen Routen.
+function resolveDownloadTarget(
+  file: {
+    kind: string;
+    storageKey: string;
+    originalFilename: string;
+    mimeType: string;
+    sizeBytes: bigint | null;
+    renditions: { kind: string; storageKey: string; format: string }[];
+  },
+  variant: "original" | "web",
+  originalsEnabled: boolean
+): DownloadTarget {
+  if (variant === "original") {
+    return {
+      ok: true,
+      storageKey: file.storageKey,
+      filename: file.originalFilename,
+      contentType: file.mimeType || "application/octet-stream",
+      bytes: file.sizeBytes,
+    };
+  }
+
+  // variant === "web"
+  const dotIdx = file.originalFilename.lastIndexOf(".");
+  const stem =
+    dotIdx > 0 ? file.originalFilename.slice(0, dotIdx) : file.originalFilename;
+
+  if (file.kind === "video") {
+    // Videos: video_mp4-Rendition. Wenn (noch) keine existiert (Altbestand),
+    // gibt's keine Web-Version — kein impliziter Fallback aufs Original,
+    // weil das Original viel größer ist als der Kunde erwartet.
+    const mp4 = file.renditions.find((r) => r.kind === "video_mp4");
+    if (!mp4) {
+      return { ok: false, status: 404, error: "web_rendition_unavailable" };
+    }
+    return {
+      ok: true,
+      storageKey: mp4.storageKey,
+      filename: `${stem}_web.mp4`,
+      contentType: "video/mp4",
+      bytes: null,
+    };
+  }
+
+  // Bilder: web_jpeg bevorzugt, web (webp) als Fallback für Altbestand.
+  // Kunden öffnen JPEG überall, webp nur in modernen Browsern/macOS Preview.
+  const webJpeg = file.renditions.find((r) => r.kind === "web_jpeg");
+  const webWebp = file.renditions.find((r) => r.kind === "web");
+  const chosen = webJpeg ?? webWebp;
+  if (!chosen) {
+    if (originalsEnabled) {
+      // implizit auf Original umschalten, kein Fehler
+      return {
+        ok: true,
+        storageKey: file.storageKey,
+        filename: file.originalFilename,
+        contentType: file.mimeType || "application/octet-stream",
+        bytes: file.sizeBytes,
+      };
+    }
+    return { ok: false, status: 404, error: "web_rendition_unavailable" };
+  }
+  const ext = chosen.format === "jpg" ? "jpg" : "webp";
+  return {
+    ok: true,
+    storageKey: chosen.storageKey,
+    filename: `${stem}_web.${ext}`,
+    contentType: renditionFormatToMime(chosen.format),
+    bytes: null,
+  };
+}
 
 const createGallerySchema = z.object({
   title: z.string().min(1).max(200),
@@ -2147,6 +2258,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           kind: true,
           storageKey: true,
           originalFilename: true,
+          mimeType: true,
           sizeBytes: true,
           renditions: {
             // Bei Bildern: web_jpeg/web (JPEG/WebP-Großformat).
@@ -2159,61 +2271,20 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
       });
       if (!file) return reply.status(404).send({ error: "not_found" });
 
-      // Storage-Key + Dateiname je nach Variant. Bei "web" hängen wir
-      // _web ans Filename und passen die Extension an das gelieferte
-      // Format an — damit klar ist, was der Kunde bekommt, und damit
-      // es nicht die Original-Datei im Download-Ordner überschreibt,
-      // wenn er beide herunterlädt.
-      let storageKey = file.storageKey;
-      let downloadFilename = file.originalFilename;
-      let bytes: bigint | null = file.sizeBytes;
-
-      if (variant === "web") {
-        if (file.kind === "video") {
-          // Videos: video_mp4-Rendition. Wenn (noch) keine existiert
-          // (z.B. Altbestand vor diesem Sprint), gibt's keine Web-
-          // Version — kein impliziter Fallback aufs Original, weil
-          // das Original viel größer ist als der Kunde erwartet.
-          const mp4 = file.renditions.find((r) => r.kind === "video_mp4");
-          if (!mp4) {
-            return reply
-              .status(404)
-              .send({ error: "web_rendition_unavailable" });
-          }
-          storageKey = mp4.storageKey;
-          const dotIdx = downloadFilename.lastIndexOf(".");
-          const stem =
-            dotIdx > 0 ? downloadFilename.slice(0, dotIdx) : downloadFilename;
-          downloadFilename = `${stem}_web.mp4`;
-          bytes = null;
-        } else {
-          // Bilder: web_jpeg bevorzugt, web (webp) als Fallback für
-          // Altbestand. Kunden öffnen JPEG überall, webp nur in
-          // modernen Browsern und macOS Preview.
-          const webJpeg = file.renditions.find((r) => r.kind === "web_jpeg");
-          const webWebp = file.renditions.find((r) => r.kind === "web");
-          const chosen = webJpeg ?? webWebp;
-          if (!chosen) {
-            if (gallery.downloadOriginalsEnabled) {
-              // implizit auf Original umschalten, kein Fehler
-            } else {
-              return reply
-                .status(404)
-                .send({ error: "web_rendition_unavailable" });
-            }
-          } else {
-            storageKey = chosen.storageKey;
-            const dotIdx = downloadFilename.lastIndexOf(".");
-            const stem =
-              dotIdx > 0
-                ? downloadFilename.slice(0, dotIdx)
-                : downloadFilename;
-            const ext = chosen.format === "jpg" ? "jpg" : "webp";
-            downloadFilename = `${stem}_web.${ext}`;
-            bytes = null;
-          }
-        }
+      // Storage-Key + Dateiname je nach Variant über den geteilten
+      // Resolver (siehe resolveDownloadTarget oben). Bei "web" hängt der
+      // Resolver _web ans Filename und passt die Extension an das gelieferte
+      // Format an — damit klar ist, was der Kunde bekommt, und damit es nicht
+      // die Original-Datei im Download-Ordner überschreibt.
+      const target = resolveDownloadTarget(
+        file,
+        variant,
+        gallery.downloadOriginalsEnabled
+      );
+      if (!target.ok) {
+        return reply.status(target.status).send({ error: target.error });
       }
+      const { storageKey, filename: downloadFilename, bytes } = target;
 
       const url = await presignGet({
         key: storageKey,
@@ -2238,6 +2309,128 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         .catch(() => {});
 
       return reply.redirect(url);
+    }
+  );
+
+  // ---------------------------------------------------------------------------
+  // GET /g/:slug/files/:fileId/blob?variant=original|web
+  // ---------------------------------------------------------------------------
+  // Wie /download, aber die API streamt die Bytes SELBST zurück (200 statt
+  // 302-Redirect auf eine presigned Storage-URL). Gebraucht für den Web-Share-
+  // Flow auf iOS: dort lädt das Frontend die Datei per fetch() und reicht sie
+  // an navigator.share({ files }) weiter, damit der Kunde sie über das native
+  // Teilen-Sheet direkt in die Foto-App sichern kann (statt in "Dateien").
+  //
+  // Ein cross-origin-fetch auf die presigned Storage-URL scheitert mangels
+  // CORS-Header am Bucket — deshalb dieser Proxy über die API, die bereits
+  // CORS für die Frontend-Origin macht. Bewusst NUR für Einzeldateien; ZIPs
+  // laufen weiter über den presigned Redirect.
+  //
+  // Permission-Checks sind identisch zum /download-Endpoint.
+  app.get<{
+    Params: { slug: string; fileId: string };
+    Querystring: { variant?: string };
+  }>(
+    "/g/:slug/files/:fileId/blob",
+    async (req, reply) => {
+      const visitor = await loadVisitor(req);
+      if (!visitor) {
+        return reply.status(401).send({ error: "unlock_required" });
+      }
+
+      const gallery = await prisma.gallery.findUnique({
+        where: { id: visitor.galleryId },
+        select: {
+          id: true,
+          downloadEnabled: true,
+          downloadOriginalsEnabled: true,
+          tenantId: true,
+        },
+      });
+      if (!gallery || !gallery.downloadEnabled) {
+        return reply.status(403).send({ error: "downloads_disabled" });
+      }
+
+      if (visitor.accessId) {
+        const access = await prisma.galleryAccess.findUnique({
+          where: { id: visitor.accessId },
+          select: { canDownload: true },
+        });
+        if (!access?.canDownload) {
+          return reply.status(403).send({ error: "downloads_disabled" });
+        }
+      }
+
+      const variant: "original" | "web" =
+        req.query.variant === "web" ? "web" : "original";
+      if (variant === "original" && !gallery.downloadOriginalsEnabled) {
+        return reply.status(403).send({ error: "originals_disabled" });
+      }
+
+      const file = await prisma.file.findFirst({
+        where: { id: req.params.fileId, galleryId: gallery.id },
+        select: {
+          id: true,
+          kind: true,
+          storageKey: true,
+          originalFilename: true,
+          mimeType: true,
+          sizeBytes: true,
+          renditions: {
+            where: { kind: { in: ["web_jpeg", "web", "video_mp4"] } },
+            select: { kind: true, storageKey: true, format: true },
+          },
+        },
+      });
+      if (!file) return reply.status(404).send({ error: "not_found" });
+
+      const target = resolveDownloadTarget(
+        file,
+        variant,
+        gallery.downloadOriginalsEnabled
+      );
+      if (!target.ok) {
+        return reply.status(target.status).send({ error: target.error });
+      }
+
+      let obj: Awaited<ReturnType<typeof getObjectStream>>;
+      try {
+        obj = await getObjectStream(target.storageKey);
+      } catch (err) {
+        req.log.error({ err, key: target.storageKey }, "blob stream failed");
+        return reply.status(502).send({ error: "storage_unavailable" });
+      }
+
+      // Audit — analog zum /download-Endpoint als single zählen. Auf iOS wird
+      // NUR dieser Endpoint getroffen (kein zusätzlicher /download), also kein
+      // Doppelzählen.
+      await prisma.downloadLog
+        .create({
+          data: {
+            galleryId: gallery.id,
+            fileId: file.id,
+            kind: "single",
+            ipAddress: req.ip,
+            userAgent: req.headers["user-agent"]?.slice(0, 500) ?? null,
+            bytes: target.bytes,
+          },
+        })
+        .catch(() => {});
+
+      reply.header("Content-Type", obj.contentType || target.contentType);
+      // inline statt attachment: der Browser soll die Bytes lesen (fetch),
+      // nicht als Datei-Download erzwingen. Für den Web-Share-Flow irrelevant,
+      // aber semantisch korrekt.
+      reply.header(
+        "Content-Disposition",
+        `inline; filename="${encodeURIComponent(target.filename)}"`
+      );
+      if (obj.contentLength) {
+        reply.header("Content-Length", String(obj.contentLength));
+      }
+      // Privat cachen — presigned-frei, aber Inhalt ist kundenspezifisch.
+      reply.header("Cache-Control", "private, max-age=0, no-store");
+      return reply.send(obj.body);
     }
   );
 

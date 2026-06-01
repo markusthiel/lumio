@@ -1730,6 +1730,19 @@ export const api = {
   ) =>
     `${API_URL}/api/v1/g/${slug}/files/${fileId}/download?variant=${variant}`,
 
+  // Wie publicDownloadUrl, aber die API streamt die Bytes selbst zurück
+  // (200 statt 302-Redirect). Gedacht zum fetch()-en der Datei im Browser —
+  // konkret für den iOS-Web-Share-Flow, der die Bytes braucht, um sie via
+  // navigator.share({ files }) direkt in die Foto-App zu sichern. Cross-
+  // origin-fetch auf die presigned Storage-URL ginge mangels Bucket-CORS
+  // nicht, daher dieser Proxy über die (CORS-fähige) API.
+  publicBlobUrl: (
+    slug: string,
+    fileId: string,
+    variant: "original" | "web" = "original"
+  ) =>
+    `${API_URL}/api/v1/g/${slug}/files/${fileId}/blob?variant=${variant}`,
+
   // ZIP-Downloads
   requestZipAll: (slug: string, variant: "original" | "web" = "original") =>
     request<{ id: string; status: ZipStatus }>(

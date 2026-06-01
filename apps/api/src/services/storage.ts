@@ -181,6 +181,38 @@ export async function presignGet(opts: {
 }
 
 // ---------------------------------------------------------------------------
+// Object-Stream (server-seitiger Read, KEIN presign)
+// ---------------------------------------------------------------------------
+// Liest ein Objekt über den INTERNEN Client und gibt den Node-Stream zurück,
+// damit die API die Bytes selbst an den Browser durchreichen kann. Gebraucht
+// für den Customer-"Blob"-Endpoint: der Web-Share-Flow auf iOS braucht die
+// Datei-Bytes per fetch(), und cross-origin-fetch auf eine presigned
+// Object-Storage-URL scheitert mangels CORS-Header am Bucket. Indem die API
+// (die bereits CORS für die Frontend-Origin macht) die Bytes streamt, ist der
+// fetch same-origin-konform.
+//
+// Bewusst NUR für Einzeldateien gedacht (Share eines Bilds), nicht für ZIPs —
+// die laufen weiterhin über presigned Redirects, damit die API-Bandbreite
+// nicht belastet wird.
+export async function getObjectStream(key: string): Promise<{
+  body: NodeJS.ReadableStream;
+  contentLength?: number;
+  contentType?: string;
+}> {
+  const res = await getS3Client().send(
+    new GetObjectCommand({ Bucket: getBucket(), Key: key })
+  );
+  if (!res.Body) {
+    throw new Error(`getObjectStream: empty body for key ${key}`);
+  }
+  return {
+    body: res.Body as unknown as NodeJS.ReadableStream,
+    contentLength: res.ContentLength,
+    contentType: res.ContentType,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Multipart Upload (für große Files > 100 MB)
 // ---------------------------------------------------------------------------
 // Wir verwenden Multipart, sobald sizeBytes > 100 MB.
