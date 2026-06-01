@@ -17,6 +17,8 @@ import structlog
 from celery import Celery
 from dotenv import load_dotenv
 
+from version import __version__
+
 load_dotenv()
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379")
@@ -39,6 +41,8 @@ structlog.configure(
     ),
 )
 log = structlog.get_logger("lumio.worker")
+
+log.info("lumio.worker.boot", version=__version__, concurrency=CONCURRENCY)
 
 app = Celery(
     "lumio",

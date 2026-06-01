@@ -526,6 +526,7 @@ export const api = {
    *  Ohne Auth abrufbar — für Footer auf Login/Galerie/Studio. */
   getAppMeta: () =>
     request<{
+      version: string;
       legal: { imprintUrl: string | null; privacyUrl: string | null };
     }>(`/meta`),
 

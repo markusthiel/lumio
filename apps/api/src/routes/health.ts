@@ -3,12 +3,13 @@
  */
 import type { FastifyInstance } from "fastify";
 import { config } from "../config.js";
+import { LUMIO_VERSION } from "../version.js";
 
 export async function registerHealthRoute(app: FastifyInstance) {
   app.get("/health", async () => ({
     status: "ok",
     service: "lumio-api",
-    version: "0.1.0",
+    version: LUMIO_VERSION,
     mode: config.DEPLOYMENT_MODE,
     storage: config.STORAGE_PROVIDER,
     billing: config.BILLING_ENABLED,

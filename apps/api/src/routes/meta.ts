@@ -10,10 +10,12 @@
 import type { FastifyInstance } from "fastify";
 
 import { config } from "../config.js";
+import { LUMIO_VERSION } from "../version.js";
 
 export async function registerMetaRoutes(app: FastifyInstance) {
   app.get("/meta", async () => {
     return {
+      version: LUMIO_VERSION,
       legal: {
         imprintUrl: config.LUMIO_LEGAL_IMPRINT_URL ?? null,
         privacyUrl: config.LUMIO_LEGAL_PRIVACY_URL ?? null,

@@ -22,6 +22,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LegalFooter } from "@/components/LegalFooter";
+import { AppVersion } from "@/components/AppVersion";
 import { useT } from "@/lib/i18n";
 import { api } from "@/lib/api";
 import { GlobalSearchModal } from "@/components/studio/GlobalSearchModal";
@@ -518,6 +519,7 @@ function SidebarFooter({ onNavigate }: { onNavigate: () => void }) {
         <span>{logoutLabel}</span>
       </button>
       <LegalFooter align="start" className="px-3 pb-0.5" />
+      <AppVersion className="px-3 pb-0.5" />
     </div>
   );
 }
