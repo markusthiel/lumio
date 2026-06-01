@@ -22,7 +22,10 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ## [Unreleased]
 
 ### Added
--
+- Kunden-Galerie: Einzelbild-Download auf iOS sichert über das native
+  Teilen-Sheet direkt in die Foto-App ("In Fotos sichern") statt in die
+  "Dateien"-App. Gleiche Download-Buttons, Desktop/Android unverändert.
+  Dafür neuer Stream-Endpoint `GET /g/:slug/files/:fileId/blob`.
 
 ### Changed
 -
