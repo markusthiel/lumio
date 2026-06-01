@@ -270,7 +270,7 @@ function DeletionModal({
       if (msg.includes("password_wrong")) {
         setError(t("dangerZone.wrongPassword"));
       } else if (msg.includes("studio_name_mismatch")) {
-        setError("Der eingegebene Studio-Name stimmt nicht.");
+        setError(t("dangerZone.nameMismatch"));
       } else if (msg.includes("owner_required")) {
         setError(t("dangerZone.onlyOwner"));
       } else {

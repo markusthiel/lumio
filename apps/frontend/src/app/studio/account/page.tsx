@@ -396,7 +396,7 @@ function PasswordSection() {
   async function submit() {
     setError(null);
     if (next.length < 12) {
-      setError("Neues Passwort muss mindestens 12 Zeichen lang sein.");
+      setError(t("account.passwordTooShort"));
       return;
     }
     if (next !== confirm) {

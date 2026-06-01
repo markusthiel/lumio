@@ -35,7 +35,7 @@ export function GalleryShareSection({ galleryId }: { galleryId: string }) {
         if (alive) setMembers(r.members);
       })
       .catch(() => {
-        if (alive) setError("Freigaben konnten nicht geladen werden.");
+        if (alive) setError(t("galleryShare.loadFailed"));
       });
     return () => {
       alive = false;

@@ -65,7 +65,7 @@ function Inner() {
 
     const token = params.get("t");
     if (!token) {
-      setError("Kein Token im Link.");
+      setError(t("impersonate.noToken"));
       return;
     }
 

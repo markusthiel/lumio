@@ -968,6 +968,7 @@ export const en: Dict = {
   },
 
   account: {
+    passwordTooShort: "New password must be at least 12 characters long.",
     passwordHint: "Recommendation: at least 12 characters, no reuse from other accounts.",
     title: "My account",
     description: "Your personal sign-in credentials and display settings.",
@@ -1110,6 +1111,8 @@ export const en: Dict = {
   },
 
   appearance: {
+    studioColorHex: "Studio accent color must be a hex value, e.g. #3a87fe",
+    loginColorHex: "Login accent color must be a hex value, e.g. #3a87fe",
     title: "Studio & login",
     description:
       "A custom look for your studio backend, the login page and emails — independent of the gallery branding.",
@@ -1178,6 +1181,7 @@ export const en: Dict = {
   },
 
   dangerZone: {
+    nameMismatch: "The entered studio name does not match.",
     finalDeletion: "Final deletion",
     wrongPassword: "Password is not correct.",
     title: "Delete studio",
@@ -2009,6 +2013,7 @@ export const en: Dict = {
     defaultDescPlaceholder: "Used as default text in the gallery — editable per gallery.",
   },
   impersonate: {
+    noToken: "No token in the link.",
     errCookie: "Session cookie was not accepted. Please allow cookies/tracking protection for this domain.",
     errToken: "Token invalid or expired. Please start again from the super admin.",
   },
@@ -2108,6 +2113,7 @@ export const en: Dict = {
   },
 
   galleryShare: {
+    loadFailed: "Could not load shares.",
     changeFailed: "Change failed.",
     teamAccess: "Team access",
     whoCanSee: "Who may see and edit this gallery",

@@ -465,11 +465,11 @@ export default function AppearancePage() {
   async function save() {
     // Farb-Validierung (leer = Standard, sonst muss es #rrggbb sein)
     if (studioAccent.trim() && !hexRe.test(studioAccent.trim())) {
-      setError("Studio-Akzentfarbe muss ein Hex-Wert sein, z.B. #3a87fe");
+      setError(t("appearance.studioColorHex"));
       return;
     }
     if (loginAccent.trim() && !hexRe.test(loginAccent.trim())) {
-      setError("Login-Akzentfarbe muss ein Hex-Wert sein, z.B. #3a87fe");
+      setError(t("appearance.loginColorHex"));
       return;
     }
     setSaving(true);

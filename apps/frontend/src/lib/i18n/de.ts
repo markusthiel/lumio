@@ -971,6 +971,7 @@ export const de: Dict = {
   },
 
   account: {
+    passwordTooShort: "Neues Passwort muss mindestens 12 Zeichen lang sein.",
     passwordHint: "Empfehlung: mindestens 12 Zeichen, kein Wiedergebrauch von anderen Accounts.",
     title: "Mein Konto",
     description: "Deine persönlichen Zugangsdaten und Anzeige-Einstellungen.",
@@ -1115,6 +1116,8 @@ export const de: Dict = {
   },
 
   appearance: {
+    studioColorHex: "Studio-Akzentfarbe muss ein Hex-Wert sein, z.B. #3a87fe",
+    loginColorHex: "Login-Akzentfarbe muss ein Hex-Wert sein, z.B. #3a87fe",
     title: "Studio & Login",
     description:
       "Eigenes Erscheinungsbild für dein Studio-Backend, die Login-Seite und E-Mails — unabhängig vom Galerie-Branding.",
@@ -1183,6 +1186,7 @@ export const de: Dict = {
   },
 
   dangerZone: {
+    nameMismatch: "Der eingegebene Studio-Name stimmt nicht.",
     finalDeletion: "Endgültige Löschung",
     wrongPassword: "Passwort ist nicht korrekt.",
     title: "Studio löschen",
@@ -2014,6 +2018,7 @@ export const de: Dict = {
     defaultDescPlaceholder: "Wird als Default-Text in die Galerie übernommen — pro Galerie editierbar.",
   },
   impersonate: {
+    noToken: "Kein Token im Link.",
     errCookie: "Session-Cookie wurde nicht akzeptiert. Bitte Cookies/Tracking-Schutz für diese Domain erlauben.",
     errToken: "Token ungültig oder abgelaufen. Bitte erneut vom Super-Admin starten.",
   },
@@ -2113,6 +2118,7 @@ export const de: Dict = {
   },
 
   galleryShare: {
+    loadFailed: "Freigaben konnten nicht geladen werden.",
     changeFailed: "Änderung fehlgeschlagen.",
     teamAccess: "Team-Zugriff",
     whoCanSee: "Wer diese Galerie sehen und bearbeiten darf",
