@@ -1,7 +1,9 @@
 """
 Lumio Worker — process_file
 
-Standard-Bildverarbeitung für JPEG, PNG, WebP, AVIF, TIFF, GIF, HEIC, PSD.
+Standard-Bildverarbeitung für JPEG, PNG, WebP, AVIF, TIFF, GIF, HEIC und PSD
+(PSD via Composite-Extraktion mit Pillow, siehe psd.py — libvips kann PSD
+nicht direkt lesen).
 
 Generiert drei Renditions pro Bild:
   - thumb        ( 400 px lange Kante, WebP, q75)
@@ -25,6 +27,7 @@ from app import app
 from db import fetch_file, mark_file_ready, mark_file_failed, upsert_rendition
 from hashing import sha256_file
 from imaging import render_image_sizes
+from psd import is_psd, flatten_psd_to_png
 from rt import file_status as _publish_status
 from storage import (
     download_to_file,
@@ -121,8 +124,18 @@ def _process(file_row: dict) -> None:
             log.info("process_file.rendition_done", file_id=file_id,
                      kind=kind, fmt=fmt, width=w, height=h, size=size_bytes)
 
+        # PSD: libvips kann das Format nicht direkt dekodieren. Wir
+        # extrahieren das flachgerechnete Composite via Pillow als PNG
+        # und lassen die Pipeline darauf laufen. Alle anderen Formate
+        # gehen unverändert durch.
+        render_src = src_path
+        if is_psd(src_path):
+            render_src = os.path.join(tmp, "psd_composite.png")
+            flatten_psd_to_png(src_path, render_src)
+            log.info("process_file.psd_flattened", file_id=file_id)
+
         final_w, final_h = render_image_sizes(
-            src_path=src_path,
+            src_path=render_src,
             specs=RENDITION_SPECS,
             out_dir=tmp,
             on_rendition=_persist,
