@@ -122,3 +122,32 @@ try {
 
 export const config = parsed;
 export type AppConfig = typeof config;
+
+/**
+ * Sicherheits-Guard: In Production darf NIE mit einem Platzhalter- oder
+ * Default-Secret gestartet werden. JWT_SECRET/SESSION_SECRET signieren
+ * Sessions und Visitor-Cookies — der Platzhalter aus .env.example steht
+ * öffentlich im Repo, ein vergessener Wert würde fälschbare Tokens
+ * bedeuten. Lieber hart abbrechen als unsicher laufen.
+ *
+ * Greift nur in Production, damit lokale Dev-/Test-Setups mit simplen
+ * Werten weiter funktionieren.
+ */
+if (config.NODE_ENV === "production") {
+  const weak: string[] = [];
+  const looksDefault = (v: string) =>
+    /changeme/i.test(v) || /^your[_-]/i.test(v) || /placeholder/i.test(v);
+  for (const key of ["JWT_SECRET", "SESSION_SECRET"] as const) {
+    const val = config[key];
+    if (looksDefault(val)) weak.push(key);
+  }
+  if (weak.length > 0) {
+    console.error(
+      `[lumio:api] Refusing to start: insecure secret(s) detected: ${weak.join(", ")}.\n` +
+        `Set strong, unique values (e.g. \`openssl rand -base64 32\`). ` +
+        `The placeholder values from .env.example are publicly known and ` +
+        `would allow forging session/visitor tokens.`
+    );
+    process.exit(1);
+  }
+}

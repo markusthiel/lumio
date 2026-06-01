@@ -24,6 +24,31 @@ import { logEvent } from "../services/audit.js";
 
 const colorRegex = /^#[0-9a-fA-F]{6}$/;
 
+/**
+ * Custom-CSS wird im Customer-View über einen <style>-Block eingebettet.
+ * React escaped dort NICHT (dangerouslySetInnerHTML), also würde ein
+ * Wert wie `</style><script>…</script>` ausbrechen und im Browser der
+ * Galerie-Besucher (= Kunden des Studios) JS ausführen → Stored XSS.
+ *
+ * Schutz: Innerhalb eines <style>-Elements (HTML "raw text") kann NUR
+ * die Sequenz `</style` das Element beenden — `<script>` o.ä. sind dort
+ * inerter Text, und Entities werden nicht dekodiert. Wir neutralisieren
+ * daher gezielt jedes `</style` (case-insensitive), indem wir einen
+ * Backslash einschieben (`<\/style`). Damit ist ein Tag-Breakout
+ * strukturell unmöglich, ohne legitimes CSS kaputtzumachen (z.B. inline-
+ * SVG-Daten-URIs in url(), die < und > enthalten dürfen).
+ */
+function sanitizeCustomCss(input: string): string {
+  return input.replace(/<\/(style)/gi, "<\\/$1");
+}
+
+const customCssField = z
+  .string()
+  .max(20_000)
+  .transform(sanitizeCustomCss)
+  .nullable()
+  .optional();
+
 const createBrandingSchema = z.object({
   name: z.string().min(1).max(100),
   primaryColor: z.string().regex(colorRegex).default("#0f172a"),
@@ -31,7 +56,7 @@ const createBrandingSchema = z.object({
   fontFamily: z.string().min(1).max(100).default("Inter"),
   introText: z.string().max(2000).nullable().optional(),
   footerText: z.string().max(500).nullable().optional(),
-  customCss: z.string().max(20_000).nullable().optional(),
+  customCss: customCssField,
 });
 
 const updateBrandingSchema = createBrandingSchema.partial();

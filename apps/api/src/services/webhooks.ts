@@ -28,6 +28,7 @@ import { createHmac } from "node:crypto";
 import { prisma } from "../db.js";
 import { enqueue, Queues } from "./queue.js";
 import { logger } from "../logger.js";
+import { assertPublicHttpsUrl } from "../lib/ssrf-guard.js";
 
 /**
  * Whitelist aller Events, die wir senden. Wer das hier nicht enthält,
@@ -176,6 +177,16 @@ export async function sendTestDelivery(input: {
   const ts = Math.floor(Date.now() / 1000);
   const sig = signPayload({ body, secret: input.secret, timestamp: ts });
 
+  // SSRF-Schutz: Host auflösen und gegen interne/private Ziele prüfen,
+  // BEVOR wir den Request rausschicken. Schlägt das fehl, liefern wir
+  // dem User eine klare Meldung statt blind zu connecten.
+  try {
+    await assertPublicHttpsUrl(input.url);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { ok: false, errorMessage: `blocked: ${msg}` };
+  }
+
   // Wir setzen eigenes Timeout via AbortController, statt fetch's
   // Default zu vertrauen — der ist bei Node sehr lang.
   const controller = new AbortController();
@@ -183,6 +194,10 @@ export async function sendTestDelivery(input: {
   try {
     const res = await fetch(input.url, {
       method: "POST",
+      // Keine Redirects folgen: sonst könnte ein öffentlicher Endpoint
+      // per 30x auf ein internes Ziel umleiten und den SSRF-Check oben
+      // umgehen. Ein 3xx gilt damit als Fehlschlag.
+      redirect: "manual",
       headers: {
         "Content-Type": "application/json",
         "X-Lumio-Timestamp": String(ts),
@@ -193,6 +208,10 @@ export async function sendTestDelivery(input: {
       body,
       signal: controller.signal,
     });
+    // opaqueredirect = ein 30x, dem wir bewusst nicht gefolgt sind.
+    if (res.type === "opaqueredirect" || (res.status >= 300 && res.status < 400)) {
+      return { ok: false, errorMessage: "redirects are not allowed" };
+    }
     if (res.ok) {
       return { ok: true, httpStatus: res.status };
     }

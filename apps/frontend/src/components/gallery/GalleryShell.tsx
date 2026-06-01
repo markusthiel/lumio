@@ -217,9 +217,16 @@ export function GalleryShell({
       {/* Custom CSS, falls vorhanden */}
       {branding?.customCss ? (
         <style
-          // sicher: Studio-User sind authentifiziert und Admin/Owner;
-          // Custom-CSS landet nur in den Galerien des eigenen Tenants
-          dangerouslySetInnerHTML={{ __html: branding.customCss }}
+          // Defense-in-depth: das Backend neutralisiert `</style` beim
+          // Speichern bereits (siehe brandings-Route). Wir tun es hier
+          // beim Rendern NOCHMAL, damit auch ein älterer/ungefilterter
+          // Wert keinen Tag-Breakout (</style><script>…) im Besucher-
+          // Browser auslösen kann. Nur `</style` kann ein <style>-Element
+          // beenden — daher reicht diese Neutralisierung und legitimes
+          // CSS (inline-SVG-URIs mit < >) bleibt intakt.
+          dangerouslySetInnerHTML={{
+            __html: branding.customCss.replace(/<\/(style)/gi, "<\\/$1"),
+          }}
         />
       ) : null}
 

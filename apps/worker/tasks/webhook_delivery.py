@@ -52,11 +52,17 @@ import time
 from datetime import datetime, timezone, timedelta
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
+from urllib.request import Request
 
 import redis
 import structlog
 from celery.exceptions import Reject
+
+from net_guard import (
+    BlockedTargetError,
+    assert_public_https_url,
+    build_no_redirect_opener,
+)
 
 from app import app
 from db import get_conn
@@ -227,6 +233,15 @@ def _deliver_http(
     signature = _sign(secret, ts, body)
     event_type = payload.get("event", "unknown") if isinstance(payload, dict) else "unknown"
 
+    # SSRF-Schutz: Ziel auflösen und gegen interne/private IPs prüfen,
+    # bevor wir connecten.
+    try:
+        assert_public_https_url(url)
+    except BlockedTargetError as err:
+        # Wie ein finaler 4xx behandeln (nicht retrybar) — die URL ist
+        # grundsätzlich unzulässig, ein Retry ändert daran nichts.
+        return False, 400, f"blocked: {err}"
+
     req = Request(
         url,
         data=body,
@@ -239,12 +254,18 @@ def _deliver_http(
             "User-Agent": USER_AGENT,
         },
     )
+    # Opener ohne Redirect-Folgen: ein öffentlicher Endpoint darf nicht
+    # per 30x auf ein internes Ziel umleiten und so den Check oben umgehen.
+    opener = build_no_redirect_opener()
     try:
-        with urlopen(req, timeout=DELIVERY_TIMEOUT_S) as resp:
+        with opener.open(req, timeout=DELIVERY_TIMEOUT_S) as resp:
             status = resp.status
             # Body lesen, damit der Server seine Response korrekt abschließen
             # kann, aber Content interessiert uns nicht.
             resp.read(1024)
+            # 3xx, dem wir nicht gefolgt sind → als Fehlschlag werten.
+            if 300 <= status < 400:
+                return False, status, f"redirect not allowed (HTTP {status})"
             return True, status, None
     except HTTPError as err:
         # HTTP-Antwort mit Fehlercode (4xx/5xx)

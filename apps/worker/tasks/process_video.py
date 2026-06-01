@@ -306,6 +306,10 @@ def _probe(path: Path) -> dict:
     result = subprocess.run(
         [
             "ffprobe", "-v", "error",
+            # SSRF-Härtung: nur lokale Protokolle. Eine manipulierte
+            # Datei darf ffprobe nicht zu http/rtmp/concat-Fetches o.ä.
+            # gegen interne Ziele bewegen.
+            "-protocol_whitelist", "file,crypto,data",
             "-show_format", "-show_streams",
             "-of", "json", str(path),
         ],
@@ -337,6 +341,7 @@ def _make_poster(src: Path, dest: Path, timestamp_s: float) -> None:
     subprocess.run(
         [
             "ffmpeg", "-y",
+            "-protocol_whitelist", "file,crypto,data",
             "-ss", f"{timestamp_s:.2f}",
             "-i", str(src),
             "-frames:v", "1",
@@ -418,7 +423,7 @@ def _make_hls(*, src_path: Path, out_dir: Path, source_height: int,
     # ffmpeg-Argumente bauen
     cmd: list[str] = ["ffmpeg", "-y"]
     cmd += prof.extra_input_args
-    cmd += ["-i", str(src_path)]
+    cmd += ["-protocol_whitelist", "file,crypto,data", "-i", str(src_path)]
 
     # filter_complex: split → scale pro Variante.
     # VAAPI muss vor dem Scale ein hwupload + format=nv12 machen.
@@ -548,6 +553,7 @@ def _make_sprite(src: Path, dest: Path, duration_s: float) -> dict | None:
         subprocess.run(
             [
                 "ffmpeg", "-y",
+                "-protocol_whitelist", "file,crypto,data",
                 "-i", str(src),
                 "-vf", vf,
                 "-frames:v", "1",
@@ -628,6 +634,7 @@ def _make_web_mp4(
     args: list[str] = [
         "ffmpeg", "-hide_banner", "-loglevel", "warning", "-y",
         *profile.extra_input_args,
+        "-protocol_whitelist", "file,crypto,data",
         "-i", str(src_path),
     ]
 

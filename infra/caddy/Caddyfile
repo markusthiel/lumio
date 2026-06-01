@@ -59,7 +59,35 @@
 	header {
 		X-Content-Type-Options "nosniff"
 		Referrer-Policy "strict-origin-when-cross-origin"
+
+		# Clickjacking-Schutz. SAMEORIGIN, weil das Studio keine fremde
+		# Einbettung braucht. Sicher zu erzwingen.
+		X-Frame-Options "SAMEORIGIN"
+
+		# HSTS — Caddy liefert ohnehin nur https aus. 1 Jahr, inkl.
+		# Subdomains (Wildcard *.lumio-cloud.de ist alles TLS). Kein
+		# `preload`, das ist eine harte, schwer rücknehmbare Zusage.
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+
 		-Server
+
+		# --- Content-Security-Policy -----------------------------------
+		# Bewusst ERST im Report-Only-Modus: bricht nichts, sammelt aber
+		# Verstöße (report-uri/Console), damit die Policy gegen die echte
+		# App getunt werden kann, bevor sie scharf geschaltet wird.
+		#
+		# Die Policy deckt ab, was im Code sichtbar ist: eigene Assets,
+		# S3/Object-Storage-Bilder (signierte URLs), Bunny-Fonts,
+		# Stripe (Checkout/Elements), Umami-Analytics, WebSocket (/ws).
+		# Inline-Styles sind erlaubt (Custom-CSS + Heading-Font-Block);
+		# Inline-Scripts via 'unsafe-inline' nur, weil Astro/Next sonst
+		# bei der Hydration brechen können — beim Scharfschalten idealer-
+		# weise auf Nonces umstellen.
+		#
+		# Zum Erzwingen: Zeile auf `Content-Security-Policy` umbenennen
+		# (Header-Name ohne `-Report-Only`) und vorher in der Browser-
+		# Konsole prüfen, dass keine Verstöße mehr auflaufen.
+		Content-Security-Policy-Report-Only "default-src 'self'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; style-src 'self' 'unsafe-inline' https://fonts.bunny.net; font-src 'self' data: https://fonts.bunny.net; script-src 'self' 'unsafe-inline' https://js.stripe.com; connect-src 'self' https: wss:; frame-src https://js.stripe.com https://hooks.stripe.com; frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action 'self'"
 	}
 }
 

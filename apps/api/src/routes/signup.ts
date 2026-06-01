@@ -92,7 +92,16 @@ export async function registerSignupRoutes(app: FastifyInstance) {
   // -------------------------------------------------------------------------
   // POST /signup
   // -------------------------------------------------------------------------
-  app.post("/signup", async (req, reply) => {
+  app.post(
+    "/signup",
+    {
+      // Öffentlicher Endpoint, der Accounts + Stripe-Customer anlegt.
+      // Eng limitieren gegen automatisierten Missbrauch (Massen-Signups).
+      config: {
+        rateLimit: { max: 5, timeWindow: "10 minutes" },
+      },
+    },
+    async (req, reply) => {
     if (!isStripeEnabled()) {
       return reply.status(503).send({
         error: "billing_disabled",
@@ -392,6 +401,14 @@ export async function registerSignupRoutes(app: FastifyInstance) {
   // boolean }, kein Detail-Leak.
   app.post<{ Body: { email?: string } }>(
     "/signup/check-email",
+    {
+      // Verrät, ob eine E-Mail registriert ist (User-Enumeration). Als
+      // Live-Check in der Form gewollt, aber eng limitieren, damit nicht
+      // ganze Mail-Listen durchprobiert werden können.
+      config: {
+        rateLimit: { max: 20, timeWindow: "1 minute" },
+      },
+    },
     async (req, reply) => {
       const body = z
         .object({ email: z.string().email().toLowerCase().max(200) })
