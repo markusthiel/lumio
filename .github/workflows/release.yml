@@ -1,0 +1,60 @@
+name: Release
+
+# Läuft NUR auf GitHub (Spiegel-Repo), nicht in Forgejo. Hintergrund:
+# Der Forgejo-Push-Mirror überträgt nur Git-Daten (Commits, Branches, Tags),
+# aber KEINE Releases — die sind Plattform-Metadaten in der Forgejo-DB. Damit
+# auf GitHub trotzdem ein Release mit Beschreibung erscheint, baut diese Action
+# beim Eintreffen des gespiegelten Tags das GitHub-Release und zieht die Notes
+# aus dem passenden CHANGELOG.md-Abschnitt (der ja über den Mirror mitkommt).
+#
+# Voraussetzung: Der in Forgejo hinterlegte Mirror-Token braucht den
+# `workflow`-Scope, sonst lehnt GitHub das Pushen dieser Datei ab. Mirror-Pushes
+# laufen über diesen PAT (nicht den GITHUB_TOKEN), lösen also Workflows aus.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  github-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Changelog-Abschnitt für diesen Tag extrahieren
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          # Alles zwischen "## [VER]" und der nächsten "## [" Überschrift.
+          awk -v ver="$VER" '
+            $0 ~ "^## \\[" ver "\\]" { f = 1; next }
+            f && /^## \[/ { exit }
+            f { print }
+          ' CHANGELOG.md > NOTES.md
+          # Führende Leerzeilen trimmen.
+          sed -i '/./,$!d' NOTES.md
+          if [ ! -s NOTES.md ]; then
+            echo "Kein CHANGELOG-Abschnitt für $VER gefunden — siehe CHANGELOG.md." > NOTES.md
+          fi
+          echo "----- Release-Notes -----"
+          cat NOTES.md
+
+      - name: GitHub-Release anlegen (idempotent)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            # Release existiert schon (z.B. Re-Run) → Notes aktualisieren.
+            gh release edit "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Lumio $GITHUB_REF_NAME" \
+              --notes-file NOTES.md
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Lumio $GITHUB_REF_NAME" \
+              --notes-file NOTES.md
+          fi
