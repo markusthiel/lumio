@@ -338,7 +338,7 @@ export default function StudioSettingsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen text-ui text-ink-tertiary">
-        Lädt…
+        {t("common.loading")}
       </div>
     );
   }
@@ -374,16 +374,13 @@ export default function StudioSettingsPage() {
         {/* Studio-Identitaet: oeffentlicher Anzeigename. */}
         <section className="rounded-lg border border-line-subtle bg-surface-raised p-5 space-y-3">
           <div>
-            <h2 className="text-sm font-medium">Studio-Name</h2>
+            <h2 className="text-sm font-medium">{t("settings.studioName")}</h2>
             <p className="text-xs text-ink-tertiary mt-0.5 leading-relaxed">
-              So sehen deine Kunden dein Studio: im Login-Bildschirm, in
-              E-Mails (Passwort-Reset, Einladungen, etc.) und im Header
-              deiner Galerien. Wenn du das Feld leer lässt, wird der
-              interne Name{" "}
+              {t("settings.studioNameDescPre")}{" "}
               <span className="font-mono text-ink-secondary">
                 {settings.name}
               </span>{" "}
-              verwendet.
+              {" "}{t("settings.studioNameDescPost")}
             </p>
           </div>
           <input
@@ -394,13 +391,13 @@ export default function StudioSettingsPage() {
               setDisplayNameSaved(false);
             }}
             maxLength={120}
-            placeholder={`z.B. ${settings.name} Photography`}
+            placeholder={t("settings.studioNamePlaceholder", { name: settings.name })}
             className="w-full h-9 px-2.5 rounded bg-surface-sunken border border-line-subtle hover:border-line-strong focus:border-accent text-ui text-ink-primary focus:outline-none transition-colors duration-motion disabled:opacity-50"
           />
           <div className="flex justify-end items-center gap-2">
             {displayNameSaved && (
               <span className="text-ui-sm text-semantic-success">
-                ✓ Gespeichert
+                {t("settings.saved")}
               </span>
             )}
             <button
@@ -422,11 +419,9 @@ export default function StudioSettingsPage() {
           deployment.domainBase && (
             <section className="rounded-lg border border-line-subtle bg-surface-raised p-5 space-y-3">
               <div>
-                <h2 className="text-sm font-medium">Studio-Adresse</h2>
+                <h2 className="text-sm font-medium">{t("settings.studioAddress")}</h2>
                 <p className="text-xs text-ink-tertiary mt-0.5 leading-relaxed">
-                  Die Web-Adresse, unter der du dich einloggst. Geteilte
-                  Galerie-Links an deine Kunden laufen separat und bleiben
-                  bei einer Änderung unverändert.
+                  {t("settings.studioAddressDesc")}
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -447,12 +442,11 @@ export default function StudioSettingsPage() {
                 </span>
               </div>
               <div className="rounded-sm bg-semantic-warning/10 border border-semantic-warning/30 px-3 py-2 text-xs text-ink-secondary leading-relaxed">
-                Nach dem Ändern ist die bisherige Adresse{" "}
+                {t("settings.addressWarnPre")}{" "}
                 <span className="font-mono">
                   {settings.slug}.{deployment.domainBase}
                 </span>{" "}
-                nicht mehr erreichbar. Du wirst auf die neue Adresse
-                weitergeleitet und musst dich dort neu anmelden.
+                {" "}{t("settings.addressWarnPost")}
               </div>
               <div className="flex justify-end">
                 <button
@@ -541,11 +535,9 @@ export default function StudioSettingsPage() {
           settings.slug !== "default" &&
           deployment.domainBase && (
             <section className="rounded-lg border border-line-subtle bg-surface-raised p-5 space-y-3">
-              <h2 className="text-sm font-medium">Studio-URL</h2>
+              <h2 className="text-sm font-medium">{t("settings.studioUrl")}</h2>
               <p className="text-xs text-ink-tertiary">
-                Dein Studio ist erreichbar unter folgender Adresse. Du
-                kannst sie zum Anmelden nutzen oder an Mitarbeiter:innen
-                weitergeben.
+                {t("settings.studioUrlDesc")}
               </p>
               <div className="flex items-center gap-2 flex-wrap">
                 <code className="text-sm font-mono bg-surface-sunken px-3 py-2 rounded-md flex-1 min-w-0 truncate">
@@ -559,14 +551,12 @@ export default function StudioSettingsPage() {
                     );
                   }}
                   className="text-sm px-3 py-2 rounded-md border border-line-subtle hover:bg-surface-sunken"
-                >
-                  Kopieren
-                </button>
+                >{t("settings.copy")}</button>
               </div>
               {settings.customDomain && (
                 <div className="pt-2 border-t border-line-subtle">
                   <p className="text-xs text-ink-tertiary mb-2">
-                    Du hast außerdem eine eigene Domain konfiguriert:
+                    {t("settings.ownDomainConfigured")}
                   </p>
                   <div className="flex items-center gap-2 flex-wrap">
                     <code className="text-sm font-mono bg-surface-sunken px-3 py-2 rounded-md flex-1 min-w-0 truncate">
@@ -580,9 +570,7 @@ export default function StudioSettingsPage() {
                         );
                       }}
                       className="text-sm px-3 py-2 rounded-md border border-line-subtle hover:bg-surface-sunken"
-                    >
-                      Kopieren
-                    </button>
+                    >{t("settings.copy")}</button>
                   </div>
                 </div>
               )}
@@ -606,44 +594,37 @@ export default function StudioSettingsPage() {
               }`}
             >
               <div className="flex items-center justify-between gap-2">
-                <h2 className="text-sm font-medium">Custom Domain</h2>
+                <h2 className="text-sm font-medium">{t("settings.customDomain")}</h2>
                 {!planAllows && (
                   <Link
                     href="/studio/billing"
                     className="text-ui-xs px-2 py-1 rounded bg-accent/15 text-accent hover:bg-accent/25"
                   >
-                    Ab Studio-Plan
+                    {t("settings.planFrom")}
                   </Link>
                 )}
               </div>
               <p className="text-xs text-ink-tertiary">
-                Eigene Domain für deine Galerien — z.B.{" "}
-                <code className="bg-surface-sunken px-1 rounded">bilder.mein-studio.de</code>.
-                Setze einen DNS-Eintrag, der auf deinen Lumio-Server zeigt,
-                dann trage die Domain hier ein. Galerien sind danach unter
-                <code className="bg-surface-sunken px-1 mx-1 rounded">
-                  https://deine-domain/g/&lt;slug&gt;
-                </code>
-                erreichbar.
+                {t("settings.customDomainDescFull")}
               </p>
 
               {/* Konkrete DNS-Setup-Anweisungen mit echter Server-IP */}
               {deployment?.publicIp && (
                 <div className="text-xs bg-surface-sunken rounded p-3 space-y-1.5">
                   <div className="font-medium text-ink-secondary">
-                    DNS-Eintrag bei deinem Domain-Provider:
+                    {t("settings.dnsRecordLabel")}
                   </div>
                   <div className="font-mono">
                     <span className="text-ink-tertiary">Type:</span>{" "}
                     <span className="text-ink-primary">A</span>
                     {"  "}
-                    <span className="text-ink-tertiary">Wert:</span>{" "}
+                    <span className="text-ink-tertiary">{t("settings.dnsValue")}</span>{" "}
                     <span className="text-ink-primary">
                       {deployment.publicIp}
                     </span>
                   </div>
                   <div className="text-ink-tertiary">
-                    Alternativ ein CNAME auf deine Lumio-Hauptdomain.
+                    {t("settings.dnsCnameAlt")}
                   </div>
                 </div>
               )}
@@ -776,12 +757,9 @@ export default function StudioSettingsPage() {
 
         {/* Watermark-Text */}
         <section className="rounded-lg border border-line-subtle bg-surface-raised p-5 space-y-3">
-          <h2 className="text-sm font-medium">Wasserzeichen — Text</h2>
+          <h2 className="text-sm font-medium">{t("settings.watermarkText")}</h2>
           <p className="text-xs text-ink-tertiary">
-            Wird als wiederholtes diagonales Muster über Vorschaubilder gelegt,
-            wenn eine Galerie auf <em>watermarkEnabled</em> steht und kein
-            Bild-Wasserzeichen hochgeladen ist. Leer = Studio-Name wird
-            verwendet.
+            {t("settings.watermarkTextDesc")}
           </p>
           <div className="flex gap-2">
             <input
@@ -803,11 +781,9 @@ export default function StudioSettingsPage() {
 
         {/* Watermark-Bild */}
         <section className="rounded-lg border border-line-subtle bg-surface-raised p-5 space-y-3">
-          <h2 className="text-sm font-medium">Wasserzeichen — Bild</h2>
+          <h2 className="text-sm font-medium">{t("settings.watermarkImage")}</h2>
           <p className="text-xs text-ink-tertiary">
-            PNG oder JPEG, transparenter Hintergrund empfohlen. Wird mit 35 %
-            Opazität mittig über die Vorschau gelegt — bei aktiviertem
-            Wasserzeichen statt des Text-Musters.
+            {t("settings.watermarkImageDesc")}
           </p>
 
           {settings.watermarkImageKey ? (
@@ -820,12 +796,12 @@ export default function StudioSettingsPage() {
                 disabled={imageSaving}
                 className="text-xs text-red-600 hover:underline disabled:opacity-50"
               >
-                Entfernen
+                {t("common.remove")}
               </button>
             </div>
           ) : (
             <div className="text-xs text-ink-tertiary">
-              Kein Wasserzeichen-Bild hochgeladen.
+              {t("settings.noWatermarkImage")}
             </div>
           )}
 

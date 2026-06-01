@@ -445,6 +445,8 @@ export const de: Dict = {
         "Wert überschreitet das Hard-Cap dieser Instanz ({cap} MiB).",
     },
     activeUploads: "Aktive Uploads",
+    galleryTags: "Galerie-Tags",
+    galleryTagsDesc: "Ordnen die ganze Galerie in der Übersicht ein (nicht zu verwechseln mit Tags auf einzelnen Bildern).",
     selected: "Ausgewählt",
     secSyncTitle: "Files mit dem Tag in die Section, andere raus",
     secSyncing: "Sync…",
@@ -736,6 +738,25 @@ export const de: Dict = {
     uploadImage: "Bild hochladen",
     imageMaxHint: "Max. 20 MiB · PNG/JPEG",
     noteLabel: "Hinweis:",
+    studioName: "Studio-Name",
+    studioNameDescPre: "So sehen deine Kunden dein Studio: im Login-Bildschirm, in E-Mails (Passwort-Reset, Einladungen, etc.) und im Header deiner Galerien. Wenn du das Feld leer lässt, wird der interne Name",
+    studioNameDescPost: "verwendet.",
+    studioNamePlaceholder: "z.B. {name} Photography",
+    saved: "✓ Gespeichert",
+    studioAddress: "Studio-Adresse",
+    studioAddressDesc: "Die Web-Adresse, unter der du dich einloggst. Geteilte Galerie-Links an deine Kunden laufen separat und bleiben bei einer Änderung unverändert.",
+    addressWarnPre: "Nach dem Ändern ist die bisherige Adresse",
+    addressWarnPost: "nicht mehr erreichbar. Du wirst auf die neue Adresse weitergeleitet und musst dich dort neu anmelden.",
+    studioUrl: "Studio-URL",
+    studioUrlDesc: "Dein Studio ist erreichbar unter folgender Adresse. Du kannst sie zum Anmelden nutzen oder an Mitarbeiter:innen weitergeben.",
+    copy: "Kopieren",
+    ownDomainConfigured: "Du hast außerdem eine eigene Domain konfiguriert:",
+    planFrom: "Ab Studio-Plan",
+    customDomainDescFull: "Eigene Domain für deine Galerien — z.B. bilder.mein-studio.de. Setze einen DNS-Eintrag, der auf deinen Lumio-Server zeigt, dann trage die Domain hier ein. Galerien sind danach unter https://deine-domain/g/<slug> erreichbar.",
+    dnsRecordLabel: "DNS-Eintrag bei deinem Domain-Provider:",
+    dnsValue: "Wert:",
+    dnsCnameAlt: "Alternativ ein CNAME auf deine Lumio-Hauptdomain.",
+    noWatermarkImage: "Kein Wasserzeichen-Bild hochgeladen.",
     watermarkHintPre:
       "Eine Änderung wirkt erst, wenn das Wasserzeichen einer Galerie neu generiert wird. Schalte",
     watermarkHintPost: "aus und wieder an, oder warte auf den nächsten Upload.",
@@ -927,6 +948,7 @@ export const de: Dict = {
   },
 
   account: {
+    passwordHint: "Empfehlung: mindestens 12 Zeichen, kein Wiedergebrauch von anderen Accounts.",
     title: "Mein Konto",
     description: "Deine persönlichen Zugangsdaten und Anzeige-Einstellungen.",
     profile: "Profil",
@@ -963,6 +985,7 @@ export const de: Dict = {
   },
 
   team: {
+    lastActive: "zuletzt aktiv {date}",
     title: "Team",
     descOwner:
       "User dieses Studios. Du kannst andere Mitglieder einladen und Rollen verwalten.",
@@ -1922,6 +1945,8 @@ export const de: Dict = {
     hint: "Wie schwungvoll sich das Interface anfühlt. Wer in den System-Einstellungen „Bewegung reduzieren“ aktiviert hat, sieht unabhängig von dieser Wahl keine Animationen.",
   },
   passkeys: {
+    desc: "Anmeldung per Touch-ID, Windows Hello oder Security-Key. Eine Alternative oder Ergänzung zu TOTP.",
+    none: "Noch keine Passkeys registriert.",
     add: "Passkey hinzufügen",
     addError: "Passkey konnte nicht hinzugefügt werden.",
   },
@@ -1955,6 +1980,7 @@ export const de: Dict = {
     archived: "Archiviert",
   },
   templates: {
+    watermarkActive: "Wasserzeichen aktiv",
     pageTitle: "Galerie-Templates",
     pageSubtitle: "Wiederverwendbare Einstellungen für neue Galerien.",
     newTemplate: "Neues Galerie-Template",
@@ -2061,5 +2087,17 @@ export const de: Dict = {
     ctEmailHint: "Bekommt eine Einladungs-Mail mit Setup-Link.",
     ctCreating: "Wird angelegt…",
     ctSubmit: "Anlegen + Einladen",
+  },
+
+  galleryShare: {
+    teamAccess: "Team-Zugriff",
+    whoCanSee: "Wer diese Galerie sehen und bearbeiten darf",
+    sharedCount: " · {n} freigegeben",
+    fullRightsDesc: "Freigegebene Mitglieder haben volle Rechte (sehen, bearbeiten, löschen). Wer nicht freigegeben ist, sieht die Galerie nicht.",
+    noMembers: "Noch keine weiteren Team-Mitglieder. Lade unter Einstellungen → Team Kolleg:innen ein.",
+    roleCreatorAccess: "Ersteller · Zugriff",
+    roleOwnerAccess: "Inhaber · Zugriff",
+    shared: "Freigegeben",
+    share: "Freigeben",
   },
 };

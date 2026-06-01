@@ -45,11 +45,7 @@ function MotionSectionInner() {
     <section className="rounded-md bg-surface-raised border border-line-subtle p-5 space-y-4">
       <div>
         <h2 className="text-ui-md font-medium text-ink-primary">{t("motion.heading")}</h2>
-        <p className="text-ui-sm text-ink-tertiary mt-0.5">
-          Wie schwungvoll sich das Interface anfühlt. Wer in den
-          System-Einstellungen „Bewegung reduzieren" aktiviert hat, sieht
-          unabhängig von dieser Wahl keine Animationen.
-        </p>
+        <p className="text-ui-sm text-ink-tertiary mt-0.5">{t("motion.hint")}</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">

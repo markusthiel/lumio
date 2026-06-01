@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 type Member = {
   id: string;
@@ -20,6 +21,7 @@ type Member = {
  * Galerie freigegeben werden. Freigegebene erhalten volle Rechte.
  */
 export function GalleryShareSection({ galleryId }: { galleryId: string }) {
+  const t = useT();
   const [expanded, setExpanded] = useState(false);
   const [members, setMembers] = useState<Member[] | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -74,11 +76,11 @@ export function GalleryShareSection({ galleryId }: { galleryId: string }) {
       >
         <div>
           <h2 className="text-ui-md font-medium text-ink-primary">
-            Team-Zugriff
+            {t("galleryShare.teamAccess")}
           </h2>
           <p className="text-ui-xs text-ink-tertiary mt-0.5">
-            Wer diese Galerie sehen und bearbeiten darf
-            {sharedCount > 0 ? ` · ${sharedCount} freigegeben` : ""}
+            {t("galleryShare.whoCanSee")}
+            {sharedCount > 0 ? t("galleryShare.sharedCount", { n: sharedCount }) : ""}
           </p>
         </div>
         <span
@@ -93,18 +95,16 @@ export function GalleryShareSection({ galleryId }: { galleryId: string }) {
       {expanded && (
         <div className="px-5 pb-5 space-y-3">
           <p className="text-xs text-ink-tertiary">
-            Freigegebene Mitglieder haben volle Rechte (sehen, bearbeiten,
-            löschen). Wer nicht freigegeben ist, sieht die Galerie nicht.
+            {t("galleryShare.fullRightsDesc")}
           </p>
           {error && (
             <div className="text-xs text-semantic-danger">{error}</div>
           )}
           {members === null ? (
-            <div className="text-xs text-ink-tertiary">Lädt …</div>
+            <div className="text-xs text-ink-tertiary">{t("common.loading")}</div>
           ) : members.length <= 1 ? (
             <div className="text-xs text-ink-tertiary">
-              Noch keine weiteren Team-Mitglieder. Lade unter Einstellungen
-              → Team Kolleg:innen ein.
+              {t("galleryShare.noMembers")}
             </div>
           ) : (
             <ul className="divide-y divide-line-subtle rounded-md border border-line-subtle overflow-hidden">
@@ -123,7 +123,7 @@ export function GalleryShareSection({ galleryId }: { galleryId: string }) {
                   </div>
                   {m.alwaysHasAccess ? (
                     <span className="text-xs text-ink-tertiary whitespace-nowrap">
-                      {m.isCreator ? "Ersteller" : "Inhaber"} · Zugriff
+                      {m.isCreator ? t("galleryShare.roleCreatorAccess") : t("galleryShare.roleOwnerAccess")}
                     </span>
                   ) : (
                     <button
@@ -136,7 +136,7 @@ export function GalleryShareSection({ galleryId }: { galleryId: string }) {
                           : "border-line-subtle text-ink-secondary hover:border-line-strong"
                       }`}
                     >
-                      {m.shared ? "Freigegeben" : "Freigeben"}
+                      {m.shared ? t("galleryShare.shared") : t("galleryShare.share")}
                     </button>
                   )}
                 </li>

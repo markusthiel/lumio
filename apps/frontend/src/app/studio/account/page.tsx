@@ -429,10 +429,10 @@ function PasswordSection() {
           <p className="text-ui-sm text-ink-tertiary">
             {done
               ? t("account.passwordChanged")
-              : "Empfehlung: mindestens 12 Zeichen, kein Wiedergebrauch von anderen Accounts."}
+              : t("account.passwordHint")}
           </p>
           <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
-            Passwort ändern
+            {t("account.changePassword")}
           </Button>
         </div>
       )}

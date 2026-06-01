@@ -121,8 +121,7 @@ export function PasskeysSection() {
         <div>
           <h2 className="text-sm font-medium">Passkeys</h2>
           <p className="text-xs text-ink-tertiary mt-0.5">
-            Anmeldung per Touch-ID, Windows Hello oder Security-Key. Eine
-            Alternative oder Ergänzung zu TOTP.
+            {t("passkeys.desc")}
           </p>
         </div>
         <button
@@ -143,7 +142,7 @@ export function PasskeysSection() {
 
       {!loading && credentials.length === 0 && (
         <p className="text-xs text-ink-tertiary italic">
-          Noch keine Passkeys registriert.
+          {t("passkeys.none")}
         </p>
       )}
 

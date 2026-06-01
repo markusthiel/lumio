@@ -445,6 +445,8 @@ export const en: Dict = {
         "Value exceeds the instance hard-cap ({cap} MiB).",
     },
     activeUploads: "Active uploads",
+    galleryTags: "Gallery tags",
+    galleryTagsDesc: "Categorize the whole gallery in the overview (not to be confused with tags on individual images).",
     selected: "Selected",
     secSyncTitle: "Files with the tag into the section, others out",
     secSyncing: "Sync…",
@@ -733,6 +735,25 @@ export const en: Dict = {
     uploadImage: "Upload image",
     imageMaxHint: "Max 20 MiB · PNG/JPEG",
     noteLabel: "Note:",
+    studioName: "Studio name",
+    studioNameDescPre: "This is how your clients see your studio: on the login screen, in emails (password reset, invitations, etc.) and in the header of your galleries. If you leave the field empty, the internal name",
+    studioNameDescPost: "is used.",
+    studioNamePlaceholder: "e.g. {name} Photography",
+    saved: "✓ Saved",
+    studioAddress: "Studio address",
+    studioAddressDesc: "The web address you log in at. Shared gallery links to your clients run separately and stay unchanged when you change this.",
+    addressWarnPre: "After changing it, the previous address",
+    addressWarnPost: "is no longer reachable. You will be redirected to the new address and must log in there again.",
+    studioUrl: "Studio URL",
+    studioUrlDesc: "Your studio is reachable at the following address. You can use it to log in or share it with team members.",
+    copy: "Copy",
+    ownDomainConfigured: "You've also configured a custom domain:",
+    planFrom: "From Studio plan",
+    customDomainDescFull: "Custom domain for your galleries — e.g. bilder.mein-studio.de. Set a DNS record pointing to your Lumio server, then enter the domain here. Galleries are then reachable at https://your-domain/g/<slug>.",
+    dnsRecordLabel: "DNS record at your domain provider:",
+    dnsValue: "Value:",
+    dnsCnameAlt: "Alternatively a CNAME to your main Lumio domain.",
+    noWatermarkImage: "No watermark image uploaded.",
     watermarkHintPre:
       "A change only takes effect when a gallery's watermark is regenerated. Toggle",
     watermarkHintPost: "off and on again, or wait for the next upload.",
@@ -924,6 +945,7 @@ export const en: Dict = {
   },
 
   account: {
+    passwordHint: "Recommendation: at least 12 characters, no reuse from other accounts.",
     title: "My account",
     description: "Your personal sign-in credentials and display settings.",
     profile: "Profile",
@@ -960,6 +982,7 @@ export const en: Dict = {
   },
 
   team: {
+    lastActive: "last active {date}",
     title: "Team",
     descOwner:
       "Users of this studio. You can invite other members and manage roles.",
@@ -1917,6 +1940,8 @@ export const en: Dict = {
     hint: "How lively the interface feels. Anyone who has enabled “Reduce motion” in their system settings sees no animations regardless of this choice.",
   },
   passkeys: {
+    desc: "Sign in via Touch ID, Windows Hello or security key. An alternative or addition to TOTP.",
+    none: "No passkeys registered yet.",
     add: "Add passkey",
     addError: "Passkey could not be added.",
   },
@@ -1950,6 +1975,7 @@ export const en: Dict = {
     archived: "Archived",
   },
   templates: {
+    watermarkActive: "Watermark active",
     pageTitle: "Gallery templates",
     pageSubtitle: "Reusable settings for new galleries.",
     newTemplate: "New gallery template",
@@ -2056,5 +2082,17 @@ export const en: Dict = {
     ctEmailHint: "Receives an invitation email with a setup link.",
     ctCreating: "Creating…",
     ctSubmit: "Create + invite",
+  },
+
+  galleryShare: {
+    teamAccess: "Team access",
+    whoCanSee: "Who may see and edit this gallery",
+    sharedCount: " · {n} shared",
+    fullRightsDesc: "Shared members have full rights (view, edit, delete). Anyone not shared with cannot see the gallery.",
+    noMembers: "No other team members yet. Invite colleagues under Settings → Team.",
+    roleCreatorAccess: "Creator · access",
+    roleOwnerAccess: "Owner · access",
+    shared: "Shared",
+    share: "Share",
   },
 };

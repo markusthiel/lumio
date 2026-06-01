@@ -1190,11 +1190,10 @@ export default function GalleryDetailPage() {
         {/* Galerie-Tags — zur Organisation/Filterung in der Übersicht. */}
         <section className="rounded-md border border-line-subtle bg-surface-raised p-5 space-y-3">
           <h2 className="text-ui-md font-medium text-ink-primary">
-            Galerie-Tags
+            {t("studio.galleryTags")}
           </h2>
           <p className="text-ui-sm text-ink-tertiary -mt-1">
-            Ordnen die ganze Galerie in der Übersicht ein (nicht zu verwechseln
-            mit Tags auf einzelnen Bildern).
+            {t("studio.galleryTagsDesc")}
           </p>
           <TagPicker
             current={gallery.tags ?? []}

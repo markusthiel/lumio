@@ -249,8 +249,7 @@ function UserRow({
           {user.email}
           {user.lastLoginAt && (
             <span className="ml-2">
-              · zuletzt aktiv{" "}
-              {new Date(user.lastLoginAt).toLocaleDateString("de-DE")}
+              · {t("team.lastActive", { date: new Date(user.lastLoginAt).toLocaleDateString("de-DE") })}
             </span>
           )}
         </div>
@@ -263,7 +262,7 @@ function UserRow({
             </Button>
           )}
           <Button variant="ghost" size="sm" onClick={onEdit}>
-            Bearbeiten
+            {t("common.edit")}
           </Button>
           {!isMe && !isLastOwner && (
             <Button
@@ -272,7 +271,7 @@ function UserRow({
               onClick={onDelete}
               title={t("common.delete")}
             >
-              Löschen
+              {t("common.delete")}
             </Button>
           )}
         </div>

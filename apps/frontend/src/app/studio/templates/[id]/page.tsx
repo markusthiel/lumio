@@ -199,7 +199,7 @@ export default function TemplateEditorPage() {
               onChange={setDownloadEnabled}
             />
             <Toggle
-              label="Wasserzeichen aktiv"
+              label={t("templates.watermarkActive")}
               value={watermarkEnabled}
               onChange={setWatermarkEnabled}
             />
