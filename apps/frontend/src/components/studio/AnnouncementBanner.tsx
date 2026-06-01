@@ -18,6 +18,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 type Announcement = Awaited<
   ReturnType<typeof api.listActiveAnnouncements>
@@ -96,6 +97,7 @@ function AnnouncementRow({
   a: Announcement;
   onDismiss: (id: string) => void;
 }) {
+  const t = useT();
   const canDismiss = a.severity !== "critical" && a.dismissible;
   const colorClasses = (() => {
     switch (a.severity) {
@@ -133,7 +135,7 @@ function AnnouncementRow({
         <button
           type="button"
           onClick={() => onDismiss(a.id)}
-          aria-label="Banner ausblenden"
+          aria-label={t("announcement.dismiss")}
           className="text-xs px-2 py-0.5 rounded hover:bg-black/15 opacity-70 hover:opacity-100"
         >
           ×

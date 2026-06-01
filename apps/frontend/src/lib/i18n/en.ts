@@ -2198,4 +2198,30 @@ export const en: Dict = {
     dupDeleteConfirm: "Delete {n} duplicates? The S3 objects are removed too — this cannot be undone.",
     invalidEmail: "This address doesn't look valid",
   },
+
+  welcome: {
+    title: "Welcome to Lumio!",
+    trialInfo: "Your trial runs for 14 days. First charge only after that.",
+    loggingIn: "Signing in…",
+    redirecting: "You'll be redirected to the studio in {n} seconds…",
+    toStudio: "To the studio now",
+    loading: "Loading…",
+  },
+  analytics: {
+    title: "Analytics",
+    galleries: "Galleries",
+    files: "Files",
+    visits: "Visits",
+    likes: "Likes",
+    comments: "Comments",
+    printRevenue: "Print revenue",
+    selectionsComplete: "Selections completed",
+    chartVisitsLikes: "Visits & likes per day",
+    chartStorage: "Storage cumulative",
+    topVisits: "Top 5 by visits",
+    topLikes: "Top 5 by likes",
+  },
+  announcement: {
+    dismiss: "Dismiss banner",
+  },
 };

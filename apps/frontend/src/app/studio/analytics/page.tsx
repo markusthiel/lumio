@@ -26,6 +26,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { api } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 import { PageHeader } from "@/components/studio/PageHeader";
 
 export const dynamic = "force-dynamic";
@@ -40,6 +41,7 @@ const RANGE_PRESETS = [
 ];
 
 export default function AnalyticsPage() {
+  const t = useT();
   const [data, setData] = useState<Overview | null>(null);
   const [days, setDays] = useState(30);
   const [error, setError] = useState<string | null>(null);
@@ -57,7 +59,7 @@ export default function AnalyticsPage() {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Fehler");
+          setError(err instanceof Error ? err.message : t("common.error"));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -71,7 +73,7 @@ export default function AnalyticsPage() {
   return (
     <>
       <PageHeader
-        title="Analytics"
+        title={t("analytics.title")}
         actions={
           <div className="flex gap-1.5">
             {RANGE_PRESETS.map((p) => (
@@ -107,14 +109,14 @@ export default function AnalyticsPage() {
         <>
           {/* KPI-Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            <KpiCard label="Galerien" value={data.totals.galleries} />
-            <KpiCard label="Dateien" value={data.totals.files} />
-            <KpiCard label="Besuche" value={data.totals.visits} highlight />
-            <KpiCard label="Likes" value={data.totals.likes} />
-            <KpiCard label="Kommentare" value={data.totals.comments} />
+            <KpiCard label={t("analytics.galleries")} value={data.totals.galleries} />
+            <KpiCard label={t("analytics.files")} value={data.totals.files} />
+            <KpiCard label={t("analytics.visits")} value={data.totals.visits} highlight />
+            <KpiCard label={t("analytics.likes")} value={data.totals.likes} />
+            <KpiCard label={t("analytics.comments")} value={data.totals.comments} />
             {data.totals.printOrders > 0 ? (
               <KpiCard
-                label="Print-Umsatz"
+                label={t("analytics.printRevenue")}
                 value={(data.totals.printRevenueCents / 100).toLocaleString(
                   "de-DE",
                   { style: "currency", currency: "EUR" }
@@ -123,14 +125,14 @@ export default function AnalyticsPage() {
               />
             ) : (
               <KpiCard
-                label="Auswahlen abgeschlossen"
+                label={t("analytics.selectionsComplete")}
                 value={data.totals.finalizedSelections}
               />
             )}
           </div>
 
           {/* Trends: Visits + Likes */}
-          <Section title="Besuche & Likes pro Tag">
+          <Section title={t("analytics.chartVisitsLikes")}>
             <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
@@ -178,7 +180,7 @@ export default function AnalyticsPage() {
 
           {/* Storage-Trend */}
           {data.trends.storage.length > 0 && (
-            <Section title="Speicher kumulativ">
+            <Section title={t("analytics.chartStorage")}>
               <div className="h-56">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={data.trends.storage}>
@@ -221,10 +223,10 @@ export default function AnalyticsPage() {
 
           {/* Top-Listen */}
           <div className="grid md:grid-cols-2 gap-4">
-            <Section title="Top 5 nach Besuchen">
+            <Section title={t("analytics.topVisits")}>
               <TopList rows={data.top.byVisits} metricKey="visits" metricLabel="Besuche" />
             </Section>
-            <Section title="Top 5 nach Likes">
+            <Section title={t("analytics.topLikes")}>
               <TopList rows={data.top.byLikes} metricKey="likes" metricLabel="Likes" />
             </Section>
           </div>

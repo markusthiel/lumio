@@ -24,8 +24,10 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui";
+import { useT } from "@/lib/i18n";
 
 function WelcomeContent() {
+  const t = useT();
   const router = useRouter();
   const params = useSearchParams();
   const sessionId = params.get("session_id");
@@ -77,38 +79,39 @@ function WelcomeContent() {
       <div className="text-6xl">🎉</div>
       <div>
         <h1 className="text-display-md text-ink-primary font-medium mb-2">
-          Willkommen bei Lumio!
+          {t("welcome.title")}
         </h1>
         <p className="text-ui text-ink-secondary">
-          Dein Trial läuft 14 Tage. Erste Belastung erst danach.
+          {t("welcome.trialInfo")}
         </p>
       </div>
       <div className="text-ui-sm text-ink-tertiary">
         {autoLogin === "pending" && (
-          <div className="text-ui-xs opacity-60 mb-1">Anmelden…</div>
+          <div className="text-ui-xs opacity-60 mb-1">{t("welcome.loggingIn")}</div>
         )}
-        Du wirst in {countdown} Sekunden ins Studio weitergeleitet…
+        {t("welcome.redirecting", { n: countdown })}
       </div>
       <Button
         variant="primary"
         onClick={() => router.push("/studio")}
         className="w-full"
       >
-        Jetzt ins Studio
+        {t("welcome.toStudio")}
       </Button>
     </div>
   );
 }
 
 function WelcomeFallback() {
+  const t = useT();
   return (
     <div className="max-w-md w-full bg-surface-raised border border-line-subtle rounded-lg p-8 text-center space-y-6">
       <div className="text-6xl">🎉</div>
       <div>
         <h1 className="text-display-md text-ink-primary font-medium mb-2">
-          Willkommen bei Lumio!
+          {t("welcome.title")}
         </h1>
-        <p className="text-ui text-ink-secondary">Wird geladen…</p>
+        <p className="text-ui text-ink-secondary">{t("welcome.loading")}</p>
       </div>
     </div>
   );

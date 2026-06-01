@@ -13,8 +13,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type Tag } from "@/lib/api";
 import { TagPicker } from "@/components/studio/TagPicker";
+import { useT } from "@/lib/i18n";
 
 export function FileTagsSection({ fileId }: { fileId: string }) {
+  const t = useT();
   const [tags, setTags] = useState<Tag[] | null>(null);
 
   const load = useCallback(async () => {
@@ -33,7 +35,7 @@ export function FileTagsSection({ fileId }: { fileId: string }) {
   if (tags === null) {
     return (
       <div className="px-4 py-3 border-b border-line-subtle text-ui-xs text-ink-tertiary">
-        Lade Tags…
+        {t("common.loading")}
       </div>
     );
   }

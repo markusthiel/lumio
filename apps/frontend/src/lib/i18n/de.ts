@@ -2203,4 +2203,30 @@ export const de: Dict = {
     dupDeleteConfirm: "{n} Duplikate löschen? Die S3-Objekte werden mit entfernt — das lässt sich nicht rückgängig machen.",
     invalidEmail: "Diese Adresse sieht nicht gültig aus",
   },
+
+  welcome: {
+    title: "Willkommen bei Lumio!",
+    trialInfo: "Dein Trial läuft 14 Tage. Erste Belastung erst danach.",
+    loggingIn: "Anmelden…",
+    redirecting: "Du wirst in {n} Sekunden ins Studio weitergeleitet…",
+    toStudio: "Jetzt ins Studio",
+    loading: "Wird geladen…",
+  },
+  analytics: {
+    title: "Analytics",
+    galleries: "Galerien",
+    files: "Dateien",
+    visits: "Besuche",
+    likes: "Likes",
+    comments: "Kommentare",
+    printRevenue: "Print-Umsatz",
+    selectionsComplete: "Auswahlen abgeschlossen",
+    chartVisitsLikes: "Besuche & Likes pro Tag",
+    chartStorage: "Speicher kumulativ",
+    topVisits: "Top 5 nach Besuchen",
+    topLikes: "Top 5 nach Likes",
+  },
+  announcement: {
+    dismiss: "Banner ausblenden",
+  },
 };
