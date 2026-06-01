@@ -288,10 +288,11 @@ function TopList({
   metricKey: string;
   metricLabel: string;
 }) {
+  const t = useT();
   if (rows.length === 0 || rows.every((r) => (r[metricKey] ?? 0) === 0)) {
     return (
       <p className="text-sm text-ink-tertiary py-4 text-center">
-        Noch keine Daten für diesen Zeitraum.
+        {t("analytics.noData")}
       </p>
     );
   }

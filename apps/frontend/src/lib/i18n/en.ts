@@ -2208,6 +2208,7 @@ export const en: Dict = {
     loading: "Loading…",
   },
   analytics: {
+    noData: "No data for this period yet.",
     title: "Analytics",
     galleries: "Galleries",
     files: "Files",

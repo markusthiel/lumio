@@ -2213,6 +2213,7 @@ export const de: Dict = {
     loading: "Wird geladen…",
   },
   analytics: {
+    noData: "Noch keine Daten für diesen Zeitraum.",
     title: "Analytics",
     galleries: "Galerien",
     files: "Dateien",
