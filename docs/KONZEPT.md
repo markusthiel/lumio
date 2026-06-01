@@ -637,7 +637,7 @@ Wo Picdrop sich "schnell" anfühlt — und wie wir das nachbauen:
 ## 12. Open-Source-Strategie
 
 - **Repo-Struktur**: Monorepo (pnpm workspaces) mit `apps/frontend`, `apps/api`, `apps/worker`, `packages/shared-types`.
-- **Lizenz**: **FSL-1.1-ALv2** (Functional Source License) — source-available. Verbietet konkurrierendes SaaS-Hosting (*Competing Use*), konvertiert aber 2 Jahre nach jedem Release automatisch zu Apache 2.0. Kommerzielle Lizenz für gehostete/konkurrierende Angebote auf Anfrage. (Frühere Überlegung war AGPL-3.0; FSL passt besser zum eigenen lumio-cloud.de-Geschäftsmodell.)
+- **Lizenz**: **FSL-1.1-ALv2** (Functional Source License) — source-available. Verbietet konkurrierendes SaaS-Hosting (*Competing Use*), konvertiert aber 2 Jahre nach jedem Release automatisch zu Apache 2.0. Kommerzielle Lizenz für gehostete/konkurrierende Angebote auf Anfrage.
 - **CI/CD**: GitHub Actions → Docker Images nach `ghcr.io`, Tags pro Release + `:latest` + `:main`.
 - **Docs**: VitePress oder MkDocs Material, gehostet auf GitHub Pages.
 - **Demo**: öffentliche Demo-Instanz auf einem Hetzner-Server (wichtig für Adoption).
