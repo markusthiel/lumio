@@ -125,6 +125,27 @@ export function Slideshow({
     };
   }, [playing, index, interval, playable.length]);
 
+  // Vorausladen: die nächsten Bilder schon laden UND dekodieren, während
+  // das aktuelle noch steht. Sonst startet der Browser den Load des neuen
+  // Bildes erst im Moment des Übergangs — der Effekt fadet dann gegen ein
+  // leeres Bild, das mitten im Fade aufpoppt ("Blitzen"). Mit warmem
+  // Cache + Decode ist der Wechsel sofort und der Übergang sauber.
+  useEffect(() => {
+    if (playable.length <= 1) return;
+    const AHEAD = 2;
+    for (let k = 1; k <= AHEAD; k++) {
+      const f = playable[(index + k) % playable.length];
+      const src = f?.webUrl ?? f?.previewUrl ?? f?.thumbUrl;
+      if (!src) continue;
+      const img = new Image();
+      img.decoding = "async";
+      img.src = src;
+      // decode() wärmt den Decode-Cache; Fehler (z.B. Abbruch) ignorieren.
+      img.decode?.().catch(() => {});
+    }
+    // Bewusst kein Cleanup: laufende Loads dürfen den Cache füllen.
+  }, [index, playable.length]);
+
   // Toolbar-Auto-Hide
   useEffect(() => {
     function showAndScheduleHide() {

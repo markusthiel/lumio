@@ -30,6 +30,17 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.14.4] - 2026-06-02
+
+Bugfix-Release. `git pull` + regulärer Deploy genügt. Reines Frontend.
+
+### Fixed
+- Slideshow: Beim Bildwechsel blitzte es kurz auf, weil das nächste
+  (hochauflösende) Bild erst im Moment des Übergangs zu laden begann — der
+  eingestellte Effekt (Fade/Slide/Ken Burns) lief dadurch gegen ein leeres
+  Bild. Die kommenden Bilder werden jetzt vorausgeladen und dekodiert, der
+  Übergang ist sauber.
+
 ## [0.14.3] - 2026-06-02
 
 Bugfix-Release. `git pull` + regulärer Deploy genügt. Reines Frontend.
