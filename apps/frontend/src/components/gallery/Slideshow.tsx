@@ -502,12 +502,15 @@ function SlideImage({
       style.animation = `lumio-kenburns-${dir} 8s ease-out both`;
     }
   } else {
-    // fade (default)
-    className = `absolute inset-0 w-full h-full object-contain transition-opacity ease-out ${
-      isCurrent
-        ? "opacity-100 duration-[600ms]"
-        : "opacity-0 duration-0"
-    }`;
+    // fade (default): prev liegt voll sichtbar drunter, current blendet
+    // per @keyframes-Animation 0 → 1 darüber ein. WICHTIG: Animation statt
+    // CSS-Transition, weil der current-Layer bei jedem Wechsel NEU gemountet
+    // wird (key) — eine transition-opacity löst auf einem frisch gemounteten
+    // Element nicht aus, das Bild erschien dadurch ohne Fade sofort.
+    className = `absolute inset-0 w-full h-full object-contain`;
+    if (isCurrent) {
+      style.animation = "lumio-fade-in 600ms ease-out both";
+    }
   }
 
   return (

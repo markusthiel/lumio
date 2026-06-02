@@ -267,6 +267,16 @@ body {
   to   { transform: translateX(0);   opacity: 1; }
 }
 
+/* === Fade ===
+ * Reiner Opacity-Übergang für den Default-Effekt. Bewusst als @keyframes
+ * (nicht als CSS-Transition), weil der current-Layer bei jedem Bildwechsel
+ * NEU gemountet wird — eine transition-opacity würde beim Mount nicht
+ * auslösen. Schon reduced-motion-freundlich (nur Opacity, kein Transform). */
+@keyframes lumio-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 /* === Ken-Burns ===
  * Vier Richtungs-Varianten. Jede ist ein langsamer Zoom (1.0 → 1.12)
  * kombiniert mit einer leichten Pan-Bewegung. Wir nutzen transform-

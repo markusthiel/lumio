@@ -30,6 +30,18 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.14.5] - 2026-06-02
+
+Bugfix-Release. `git pull` + regulärer Deploy genügt. Reines Frontend.
+
+### Fixed
+- Slideshow: Der „Fade"-Effekt animierte gar nicht — das neue Bild erschien
+  hart, statt einzublenden. Ursache: Fade nutzte eine CSS-Transition, die
+  auf dem bei jedem Bildwechsel neu eingehängten Layer nicht auslöst.
+  Umgestellt auf eine echte Keyframe-Animation (wie Slide/Ken Burns), jetzt
+  blendet das Bild sauber über. (Erst sichtbar geworden, seit das Aufblitzen
+  in 0.14.4 behoben war.)
+
 ## [0.14.4] - 2026-06-02
 
 Bugfix-Release. `git pull` + regulärer Deploy genügt. Reines Frontend.
