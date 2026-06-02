@@ -458,6 +458,11 @@ model Gallery {
   // UNABHÄNGIG vom Branding-Logo (das ist Studio-weit) — beide können
   // gleichzeitig vorhanden sein.
   eventLogoUrl     String?
+  // Anzeigegröße des Galerie-Logos im Kunden-Hero: small | medium | large.
+  // Default "medium". Steuert die Logo-Höhe (Logos werden per Höhe + w-auto
+  // skaliert, daher wirken Quer- vs. Hochformate unterschiedlich groß —
+  // diese Einstellung gibt dem Studio die Kontrolle).
+  eventLogoSize    String   @default("medium")
   
   // Reich formatierter Welcome-Text. Markdown — gerendert im Customer-
   // Header unter Titel/Description. Wenn null, wird nur description

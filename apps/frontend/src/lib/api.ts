@@ -65,6 +65,7 @@ export interface Gallery {
   heroOverlayBlur: number | null;
   heroBackgroundColor: string | null;
   eventLogoUrl: string | null;
+  eventLogoSize: "small" | "medium" | "large";
   welcomeMarkdown: string | null;
   heroLayout: "minimal" | "splash" | "side_by_side" | "centered";
   // Footer + Galerie-Farben
@@ -282,6 +283,8 @@ export interface PublicGalleryMeta {
     /** Relativer Pfad /g/<slug>/assets/logo, wenn ein Event-Logo
      *  gesetzt ist. */
     eventLogoUrl: string | null;
+    /** Anzeigegröße des Logos im Hero. Default "medium". */
+    eventLogoSize: "small" | "medium" | "large";
     /** Markdown-Text für den Welcome-Block. Wenn null, wird nur die
      *  description angezeigt. */
     welcomeMarkdown: string | null;

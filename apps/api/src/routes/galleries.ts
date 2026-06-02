@@ -189,6 +189,7 @@ const updateGallerySchema = createGallerySchema.partial().extend({
     .nullable()
     .optional(),
   eventLogoUrl: z.string().max(500).nullable().optional(),
+  eventLogoSize: z.enum(["small", "medium", "large"]).optional(),
   welcomeMarkdown: z.string().max(20_000).nullable().optional(),
   heroLayout: z
     .enum(["minimal", "splash", "side_by_side", "centered"])
@@ -875,6 +876,9 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
             : {}),
           ...(body.eventLogoUrl !== undefined
             ? { eventLogoUrl: body.eventLogoUrl }
+            : {}),
+          ...(body.eventLogoSize !== undefined
+            ? { eventLogoSize: body.eventLogoSize }
             : {}),
           ...(body.welcomeMarkdown !== undefined
             ? { welcomeMarkdown: body.welcomeMarkdown }
@@ -1621,6 +1625,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         heroOverlayBlur: true,
         heroBackgroundColor: true,
         eventLogoUrl: true,
+        eventLogoSize: true,
         welcomeMarkdown: true,
         heroLayout: true,
         footerMarkdown: true,
@@ -1826,6 +1831,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           overlayBlur: gallery.heroOverlayBlur,
           backgroundColor: gallery.heroBackgroundColor,
           eventLogoUrl: eventLogoPublicUrl,
+          eventLogoSize: gallery.eventLogoSize,
           welcomeMarkdown: gallery.welcomeMarkdown,
         },
         // Footer + Galerie-Farben überschreiben Branding-Werte nur
@@ -2539,6 +2545,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         select: {
           status: true,
           eventLogoUrl: true,
+          eventLogoSize: true,
           heroUrl: true,
           slideshowAudioUrl: true,
           tenant: { select: { status: true } },

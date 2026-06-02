@@ -137,7 +137,7 @@ function MinimalHero({ meta, children }: Props) {
         className="relative px-4 sm:px-6 md:px-12 pt-14 pb-10 sm:pt-20 sm:pb-14 max-w-7xl mx-auto animate-fade-in"
         style={heroTextStyle(meta)}
       >
-        <EventLogo url={h.eventLogoUrl} size="md" align="start" />
+        <EventLogo url={h.eventLogoUrl} size={h.eventLogoSize} align="start" />
         <h1 className="text-display-lg sm:text-display-xl font-medium tracking-tight">
           {meta.title}
         </h1>
@@ -184,7 +184,7 @@ function SplashHero({ meta, children }: Props) {
         className="relative px-4 sm:px-6 md:px-12 max-w-3xl mx-auto text-center animate-fade-in flex flex-col items-center"
         style={heroTextStyle(meta)}
       >
-        <EventLogo url={h.eventLogoUrl} size="lg" align="center" />
+        <EventLogo url={h.eventLogoUrl} size={h.eventLogoSize} align="center" />
         <h1 className="text-display-lg sm:text-display-xl font-medium tracking-tight">
           {meta.title}
         </h1>
@@ -246,7 +246,7 @@ function SideBySideHero({ meta, children }: Props) {
         )}
 
         <div className="flex flex-col justify-center" style={heroTextStyle(meta, true)}>
-          <EventLogo url={h.eventLogoUrl} size="md" align="start" />
+          <EventLogo url={h.eventLogoUrl} size={h.eventLogoSize} align="start" />
           <h1 className="text-display-lg sm:text-display-xl font-medium tracking-tight">
             {meta.title}
           </h1>
@@ -291,7 +291,7 @@ function CenteredHero({ meta, children }: Props) {
         className="px-4 sm:px-6 md:px-12 pt-16 pb-12 sm:pt-24 sm:pb-16 max-w-3xl mx-auto text-center animate-fade-in flex flex-col items-center"
         style={textStyle}
       >
-        <EventLogo url={h.eventLogoUrl} size="md" align="center" />
+        <EventLogo url={h.eventLogoUrl} size={h.eventLogoSize} align="center" />
         <h1 className="text-display-lg sm:text-display-xl font-medium tracking-tight">
           {meta.title}
         </h1>
@@ -337,12 +337,19 @@ function EventLogo({
   align,
 }: {
   url: string | null;
-  size: "md" | "lg";
+  size: "small" | "medium" | "large";
   align: "start" | "center";
 }) {
   if (!url) return null;
+  // Höhe nach Studio-Einstellung. Logos werden per Höhe + w-auto skaliert;
+  // diese Stufen geben dem Studio Kontrolle, weil Quer- vs. Hochformate
+  // bei fixer Höhe sonst unterschiedlich groß wirken. medium = Default.
   const heightClass =
-    size === "lg" ? "h-20 sm:h-28" : "h-16 sm:h-20";
+    size === "large"
+      ? "h-24 sm:h-40"
+      : size === "small"
+      ? "h-12 sm:h-16"
+      : "h-16 sm:h-24";
   const alignClass = align === "center" ? "self-center" : "self-start";
   return (
     // eslint-disable-next-line @next/next/no-img-element

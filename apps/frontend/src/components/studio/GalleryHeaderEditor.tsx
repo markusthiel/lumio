@@ -63,6 +63,15 @@ export function GalleryHeaderEditor({ gallery, files, onChanged }: Props) {
     ? api.galleryAssetUrl(gallery.slug, "logo", gallery.eventLogoUrl)
     : null;
 
+  // Vorschau-Höhe spiegelt die gewählte Anzeigegröße (verkleinert), damit
+  // der Studio-User die relativen Größen schon hier sieht.
+  const logoPreviewHeightClass =
+    gallery.eventLogoSize === "large"
+      ? "h-16"
+      : gallery.eventLogoSize === "small"
+      ? "h-8"
+      : "h-12";
+
   // Hero-Vorschau: wenn heroFileId, suchen wir die thumbUrl der File,
   // sonst nehmen wir den Hero-Upload-URL.
   const heroFile = gallery.heroFileId
@@ -158,31 +167,57 @@ export function GalleryHeaderEditor({ gallery, files, onChanged }: Props) {
             label={t("studio.eventLogo")}
             hint={t("studio.eventLogoHint")}
           >
-            <div className="flex items-center gap-3">
-              {logoPreviewUrl && (
-                <img
-                  src={logoPreviewUrl}
-                  alt=""
-                  className="h-12 w-auto max-w-[160px] object-contain bg-surface-sunken rounded p-1"
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                {logoPreviewUrl && (
+                  <img
+                    src={logoPreviewUrl}
+                    alt=""
+                    className={`${logoPreviewHeightClass} w-auto max-w-[160px] object-contain bg-surface-sunken rounded p-1 transition-all duration-motion`}
+                  />
+                )}
+                <FileInputButton
+                  accept="image/*"
+                  label={
+                    gallery.eventLogoUrl
+                      ? t("studio.replace")
+                      : t("studio.uploadLogo")
+                  }
+                  onChange={(file) => uploadAsset("logo", file)}
                 />
-              )}
-              <FileInputButton
-                accept="image/*"
-                label={
-                  gallery.eventLogoUrl
-                    ? t("studio.replace")
-                    : t("studio.uploadLogo")
-                }
-                onChange={(file) => uploadAsset("logo", file)}
-              />
+                {gallery.eventLogoUrl && (
+                  <button
+                    type="button"
+                    onClick={() => patch({ eventLogoUrl: null })}
+                    className="text-ui-sm text-semantic-danger hover:underline"
+                  >
+                    {t("studio.remove")}
+                  </button>
+                )}
+              </div>
+              {/* Größen-Auswahl — nur wenn ein Logo da ist. Steuert die
+                  Anzeigehöhe im Kunden-Hero (klein/mittel/groß). */}
               {gallery.eventLogoUrl && (
-                <button
-                  type="button"
-                  onClick={() => patch({ eventLogoUrl: null })}
-                  className="text-ui-sm text-semantic-danger hover:underline"
-                >
-                  {t("studio.remove")}
-                </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-ui-xs text-ink-tertiary">
+                    {t("studio.logoSize")}:
+                  </span>
+                  {(["small", "medium", "large"] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => patch({ eventLogoSize: s })}
+                      aria-pressed={gallery.eventLogoSize === s}
+                      className={`text-ui-xs px-2.5 h-7 rounded border transition-colors duration-motion ${
+                        gallery.eventLogoSize === s
+                          ? "bg-accent border-accent text-accent-contrast"
+                          : "border-line-strong text-ink-secondary hover:bg-surface-sunken"
+                      }`}
+                    >
+                      {t(`studio.logoSize_${s}` as const)}
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
           </Field>

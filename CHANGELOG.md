@@ -30,6 +30,20 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.14.0] - 2026-06-02
+
+Feature-Release. Für Self-Hoster genügt `git pull` + regulärer Deploy.
+Die DB-Migration (neue Spalte mit Default) läuft beim API-Start
+automatisch durch — kein manueller Schritt, kein Breaking Change.
+
+### Added
+- Galerie-Logo: Im Galerie-Header lässt sich jetzt die Anzeigegröße des
+  Logos wählen — klein / mittel / groß (Auswahl direkt neben dem
+  Logo-Upload, die Vorschau spiegelt die Größe). Hintergrund: Logos
+  werden per Höhe skaliert, daher wirkten Quer- und Hochformate
+  unterschiedlich groß; die Einstellung gibt dem Studio jetzt Kontrolle.
+  Bestehende Galerien stehen auf „mittel".
+
 ## [0.13.0] - 2026-06-02
 
 Feature-/UI-Release. Für Self-Hoster genügt `git pull` + regulärer
