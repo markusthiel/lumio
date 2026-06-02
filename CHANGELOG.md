@@ -30,6 +30,19 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.10.1] - 2026-06-02
+
+Bugfix-Release. Für Self-Hoster genügt `git pull` + regulärer Deploy —
+keine `.env`-, Compose- oder DB-Änderungen nötig.
+
+### Fixed
+- Stripe-Checkout aus dem Studio (`/studio/billing`): Nach erfolgreicher
+  Zahlung bzw. bei Abbruch landete man auf einer 404-Seite, weil die
+  Weiterleitung auf `/billing/success` bzw. `/billing` zeigte — diese
+  Routen existieren nicht. Geht jetzt korrekt zurück auf `/studio/billing`.
+  Die Subscription selbst war nie betroffen (wird über den Webhook
+  angelegt), nur die Landeseite nach dem Checkout.
+
 ## [0.10.0] - 2026-06-01
 
 Abwärtskompatibles Feature-Release. Für Self-Hoster genügt `git pull` +

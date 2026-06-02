@@ -273,8 +273,8 @@ export async function registerBillingRoutes(app: FastifyInstance) {
       tax_id_collection: { enabled: true },
       billing_address_collection: "required",
       allow_promotion_codes: true,
-      success_url: `${config.STRIPE_RETURN_URL_BASE}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${config.STRIPE_RETURN_URL_BASE}/billing`,
+      success_url: `${config.STRIPE_RETURN_URL_BASE}/studio/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${config.STRIPE_RETURN_URL_BASE}/studio/billing`,
       metadata: {
         lumio_tenant_id: req.tenantId,
       },
