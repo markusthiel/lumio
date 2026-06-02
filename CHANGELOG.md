@@ -30,6 +30,17 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.11.0] - 2026-06-02
+
+Kleines Feature-Release. Für Self-Hoster genügt `git pull` + regulärer
+Deploy — keine `.env`-, Compose- oder DB-Änderungen nötig.
+
+### Added
+- Galerie-Studio: Video-Dateien tragen im Vorschau-Grid jetzt einen
+  dezenten Play-Indikator (kleiner Punkt unten links), damit Videos auf
+  einen Blick von Fotos zu unterscheiden sind. Rein optisch, keine
+  Funktionsänderung.
+
 ## [0.10.3] - 2026-06-02
 
 Bugfix-Release. Für Self-Hoster genügt `git pull` + regulärer Deploy —

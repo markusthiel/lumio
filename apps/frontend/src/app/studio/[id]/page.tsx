@@ -2641,6 +2641,28 @@ function _FileTile({
         </div>
       )}
 
+      {/* Video-Indikator: dezenter Play-Punkt unten-LINKS, damit er sich
+          nicht mit dem RAW/HEIC-Badge (unten-rechts), der Auswahl-Checkbox
+          (oben-links) oder den Status-Badges (oben-rechts) überschneidet.
+          Bewusst klein und halbtransparent — nur ein Hinweis, kein
+          Hingucker. Nur zeigen, wenn auch ein Vorschaubild da ist. */}
+      {file.kind === "video" && file.thumbUrl && (
+        <div
+          className="absolute bottom-1.5 left-1.5 w-5 h-5 rounded-full bg-black/45 backdrop-blur-sm flex items-center justify-center pointer-events-none ring-1 ring-white/25"
+          title="Video"
+          aria-label="Video"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            className="w-2.5 h-2.5 text-white/90"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path d="M8 5.5v13a1 1 0 0 0 1.54.84l10-6.5a1 1 0 0 0 0-1.68l-10-6.5A1 1 0 0 0 8 5.5Z" />
+          </svg>
+        </div>
+      )}
+
       {/* Filename-Overlay erscheint auf Hover */}
       <div className="absolute bottom-0 inset-x-0 p-1.5 bg-gradient-to-t from-black/80 via-black/40 to-transparent text-white text-ui-xs truncate opacity-0 group-hover:opacity-100 transition-opacity duration-motion">
         {file.originalFilename}
