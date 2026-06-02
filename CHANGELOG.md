@@ -30,6 +30,19 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.12.1] - 2026-06-02
+
+Bugfix-Release. Für Self-Hoster genügt `git pull` + regulärer Deploy —
+keine `.env`-, Compose- oder DB-Änderungen nötig.
+
+### Fixed
+- Der Aufnahmedatum-Backfill (`tasks.backfill_taken_at`) war in 0.12.0
+  nicht beim Worker registriert — der Aufruf lief ins Leere (Task-ID
+  kam zurück, aber kein Worker führte ihn aus, keine Log-Ausgabe, kein
+  `takenAt` geschrieben). Task ist jetzt registriert und läuft. Wer auf
+  0.12.0 schon vergeblich gestartet hat: nach dem Update einfach erneut
+  aufrufen. (Automatische Extraktion bei NEUEN Uploads war nie betroffen.)
+
 ## [0.12.0] - 2026-06-02
 
 Feature-Release. Für Self-Hoster genügt `git pull` + regulärer Deploy —

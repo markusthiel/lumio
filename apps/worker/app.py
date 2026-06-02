@@ -57,6 +57,7 @@ app = Celery(
         "tasks.build_zip",
         "tasks.backfill_web_jpeg",
         "tasks.backfill_video_mp4",
+        "tasks.backfill_taken_at",
         "tasks.backfill_sha256",
         "tasks.cleanup_storage",
         "tasks.export_zip",
