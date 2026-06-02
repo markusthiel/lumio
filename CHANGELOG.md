@@ -30,6 +30,13 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.14.2] - 2026-06-02
+
+Tuning-Release. `git pull` + regulärer Deploy genügt. Reines Frontend.
+
+### Changed
+- Logo-Größe „groß" weiter angehoben: jetzt 160/256 px (mobil/Desktop).
+
 ## [0.14.1] - 2026-06-02
 
 Bugfix-/Tuning-Release. Für Self-Hoster genügt `git pull` + regulärer

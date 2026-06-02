@@ -346,7 +346,7 @@ function EventLogo({
   // bei fixer Höhe sonst unterschiedlich groß wirken. medium = Default.
   const heightClass =
     size === "large"
-      ? "h-32 sm:h-56"
+      ? "h-40 sm:h-64"
       : size === "small"
       ? "h-14 sm:h-20"
       : "h-20 sm:h-32";
