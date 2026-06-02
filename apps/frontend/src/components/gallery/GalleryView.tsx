@@ -286,7 +286,29 @@ export function GalleryView({
         }}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-12 py-3 flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex gap-1.5 flex-wrap">
+          <div className="flex gap-1.5 flex-wrap items-center">
+            {/* Ansichts-Sortierung (kundenseitig, ephemer) — bei den
+                Filtern, weil beides "Ansicht steuern" ist. Ändert NIE den
+                gespeicherten sortIndex; "Galerie-Reihenfolge" = die
+                manuelle Anordnung des Studios. Nur ab >1 Datei sinnvoll. */}
+            {files.length > 1 && (
+              <select
+                value={sortMode}
+                onChange={(e) => setSortMode(e.target.value as SortMode)}
+                style={{
+                  borderColor: "var(--brand-border)",
+                  color: "var(--brand-fg)",
+                  backgroundColor: "var(--brand-surface)",
+                }}
+                className="text-ui-sm h-8 rounded border px-2 cursor-pointer transition-colors duration-motion"
+                title={t("gallery.sortLabel")}
+                aria-label={t("gallery.sortLabel")}
+              >
+                <option value="gallery">{t("gallery.sortGallery")}</option>
+                <option value="name">{t("gallery.sortName")}</option>
+                <option value="taken">{t("gallery.sortTaken")}</option>
+              </select>
+            )}
             {interactive && stats.total > 0 ? (
               <>
                 <FilterChip
@@ -328,27 +350,6 @@ export function GalleryView({
           </div>
 
           <div className="flex flex-wrap gap-1.5">
-            {/* Ansichts-Sortierung (kundenseitig, ephemer). Nur ab >1 Datei
-                sinnvoll. "Galerie-Reihenfolge" = die manuelle Anordnung des
-                Studios; Name/Aufnahmedatum sortieren nur die Anzeige um. */}
-            {files.length > 1 && (
-              <select
-                value={sortMode}
-                onChange={(e) => setSortMode(e.target.value as SortMode)}
-                style={{
-                  borderColor: "var(--brand-border)",
-                  color: "var(--brand-fg)",
-                  backgroundColor: "var(--brand-surface)",
-                }}
-                className="text-ui-sm h-8 rounded border px-2 cursor-pointer transition-colors duration-motion"
-                title={t("gallery.sortLabel")}
-                aria-label={t("gallery.sortLabel")}
-              >
-                <option value="gallery">{t("gallery.sortGallery")}</option>
-                <option value="name">{t("gallery.sortName")}</option>
-                <option value="taken">{t("gallery.sortTaken")}</option>
-              </select>
-            )}
             {stats.total > 0 && (
               <button
                 onClick={() => setSlideshowIdx(0)}
@@ -443,7 +444,7 @@ export function GalleryView({
                 </button>
               )}
             {meta.downloadEnabled && stats.total > 0 && (
-              <>
+              <DownloadMenu label={t("gallery.downloadMenu")}>
                 {meta.downloadOriginalsEnabled && (
                   <ZipDownloadButton
                     slug={slug}
@@ -480,7 +481,7 @@ export function GalleryView({
                     />
                   </>
                 )}
-              </>
+              </DownloadMenu>
             )}
             {/* Teilen-Button steht ganz rechts in der Toolbar — Kunden
                 können die Galerie per Web-Share-API teilen (mobil
@@ -724,6 +725,106 @@ function PlayMiniIcon() {
     </svg>
   );
 }
+
+/** Sammelt die Download-Aktionen hinter einem einzigen "Herunterladen"-
+ *  Button mit aufklappendem Menü. Hält die Toolbar schlank, weil sonst
+ *  bis zu vier ZIP-Buttons nebeneinander stehen (Alle/Auswahl ×
+ *  Original/Web). Die eigentlichen Buttons werden als children
+ *  durchgereicht — die Download-Logik bleibt in ZipDownloadButton.
+ *  Schließt bei Klick außerhalb, bei Escape und nach Klick auf einen
+ *  Eintrag (Klick blubbert hoch auf den Panel-Handler). */
+function DownloadMenu({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        style={{
+          borderColor: "var(--brand-border)",
+          color: "var(--brand-fg)",
+          backgroundColor: open
+            ? "var(--brand-surface-hover)"
+            : "var(--brand-surface)",
+        }}
+        className="text-ui-sm px-3 h-8 rounded inline-flex items-center gap-1.5 border transition-colors duration-motion"
+      >
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 14 14"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden
+        >
+          <path d="M7 1.5v8" />
+          <path d="M3.5 6 7 9.5 10.5 6" />
+          <path d="M2 12h10" />
+        </svg>
+        <span>{label}</span>
+        <svg
+          width="9"
+          height="9"
+          viewBox="0 0 10 10"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          aria-hidden
+          style={{
+            transform: open ? "rotate(180deg)" : "none",
+            transition: "transform 0.15s",
+          }}
+        >
+          <path d="M2.5 4 5 6.5 7.5 4" />
+        </svg>
+      </button>
+      {open && (
+        <div
+          role="menu"
+          onClick={() => setOpen(false)}
+          style={{
+            borderColor: "var(--brand-border)",
+            backgroundColor: "var(--brand-surface)",
+          }}
+          className="absolute right-0 mt-1 z-30 min-w-[15rem] rounded-md border p-1.5 shadow-xl flex flex-col gap-1.5"
+        >
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 /** Bilderrahmen-Icon fuer den Print-Shop-Button. Schlichter Outline-
  *  Look der zur dezenten Toolbar-Aesthetik passt — keine Fuelle, kein

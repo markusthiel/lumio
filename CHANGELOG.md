@@ -30,6 +30,18 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.13.0] - 2026-06-02
+
+Feature-/UI-Release. Für Self-Hoster genügt `git pull` + regulärer
+Deploy — keine `.env`-, Compose- oder DB-Änderungen nötig. Reines Frontend.
+
+### Changed
+- Kundengalerie-Leiste entrümpelt: Die bis zu vier Download-Buttons
+  (Alle / Auswahl × Original / Web-Version) sind jetzt in einem
+  aufklappbaren „Herunterladen"-Menü gebündelt — die Aktionen selbst sind
+  unverändert. Das Sortier-Auswahlfeld sitzt jetzt links bei den Filtern
+  (statt zwischen den Aktions-Buttons), weil beides die Ansicht steuert.
+
 ## [0.12.2] - 2026-06-02
 
 Bugfix-Release. Für Self-Hoster genügt `git pull` + regulärer Deploy —

@@ -582,6 +582,7 @@ export const de: Dict = {
     unlockHint: "Klicke unten, um die Galerie zu öffnen.",
     unlockChecking: "Wird geprüft…",
     requestFailed: "Anfrage fehlgeschlagen",
+    downloadMenu: "Herunterladen",
     downloadAll: "Alle herunterladen",
     downloadAllWeb: "Alle als Web-Version",
     downloadSelection: "Auswahl herunterladen ({count})",
