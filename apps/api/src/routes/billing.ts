@@ -17,7 +17,7 @@
  *   POST   /billing/portal             — Stripe-Customer-Portal-Link
  *   POST   /billing/webhook            — Stripe-Webhook-Empfänger
  */
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import type Stripe from "stripe";
 import type { Prisma } from "@prisma/client";
 import { z } from "zod";
@@ -28,6 +28,41 @@ import { PLANS, STORAGE_ADDON, type PlanSlug } from "../services/plans.js";
 import { getStripe, isStripeEnabled } from "../services/stripe-client.js";
 import { ensureStripeCustomer } from "../services/stripe-service.js";
 import { enqueue, Queues } from "../services/queue.js";
+
+/**
+ * Bestimmt die Origin (proto://host), zu der Stripe nach Checkout bzw.
+ * Customer-Portal zurückleiten soll.
+ *
+ * KRITISCH für Multi-Tenant: Tenants laufen auf eigenen Hosts
+ * (<slug>.LUMIO_DOMAIN_BASE oder Custom-Domain). Das Session-Cookie ist
+ * host-only (kein `domain`-Attribut). Leitet Stripe auf einen ANDEREN Host
+ * zurück als den, auf dem der User eingeloggt ist (z.B. fix auf
+ * studio.lumio-cloud.de statt thiel.lumio-cloud.de), fehlt dort das Cookie
+ * und der User landet ausgeloggt mit "authentication required".
+ *
+ * Deshalb spiegeln wir den Host des eingehenden Requests zurück — aber nur,
+ * wenn er nachweislich zu Lumio gehört (gegen Host-Header-Spoofing /
+ * Open-Redirect):
+ *   - exakt LUMIO_DOMAIN_BASE oder eine Subdomain davon, oder
+ *   - die Custom-Domain genau dieses Tenants.
+ * Andernfalls Fallback auf STRIPE_RETURN_URL_BASE (alter Default).
+ */
+function tenantReturnOrigin(
+  req: FastifyRequest,
+  customDomain?: string | null
+): string {
+  const host = (req.headers.host ?? "").split(":")[0].toLowerCase();
+  const base = config.LUMIO_DOMAIN_BASE?.toLowerCase();
+  const fwdProto = req.headers["x-forwarded-proto"];
+  const proto =
+    (typeof fwdProto === "string" ? fwdProto.split(",")[0].trim() : "") ||
+    (config.NODE_ENV === "production" ? "https" : "http");
+  const allowed =
+    !!host &&
+    ((!!base && (host === base || host.endsWith("." + base))) ||
+      (!!customDomain && host === customDomain.toLowerCase()));
+  return allowed ? `${proto}://${host}` : config.STRIPE_RETURN_URL_BASE;
+}
 
 export async function registerBillingRoutes(app: FastifyInstance) {
   // -------------------------------------------------------------------------
@@ -207,6 +242,13 @@ export async function registerBillingRoutes(app: FastifyInstance) {
     // Tenant fast immer schon angelegt vom Sign-up)
     const customerId = await ensureStripeCustomer(req.tenantId);
 
+    // Host des Tenants für die Stripe-Rücksprung-URLs (Cookie bleibt erhalten).
+    const checkoutTenant = await prisma.tenant.findUnique({
+      where: { id: req.tenantId },
+      select: { customDomain: true },
+    });
+    const returnBase = tenantReturnOrigin(req, checkoutTenant?.customDomain);
+
     // Bestehende Subscription? → Update-Flow direkt, KEINE Checkout-
     // Session. Stripe rechnet Proration automatisch.
     const existing = await prisma.billingSubscription.findUnique({
@@ -273,8 +315,8 @@ export async function registerBillingRoutes(app: FastifyInstance) {
       tax_id_collection: { enabled: true },
       billing_address_collection: "required",
       allow_promotion_codes: true,
-      success_url: `${config.STRIPE_RETURN_URL_BASE}/studio/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${config.STRIPE_RETURN_URL_BASE}/studio/billing`,
+      success_url: `${returnBase}/studio/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${returnBase}/studio/billing`,
       metadata: {
         lumio_tenant_id: req.tenantId,
       },
@@ -342,7 +384,7 @@ export async function registerBillingRoutes(app: FastifyInstance) {
 
     const tenant = await prisma.tenant.findUnique({
       where: { id: req.tenantId },
-      select: { stripeCustomerId: true },
+      select: { stripeCustomerId: true, customDomain: true },
     });
     if (!tenant?.stripeCustomerId) {
       return reply.status(409).send({
@@ -363,9 +405,10 @@ export async function registerBillingRoutes(app: FastifyInstance) {
         : "/studio/billing";
 
     const stripe = getStripe();
+    const returnBase = tenantReturnOrigin(req, tenant.customDomain);
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: tenant.stripeCustomerId,
-      return_url: `${config.STRIPE_RETURN_URL_BASE}${returnPath}`,
+      return_url: `${returnBase}${returnPath}`,
     });
     return { portalUrl: portalSession.url };
   });
