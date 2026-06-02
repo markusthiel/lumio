@@ -497,6 +497,12 @@ export const en: Dict = {
     zeroSizeTitleSome: "{count} of {total} files skipped",
     zeroSizeMessage:
       "These files had no data — this happens on iPhone/iPad when the photos are still in iCloud and not loaded locally. Tip: upload them via “Browse files” instead of “Photo library”, or briefly open the photos in the Photos app (so iOS downloads the original) and try again.",
+    tooLargeTitleAll: "File too large to upload",
+    tooLargeTitleSome: "{count} of {total} files skipped",
+    tooLargeMessage:
+      "These files exceed the per-file limit of {limit} and were skipped: {files}. Tip: export videos from Final Cut/Premiere as H.264 or HEVC instead of ProRes — that's much smaller and plays back in the browser.",
+    tooLargeBackstopMessage:
+      "At least one file exceeds the allowed per-file size limit and was rejected.",
     limitTitle: "Storage limit reached",
     limitMessageDefault:
       "Your plan doesn't allow any more uploads. Upgrade to a larger plan or buy a storage pack.",

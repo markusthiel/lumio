@@ -30,6 +30,21 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.11.1] - 2026-06-02
+
+Bugfix-Release. Für Self-Hoster genügt `git pull` + regulärer Deploy —
+keine `.env`-, Compose- oder DB-Änderungen nötig.
+
+### Fixed
+- Upload: Eine einzelne zu große Datei (z.B. ein ProRes-Master aus Final
+  Cut) hat bisher den kompletten Upload-Batch blockiert — auch die
+  gültigen Dateien daneben blieben in „werden vorbereitet…" hängen, ohne
+  Rückmeldung. Zu große Dateien werden jetzt schon im Browser erkannt
+  und übersprungen, die übrigen laden normal weiter. Statt stillem
+  Hänger erscheint ein Hinweis, welche Datei das Pro-File-Limit
+  überschreitet (mit Größe und Limit) und der Tipp, Videos als
+  H.264/HEVC statt ProRes zu exportieren.
+
 ## [0.11.0] - 2026-06-02
 
 Kleines Feature-Release. Für Self-Hoster genügt `git pull` + regulärer

@@ -497,6 +497,12 @@ export const de: Dict = {
     zeroSizeTitleSome: "{count} von {total} Dateien übersprungen",
     zeroSizeMessage:
       "Diese Dateien hatten keine Daten — das passiert auf iPhone/iPad, wenn die Fotos noch in iCloud liegen und nicht lokal geladen sind. Tipp: Lade sie über „Dateien durchsuchen“ statt „Fotomediathek“ hoch, oder öffne die Fotos kurz in der Fotos-App (damit iOS das Original herunterlädt) und versuche es erneut.",
+    tooLargeTitleAll: "Datei zu groß für den Upload",
+    tooLargeTitleSome: "{count} von {total} Dateien übersprungen",
+    tooLargeMessage:
+      "Diese Dateien überschreiten das Limit von {limit} pro Datei und wurden übersprungen: {files}. Tipp: Videos aus Final Cut/Premiere am besten als H.264 oder HEVC exportieren statt ProRes — das ist deutlich kleiner und lässt sich im Browser abspielen.",
+    tooLargeBackstopMessage:
+      "Mindestens eine Datei überschreitet das erlaubte Größenlimit pro Datei und wurde abgelehnt.",
     limitTitle: "Speicher-Limit erreicht",
     limitMessageDefault:
       "Dein Plan erlaubt keinen weiteren Upload. Upgrade auf einen größeren Plan oder kaufe ein Storage-Pack.",

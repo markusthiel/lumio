@@ -45,6 +45,20 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
+// Bytes → "X.X GB" / "Y MB" / "Z KB". 1024-basiert, Labels wie GB/MB
+// passend zur Dropzone-Anzeige (die maxUploadMib ebenfalls /1024 als GB
+// rechnet). Nur für User-facing Größenangaben beim Upload.
+function formatFileSize(bytes: number): string {
+  const GB = 1024 * 1024 * 1024;
+  const MB = 1024 * 1024;
+  if (bytes >= GB) {
+    const gb = bytes / GB;
+    return `${gb.toFixed(gb >= 10 ? 0 : 1)} GB`;
+  }
+  if (bytes >= MB) return `${Math.round(bytes / MB)} MB`;
+  return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
 export default function GalleryDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
@@ -581,7 +595,7 @@ export default function GalleryDetailPage() {
     // hier ab und sagen dem User konkret was zu tun ist, statt einen
     // stillen Fehlschlag zu produzieren.
     const zeroSize = arr.filter((f) => f.size === 0);
-    const usable = arr.filter((f) => f.size > 0);
+    let usable = arr.filter((f) => f.size > 0);
 
     if (zeroSize.length > 0) {
       setLimitDialog({
@@ -591,6 +605,41 @@ export default function GalleryDetailPage() {
             : t("studio.zeroSizeTitleSome", { count: zeroSize.length, total: arr.length }),
         message: t("studio.zeroSizeMessage"),
       });
+    }
+
+    // Größen-Limit pro File schon im Browser prüfen. Der Server lehnt zu
+    // große Files mit 413 ab — und zwar (Stand Backend) für den GANZEN
+    // Init-Batch. Wir filtern sie hier raus, damit eine einzige zu große
+    // Datei (z.B. ein ProRes-Master aus Final Cut) nicht die gültigen
+    // Dateien mitreißt, und sagen konkret welche und warum. maxUploadMib
+    // ist das effektive Pro-File-Limit (Tenant-Setting oder ENV-Default),
+    // dasselbe, das die Dropzone anzeigt.
+    if (maxUploadMib !== null && usable.length > 0) {
+      const maxBytes = maxUploadMib * 1024 * 1024;
+      const tooLarge = usable.filter((f) => f.size > maxBytes);
+      if (tooLarge.length > 0) {
+        const MAX_LISTED = 6;
+        const names = tooLarge
+          .slice(0, MAX_LISTED)
+          .map((f) => `${f.name} (${formatFileSize(f.size)})`)
+          .join(", ");
+        const more = tooLarge.length - MAX_LISTED;
+        const list = more > 0 ? `${names} … (+${more})` : names;
+        setLimitDialog({
+          title:
+            tooLarge.length === usable.length
+              ? t("studio.tooLargeTitleAll")
+              : t("studio.tooLargeTitleSome", {
+                  count: tooLarge.length,
+                  total: usable.length,
+                }),
+          message: t("studio.tooLargeMessage", {
+            limit: formatFileSize(maxBytes),
+            files: list,
+          }),
+        });
+        usable = usable.filter((f) => f.size <= maxBytes);
+      }
     }
 
     if (usable.length === 0) return;
@@ -661,6 +710,13 @@ export default function GalleryDetailPage() {
         setLimitDialog({
           title: t("studio.limitTitle"),
           message: err.message || t("studio.limitMessageDefault"),
+        });
+      } else if (err instanceof ApiError && err.status === 413) {
+        // Backstop: sollte dank Browser-Vorabcheck kaum noch auftreten
+        // (z.B. wenn Client- und Server-Limit auseinanderlaufen).
+        setLimitDialog({
+          title: t("studio.tooLargeTitleAll"),
+          message: t("studio.tooLargeBackstopMessage"),
         });
       } else {
         // Bisher still verschluckt (nur Konsole) — der User sah einen
