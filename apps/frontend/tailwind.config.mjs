@@ -27,6 +27,11 @@ export default {
             "rgb(var(--brand-accent-contrast) / <alpha-value>)",
         },
         surface: {
+          // `base` = Alias auf die Canvas-Fläche. Wird historisch an vielen
+          // Stellen (Modal-Panels, Inputs, Full-Page-Backgrounds, invertierte
+          // Texte) verwendet; ohne diese Definition erzeugte Tailwind keine
+          // Regel → Panels wurden transparent.
+          base: "rgb(var(--surface-canvas) / <alpha-value>)",
           canvas: "rgb(var(--surface-canvas) / <alpha-value>)",
           raised: "rgb(var(--surface-raised) / <alpha-value>)",
           sunken: "rgb(var(--surface-sunken) / <alpha-value>)",
