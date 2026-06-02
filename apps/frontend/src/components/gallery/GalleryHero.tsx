@@ -346,10 +346,10 @@ function EventLogo({
   // bei fixer Höhe sonst unterschiedlich groß wirken. medium = Default.
   const heightClass =
     size === "large"
-      ? "h-24 sm:h-40"
+      ? "h-32 sm:h-56"
       : size === "small"
-      ? "h-12 sm:h-16"
-      : "h-16 sm:h-24";
+      ? "h-14 sm:h-20"
+      : "h-20 sm:h-32";
   const alignClass = align === "center" ? "self-center" : "self-start";
   return (
     // eslint-disable-next-line @next/next/no-img-element

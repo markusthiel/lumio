@@ -30,6 +30,16 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.14.1] - 2026-06-02
+
+Bugfix-/Tuning-Release. Für Self-Hoster genügt `git pull` + regulärer
+Deploy — keine `.env`-, Compose- oder DB-Änderungen nötig. Reines Frontend.
+
+### Changed
+- Logo-Anzeigegrößen im Kunden-Hero nach oben korrigiert — „groß" war in
+  großen Heros noch zu klein. Neue Höhen: klein 56/80 px, mittel 80/128 px,
+  groß 128/224 px (mobil/Desktop).
+
 ## [0.14.0] - 2026-06-02
 
 Feature-Release. Für Self-Hoster genügt `git pull` + regulärer Deploy.
