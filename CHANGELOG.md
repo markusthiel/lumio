@@ -30,6 +30,20 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.14.7] - 2026-06-02
+
+Bugfix-Release. `git pull` + regulärer Deploy genügt. Nur API.
+
+### Fixed
+- Stripe-Rücksprung loggte aus: Wer das Kunden-Portal oder den Checkout über
+  seine eigene Studio-Adresse (z.B. `name.deine-domain.de`) öffnete und bei
+  Stripe auf „Zurück" klickte, landete ausgeloggt mit „authentication
+  required". Grund: Stripe leitete fest auf den zentralen Studio-Host zurück,
+  nicht auf die Adresse, über die der Nutzer eingeloggt war — dort fehlte das
+  Sitzungs-Cookie. Stripe kehrt jetzt immer auf genau den Host zurück, von dem
+  der Nutzer kam (Subdomain wie Custom-Domain). Betrifft nur SaaS-/Multi-Mode
+  mit aktiviertem Billing; Single-Mode ohne Stripe ist unberührt.
+
 ## [0.14.6] - 2026-06-02
 
 Bugfix-Release. `git pull` + regulärer Deploy genügt. Reines Frontend.
