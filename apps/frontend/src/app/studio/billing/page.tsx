@@ -83,7 +83,9 @@ export default function BillingPage() {
   const handleOpenPortal = useCallback(async () => {
     setBusyAction("portal");
     try {
-      const { portalUrl } = await api.startBillingPortal();
+      const { portalUrl } = await api.startBillingPortal(
+        window.location.pathname
+      );
       window.location.href = portalUrl;
     } catch (e) {
       setErr(e instanceof Error ? e.message : t("billing.portalFailed"));

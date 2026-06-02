@@ -900,10 +900,13 @@ export const api = {
     }),
 
   /** Erstellt einen Stripe-Customer-Portal-Link. Client redirected
-   * den User dorthin — Stripe hostet Karte/Rechnungen/Cancel. */
-  startBillingPortal: () =>
+   * den User dorthin — Stripe hostet Karte/Rechnungen/Cancel.
+   * returnPath = wohin Stripe nach dem Portal zurückleitet (relativer
+   * /studio-Pfad). Default backend-seitig /studio/billing. */
+  startBillingPortal: (returnPath?: string) =>
     request<{ portalUrl: string }>(`/billing/portal`, {
       method: "POST",
+      body: JSON.stringify({ returnPath: returnPath ?? null }),
     }),
 
   /** Nimmt eine geplante Kündigung zurück. Die Stripe-Subscription

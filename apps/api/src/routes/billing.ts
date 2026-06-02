@@ -351,10 +351,21 @@ export async function registerBillingRoutes(app: FastifyInstance) {
       });
     }
 
+    // Wohin nach dem Portal zurück? Der Aufrufer gibt den aktuellen
+    // Studio-Pfad mit. Streng gegen Open-Redirect validieren: nur
+    // relative /studio-Pfade erlaubt, sonst Fallback /studio/billing.
+    const rawReturn = (req.body as { returnPath?: unknown } | undefined)
+      ?.returnPath;
+    const returnPath =
+      typeof rawReturn === "string" &&
+      /^\/studio(\/[A-Za-z0-9\-_/]*)?$/.test(rawReturn)
+        ? rawReturn
+        : "/studio/billing";
+
     const stripe = getStripe();
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: tenant.stripeCustomerId,
-      return_url: `${config.STRIPE_RETURN_URL_BASE}/studio/settings`,
+      return_url: `${config.STRIPE_RETURN_URL_BASE}${returnPath}`,
     });
     return { portalUrl: portalSession.url };
   });

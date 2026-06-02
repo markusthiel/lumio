@@ -65,7 +65,9 @@ export function SubscriptionBanner() {
   const goToPortal = useCallback(async () => {
     setBusy(true);
     try {
-      const { portalUrl } = await api.startBillingPortal();
+      const { portalUrl } = await api.startBillingPortal(
+        window.location.pathname
+      );
       window.location.href = portalUrl;
     } catch (err) {
       console.error("startBillingPortal failed", err);

@@ -30,6 +30,18 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.10.2] - 2026-06-02
+
+Bugfix-Release. Für Self-Hoster genügt `git pull` + regulärer Deploy —
+keine `.env`-, Compose- oder DB-Änderungen nötig.
+
+### Fixed
+- Stripe-Customer-Portal: Nach „Zurück" landete man immer auf
+  `/studio/settings` statt dort, wo man das Portal geöffnet hat. Der
+  Rückkehr-Pfad richtet sich jetzt nach der Ausgangsseite (z.B. zurück
+  auf `/studio/billing`); validiert gegen Open-Redirect, Fallback bleibt
+  `/studio/billing`.
+
 ## [0.10.1] - 2026-06-02
 
 Bugfix-Release. Für Self-Hoster genügt `git pull` + regulärer Deploy —
