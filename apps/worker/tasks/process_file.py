@@ -24,7 +24,8 @@ import tempfile
 import structlog
 
 from app import app
-from db import fetch_file, mark_file_ready, mark_file_failed, upsert_rendition
+from db import fetch_file, mark_file_ready, mark_file_failed, upsert_rendition, set_taken_at
+from exif_meta import extract_taken_at
 from hashing import sha256_file
 from imaging import render_image_sizes
 from psd import is_psd, flatten_psd_to_png
@@ -111,6 +112,11 @@ def _process(file_row: dict) -> None:
         # Hash, alle Renditions kommen erst danach.
         src_sha = sha256_file(src_path)
 
+        # Aufnahmezeitpunkt aus EXIF des Originals lesen (best-effort,
+        # wirft nie). Vom ORIGINAL, nicht vom PSD-Composite o.ä. — nur
+        # das Original trägt die Kamera-EXIF.
+        taken_at = extract_taken_at(src_path)
+
         def _persist(
             kind: str, out_path: str, w: int, h: int, fmt: str
         ) -> None:
@@ -142,6 +148,7 @@ def _process(file_row: dict) -> None:
         )
 
         mark_file_ready(file_id, final_w, final_h, sha256=src_sha)
+        set_taken_at(file_id, taken_at)
         _publish_status(gallery_id, file_id, "ready",
                         width=final_w, height=final_h)
         log.info("process_file.complete", file_id=file_id,

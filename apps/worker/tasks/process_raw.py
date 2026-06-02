@@ -23,7 +23,8 @@ import tempfile
 import structlog
 
 from app import app
-from db import fetch_file, mark_file_ready, mark_file_failed, upsert_rendition
+from db import fetch_file, mark_file_ready, mark_file_failed, upsert_rendition, set_taken_at
+from exif_meta import extract_taken_at
 from hashing import sha256_file
 from rt import file_status as _publish_status
 from storage import download_to_file, upload_file, rendition_key
@@ -91,6 +92,10 @@ def _process(file_row: dict) -> None:
         # damit ein Decode-Fehler den Hash nicht verhindert.
         src_sha = sha256_file(src_path)
 
+        # Aufnahmezeitpunkt aus EXIF des RAW-Originals (best-effort).
+        # exiv2 liest die meisten RAW-Container; nicht unterstützte → None.
+        taken_at = extract_taken_at(src_path)
+
         preview_jpeg_path = os.path.join(tmp, "preview.jpg")
         method = _extract_or_demosaic(src_path, preview_jpeg_path)
         log.info("process_raw.decoded", file_id=file_id, method=method)
@@ -124,6 +129,7 @@ def _process(file_row: dict) -> None:
         final_w = orig_w or src_w
         final_h = orig_h or src_h
         mark_file_ready(file_id, final_w, final_h, sha256=src_sha)
+        set_taken_at(file_id, taken_at)
         _publish_status(gallery_id, file_id, "ready",
                         width=final_w, height=final_h)
         log.info("process_raw.complete",

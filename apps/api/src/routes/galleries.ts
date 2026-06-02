@@ -2014,6 +2014,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           pageCount: true,
           sortIndex: true,
           sectionId: true,
+          takenAt: true,
           renditions: {
             select: {
               kind: true,
@@ -2138,6 +2139,10 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
             width: f.width,
             height: f.height,
             sectionId: f.sectionId,
+            // Aufnahmezeitpunkt aus EXIF (oder null, wenn keine EXIF-Daten /
+            // noch nicht extrahiert). Nur fürs kundenseitige Sortieren nach
+            // Aufnahmedatum — beeinflusst die gespeicherte Reihenfolge nicht.
+            takenAt: f.takenAt ? f.takenAt.toISOString() : null,
             thumbUrl: thumb
               ? await presignGet({ key: thumb.storageKey })
               : null,

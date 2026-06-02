@@ -30,6 +30,37 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.12.0] - 2026-06-02
+
+Feature-Release. Für Self-Hoster genügt `git pull` + regulärer Deploy —
+keine `.env`-, Compose- oder DB-Änderungen nötig. Für korrektes Sortieren
+nach Aufnahmedatum bei BESTEHENDEN Dateien ist einmalig ein optionaler
+Backfill nötig (siehe unten) — neue Uploads bekommen das Datum automatisch.
+
+### Added
+- Kundengalerie: Besucher können die Anzeige jetzt nach Name oder
+  Aufnahmedatum sortieren (kleines Auswahlfeld in der Galerie-Leiste).
+  Die Sortierung ist rein optisch und temporär — die manuell im Studio
+  festgelegte Reihenfolge bleibt der Standard und wird nicht verändert;
+  beim Neuladen ist wieder die Galerie-Reihenfolge aktiv. Dateien ohne
+  Aufnahmedatum landen beim Datums-Sortieren am Ende.
+- Worker liest beim Verarbeiten von Bildern und RAWs nun den
+  Aufnahmezeitpunkt aus den EXIF-Daten aus und speichert ihn (`takenAt`).
+  Grundlage für die Datums-Sortierung oben.
+
+### ⚠️ Hinweis (kein Breaking Change)
+- Bestehende Bilder/RAWs haben noch kein Aufnahmedatum und würden beim
+  Sortieren nach Aufnahmedatum ans Ende rutschen. Einmaliger Backfill,
+  galerieübergreifend in Batches (Default 500):
+
+  ```
+  docker compose exec worker celery -A app call \
+      tasks.backfill_taken_at.run_global
+  ```
+
+  Mehrfach startbar; verarbeitet bei jedem Aufruf den nächsten Batch.
+  Optional — die Galerie funktioniert auch ohne.
+
 ## [0.11.1] - 2026-06-02
 
 Bugfix-Release. Für Self-Hoster genügt `git pull` + regulärer Deploy —

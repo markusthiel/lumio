@@ -45,6 +45,42 @@ interface Props {
 
 type FilterMode = "all" | "liked" | "red" | "yellow" | "green";
 
+type SortMode = "gallery" | "name" | "taken";
+
+// Natürlich-numerischer Vergleich, damit "IMG_2" vor "IMG_10" kommt
+// (lexikografisch wäre es umgekehrt). Sprachneutral, Groß/Klein egal.
+const _nameCollator = new Intl.Collator(undefined, {
+  numeric: true,
+  sensitivity: "base",
+});
+
+// Sortiert eine Datei-Liste für die ANZEIGE. "gallery" lässt die vom
+// Backend gelieferte Reihenfolge (= manueller sortIndex) unangetastet.
+// Gibt bei name/taken eine sortierte Kopie zurück — die Original-Liste
+// und damit der gespeicherte sortIndex werden NIE verändert.
+function sortPublicFiles(list: PublicFile[], mode: SortMode): PublicFile[] {
+  if (mode === "gallery") return list;
+  const copy = [...list];
+  if (mode === "name") {
+    copy.sort((a, b) => _nameCollator.compare(a.filename, b.filename));
+    return copy;
+  }
+  // mode === "taken": Aufnahmedatum aufsteigend. Dateien ohne EXIF-Datum
+  // ans Ende — in ihrer bisherigen (Galerie-)Reihenfolge, weil
+  // Array.prototype.sort stabil ist.
+  copy.sort((a, b) => {
+    const ta = a.takenAt ? Date.parse(a.takenAt) : NaN;
+    const tb = b.takenAt ? Date.parse(b.takenAt) : NaN;
+    const na = Number.isNaN(ta);
+    const nb = Number.isNaN(tb);
+    if (na && nb) return 0;
+    if (na) return 1;
+    if (nb) return -1;
+    return ta - tb;
+  });
+  return copy;
+}
+
 export function GalleryView({
   meta,
   slug,
@@ -58,6 +94,10 @@ export function GalleryView({
 }: Props) {
   const t = useT();
   const [filter, setFilter] = useState<FilterMode>("all");
+  // Kundenseitige Ansichts-Sortierung. Rein clientseitig & ephemer —
+  // ändert NICHTS am gespeicherten sortIndex. "gallery" = die manuelle
+  // Reihenfolge des Studios (Default), beim Reload wieder aktiv.
+  const [sortMode, setSortMode] = useState<SortMode>("gallery");
   // Customer-side Tag-Filter: Set von Tag-IDs (UND-Semantik). Nur
   // aktiv wenn meta.customerTagFilterEnabled — die UI rendern wir
   // bedingt unten. State immer halten damit Toggle nicht alles
@@ -131,22 +171,29 @@ export function GalleryView({
   // Wir spiegeln genau das hier, damit Lightbox und Grid synchron sind.
   const orderedFiles = useMemo(() => {
     const sectionsActive = meta.sections.length > 0 && filter === "all";
-    if (!sectionsActive) return filtered;
+    if (!sectionsActive) return sortPublicFiles(filtered, sortMode);
     const out: PublicFile[] = [];
-    // Default-Bucket: alle Files ohne sectionId, in ihrer globalen
-    // Reihenfolge (filtered ist schon nach sortIndex aus dem Backend
-    // sortiert).
-    for (const f of filtered) {
-      if (f.sectionId === null) out.push(f);
-    }
-    // Dann pro Section (in der Reihenfolge wie meta.sections):
+    // Default-Bucket: alle Files ohne sectionId — innerhalb des Buckets
+    // gemäß sortMode sortiert (gallery = unveränderte Backend-Reihenfolge).
+    out.push(
+      ...sortPublicFiles(
+        filtered.filter((f) => f.sectionId === null),
+        sortMode
+      )
+    );
+    // Dann pro Section (in der Reihenfolge wie meta.sections), jeweils
+    // innerhalb der Section sortiert. Die Section-Gruppierung selbst
+    // bleibt also immer erhalten — sortiert wird nur INNERHALB.
     for (const section of meta.sections) {
-      for (const f of filtered) {
-        if (f.sectionId === section.id) out.push(f);
-      }
+      out.push(
+        ...sortPublicFiles(
+          filtered.filter((f) => f.sectionId === section.id),
+          sortMode
+        )
+      );
     }
     return out;
-  }, [filtered, meta.sections, filter]);
+  }, [filtered, meta.sections, filter, sortMode]);
 
   const stats = useMemo(() => {
     const sels = Object.values(mySelections);
@@ -281,6 +328,27 @@ export function GalleryView({
           </div>
 
           <div className="flex flex-wrap gap-1.5">
+            {/* Ansichts-Sortierung (kundenseitig, ephemer). Nur ab >1 Datei
+                sinnvoll. "Galerie-Reihenfolge" = die manuelle Anordnung des
+                Studios; Name/Aufnahmedatum sortieren nur die Anzeige um. */}
+            {files.length > 1 && (
+              <select
+                value={sortMode}
+                onChange={(e) => setSortMode(e.target.value as SortMode)}
+                style={{
+                  borderColor: "var(--brand-border)",
+                  color: "var(--brand-fg)",
+                  backgroundColor: "var(--brand-surface)",
+                }}
+                className="text-ui-sm h-8 rounded border px-2 cursor-pointer transition-colors duration-motion"
+                title={t("gallery.sortLabel")}
+                aria-label={t("gallery.sortLabel")}
+              >
+                <option value="gallery">{t("gallery.sortGallery")}</option>
+                <option value="name">{t("gallery.sortName")}</option>
+                <option value="taken">{t("gallery.sortTaken")}</option>
+              </select>
+            )}
             {stats.total > 0 && (
               <button
                 onClick={() => setSlideshowIdx(0)}

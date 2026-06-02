@@ -371,6 +371,10 @@ export interface PublicFile {
   /** Section/Kapitel-Zugehörigkeit. Null = File ist im Default-
    *  Bucket der Galerie (oberhalb der Sections im Customer-View). */
   sectionId: string | null;
+  /** Aufnahmezeitpunkt aus EXIF (ISO-String) oder null, wenn keine
+   *  EXIF-Daten vorhanden / noch nicht extrahiert sind. Nur fürs
+   *  kundenseitige Sortieren nach Aufnahmedatum. */
+  takenAt: string | null;
   thumbUrl: string | null;
   previewUrl: string | null;
   webUrl: string | null;

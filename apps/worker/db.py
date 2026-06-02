@@ -92,6 +92,19 @@ def update_file_sha256(file_id: str, sha256: str) -> None:
         )
 
 
+def set_taken_at(file_id: str, taken_at) -> None:
+    """Setzt den Aufnahmezeitpunkt aus EXIF. taken_at ist ein (naiver)
+    datetime oder None. Bei None passiert NICHTS — wir überschreiben ein
+    evtl. schon gesetztes Datum nicht mit NULL."""
+    if taken_at is None:
+        return
+    with get_conn() as conn:
+        conn.execute(
+            'UPDATE files SET "takenAt" = %s, "updatedAt" = NOW() WHERE id = %s',
+            (taken_at, file_id),
+        )
+
+
 def mark_file_failed(file_id: str, message: str) -> None:
     with get_conn() as conn:
         conn.execute(
