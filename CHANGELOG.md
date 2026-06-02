@@ -30,6 +30,18 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.12.2] - 2026-06-02
+
+Bugfix-Release. Für Self-Hoster genügt `git pull` + regulärer Deploy —
+keine `.env`-, Compose- oder DB-Änderungen nötig. Reines Frontend.
+
+### Fixed
+- Die in 0.12.0 eingeführte Kundengalerie-Sortierung (Name/Aufnahmedatum)
+  hat zwar die Slideshow- und Lightbox-Reihenfolge beeinflusst, aber NICHT
+  das sichtbare Bilderraster — das Auswahlfeld wirkte dadurch wirkungslos.
+  Das Raster (inkl. Section-Ansicht) berücksichtigt die gewählte
+  Sortierung jetzt korrekt.
+
 ## [0.12.1] - 2026-06-02
 
 Bugfix-Release. Für Self-Hoster genügt `git pull` + regulärer Deploy —

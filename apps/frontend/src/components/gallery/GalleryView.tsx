@@ -538,7 +538,7 @@ export function GalleryView({
              aktiver Filter (in dem Fall ignorieren wir Sections,
              damit der Filter sinnvoll bleibt). */
           <FilesGrid
-            files={filtered}
+            files={orderedFiles}
             mode={meta.gridLayout}
             mySelections={mySelections}
             onOpen={(f) =>
@@ -555,7 +555,10 @@ export function GalleryView({
              Buckets. */
           <div className="space-y-12">
             {(() => {
-              const defaultFiles = filtered.filter((f) => f.sectionId === null);
+              const defaultFiles = sortPublicFiles(
+                filtered.filter((f) => f.sectionId === null),
+                sortMode
+              );
               const filesBySection = new Map<string, typeof filtered>();
               for (const f of filtered) {
                 if (f.sectionId) {
@@ -584,7 +587,10 @@ export function GalleryView({
                     </div>
                   )}
                   {meta.sections.map((section) => {
-                    const sectionFiles = filesBySection.get(section.id) ?? [];
+                    const sectionFiles = sortPublicFiles(
+                      filesBySection.get(section.id) ?? [],
+                      sortMode
+                    );
                     if (sectionFiles.length === 0) return null;
                     return (
                       <div key={section.id} id={`section-${section.id}`}>
