@@ -21,6 +21,7 @@ wird gecached — wir wollen nicht für jedes Video neu testen.
 from __future__ import annotations
 
 import os
+import glob
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -65,10 +66,28 @@ def _detect_available() -> set[str]:
     return found
 
 
-def _vaapi_device_present() -> bool:
-    """VAAPI braucht ein /dev/dri/renderD128-Device. Nur wenn das durch-
-    gereicht ist, ist VAAPI sinnvoll auch wenn libavcodec den Encoder hat."""
+def _render_device_present() -> bool:
+    """VAAPI und QSV brauchen ein /dev/dri/renderD128-Device. Nur wenn das
+    durchgereicht ist, ist HW-Encoding sinnvoll — auch wenn libavcodec den
+    Encoder im Build hat."""
     return Path("/dev/dri/renderD128").exists()
+
+
+# Rückwärtskompatibler Alias (wird ggf. anderswo importiert).
+_vaapi_device_present = _render_device_present
+
+
+def _nvidia_device_present() -> bool:
+    """NVENC braucht eine echte NVIDIA-GPU im Container (Start mit --gpus all).
+
+    WICHTIG: Das Debian/Ubuntu-ffmpeg listet h264_nvenc IMMER in
+    `ffmpeg -encoders`, weil der Encoder zur Laufzeit per dlopen geladen wird.
+    Die Encoder-Liste allein sagt also NICHTS darüber aus, ob eine GPU da ist.
+    Ohne diesen Device-Check würde 'auto' auf einer CPU-only-Maschine NVENC
+    wählen und jedes Video-Encoding scheitern."""
+    if Path("/dev/nvidiactl").exists():
+        return True
+    return bool(glob.glob("/dev/nvidia[0-9]*"))
 
 
 @dataclass(frozen=True)
@@ -89,27 +108,36 @@ def select_encoder() -> EncoderName:
     if requested == "software":
         return "software"
 
-    # Explizit angefragt? Dann nur den nutzen, wenn er auch da ist.
-    if requested in ("nvenc", "qsv"):
-        if requested in available:
-            return requested  # type: ignore[return-value]
-        log.warn("encoder.requested_unavailable", requested=requested,
-                 fallback="software")
+    # Explizit angefragt? Dann nur nutzen, wenn Encoder UND Device da sind —
+    # sonst fail-safe auf Software, statt zur Laufzeit hart zu scheitern.
+    if requested == "nvenc":
+        if "nvenc" in available and _nvidia_device_present():
+            return "nvenc"
+        log.warn("encoder.requested_unavailable", requested="nvenc",
+                 reason="device_or_codec_missing", fallback="software")
+        return "software"
+
+    if requested == "qsv":
+        if "qsv" in available and _render_device_present():
+            return "qsv"
+        log.warn("encoder.requested_unavailable", requested="qsv",
+                 reason="device_or_codec_missing", fallback="software")
         return "software"
 
     if requested == "vaapi":
-        if "vaapi" in available and _vaapi_device_present():
+        if "vaapi" in available and _render_device_present():
             return "vaapi"
         log.warn("encoder.requested_unavailable", requested="vaapi",
                  reason="device_or_codec_missing", fallback="software")
         return "software"
 
-    # 'auto': probieren in Reihenfolge
-    if "nvenc" in available:
+    # 'auto': probieren in Reihenfolge — jeweils nur, wenn auch ein passendes
+    # Device vorhanden ist. Encoder-Liste allein genügt NICHT (s. oben).
+    if "nvenc" in available and _nvidia_device_present():
         return "nvenc"
-    if "qsv" in available:
+    if "qsv" in available and _render_device_present():
         return "qsv"
-    if "vaapi" in available and _vaapi_device_present():
+    if "vaapi" in available and _render_device_present():
         return "vaapi"
     return "software"
 

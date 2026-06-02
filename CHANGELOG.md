@@ -30,6 +30,25 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.10.3] - 2026-06-02
+
+Bugfix-Release. Für Self-Hoster genügt `git pull` + regulärer Deploy —
+keine `.env`-, Compose- oder DB-Änderungen nötig. Wer Videos auf einem
+Server ohne GPU verarbeitet, sollte nach dem Update den Worker neu
+deployen, damit das Encoding wieder durchläuft.
+
+### Fixed
+- Video-Verarbeitung schlug auf Servern ohne GPU dauerhaft fehl
+  („Video processing failed"). Die automatische Encoder-Wahl (`auto`,
+  Standard) hat NVENC bzw. QSV schon dann gewählt, wenn ffmpeg den
+  Encoder im Build hat — das ist bei den Standard-ffmpeg-Paketen IMMER
+  der Fall, auch ganz ohne Grafikkarte. ffmpeg ist dann zur Laufzeit am
+  fehlenden GPU-Gerät gescheitert. `auto` prüft jetzt zusätzlich, ob ein
+  passendes Gerät wirklich vorhanden ist, und fällt sonst sauber auf
+  Software-Encoding (libx264) zurück. Gleiches gilt, wenn `nvenc`/`qsv`
+  explizit über `LUMIO_HW_ENCODER` gesetzt, das Gerät aber nicht
+  durchgereicht ist: statt hartem Fehler nun Fallback auf Software.
+
 ## [0.10.2] - 2026-06-02
 
 Bugfix-Release. Für Self-Hoster genügt `git pull` + regulärer Deploy —
