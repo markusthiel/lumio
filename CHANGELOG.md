@@ -30,6 +30,21 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.14.3] - 2026-06-02
+
+Bugfix-Release. `git pull` + regulärer Deploy genügt. Reines Frontend.
+
+### Fixed
+- Kundengalerie: Die Ansicht sprang beim Scrollen während des Nachladens
+  von selbst nach oben. Ursache war eine fehlende „auto"-Größenmerkung der
+  Bildkacheln (content-visibility) — die Kacheln kollabierten beim
+  Auslagern auf einen festen Schätzwert und verschoben das Layout. Behoben.
+- Kundengalerie: In Brave (und teils anderen Chromium-Browsern) blieben
+  beim schnellen Scrollen einzelne Thumbnails als „?" hängen, weil der
+  Bild-Load abgebrochen wurde. Thumbnails versuchen sich jetzt bis zu 2×
+  selbst neu zu laden und zeigen im Fehlerfall einen neutralen Platzhalter
+  statt des Broken-Image-Symbols.
+
 ## [0.14.2] - 2026-06-02
 
 Tuning-Release. `git pull` + regulärer Deploy genügt. Reines Frontend.

@@ -1044,6 +1044,14 @@ function GalleryTile({
   onTogglePick: () => void;
 }) {
   const { ref, revealed } = useReveal<HTMLDivElement>();
+  // Thumbnail-Selbstheilung: abgebrochene/transiente Loads (vor allem in
+  // Brave durch das Zusammenspiel von content-visibility + lazy) führen
+  // sonst zum stehenden Broken-Image-„?". Wir versuchen es bis zu 2x neu
+  // (Remount über key, GLEICHE presigned-URL → Signatur bleibt gültig),
+  // danach zeigen wir einen neutralen Platzhalter statt des Glyphs.
+  const [imgFailed, setImgFailed] = useState(false);
+  const [imgAttempt, setImgAttempt] = useState(0);
+  const imgAttemptRef = useRef(0);
   // Aspect-Ratio aus den File-Dimensionen, mit sicherem Fallback.
   // Nur fürs justified-Layout relevant — masonry und equal sind
   // quadratisch und nutzen aspect-square.
@@ -1109,8 +1117,12 @@ function GalleryTile({
         // Der Wert ist eine Schätzung — Browser cached die echte
         // Größe nach dem ersten Render und nutzt sie ab dann.
         contentVisibility: "auto",
-        containIntrinsicSize:
-          mode === "justified" ? "240px 240px" : "240px 240px",
+        // WICHTIG: führendes `auto` lässt den Browser die TATSÄCHLICHE
+        // gerenderte Größe merken und beim Auslagern (offscreen) wieder
+        // verwenden — sonst kollabiert das Tile auf den festen Schätzwert,
+        // die Gesamthöhe ändert sich und die Seite springt beim Scrollen
+        // von selbst. 240px ist nur der Startwert vor dem ersten Render.
+        containIntrinsicSize: "auto 240px",
       }}
     >
       <button
@@ -1127,18 +1139,29 @@ function GalleryTile({
         }
         aria-pressed={pickMode ? isPicked : undefined}
       >
-        {file.thumbUrl ? (
+        {file.thumbUrl && !imgFailed ? (
           /* eslint-disable-next-line @next/next/no-img-element */
           <img
+            key={imgAttempt}
             src={file.thumbUrl}
             alt={file.filename}
             loading="lazy"
+            decoding="async"
+            onError={() => {
+              if (imgAttemptRef.current < 2) {
+                imgAttemptRef.current += 1;
+                const next = imgAttemptRef.current;
+                window.setTimeout(() => setImgAttempt(next), 400 * next);
+              } else {
+                setImgFailed(true);
+              }
+            }}
             className="w-full h-full object-cover transition-transform duration-motion ease-out group-hover:scale-[1.02]"
             draggable={false}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-ui-xs opacity-40">
-            {file.kind}
+            {file.thumbUrl ? "—" : file.kind}
           </div>
         )}
 
