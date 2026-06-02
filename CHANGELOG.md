@@ -30,6 +30,19 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.14.6] - 2026-06-02
+
+Bugfix-Release. `git pull` + regulärer Deploy genügt. Reines Frontend.
+
+### Fixed
+- Modals und einige Eingabefelder waren teilweise durchsichtig — der Inhalt
+  dahinter schimmerte durch und war schwer lesbar (z.B. das „Mitglied
+  bearbeiten"-Dialog im Team-Bereich). Ursache war ein nicht definiertes
+  Design-Token (`surface-base`), das an vielen Stellen für den Hintergrund
+  genutzt wurde, aber gar keine Farbe erzeugte. Das Token ist jetzt zentral
+  definiert; alle betroffenen Flächen sind in hellem wie dunklem Modus wieder
+  blickdicht.
+
 ## [0.14.5] - 2026-06-02
 
 Bugfix-Release. `git pull` + regulärer Deploy genügt. Reines Frontend.
