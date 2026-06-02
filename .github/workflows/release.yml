@@ -1,20 +1,36 @@
 name: Release
 
-# Läuft NUR auf GitHub (Spiegel-Repo), nicht in Forgejo. Hintergrund:
-# Der Forgejo-Push-Mirror überträgt nur Git-Daten (Commits, Branches, Tags),
-# aber KEINE Releases — die sind Plattform-Metadaten in der Forgejo-DB. Damit
-# auf GitHub trotzdem ein Release mit Beschreibung erscheint, baut diese Action
-# beim Eintreffen des gespiegelten Tags das GitHub-Release und zieht die Notes
-# aus dem passenden CHANGELOG.md-Abschnitt (der ja über den Mirror mitkommt).
+# Läuft NUR auf GitHub (Spiegel-Repo) und erzeugt dort GitHub-Releases aus
+# den CHANGELOG-Abschnitten. Hintergrund: Der Forgejo-Push-Mirror überträgt
+# nur Git-Daten (Commits, Branches, Tags) — KEINE Releases (das sind
+# Plattform-Metadaten).
 #
-# Voraussetzung: Der in Forgejo hinterlegte Mirror-Token braucht den
-# `workflow`-Scope, sonst lehnt GitHub das Pushen dieser Datei ab. Mirror-Pushes
-# laufen über diesen PAT (nicht den GITHUB_TOKEN), lösen also Workflows aus.
+# WICHTIG — warum nicht nur `on: push: tags`:
+# GitHub erzeugt KEINE Push-Events, wenn mehr als DREI Tags auf einmal
+# ankommen (dokumentiertes Limit). Der Mirror synct nur alle paar Stunden und
+# schiebt dann oft mehrere neue Tags in EINEM Push → die Release-Action lief
+# für diese Tags nie. Deshalb zusätzlich:
+#   - schedule:          regelmäßiger Abgleich, der fehlende Releases nachzieht
+#   - workflow_dispatch: manueller Lauf (optional für einen bestimmten Tag)
+# Der Job ist idempotent: bereits existierende Releases werden übersprungen.
+#
+# Voraussetzung: Der in Forgejo hinterlegte Mirror-PAT braucht `workflow`-
+# Scope, sonst lehnt GitHub den Push DIESER Datei ab.
 
 on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Bestimmter Tag (z.B. v0.14.5). Leer = alle fehlenden Releases nachziehen."
+        required: false
+        default: ""
+  schedule:
+    # Alle 6 Stunden fehlende Releases abgleichen (Minute 17, damit's nicht
+    # auf die volle Stunde fällt).
+    - cron: "17 */6 * * *"
 
 permissions:
   contents: write
@@ -22,43 +38,57 @@ permissions:
 jobs:
   github-release:
     # Nur auf GitHub ausführen. Forgejo scannt .github/workflows ebenfalls —
-    # dieser Guard verhindert, dass der GitHub-Release-Job auf der Forgejo-
-    # Seite (mit gh gegen github.com) läuft bzw. dort hängen bleibt.
+    # dieser Guard verhindert, dass der Job auf der Forgejo-Seite läuft.
     if: ${{ github.server_url == 'https://github.com' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Alle Tags + History, damit der Abgleich (schedule) sämtliche
+          # Tags sieht und der CHANGELOG vollständig vorliegt.
+          fetch-depth: 0
 
-      - name: Changelog-Abschnitt für diesen Tag extrahieren
+      - name: Zu verarbeitende Tags bestimmen
+        id: tags
         run: |
-          VER="${GITHUB_REF_NAME#v}"
-          # Alles zwischen "## [VER]" und der nächsten "## [" Überschrift.
-          awk -v ver="$VER" '
-            $0 ~ "^## \\[" ver "\\]" { f = 1; next }
-            f && /^## \[/ { exit }
-            f { print }
-          ' CHANGELOG.md > NOTES.md
-          # Führende Leerzeilen trimmen.
-          sed -i '/./,$!d' NOTES.md
-          if [ ! -s NOTES.md ]; then
-            echo "Kein CHANGELOG-Abschnitt für $VER gefunden — siehe CHANGELOG.md." > NOTES.md
+          if [ "${{ github.event_name }}" = "push" ]; then
+            LIST="${GITHUB_REF_NAME}"
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.tag }}" ]; then
+            LIST="${{ github.event.inputs.tag }}"
+          else
+            # schedule oder dispatch ohne Tag → alle v*-Tags abgleichen
+            LIST="$(git tag -l 'v*' | tr '\n' ' ')"
           fi
-          echo "----- Release-Notes -----"
-          cat NOTES.md
+          echo "list=${LIST}" >> "$GITHUB_OUTPUT"
+          echo "Zu prüfen: ${LIST}"
 
-      - name: GitHub-Release anlegen (idempotent)
+      - name: Fehlende Releases aus CHANGELOG anlegen (idempotent)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            # Release existiert schon (z.B. Re-Run) → Notes aktualisieren.
-            gh release edit "$GITHUB_REF_NAME" \
+          CREATED=0
+          for TAG in ${{ steps.tags.outputs.list }}; do
+            [ -z "$TAG" ] && continue
+            if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              echo "= $TAG existiert bereits — übersprungen"
+              continue
+            fi
+            VER="${TAG#v}"
+            # Alles zwischen "## [VER]" und der nächsten "## [" Überschrift.
+            awk -v ver="$VER" '
+              $0 ~ "^## \\[" ver "\\]" { f = 1; next }
+              f && /^## \[/ { exit }
+              f { print }
+            ' CHANGELOG.md > NOTES.md
+            sed -i '/./,$!d' NOTES.md
+            if [ ! -s NOTES.md ]; then
+              echo "Kein CHANGELOG-Abschnitt für $VER gefunden — siehe CHANGELOG.md." > NOTES.md
+            fi
+            echo "+ Lege Release $TAG an"
+            gh release create "$TAG" \
               --repo "$GITHUB_REPOSITORY" \
-              --title "Lumio $GITHUB_REF_NAME" \
+              --title "Lumio $TAG" \
               --notes-file NOTES.md
-          else
-            gh release create "$GITHUB_REF_NAME" \
-              --repo "$GITHUB_REPOSITORY" \
-              --title "Lumio $GITHUB_REF_NAME" \
-              --notes-file NOTES.md
-          fi
+            CREATED=$((CREATED+1))
+          done
+          echo "Neu angelegte Releases: ${CREATED}"
