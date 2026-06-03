@@ -30,6 +30,28 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.15.0] - 2026-06-04
+
+Neues Feature (nur SaaS / `BILLING_ENABLED`). `git pull` + regulärer Deploy
+genügt — die Migration ist additiv, die neuen Umgebungsvariablen sind optional
+mit Defaults. Nur API. Self-Hoster ohne Billing sind nicht betroffen.
+
+### Added
+- **Archiv-Lifecycle für gekündigte SaaS-Studios.** Statt unbegrenztem
+  Read-only nach Abo-Ende durchläuft ein Studio jetzt einen begrenzten
+  Lebenszyklus: Read-only (Kunden-Galerien zunächst weiter erreichbar) → nach
+  30 Tagen Archiv (Galerien offline, Vorschauen aus dem Speicher entfernt,
+  Original-Dateien bleiben) → endgültige Löschung 12 Monate nach Abo-Ende. Die
+  Owner werden bei der Archivierung und erneut ~30 Tage vor der Löschung per
+  Mail informiert. Schließt der Owner vorher wieder ein Abo ab, wird das Studio
+  reaktiviert und die Vorschauen werden automatisch neu erzeugt.
+- Zwei neue optionale Umgebungsvariablen: `BILLING_ARCHIVE_AFTER_DAYS`
+  (Default `30`) und `BILLING_PURGE_AFTER_MONTHS` (Default `12`).
+
+### Changed
+- Öffentliche Kunden-Galerien eines archivierten Studios antworten jetzt mit
+  „vorübergehend nicht verfügbar", bis wieder ein aktives Abo besteht.
+
 ## [0.14.7] - 2026-06-02
 
 Bugfix-Release. `git pull` + regulärer Deploy genügt. Nur API.
