@@ -47,6 +47,12 @@ Das Studio — Galerien verwalten, Smart Collections, Tag-Filter, Team-Proofing:
 
 ![Proofing mit Markierungen und Color-Tags](docs/images/03-proofing.jpg)
 
+![Markieren direkt am Bild](docs/images/feat-annotation.jpg)
+
+**Upload & Formate** — Drag & Drop mit parallelen Uploads, Duplikat-Erkennung und Smart-Sections. JPEG, PNG, WebP, RAW, HEIC/HEIF, Video und PDF — bis zum konfigurierbaren Datei-Limit.
+
+![Upload mit unterstützten Formaten](docs/images/feat-upload.png)
+
 **KI-Auto-Tagging** — Bilder werden automatisch verschlagwortet (CLIP-Modell), Vorschläge lassen sich per Confidence-Schwelle filtern und übernehmen. Kunden können optional nach Tags filtern.
 
 ![KI-Auto-Tagging mit Bilder-Grid](docs/images/04-ai-tagging.jpg)
@@ -62,6 +68,10 @@ Das Studio — Galerien verwalten, Smart Collections, Tag-Filter, Team-Proofing:
 **Print-Shop** — Verkaufe Prints, Leinwände und Fotobücher direkt aus der Galerie. Eigene Anbieter, Produkte, Versand, optional mit Stripe-Bezahlung.
 
 ![Print-Shop Setup](docs/images/07-print-shop.png)
+
+**Sicherheit & DSGVO** — Auftragsverarbeitungsvertrag nach Art. 28 DSGVO elektronisch abschließbar, Share-Links mit Ablauf und Passwort, Audit-Log und Zwei-Faktor-Authentifizierung.
+
+![Auftragsverarbeitungsvertrag (AVV) nach Art. 28 DSGVO](docs/images/feat-dsgvo.jpg)
 
 ---
 
