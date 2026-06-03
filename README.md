@@ -77,6 +77,10 @@ Das Studio — Galerien verwalten, Smart Collections, Tag-Filter, Team-Proofing:
 
 ![Webhooks-Konfiguration](docs/images/feat-webhooks.jpg)
 
+**Hell- oder Dunkel-Modus** — Das Studio-Backend in Hell oder Dunkel, mit eigener Akzentfarbe und Logo-Varianten für beide Modi. (Die übrigen Screenshots hier zeigen den Dunkel-Modus.)
+
+![Studio-Backend im Hell-Modus mit Grundton-Umschalter](docs/images/feat-theme.jpg)
+
 ---
 
 ## Quick Start
