@@ -16,7 +16,7 @@
  */
 
 /** Aktuelle Vertragsversion. Bei materiellen Aenderungen erhoehen. */
-export const DPA_VERSION = "1.0";
+export const DPA_VERSION = "1.1";
 
 /** Angaben zum Auftragsverarbeiter (Lumio). Bei Bedarf hier pflegen. */
 export const PROCESSOR = {
@@ -208,9 +208,10 @@ export function renderDpaHtml(
   ${cl("2", "Eine Drittlandübermittlung erfolgt nur bei Erfüllung der Art.\u00a044\u00a0ff. DSGVO und nach vorheriger Information des Verantwortlichen.")}
 
   <h2>§ 9 Löschung und Rückgabe nach Beendigung</h2>
-  ${cl("1", "Nach Vertragsende erhält der Verantwortliche eine Karenzzeit zum Export seiner Daten; danach werden die Daten gelöscht, soweit keine gesetzliche Aufbewahrungspflicht entgegensteht.")}
-  ${cl("2", "Die Löschung umfasst auch abgeleitete Vorschau-Versionen sowie Sicherungskopien im Rahmen der üblichen Backup-Zyklen.")}
-  ${cl("3", "Die Löschung wird auf Verlangen in Textform bestätigt.")}
+  ${cl("1", "Nach Beendigung des Hauptvertrags wird der Zugang des Verantwortlichen zunächst in einen Nur-Lese-Modus versetzt, in dem er seine Daten exportieren kann. Bleibt der Vertrag beendet, werden die Daten anschließend in einen inaktiven Archivzustand überführt und spätestens zwölf\u00a0(12)\u00a0Monate nach Vertragsende endgültig gelöscht, soweit keine gesetzliche Aufbewahrungspflicht entgegensteht.")}
+  ${cl("2", "Nimmt der Verantwortliche den Hauptvertrag innerhalb dieser Frist wieder auf, werden die Daten reaktiviert. Im Archivzustand sind die Inhaltsdaten nicht mehr öffentlich abrufbar; abgeleitete Vorschau-Versionen werden bereits in dieser Phase aus dem aktiven Speicher entfernt, die Original-Dateien bis zur endgültigen Löschung vorgehalten.")}
+  ${cl("3", "Die endgültige Löschung umfasst die Original-Dateien, abgeleitete Vorschau-Versionen sowie Sicherungskopien im Rahmen der üblichen Backup-Zyklen.")}
+  ${cl("4", "Die Löschung wird auf Verlangen in Textform bestätigt.")}
 
   <h2>§ 10 Haftung</h2>
   ${cl("1", "Es gilt Art.\u00a082 DSGVO; ergänzend gelten die Haftungsregelungen des Hauptvertrags, soweit sie zwingendem Datenschutzrecht nicht widersprechen.")}
@@ -270,7 +271,7 @@ export function renderDpaHtml(
   <h3>Überprüfung und Datenminimierung</h3>
   <ul>
     <li>Datenschutzfreundliche Voreinstellungen (Privacy by Design / by Default).</li>
-    <li>Definiertes Löschkonzept inkl. Karenzzeit und vollständiger Löschung abgeleiteter Versionen.</li>
+    <li>Definiertes Löschkonzept: Nur-Lese-Karenz, inaktives Archiv und endgültige Löschung spätestens zwölf Monate nach Vertragsende, einschließlich abgeleiteter Vorschau-Versionen.</li>
     <li>Verpflichtung der eingesetzten Personen auf Vertraulichkeit.</li>
   </ul>
   <p class="muted">Die Maßnahmen werden dem Stand der Technik angepasst; einzelne Maßnahmen können durch gleichwertige ersetzt werden.</p>
