@@ -73,6 +73,10 @@ Das Studio — Galerien verwalten, Smart Collections, Tag-Filter, Team-Proofing:
 
 ![Auftragsverarbeitungsvertrag (AVV) nach Art. 28 DSGVO](docs/images/feat-dsgvo.jpg)
 
+**Webhooks & Integrationen** — Externe Tools per HTTP-POST über Galerie-Ereignisse informieren. Jeder Request wird mit deinem Webhook-Secret signiert.
+
+![Webhooks-Konfiguration](docs/images/feat-webhooks.jpg)
+
 ---
 
 ## Quick Start
