@@ -653,3 +653,98 @@ export function tmplDeletionReminder(opts: {
     }),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Billing-Archiv-Lifecycle
+// ---------------------------------------------------------------------------
+
+/** Mail beim Übergang Read-only → Archiv: Galerien sind jetzt offline,
+ * Vorschauen werden entfernt, Originale bleiben. Reaktivierung jederzeit
+ * möglich bis zum Lösch-Stichtag. */
+export function tmplBillingArchived(opts: {
+  displayName: string | null;
+  studioName: string;
+  purgeDate: Date;
+  reactivateUrl: string;
+}): { subject: string; text: string; html: string } {
+  const greeting = opts.displayName ? `Hallo ${opts.displayName},` : "Hallo,";
+  const dateStr = opts.purgeDate.toLocaleDateString("de-DE", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+  return {
+    subject: `Dein Studio „${opts.studioName}" wurde archiviert`,
+    text:
+      `${greeting}\n\n` +
+      `dein Lumio-Studio „${opts.studioName}" war länger ohne aktives Abo ` +
+      `und wurde jetzt archiviert.\n\n` +
+      `Was das bedeutet:\n` +
+      `  • Deine Kunden-Galerien sind vorübergehend offline.\n` +
+      `  • Die Original-Dateien bleiben gespeichert — nur die Vorschauen ` +
+      `werden entfernt und bei Reaktivierung neu erzeugt.\n` +
+      `  • Mit einem neuen Abo ist alles wieder da.\n\n` +
+      `Wichtig: Wenn du bis zum ${dateStr} kein Abo abschließt, werden ` +
+      `alle Daten an diesem Tag endgültig gelöscht.\n\n` +
+      `Studio reaktivieren:\n${opts.reactivateUrl}\n\n` +
+      `— Lumio`,
+    html: renderMailLayout({
+      preheader: `Galerien offline — endgültige Löschung am ${dateStr}, bis dahin reaktivierbar`,
+      bodyHtml:
+        mailHeading(`Studio archiviert`) +
+        mailParagraph(
+          `${greeting.replace(",", "")} — dein Studio „${opts.studioName}" war länger ohne aktives Abo und wurde jetzt archiviert.`
+        ) +
+        mailBullets([
+          "Deine Kunden-Galerien sind vorübergehend offline.",
+          "Die Original-Dateien bleiben gespeichert — nur die Vorschauen werden entfernt und bei Reaktivierung neu erzeugt.",
+          "Mit einem neuen Abo ist alles wieder da.",
+        ]) +
+        mailButton(opts.reactivateUrl, "Studio reaktivieren") +
+        mailNoticeBox(
+          `Ohne neues Abo werden am ${dateStr} alle Daten endgültig gelöscht.`
+        ),
+    }),
+  };
+}
+
+/** Reminder ~30 Tage vor der endgültigen Löschung eines archivierten Studios. */
+export function tmplBillingPurgeReminder(opts: {
+  displayName: string | null;
+  studioName: string;
+  purgeDate: Date;
+  reactivateUrl: string;
+}): { subject: string; text: string; html: string } {
+  const greeting = opts.displayName ? `Hallo ${opts.displayName},` : "Hallo,";
+  const dateStr = opts.purgeDate.toLocaleDateString("de-DE", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+  return {
+    subject: `Letzte Erinnerung: „${opts.studioName}" wird am ${dateStr} gelöscht`,
+    text:
+      `${greeting}\n\n` +
+      `dein archiviertes Lumio-Studio „${opts.studioName}" wird am ` +
+      `${dateStr} endgültig gelöscht — inklusive aller Original-Dateien ` +
+      `und Galerien.\n\n` +
+      `Wenn du deine Daten behalten möchtest, schließe bis dahin ein Abo ` +
+      `ab — dann wird alles wiederhergestellt:\n\n` +
+      `${opts.reactivateUrl}\n\n` +
+      `Nach dem Stichtag ist eine Wiederherstellung nicht mehr möglich.\n\n` +
+      `— Lumio`,
+    html: renderMailLayout({
+      preheader: `Endgültige Löschung am ${dateStr} — jetzt noch reaktivierbar`,
+      bodyHtml:
+        mailHeading(`Letzte Erinnerung`) +
+        mailParagraph(
+          `${greeting.replace(",", "")} — dein archiviertes Studio „${opts.studioName}" wird am ${dateStr} endgültig gelöscht, inklusive aller Original-Dateien und Galerien.`
+        ) +
+        mailParagraph(
+          `Wenn du deine Daten behalten möchtest, schließe bis dahin ein Abo ab — dann wird alles wiederhergestellt:`
+        ) +
+        mailButton(opts.reactivateUrl, "Studio reaktivieren") +
+        mailNoticeBox(`Nach dem Stichtag ist keine Wiederherstellung mehr möglich.`),
+    }),
+  };
+}

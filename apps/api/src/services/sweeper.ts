@@ -33,6 +33,13 @@ import { writeMrrSnapshot } from "./mrr.js";
 import { processBroadcast } from "./broadcast.js";
 import { computeStorageBytes } from "./usage.js";
 import { logger } from "../logger.js";
+import { config } from "../config.js";
+import {
+  markDueArchives,
+  dropArchivedDerivatives,
+  sendPurgeReminders,
+  purgeDueArchives,
+} from "./billing-archive.js";
 
 const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
 const STARTUP_DELAY_MS = 30_000;
@@ -63,6 +70,15 @@ async function runOnce() {
     // gebraucht. Studio-UI nutzt computeStorageBytes() live, also für die
     // Limit-Checks ist Drift unkritisch.
     recalculateStorageUsage(),
+    // Billing-Archiv-Lifecycle (nur SaaS): Read-only → Archiv → Löschung.
+    ...(config.BILLING_ENABLED
+      ? [
+          markDueArchives(),
+          dropArchivedDerivatives(),
+          sendPurgeReminders(),
+          purgeDueArchives(),
+        ]
+      : []),
   ]);
 }
 

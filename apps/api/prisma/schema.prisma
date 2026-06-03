@@ -1098,10 +1098,24 @@ model BillingSubscription {
   // ist und der Tenant auf read-only-Modus eskaliert wurde. Wird beim
   // erfolgreichen Payment wieder auf null gesetzt.
   readOnlySince      DateTime?
+
+  // Billing-Archiv-Lifecycle (SaaS). Nach längerem Read-only wird ein
+  // gekündigtes/unbezahltes Studio "kalt" archiviert: Galerien gehen
+  // offline (archivedSince), die Renditions (Vorschauen/Thumbs/Web)
+  // werden aus dem Bucket gelöscht — Originale bleiben. Bei Reaktivierung
+  // (neues Abo) werden Flags geleert und die Renditions neu erzeugt.
+  // purgeScheduledFor = readOnlySince + BILLING_PURGE_AFTER_MONTHS; ist
+  // es erreicht, löscht der Sweeper das Studio endgültig (Hard-Delete).
+  archivedSince         DateTime?
+  purgeScheduledFor     DateTime?
+  archiveNoticeMailedAt DateTime?
+  purgeReminderMailedAt DateTime?
   
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
-  
+
+  @@index([readOnlySince])
+  @@index([purgeScheduledFor])
   @@map("billing_subscriptions")
 }
 

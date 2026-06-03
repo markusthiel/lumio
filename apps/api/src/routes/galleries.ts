@@ -1647,6 +1647,17 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         .status(503)
         .send({ error: "tenant_unavailable" });
     }
+    // Billing-Archiv: ein archiviertes Studio (Abo lange inaktiv) nimmt
+    // seine Galerien offline, bis wieder ein Abo besteht.
+    if (config.BILLING_ENABLED) {
+      const sub = await prisma.billingSubscription.findUnique({
+        where: { tenantId: gallery.tenantId },
+        select: { archivedSince: true },
+      });
+      if (sub?.archivedSince) {
+        return reply.status(503).send({ error: "gallery_archived" });
+      }
+    }
     if (gallery.expiresAt && gallery.expiresAt < new Date()) {
       return reply.status(410).send({ error: "expired" });
     }

@@ -17,6 +17,7 @@
  *     manuell updaten (Subscription bleibt aber am alten Tenant).
  */
 import { prisma } from "../db.js";
+import { logger } from "../logger.js";
 import { getStripe } from "./stripe-client.js";
 import type Stripe from "stripe";
 
@@ -198,6 +199,23 @@ export async function syncSubscriptionFromStripe(
       trialEndsAt: sub.trial_end ? new Date(sub.trial_end * 1000) : null,
     },
   });
+
+  // Reaktivierung aus dem Archiv: wenn wieder ein aktives/trial-Abo
+  // besteht, Archiv-Flags leeren und Renditions neu erzeugen. No-op,
+  // wenn der Tenant nie archiviert war.
+  if (sub.status === "active" || sub.status === "trialing") {
+    try {
+      const { clearArchiveOnReactivation } = await import(
+        "./billing-archive.js"
+      );
+      await clearArchiveOnReactivation(tenantId);
+    } catch (err) {
+      logger.warn(
+        { err, tenantId },
+        "stripe: clearArchiveOnReactivation failed (non-fatal)"
+      );
+    }
+  }
 }
 
 /** Kündigt die Stripe-Subscription eines Tenants sofort (nicht period-

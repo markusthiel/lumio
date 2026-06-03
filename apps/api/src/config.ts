@@ -99,6 +99,13 @@ const envSchema = z.object({
     .string()
     .default("true")
     .transform((v) => v === "true"),
+  /** Billing-Archiv-Lifecycle (nur SaaS). Tage im Read-only, bevor ein
+   * gekündigtes/unbezahltes Studio "kalt" archiviert wird (Galerien
+   * offline, Renditions aus dem Bucket gelöscht). */
+  BILLING_ARCHIVE_AFTER_DAYS: z.coerce.number().int().positive().default(30),
+  /** Monate ab Abo-Ende (readOnlySince), bis ein archiviertes Studio
+   * endgültig gelöscht wird. */
+  BILLING_PURGE_AFTER_MONTHS: z.coerce.number().int().positive().default(12),
 });
 
 let parsed: z.infer<typeof envSchema>;

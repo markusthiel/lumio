@@ -387,3 +387,122 @@ async function notifyAllOwners(
     );
   }
 }
+
+/**
+ * Billing-Archiv-Purge — endgültige Löschung eines archivierten Studios nach
+ * Ablauf der Aufbewahrungsfrist (BillingSubscription.purgeScheduledFor).
+ *
+ * Anders als executeHardDeletion (Owner-Self-Deletion) ist hier KEINE
+ * pending_deletion-Karenz im Spiel: Der Tenant ist regulär 'active', nur sein
+ * Abo ist seit langem inaktiv. Der Lösch-Kern (S3 + Cascade + Mail + Audit)
+ * ist bewusst identisch zu executeHardDeletion gehalten — bei Änderungen an
+ * der Lösch-Logik BEIDE Stellen anpassen.
+ */
+export async function purgeArchivedTenant(tenantId: string): Promise<{
+  status: "deleted" | "skipped";
+  reason?: string;
+  filesDeleted: number;
+  filesFailed: number;
+}> {
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: {
+      id: true,
+      name: true,
+      status: true,
+      stripeCustomerId: true,
+      users: {
+        where: { role: "owner" },
+        select: { email: true, name: true },
+      },
+    },
+  });
+
+  if (!tenant) {
+    return { status: "skipped", reason: "not_found", filesDeleted: 0, filesFailed: 0 };
+  }
+  // Nur reguläre Tenants über diesen Pfad löschen. suspended/archived
+  // (Super-Admin) und pending_deletion (Self-Deletion) haben eigene Pfade.
+  if (tenant.status !== "active") {
+    return {
+      status: "skipped",
+      reason: `unexpected_status:${tenant.status}`,
+      filesDeleted: 0,
+      filesFailed: 0,
+    };
+  }
+
+  logger.info(
+    { tenantId, studioName: tenant.name },
+    "billing-purge: starting archived-tenant deletion"
+  );
+
+  const ownerEmails = tenant.users
+    .map((u) => u.email)
+    .filter((e): e is string => Boolean(e));
+  for (const email of ownerEmails) {
+    try {
+      const tpl = tmplDeletionExecuted({ studioName: tenant.name });
+      await sendMail({ to: email, ...tpl });
+    } catch (err) {
+      logger.warn({ err, tenantId }, "billing-purge: executed-mail failed (continuing)");
+    }
+  }
+
+  const files = await prisma.file.findMany({
+    where: { gallery: { tenantId } },
+    select: {
+      storageKey: true,
+      renditions: { select: { storageKey: true } },
+    },
+  });
+  let filesDeleted = 0;
+  let filesFailed = 0;
+  for (const file of files) {
+    const keys = [file.storageKey, ...file.renditions.map((r) => r.storageKey)];
+    for (const key of keys) {
+      try {
+        await deleteObject(key);
+        filesDeleted++;
+      } catch (err) {
+        filesFailed++;
+        logger.warn({ err, key, tenantId }, "billing-purge: s3 delete failed (continuing)");
+      }
+    }
+  }
+
+  const tenantWatermark = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { watermarkImageKey: true },
+  });
+  if (tenantWatermark?.watermarkImageKey) {
+    try {
+      await deleteObject(tenantWatermark.watermarkImageKey);
+      filesDeleted++;
+    } catch (err) {
+      filesFailed++;
+      logger.warn({ err, tenantId }, "billing-purge: watermark s3 delete failed");
+    }
+  }
+
+  await prisma.tenant.delete({ where: { id: tenantId } });
+
+  await logEvent({
+    tenantId: null,
+    actorType: "system",
+    actorId: "sweeper",
+    action: "tenant.billing_purge_executed",
+    targetType: "tenant",
+    targetId: tenantId,
+    payload: {
+      studioName: tenant.name,
+      filesDeleted,
+      filesFailed,
+      stripeCustomerId: tenant.stripeCustomerId,
+      ownerEmailsNotified: ownerEmails.length,
+    },
+  });
+
+  logger.info({ tenantId, filesDeleted, filesFailed }, "billing-purge: completed");
+  return { status: "deleted", filesDeleted, filesFailed };
+}
