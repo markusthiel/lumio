@@ -30,6 +30,21 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.16.0] - 2026-06-04
+
+Nur SaaS. `git pull` + regulärer Deploy genügt, keine `.env`- oder
+Compose-Änderung. **Hinweis:** Der Deploy hebt die AVV-Version an — alle
+Studios müssen die Auftragsverarbeitung beim nächsten Login erneut bestätigen.
+Vor dem Deploy den §9-Wortlaut mit dem/der Datenschutzbeauftragten abstimmen.
+
+### Changed
+- Auftragsverarbeitungsvertrag (AVV) §9 „Löschung und Rückgabe nach
+  Beendigung" an den Archiv-Lifecycle (v0.15.0) angepasst: Nach Vertragsende
+  Nur-Lese-Modus zum Export, danach inaktives Archiv, endgültige Löschung
+  spätestens zwölf Monate nach Vertragsende; Reaktivierung bei erneutem Abo.
+  Technisch-organisatorische Maßnahmen (Löschkonzept) entsprechend aktualisiert.
+  AVV-Version `1.0` → `1.1` (erneute Zustimmung erforderlich).
+
 ## [0.15.0] - 2026-06-04
 
 Neues Feature (nur SaaS / `BILLING_ENABLED`). `git pull` + regulärer Deploy
