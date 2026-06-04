@@ -30,6 +30,21 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.37.4] - 2026-06-04
+
+Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
+(Frontend).
+
+### Fixed
+- **Hochformat-Videos werden jetzt korrekt dargestellt**: Bisher wurde das
+  Video auf volle Breite gezogen, wodurch ein Hochformat-Video zu groß
+  wurde und unten abgeschnitten war — und die Play/Pause-Bedienelemente
+  landeten außerhalb des sichtbaren Bereichs (Video ließ sich nicht
+  abspielen). Das Video passt sich jetzt an Höhe und Breite an und behält
+  sein Seitenverhältnis; Hoch- und Querformat passen vollständig ins Bild
+  und die Bedienelemente sind wieder sichtbar. Die Vorschau-Leiste liegt
+  passend unter dem Video.
+
 ## [0.37.3] - 2026-06-04
 
 Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
