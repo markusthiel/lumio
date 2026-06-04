@@ -2751,6 +2751,14 @@ export const api = {
       recent: MailLogRow[];
       stats: { last24h: MailCounts; last7d: MailCounts };
     }>("/super/mail-log"),
+
+  superGetJobs: () => request<SuperJobsResponse>("/super/jobs"),
+  superRetryFileJob: (id: string) =>
+    request<{ ok: true }>(`/super/jobs/file/${id}/retry`, { method: "POST" }),
+  superRetryWebhookJob: (id: string) =>
+    request<{ ok: true }>(`/super/jobs/webhook/${id}/retry`, {
+      method: "POST",
+    }),
   superGetTenant: (id: string) =>
     request<{ tenant: SuperTenantDetail }>(`/super/tenants/${id}`),
 
@@ -3634,6 +3642,51 @@ export interface MailCounts {
   sent: number;
   failed: number;
   skipped: number;
+}
+
+export interface JobFileRow {
+  id: string;
+  filename: string;
+  kind: string;
+  error: string | null;
+  at: string;
+  tenant: string;
+  gallery: string;
+}
+
+export interface JobZipRow {
+  id: string;
+  fileCount: number;
+  variant: string;
+  error: string | null;
+  at: string;
+  tenant: string;
+  gallery: string;
+}
+
+export interface JobWebhookRow {
+  id: string;
+  eventType: string;
+  status: string;
+  httpStatus: number | null;
+  attempts: number;
+  error: string | null;
+  at: string;
+  url: string;
+  tenant: string;
+}
+
+export interface SuperJobsResponse {
+  counts: {
+    failedFiles: number;
+    stuckFiles: number;
+    failedZips: number;
+    failedWebhooks: number;
+  };
+  failedFiles: JobFileRow[];
+  stuckFiles: JobFileRow[];
+  failedZips: JobZipRow[];
+  failedWebhooks: JobWebhookRow[];
 }
 
 export interface CspViolationRow {

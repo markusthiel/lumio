@@ -2115,6 +2115,7 @@ export const en: Dict = {
     navCsp: "CSP",
     navPlanCatalog: "Plan catalog",
     navMailLog: "Email log",
+    navJobs: "Job failures",
     copyLink: "Copy link",
     done: "Done",
     name: "Name",

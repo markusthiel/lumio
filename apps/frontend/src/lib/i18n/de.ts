@@ -2120,6 +2120,7 @@ export const de: Dict = {
     navCsp: "CSP",
     navPlanCatalog: "Plan-Katalog",
     navMailLog: "E-Mail-Log",
+    navJobs: "Job-Fehler",
     copyLink: "Link kopieren",
     done: "Fertig",
     name: "Name",

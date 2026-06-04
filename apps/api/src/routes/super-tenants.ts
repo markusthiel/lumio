@@ -1611,6 +1611,207 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
   });
 
   // -------------------------------------------------------------------------
+  // GET /super/jobs — fehlgeschlagene / hängende Pipeline-Jobs
+  // -------------------------------------------------------------------------
+  // Aggregiert echte Async-Jobs, die fehlschlagen oder hängen können:
+  // File-Processing (Thumbnails/Transcode/Auto-Tagging), ZIP-Builds,
+  // Outbound-Webhooks. Read-only + gezielte Retries (File, Webhook).
+  app.get("/super/jobs", async (req) => {
+    req.requireSuperAdmin();
+    const stuckCutoff = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const galSelect = {
+      select: {
+        title: true,
+        tenant: { select: { name: true, displayName: true } },
+      },
+    } as const;
+
+    const [
+      failedFiles,
+      stuckFiles,
+      failedZips,
+      failedWebhooks,
+      failedFileCount,
+      stuckFileCount,
+      failedZipCount,
+      failedWebhookCount,
+    ] = await Promise.all([
+      prisma.file.findMany({
+        where: { status: "failed" },
+        orderBy: { updatedAt: "desc" },
+        take: 50,
+        select: {
+          id: true,
+          originalFilename: true,
+          kind: true,
+          errorMessage: true,
+          updatedAt: true,
+          gallery: galSelect,
+        },
+      }),
+      prisma.file.findMany({
+        where: { status: "processing", updatedAt: { lt: stuckCutoff } },
+        orderBy: { updatedAt: "asc" },
+        take: 50,
+        select: {
+          id: true,
+          originalFilename: true,
+          kind: true,
+          errorMessage: true,
+          updatedAt: true,
+          gallery: galSelect,
+        },
+      }),
+      prisma.zipDownload.findMany({
+        where: { status: "failed" },
+        orderBy: { updatedAt: "desc" },
+        take: 50,
+        select: {
+          id: true,
+          fileCount: true,
+          variant: true,
+          errorMessage: true,
+          updatedAt: true,
+          gallery: galSelect,
+        },
+      }),
+      prisma.webhookDelivery.findMany({
+        where: { status: { in: ["failed", "dead"] } },
+        orderBy: { updatedAt: "desc" },
+        take: 50,
+        select: {
+          id: true,
+          eventType: true,
+          status: true,
+          httpStatus: true,
+          attempts: true,
+          errorMessage: true,
+          updatedAt: true,
+          webhook: {
+            select: { url: true, tenant: { select: { name: true } } },
+          },
+        },
+      }),
+      prisma.file.count({ where: { status: "failed" } }),
+      prisma.file.count({
+        where: { status: "processing", updatedAt: { lt: stuckCutoff } },
+      }),
+      prisma.zipDownload.count({ where: { status: "failed" } }),
+      prisma.webhookDelivery.count({
+        where: { status: { in: ["failed", "dead"] } },
+      }),
+    ]);
+
+    type Gal = {
+      title: string;
+      tenant: { name: string; displayName: string | null };
+    } | null;
+    const tName = (g: Gal) => g?.tenant?.displayName ?? g?.tenant?.name ?? "—";
+    const mapFile = (f: {
+      id: string;
+      originalFilename: string;
+      kind: string;
+      errorMessage: string | null;
+      updatedAt: Date;
+      gallery: Gal;
+    }) => ({
+      id: f.id,
+      filename: f.originalFilename,
+      kind: f.kind,
+      error: f.errorMessage,
+      at: f.updatedAt,
+      tenant: tName(f.gallery),
+      gallery: f.gallery?.title ?? "—",
+    });
+
+    return {
+      counts: {
+        failedFiles: failedFileCount,
+        stuckFiles: stuckFileCount,
+        failedZips: failedZipCount,
+        failedWebhooks: failedWebhookCount,
+      },
+      failedFiles: failedFiles.map(mapFile),
+      stuckFiles: stuckFiles.map(mapFile),
+      failedZips: failedZips.map((z) => ({
+        id: z.id,
+        fileCount: z.fileCount,
+        variant: z.variant,
+        error: z.errorMessage,
+        at: z.updatedAt,
+        tenant: tName(z.gallery),
+        gallery: z.gallery?.title ?? "—",
+      })),
+      failedWebhooks: failedWebhooks.map((w) => ({
+        id: w.id,
+        eventType: w.eventType,
+        status: w.status,
+        httpStatus: w.httpStatus,
+        attempts: w.attempts,
+        error: w.errorMessage,
+        at: w.updatedAt,
+        url: w.webhook?.url ?? "—",
+        tenant: w.webhook?.tenant?.name ?? "—",
+      })),
+    };
+  });
+
+  // POST /super/jobs/file/:id/retry — File-Processing neu anstoßen
+  app.post<{ Params: { id: string } }>(
+    "/super/jobs/file/:id/retry",
+    async (req, reply) => {
+      req.requireSuperAdmin();
+      const file = await prisma.file.findUnique({
+        where: { id: req.params.id },
+        select: { id: true, kind: true, gallery: { select: { id: true, tenantId: true } } },
+      });
+      if (!file) return reply.status(404).send({ error: "not_found" });
+      await prisma.file.update({
+        where: { id: file.id },
+        data: { status: "processing", errorMessage: null },
+      });
+      const isRaw = file.kind === "raw";
+      const isVideo = file.kind === "video";
+      const isPdf = file.kind === "pdf";
+      await enqueue(isVideo ? Queues.VIDEO_PROCESSING : Queues.FILE_PROCESSING, {
+        type: isVideo
+          ? "process_video"
+          : isRaw
+          ? "process_raw"
+          : isPdf
+          ? "process_pdf"
+          : "process_file",
+        fileId: file.id,
+        tenantId: file.gallery.tenantId,
+        galleryId: file.gallery.id,
+      });
+      return { ok: true };
+    }
+  );
+
+  // POST /super/jobs/webhook/:id/retry — Webhook-Auslieferung neu anstoßen
+  app.post<{ Params: { id: string } }>(
+    "/super/jobs/webhook/:id/retry",
+    async (req, reply) => {
+      req.requireSuperAdmin();
+      const d = await prisma.webhookDelivery.findUnique({
+        where: { id: req.params.id },
+        select: { id: true },
+      });
+      if (!d) return reply.status(404).send({ error: "not_found" });
+      await prisma.webhookDelivery.update({
+        where: { id: d.id },
+        data: { status: "pending", nextAttemptAt: new Date(), errorMessage: null },
+      });
+      await enqueue(Queues.WEBHOOK_DELIVERY, {
+        type: "webhook_delivery",
+        deliveryId: d.id,
+      });
+      return { ok: true };
+    }
+  );
+
+  // -------------------------------------------------------------------------
   // GET /super/stats — globale Übersicht
   // -------------------------------------------------------------------------
   app.get("/super/stats", async () => {

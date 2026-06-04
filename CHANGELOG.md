@@ -30,6 +30,19 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.30.0] - 2026-06-04
+
+Neues Feature (Super-Admin), read-only + Retry. `git pull` + regulärer Deploy
+genügt, keine Migration.
+
+### Added
+- **Super-Admin → Job-Fehler.** Sammelt fehlgeschlagene und hängende
+  Async-Jobs über alle Tenants: Datei-Verarbeitung (Thumbnails, Transcode,
+  Auto-Tagging), ZIP-Builds und ausgehende Webhooks. Zählt sie, listet sie mit
+  Fehlermeldung und erlaubt gezieltes Neu-Anstoßen von Datei-Jobs und Webhooks
+  per Knopfdruck. „Hängend" = seit über 2 Stunden in Verarbeitung. ZIP-Builds
+  read-only (Kunde fordert bei Bedarf einfach neu an).
+
 ## [0.29.0] - 2026-06-04
 
 Neues Feature (Super-Admin). `git pull` + regulärer Deploy genügt; additive
