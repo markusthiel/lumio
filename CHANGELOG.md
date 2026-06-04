@@ -30,6 +30,14 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.22.1] - 2026-06-04
+
+Kleine UI-Ergänzung. `git pull` + regulärer Deploy genügt, nur Frontend.
+
+### Changed
+- Übersicht: Im Signups-Balkendiagramm steht über jedem Balken mit Signups
+  jetzt die Anzahl.
+
 ## [0.22.0] - 2026-06-04
 
 Neues Feature + Fixes. `git pull` + regulärer Deploy genügt.

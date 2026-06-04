@@ -435,17 +435,22 @@ function SignupsSparkline({
         </span>
       </div>
       <div className="border border-line-subtle rounded-md bg-surface-raised p-4">
-        <div className="flex items-end gap-1 h-24">
+        <div className="flex items-end gap-1 h-28">
           {weekly.map((w) => {
-            // Nicht-Null-Wochen bekommen mind. 6% Höhe (sichtbar), Null-Wochen
-            // eine dünne Grundlinie — so liest sich das immer als Diagramm.
-            const pct = w.count === 0 ? 0 : Math.max(6, (w.count / max) * 100);
+            // Auf 85% skaliert, damit oben Platz für die Zahl bleibt.
+            // Nicht-Null-Wochen mind. 8% (sichtbar), Null-Wochen Grundlinie.
+            const pct = w.count === 0 ? 0 : Math.max(8, (w.count / max) * 85);
             return (
               <div
                 key={w.weekStart}
-                className="flex-1 h-full flex items-end"
+                className="flex-1 h-full flex flex-col justify-end items-center"
                 title={`${t("superDash.weekOf")} ${w.weekStart}: ${w.count} ${t(w.count === 1 ? "superDash.signup" : "superDash.signups")}`}
               >
+                {w.count > 0 && (
+                  <span className="text-ui-xs text-ink-secondary leading-none mb-1 tabular-nums">
+                    {w.count}
+                  </span>
+                )}
                 <div
                   className={
                     "w-full rounded-sm " +
