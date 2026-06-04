@@ -30,6 +30,20 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.37.0] - 2026-06-04
+
+Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
+(Frontend), kein API-/Worker-Deploy nötig.
+
+### Added
+- **Markierungen auf Videos**: An einer bestimmten Sekunde im Video lässt
+  sich jetzt ein Pfeil oder eine Freihand-Markierung aufs Standbild setzen —
+  genau wie bei Fotos, plus optionaler Notiz. Auf der Vorschau-Leiste
+  erscheinen kleine Marker an den markierten Stellen; ein Klick springt
+  dorthin und zeigt die Markierung. Funktioniert für Brautpaare/Kunden in
+  der Galerie und fürs Studio im Proofing. (Bestehende Foto-Markierungen
+  bleiben unverändert.)
+
 ## [0.36.0] - 2026-06-04
 
 Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
