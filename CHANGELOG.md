@@ -30,6 +30,20 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.38.0] - 2026-06-04
+
+Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
+(Frontend).
+
+### Changed
+- **Einheitliche Markieren-/Auswahl-Bedienung für Fotos und Videos**: Bei
+  Fotos wird das Markieren jetzt — wie beim Video — über einen
+  „Markieren"-Button **oben** am Bild gestartet (öffnet die
+  Zeichen-Werkzeugleiste, „Fertig" beendet sie). Die Auswahl (Farben +
+  Stern) liegt als Leiste **unten**. Der bisherige untere
+  „Auswahl/Markieren"-Umschalter entfällt; Auswählen und Markieren sind
+  jetzt gleichzeitig möglich.
+
 ## [0.37.5] - 2026-06-04
 
 Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
