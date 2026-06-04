@@ -46,6 +46,25 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
+// accept-Liste fürs Upload-<input>. Hintergrund: ohne accept gibt der
+// iOS/iPadOS-Foto-Picker bei einem ausgewählten VIDEO beim Bestätigen
+// nichts an die Seite zurück (Bilder schon) — das Picker-Fenster bleibt
+// einfach offen. Mit image/*+video/* funktioniert die Übergabe. Damit im
+// Studio trotzdem alle unterstützten Typen wählbar bleiben, listen wir
+// RAW/HEIC/PDF zusätzlich per Extension auf. WICHTIG: accept gilt nur für
+// den Datei-Dialog, NICHT für Drag&Drop — Desktop-Uploads (auch exotische
+// Typen) sind davon unberührt.
+const UPLOAD_ACCEPT = [
+  "image/*",
+  "video/*",
+  "application/pdf",
+  ".pdf",
+  ".heic", ".heif", ".heics", ".heifs",
+  ".cr2", ".cr3", ".crw", ".nef", ".nrw", ".arw", ".srf", ".sr2",
+  ".raf", ".dng", ".orf", ".pef", ".ptx", ".rw2", ".x3f",
+  ".3fr", ".fff", ".iiq", ".mef", ".mrw", ".erf",
+].join(",");
+
 // Bytes → "X.X GB" / "Y MB" / "Z KB". 1024-basiert, Labels wie GB/MB
 // passend zur Dropzone-Anzeige (die maxUploadMib ebenfalls /1024 als GB
 // rechnet). Nur für User-facing Größenangaben beim Upload.
@@ -1131,6 +1150,7 @@ export default function GalleryDetailPage() {
             ref={fileInputRef}
             type="file"
             multiple
+            accept={UPLOAD_ACCEPT}
             className="hidden"
             onChange={(e) => void handleFiles(e.target.files)}
           />
