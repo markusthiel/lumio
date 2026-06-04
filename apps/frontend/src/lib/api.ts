@@ -2312,6 +2312,30 @@ export const api = {
       }
     ),
 
+  /** Weist einem Tenant manuell einen Plan zu (oder wechselt ihn). Mit
+   *  comped=true entsteht ein Gratis-Abo ohne Stripe/Karte (Partner). Der
+   *  Server blockt mit 409 stripe_managed, wenn eine Stripe-Subscription
+   *  existiert. */
+  superAssignSubscription: (
+    tenantId: string,
+    input: {
+      plan: "start" | "solo" | "studio" | "pro";
+      interval?: "monthly" | "yearly";
+      comped?: boolean;
+      storageAddonGib?: number;
+      reason?: string;
+    }
+  ) =>
+    request<{
+      ok: true;
+      plan: string;
+      comped: boolean;
+      storageAddonGib: number;
+    }>(`/super/tenants/${tenantId}/subscription`, {
+      method: "PUT",
+      body: JSON.stringify(input),
+    }),
+
   /** Impersonate-Login: Super-Admin bekommt eine redirect-URL auf die
    *  Tenant-Subdomain. Der Cookie wird erst dort gesetzt (Cross-Domain-
    *  Sicherheits-Workaround via Intent-Token). */
@@ -3486,6 +3510,7 @@ export interface SuperTenantDetail {
 export interface SuperTenantSubscription {
   status: string;
   billingInterval: string;
+  comped: boolean;
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;
   currentPeriodStart: string | null;

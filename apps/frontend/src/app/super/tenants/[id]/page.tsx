@@ -365,15 +365,20 @@ function TenantDetail() {
           </div>
         )}
 
-      {tenant.subscription && (
-        <Section title="Billing">
+      <Section title="Billing">
+        {tenant.subscription ? (
           <BillingBlock
             subscription={tenant.subscription}
             tenantId={tenant.id}
             onChanged={() => void load()}
           />
-        </Section>
-      )}
+        ) : (
+          <NoSubscriptionBlock
+            tenantId={tenant.id}
+            onChanged={() => void load()}
+          />
+        )}
+      </Section>
 
       <Section title="Metadaten">
         {editingMeta ? (
@@ -1093,6 +1098,9 @@ function BillingBlock({
 }) {
   const plan = subscription.plan;
   const [extendOpen, setExtendOpen] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
+  // Stripe-verwaltete Abos werden nicht manuell angefasst (Server blockt).
+  const stripeManaged = Boolean(subscription.stripeSubscriptionId);
 
   const price = (() => {
     if (subscription.billingInterval === "yearly" && plan.priceYearlyCents !== null) {
@@ -1160,6 +1168,11 @@ function BillingBlock({
         <Label>Plan</Label>
         <span>
           {plan.name} <span className="text-ink-tertiary">({plan.slug})</span>
+          {subscription.comped && (
+            <span className="ml-2 inline-block rounded px-1.5 py-0.5 text-ui-xs bg-semantic-success/15 text-semantic-success font-medium">
+              Gratis (comped)
+            </span>
+          )}
         </span>
 
         <Label>Preis</Label>
@@ -1273,6 +1286,22 @@ function BillingBlock({
         </div>
       )}
 
+      <div className="pt-3 border-t border-line-subtle flex items-center gap-3 text-ui-sm">
+        {stripeManaged ? (
+          <span className="text-ink-tertiary">
+            Über Stripe verwaltet — Plan-Wechsel im Stripe-Dashboard.
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setAssignOpen(true)}
+            className="text-sm px-3 py-1.5 rounded-md border border-line-subtle hover:bg-surface-sunken"
+          >
+            Plan zuweisen / ändern
+          </button>
+        )}
+      </div>
+
       {extendOpen && (
         <ExtendTrialDialog
           tenantId={tenantId}
@@ -1284,6 +1313,245 @@ function BillingBlock({
           }}
         />
       )}
+
+      {assignOpen && (
+        <AssignPlanDialog
+          tenantId={tenantId}
+          currentPlanSlug={plan.slug}
+          currentComped={subscription.comped}
+          currentInterval={subscription.billingInterval}
+          currentStorageAddonGib={subscription.storageAddonGib}
+          onClose={() => setAssignOpen(false)}
+          onAssigned={() => {
+            setAssignOpen(false);
+            onChanged();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// Tenant ohne Subscription (z.B. vom Super-Admin angelegt ohne Plan).
+// Läuft auf Trial-Limits; hier kann manuell ein Plan zugewiesen werden.
+function NoSubscriptionBlock({
+  tenantId,
+  onChanged,
+}: {
+  tenantId: string;
+  onChanged: () => void;
+}) {
+  const [assignOpen, setAssignOpen] = useState(false);
+  return (
+    <div className="space-y-3">
+      <div className="text-ui-sm text-ink-secondary">
+        Kein Abo hinterlegt — der Tenant läuft auf Trial-Limits. Weise einen
+        Plan zu, um ihn freizuschalten (für Partner als Gratis-Abo ohne Stripe).
+      </div>
+      <button
+        type="button"
+        onClick={() => setAssignOpen(true)}
+        className="text-sm px-3 py-1.5 rounded-md bg-accent text-accent-contrast hover:bg-accent-hover"
+      >
+        Plan zuweisen
+      </button>
+      {assignOpen && (
+        <AssignPlanDialog
+          tenantId={tenantId}
+          currentPlanSlug={null}
+          currentComped={true}
+          currentInterval="monthly"
+          currentStorageAddonGib={0}
+          onClose={() => setAssignOpen(false)}
+          onAssigned={() => {
+            setAssignOpen(false);
+            onChanged();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+const ASSIGNABLE_PLANS: { slug: "start" | "solo" | "studio" | "pro"; label: string }[] = [
+  { slug: "start", label: "Start" },
+  { slug: "solo", label: "Solo" },
+  { slug: "studio", label: "Studio" },
+  { slug: "pro", label: "Pro" },
+];
+
+// Manuelle Plan-Zuweisung / -Wechsel. comped=true => Gratis-Abo ohne Stripe.
+function AssignPlanDialog({
+  tenantId,
+  currentPlanSlug,
+  currentComped,
+  currentInterval,
+  currentStorageAddonGib,
+  onClose,
+  onAssigned,
+}: {
+  tenantId: string;
+  currentPlanSlug: string | null;
+  currentComped: boolean;
+  currentInterval: string;
+  currentStorageAddonGib: number;
+  onClose: () => void;
+  onAssigned: () => void;
+}) {
+  const initialPlan = ASSIGNABLE_PLANS.some((p) => p.slug === currentPlanSlug)
+    ? (currentPlanSlug as "start" | "solo" | "studio" | "pro")
+    : "pro";
+  const [plan, setPlan] = useState<"start" | "solo" | "studio" | "pro">(
+    initialPlan
+  );
+  const [comped, setComped] = useState(currentComped);
+  const [billInterval, setBillInterval] = useState<"monthly" | "yearly">(
+    currentInterval === "yearly" ? "yearly" : "monthly"
+  );
+  const [storageAddonGib, setStorageAddonGib] = useState(
+    currentStorageAddonGib
+  );
+  const [reason, setReason] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+    try {
+      await api.superAssignSubscription(tenantId, {
+        plan,
+        interval: billInterval,
+        comped,
+        storageAddonGib,
+        reason: reason.trim() || undefined,
+      });
+      onAssigned();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Fehler");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[100]"
+      onClick={onClose}
+    >
+      <form
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={submit}
+        className="w-full max-w-md bg-surface-raised border border-line-subtle shadow-2xl rounded-lg p-6 space-y-4"
+      >
+        <h2 className="text-lg font-semibold">Plan zuweisen</h2>
+
+        <div>
+          <label htmlFor="assign-plan" className="text-sm font-medium block mb-1">
+            Plan
+          </label>
+          <select
+            id="assign-plan"
+            value={plan}
+            onChange={(e) =>
+              setPlan(e.target.value as "start" | "solo" | "studio" | "pro")
+            }
+            className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm bg-surface-raised"
+          >
+            {ASSIGNABLE_PLANS.map((p) => (
+              <option key={p.slug} value={p.slug}>
+                {p.label} ({p.slug})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={comped}
+            onChange={(e) => setComped(e.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            Gratis-Abo (comped)
+            <span className="block text-ui-xs text-ink-tertiary">
+              Kein Stripe, keine Karte, kein Ablauf. Zählt nicht zur MRR. Für
+              Partner-/Goodwill-Konten.
+            </span>
+          </span>
+        </label>
+
+        <div>
+          <label htmlFor="assign-interval" className="text-sm font-medium block mb-1">
+            Abrechnungsintervall{" "}
+            <span className="text-ink-tertiary">(bei comped nur kosmetisch)</span>
+          </label>
+          <select
+            id="assign-interval"
+            value={billInterval}
+            onChange={(e) =>
+              setBillInterval(e.target.value as "monthly" | "yearly")
+            }
+            className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm bg-surface-raised"
+          >
+            <option value="monthly">Monatlich</option>
+            <option value="yearly">Jährlich</option>
+          </select>
+        </div>
+
+        <div>
+          <label htmlFor="assign-storage" className="text-sm font-medium block mb-1">
+            Zusatz-Speicher{" "}
+            <span className="text-ink-tertiary">(GiB, optional)</span>
+          </label>
+          <input
+            id="assign-storage"
+            type="number"
+            min={0}
+            max={100000}
+            value={storageAddonGib}
+            onChange={(e) =>
+              setStorageAddonGib(Math.max(0, Number(e.target.value) || 0))
+            }
+            className="w-32 rounded-md border border-line-subtle px-3 py-2 text-sm"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="assign-reason" className="text-sm font-medium block mb-1">
+            Grund <span className="text-ink-tertiary">(optional, intern)</span>
+          </label>
+          <input
+            id="assign-reason"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            maxLength={500}
+            placeholder="z.B. Partner-Account, kostenlos vereinbart"
+            className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm"
+          />
+        </div>
+
+        {error && <div className="text-sm text-semantic-danger">{error}</div>}
+
+        <div className="flex justify-end gap-2 pt-2 border-t border-line-subtle">
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-sm px-3 py-2 rounded-md border border-line-subtle hover:bg-surface-sunken"
+          >
+            Abbrechen
+          </button>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="text-sm px-3 py-2 rounded-md bg-accent text-accent-contrast hover:bg-accent-hover disabled:opacity-50"
+          >
+            {submitting ? "Speichert…" : "Zuweisen"}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

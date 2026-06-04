@@ -30,6 +30,19 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.18.0] - 2026-06-04
+
+Neues Feature. `git pull` + regulärer Deploy genügt, nur Frontend.
+
+### Added
+- Super-Admin: Im Studio-Detail gibt es jetzt einen Button „Plan zuweisen /
+  ändern". Damit lässt sich einem Studio direkt ein Plan geben — wahlweise als
+  kostenloses Abo (für Partner), inkl. optionalem Zusatz-Speicher. Studios ohne
+  Abo zeigen den Button ebenfalls, sodass sie freigeschaltet werden können.
+  Bei Stripe-Studios ist der manuelle Wechsel ausgeblendet (gehört ins
+  Stripe-Dashboard). Kostenlose Abos sind im Detail klar als „Gratis (comped)"
+  markiert.
+
 ## [0.17.0] - 2026-06-04
 
 Neues Feature. `git pull` + regulärer Deploy genügt; die DB-Migration läuft
