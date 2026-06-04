@@ -30,6 +30,14 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.27.1] - 2026-06-04
+
+Kleiner UI-Fix. `git pull` + regulärer Deploy genügt, nur Frontend.
+
+### Fixed
+- Die Schalter unter Einstellungen → „E-Mail-Benachrichtigungen" waren leicht
+  verrutscht; der Knopf sitzt jetzt sauber zentriert.
+
 ## [0.27.0] - 2026-06-04
 
 Neues Feature. `git pull` + regulärer Deploy genügt; additive Migration läuft

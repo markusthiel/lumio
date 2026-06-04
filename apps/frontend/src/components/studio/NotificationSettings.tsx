@@ -84,7 +84,7 @@ export function NotificationSettings({ canEdit }: { canEdit: boolean }) {
                   disabled={!canEdit || savingKey === e.key}
                   onClick={() => void toggle(e.key)}
                   className={
-                    "relative shrink-0 mt-0.5 h-6 w-11 rounded-full transition-colors disabled:opacity-50 " +
+                    "relative inline-flex shrink-0 mt-0.5 h-6 w-11 items-center rounded-full px-0.5 transition-colors disabled:opacity-50 " +
                     (on ? "bg-accent" : "bg-line-strong")
                   }
                   title={
@@ -97,8 +97,8 @@ export function NotificationSettings({ canEdit }: { canEdit: boolean }) {
                 >
                   <span
                     className={
-                      "absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform " +
-                      (on ? "translate-x-5" : "translate-x-0.5")
+                      "inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform " +
+                      (on ? "translate-x-5" : "translate-x-0")
                     }
                   />
                 </button>
