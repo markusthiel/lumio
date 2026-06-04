@@ -305,7 +305,7 @@ export async function checkForUpdate(force = false): Promise<UpdateInfo> {
   // LUMIO_UPDATE_REPO_TOKEN (Read-only-Token genügt). Ohne Token liefert
   // Forgejo 404 und der Check zeigt sich als "nicht erreichbar".
   const repoBase =
-    process.env.LUMIO_UPDATE_REPO_URL ??
+    process.env.LUMIO_UPDATE_REPO_URL?.trim() ||
     "https://forgejo.thiel.tools/api/v1/repos/thiel/lumio";
   const repoToken = process.env.LUMIO_UPDATE_REPO_TOKEN?.trim();
 

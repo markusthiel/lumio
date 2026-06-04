@@ -35,6 +35,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 
 import { prisma } from "../db.js";
+import { Prisma } from "@prisma/client";
 import { config } from "../config.js";
 import { hashPassword, createSession } from "../services/auth.js";
 import { createSetupToken, buildSetupUrl, buildResetUrl } from "../services/setupToken.js";
@@ -1186,6 +1187,309 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
         },
         setup: { url: setupUrl, mailSent },
       });
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // GET /super/users — globale User-Liste über alle Tenants
+  // -------------------------------------------------------------------------
+  // Mit Suche (E-Mail/Name), Filtern (Rolle/Status/Tenant) und Pagination.
+  // Jede Zeile trägt ihren Tenant — so sind auch gleiche E-Mails in
+  // verschiedenen Tenants eindeutig zuzuordnen.
+  const listUsersSchema = z.object({
+    q: z.string().trim().max(200).optional(),
+    role: z.enum(["owner", "admin", "member"]).optional(),
+    status: z.enum(["active", "invited", "disabled"]).optional(),
+    tenantId: z.string().uuid().optional(),
+    limit: z.coerce.number().int().min(1).max(100).default(50),
+    offset: z.coerce.number().int().min(0).default(0),
+  });
+  app.get("/super/users", async (req) => {
+    req.requireSuperAdmin();
+    const qp = listUsersSchema.parse(req.query);
+
+    const where: Prisma.UserWhereInput = {};
+    if (qp.role) where.role = qp.role;
+    if (qp.status) where.status = qp.status;
+    if (qp.tenantId) where.tenantId = qp.tenantId;
+    if (qp.q) {
+      where.OR = [
+        // email ist citext (case-insensitive); name normal.
+        { email: { contains: qp.q } },
+        { name: { contains: qp.q, mode: "insensitive" } },
+      ];
+    }
+
+    const [total, users] = await Promise.all([
+      prisma.user.count({ where }),
+      prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+          status: true,
+          lastLoginAt: true,
+          createdAt: true,
+          tenant: {
+            select: {
+              id: true,
+              slug: true,
+              name: true,
+              displayName: true,
+              status: true,
+            },
+          },
+        },
+        orderBy: [{ createdAt: "desc" }],
+        take: qp.limit,
+        skip: qp.offset,
+      }),
+    ]);
+
+    return {
+      total,
+      limit: qp.limit,
+      offset: qp.offset,
+      users: users.map((u) => ({
+        id: u.id,
+        email: u.email,
+        name: u.name,
+        role: u.role,
+        status: u.status,
+        lastLoginAt: u.lastLoginAt,
+        createdAt: u.createdAt,
+        tenant: {
+          id: u.tenant.id,
+          slug: u.tenant.slug,
+          name: u.tenant.displayName ?? u.tenant.name,
+          status: u.tenant.status,
+        },
+      })),
+    };
+  });
+
+  // -------------------------------------------------------------------------
+  // PATCH /super/users/:userId — Name / Rolle / Status ändern
+  // -------------------------------------------------------------------------
+  // Last-Owner-Schutz: der letzte aktive Owner eines Tenants kann nicht
+  // degradiert oder deaktiviert werden — sonst sperrt sich der Tenant aus.
+  const updateUserSchema = z.object({
+    name: z.string().max(120).nullable().optional(),
+    role: z.enum(["owner", "admin", "member"]).optional(),
+    status: z.enum(["active", "disabled"]).optional(),
+  });
+  app.patch<{ Params: { userId: string } }>(
+    "/super/users/:userId",
+    async (req, reply) => {
+      const sa = req.requireSuperAdmin();
+      const body = updateUserSchema.parse(req.body);
+
+      const target = await prisma.user.findUnique({
+        where: { id: req.params.userId },
+        select: { id: true, tenantId: true, role: true, status: true },
+      });
+      if (!target) return reply.status(404).send({ error: "not_found" });
+
+      const losingOwner =
+        (!!body.role && body.role !== "owner" && target.role === "owner") ||
+        (body.status === "disabled" &&
+          target.status === "active" &&
+          target.role === "owner");
+      if (losingOwner) {
+        const otherActiveOwners = await prisma.user.count({
+          where: {
+            tenantId: target.tenantId,
+            role: "owner",
+            status: "active",
+            id: { not: target.id },
+          },
+        });
+        if (otherActiveOwners === 0) {
+          return reply.status(409).send({
+            error: "last_owner",
+            message:
+              "Letzter aktiver Owner des Tenants — kann nicht degradiert/deaktiviert werden.",
+          });
+        }
+      }
+
+      const data: Prisma.UserUpdateInput = {};
+      if (body.name !== undefined) data.name = body.name?.trim() || null;
+      if (body.role) data.role = body.role;
+      if (body.status) data.status = body.status;
+
+      const updated = await prisma.user.update({
+        where: { id: target.id },
+        data,
+        select: { id: true, email: true, name: true, role: true, status: true },
+      });
+
+      await logEvent({
+        tenantId: target.tenantId,
+        actorType: "super_admin",
+        actorId: sa.admin.id,
+        action: "super.user.update",
+        targetType: "user",
+        targetId: target.id,
+        payload: {
+          name: body.name === undefined ? undefined : (body.name ?? null),
+          role: body.role ?? undefined,
+          status: body.status ?? undefined,
+        },
+        ipAddress: req.ip,
+      });
+
+      return { ok: true, user: updated };
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // POST /super/tenants/:id/users — neuen User für einen Tenant anlegen
+  // -------------------------------------------------------------------------
+  // Beliebige Rolle, Status "invited" + Setup-Mail (verallgemeinert die
+  // Owner-Einladung). Super-Admin setzt kein Passwort selbst.
+  const addUserSchema = z.object({
+    email: z.string().email().max(200),
+    name: z.string().min(1).max(120),
+    role: z.enum(["owner", "admin", "member"]).default("member"),
+  });
+  app.post<{ Params: { id: string } }>(
+    "/super/tenants/:id/users",
+    async (req, reply) => {
+      const sa = req.requireSuperAdmin();
+      const body = addUserSchema.parse(req.body);
+
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: req.params.id },
+      });
+      if (!tenant) return reply.status(404).send({ error: "not_found" });
+      if (tenant.status !== "active") {
+        return reply.status(409).send({
+          error: "tenant_inactive",
+          message: "Cannot add user to inactive tenant",
+        });
+      }
+
+      const existing = await prisma.user.findUnique({
+        where: {
+          tenantId_email: {
+            tenantId: tenant.id,
+            email: body.email.toLowerCase(),
+          },
+        },
+        select: { id: true },
+      });
+      if (existing) return reply.status(409).send({ error: "email_taken" });
+
+      const placeholderHash = await hashPassword(
+        crypto.randomUUID() + crypto.randomUUID()
+      );
+      const user = await prisma.user.create({
+        data: {
+          tenantId: tenant.id,
+          email: body.email.toLowerCase(),
+          passwordHash: placeholderHash,
+          name: body.name,
+          role: body.role,
+          status: "invited",
+        },
+      });
+
+      const { token } = await createSetupToken({ userId: user.id });
+      const setupUrl = buildSetupUrl(token);
+
+      let mailSent = false;
+      try {
+        const tpl = tmplOwnerSetup({
+          displayName: body.name,
+          tenantName: tenant.displayName ?? tenant.name,
+          setupUrl,
+          invitedBy: sa.admin.displayName,
+          validHours: 72,
+        });
+        await sendMail({ to: body.email, ...tpl });
+        mailSent = true;
+      } catch (err) {
+        logger.warn({ err, userId: user.id }, "super user create: mail failed");
+      }
+
+      await logEvent({
+        tenantId: tenant.id,
+        actorType: "super_admin",
+        actorId: sa.admin.id,
+        action: "super.user.create",
+        targetType: "user",
+        targetId: user.id,
+        payload: { email: body.email, role: body.role, mailSent },
+        ipAddress: req.ip,
+      });
+
+      return reply.status(201).send({
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          status: user.status,
+        },
+        setup: { url: setupUrl, mailSent },
+      });
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // POST /super/users/:userId/password-reset — Reset-Link für beliebigen User
+  // -------------------------------------------------------------------------
+  app.post<{ Params: { userId: string } }>(
+    "/super/users/:userId/password-reset",
+    async (req, reply) => {
+      const sa = req.requireSuperAdmin();
+
+      const user = await prisma.user.findFirst({
+        where: { id: req.params.userId, status: "active" },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          tenantId: true,
+          tenant: { select: { name: true, displayName: true } },
+        },
+      });
+      if (!user) {
+        return reply.status(404).send({
+          error: "user_not_found",
+          message: "User nicht gefunden oder nicht aktiv.",
+        });
+      }
+
+      const setupResult = await createSetupToken({
+        userId: user.id,
+        kind: "reset",
+      });
+      const resetUrl = buildResetUrl(setupResult.token);
+
+      const tpl = tmplPasswordReset({
+        displayName: user.name ?? user.email,
+        tenantName: user.tenant.displayName ?? user.tenant.name,
+        resetUrl,
+        validHours: 24,
+      });
+      await sendMail({ to: user.email, ...tpl });
+
+      await logEvent({
+        tenantId: user.tenantId,
+        actorType: "super_admin",
+        actorId: sa.admin.id,
+        action: "super.user.password_reset",
+        targetType: "user",
+        targetId: user.id,
+        payload: { email: user.email, tokenId: setupResult.tokenId },
+        ipAddress: req.ip,
+      });
+
+      return { ok: true, resetUrl, expiresAt: setupResult.expiresAt };
     }
   );
 

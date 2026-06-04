@@ -425,9 +425,6 @@ function SignupsSparkline({
   if (weekly.length === 0) return null;
   const max = Math.max(...weekly.map((w) => w.count), 1);
   const total = weekly.reduce((sum, w) => sum + w.count, 0);
-  const W = 600;
-  const H = 60;
-  const barWidth = W / weekly.length;
 
   return (
     <section className="mt-8">
@@ -438,32 +435,28 @@ function SignupsSparkline({
         </span>
       </div>
       <div className="border border-line-subtle rounded-md bg-surface-raised p-4">
-        <svg
-          viewBox={`0 0 ${W} ${H}`}
-          className="w-full h-16"
-          preserveAspectRatio="none"
-        >
-          {weekly.map((w, i) => {
-            const h = (w.count / max) * (H - 4);
+        <div className="flex items-end gap-1 h-24">
+          {weekly.map((w) => {
+            // Nicht-Null-Wochen bekommen mind. 6% Höhe (sichtbar), Null-Wochen
+            // eine dünne Grundlinie — so liest sich das immer als Diagramm.
+            const pct = w.count === 0 ? 0 : Math.max(6, (w.count / max) * 100);
             return (
-              <g key={w.weekStart}>
-                <rect
-                  x={i * barWidth + 1}
-                  y={H - h}
-                  width={Math.max(0, barWidth - 2)}
-                  height={h}
-                  className="fill-accent"
-                  opacity={w.count === 0 ? 0.2 : 1}
-                >
-                  <title>
-                    {t("superDash.weekOf")} {w.weekStart}: {w.count}{" "}
-                    {t(w.count === 1 ? "superDash.signup" : "superDash.signups")}
-                  </title>
-                </rect>
-              </g>
+              <div
+                key={w.weekStart}
+                className="flex-1 h-full flex items-end"
+                title={`${t("superDash.weekOf")} ${w.weekStart}: ${w.count} ${t(w.count === 1 ? "superDash.signup" : "superDash.signups")}`}
+              >
+                <div
+                  className={
+                    "w-full rounded-sm " +
+                    (w.count === 0 ? "bg-accent/15 h-px" : "bg-accent")
+                  }
+                  style={w.count === 0 ? undefined : { height: `${pct}%` }}
+                />
+              </div>
             );
           })}
-        </svg>
+        </div>
       </div>
     </section>
   );

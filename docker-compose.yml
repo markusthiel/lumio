@@ -133,6 +133,11 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - LUMIO_LEGAL_IMPRINT_URL=${LUMIO_LEGAL_IMPRINT_URL:-}
       - LUMIO_LEGAL_PRIVACY_URL=${LUMIO_LEGAL_PRIVACY_URL:-}
+      # Update-Check (Super-Admin → System). Quelle default = Forgejo (im
+      # Code); Token nötig wenn das Repo privat ist.
+      - LUMIO_UPDATE_REPO_URL=${LUMIO_UPDATE_REPO_URL:-}
+      - LUMIO_UPDATE_REPO_TOKEN=${LUMIO_UPDATE_REPO_TOKEN:-}
+      - DISABLE_UPDATE_CHECK=${DISABLE_UPDATE_CHECK:-}
     # Auch hier: direkter Port ist Debug-Hilfe, regulärer Zugriff geht durch
     # Caddy → /api/*.
     ports:

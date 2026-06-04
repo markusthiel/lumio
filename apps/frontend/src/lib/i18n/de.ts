@@ -2109,6 +2109,7 @@ export const de: Dict = {
   super: {
     navOverview: "Übersicht",
     navTenants: "Tenants",
+    navUsers: "Users",
     navStorage: "Storage",
     navMrr: "MRR",
     navBanner: "Banner",

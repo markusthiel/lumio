@@ -30,6 +30,28 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.22.0] - 2026-06-04
+
+Neues Feature + Fixes. `git pull` + regulärer Deploy genügt.
+
+### Added
+- Super-Admin: neue globale **User-Liste** (`/super/users`) über alle Tenants
+  mit Suche (E-Mail/Name) und Filtern (Rolle, Status, Tenant). Jeder User zeigt
+  seinen Tenant — gleiche E-Mail in mehreren Tenants ist damit eindeutig.
+  Bearbeiten von Name/Rolle/Status (mit Last-Owner-Schutz), Passwort-Reset-Link
+  und Anlegen neuer User pro Tenant (Einladung mit Setup-Mail). Kein Hard-Delete
+  — zum Sperren „disabled" setzen.
+
+### Fixed
+- Update-Check (System): das hinterlegte Forgejo-Lesetoken
+  (`LUMIO_UPDATE_REPO_TOKEN`) wurde nicht an den API-Container durchgereicht,
+  daher weiterhin „nicht erreichbar (HTTP 404)". Die Update-Check-Variablen
+  werden jetzt korrekt durchgereicht. Leeres `LUMIO_UPDATE_REPO_URL`
+  überschreibt nicht mehr versehentlich die Standardquelle.
+- Übersicht: Der Signups-Trend wurde als einzelnes verzerrtes Quadrat statt als
+  Balkendiagramm dargestellt. Jetzt ein sauberes Balkendiagramm über 12 Wochen
+  (leere Wochen als Grundlinie sichtbar).
+
 ## [0.21.0] - 2026-06-04
 
 Neues Feature + Fixes. `git pull` + regulärer Deploy genügt. Optionaler

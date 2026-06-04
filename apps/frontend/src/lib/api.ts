@@ -2649,6 +2649,75 @@ export const api = {
 
   superListTenants: () =>
     request<{ tenants: SuperTenantSummary[] }>("/super/tenants"),
+
+  superListUsers: (
+    params: {
+      q?: string;
+      role?: "owner" | "admin" | "member";
+      status?: "active" | "invited" | "disabled";
+      tenantId?: string;
+      limit?: number;
+      offset?: number;
+    } = {}
+  ) => {
+    const search = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined && v !== null && v !== "") search.set(k, String(v));
+    }
+    const qs = search.toString();
+    return request<{
+      total: number;
+      limit: number;
+      offset: number;
+      users: SuperUserListItem[];
+    }>(`/super/users${qs ? `?${qs}` : ""}`);
+  },
+
+  superUpdateUser: (
+    userId: string,
+    input: {
+      name?: string | null;
+      role?: "owner" | "admin" | "member";
+      status?: "active" | "disabled";
+    }
+  ) =>
+    request<{
+      ok: true;
+      user: {
+        id: string;
+        email: string;
+        name: string | null;
+        role: string;
+        status: string;
+      };
+    }>(`/super/users/${userId}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }),
+
+  superCreateUser: (
+    tenantId: string,
+    input: { email: string; name: string; role: "owner" | "admin" | "member" }
+  ) =>
+    request<{
+      user: {
+        id: string;
+        email: string;
+        name: string | null;
+        role: string;
+        status: string;
+      };
+      setup: { url: string; mailSent: boolean };
+    }>(`/super/tenants/${tenantId}/users`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  superResetUserPassword: (userId: string) =>
+    request<{ ok: true; resetUrl: string; expiresAt: string }>(
+      `/super/users/${userId}/password-reset`,
+      { method: "POST" }
+    ),
   superGetTenant: (id: string) =>
     request<{ tenant: SuperTenantDetail }>(`/super/tenants/${id}`),
 
@@ -3477,6 +3546,17 @@ export interface SuperTenantUser {
   status: string;
   lastLoginAt: string | null;
   createdAt: string;
+}
+
+export interface SuperUserListItem {
+  id: string;
+  email: string;
+  name: string | null;
+  role: string;
+  status: string;
+  lastLoginAt: string | null;
+  createdAt: string;
+  tenant: { id: string; slug: string; name: string; status: string };
 }
 
 export interface SuperTenantDetail {
