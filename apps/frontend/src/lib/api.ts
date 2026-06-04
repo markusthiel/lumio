@@ -2718,6 +2718,16 @@ export const api = {
       `/super/users/${userId}/password-reset`,
       { method: "POST" }
     ),
+
+  superListCspViolations: () =>
+    request<{
+      violations: CspViolationRow[];
+      distinct: number;
+      totalEvents: number;
+    }>("/super/csp"),
+
+  superClearCsp: () =>
+    request<{ ok: true; deleted: number }>("/super/csp", { method: "DELETE" }),
   superGetTenant: (id: string) =>
     request<{ tenant: SuperTenantDetail }>(`/super/tenants/${id}`),
 
@@ -3557,6 +3567,16 @@ export interface SuperUserListItem {
   lastLoginAt: string | null;
   createdAt: string;
   tenant: { id: string; slug: string; name: string; status: string };
+}
+
+export interface CspViolationRow {
+  id: string;
+  effectiveDirective: string;
+  blockedUri: string;
+  sampleDocumentUri: string | null;
+  count: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
 }
 
 export interface SuperTenantDetail {

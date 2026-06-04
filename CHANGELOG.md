@@ -30,6 +30,20 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.23.0] - 2026-06-04
+
+Neues Feature. **Wichtig:** nach dem Deploy Caddy einmal reloaden (siehe unten),
+damit der neue CSP-Header aktiv wird.
+
+### Added
+- **CSP-Report-Sink + Auswertung.** Die Content-Security-Policy (weiterhin
+  Report-Only) meldet Verstöße jetzt an `/api/v1/csp-report`. Aggregiert nach
+  Directive + blockierter Quelle in der neuen Tabelle `csp_violations`
+  (Upsert + Zähler, beschränkte Menge). Neue Super-Admin-Seite `/super/csp`
+  zeigt die Verstöße nach Häufigkeit, mit „Leeren". Datenbasis, um die Policy
+  vor dem Scharfschalten (enforced) gegen echten Traffic zu tunen — das
+  Enforcen selbst folgt später separat.
+
 ## [0.22.3] - 2026-06-04
 
 Kleine Verbesserung. `git pull` + regulärer Deploy genügt.

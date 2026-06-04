@@ -2117,6 +2117,7 @@ export const de: Dict = {
     navPrintProvider: "Print-Provider",
     navAudit: "Audit-Log",
     navSystem: "System",
+    navCsp: "CSP",
     copyLink: "Link kopieren",
     done: "Fertig",
     name: "Name",

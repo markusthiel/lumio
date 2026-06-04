@@ -54,6 +54,7 @@ import { registerPrintShopPublicRoutes } from "./routes/print-shop-public.js";
 import { registerAnalyticsRoutes } from "./routes/analytics.js";
 import { registerAutoTagRoutes } from "./routes/auto-tags.js";
 import { registerWsRoutes } from "./routes/ws.js";
+import { registerCspRoutes } from "./routes/csp.js";
 import superAdminPlugin from "./plugins/super-admin.js";
 import { startPeriodicSweeper } from "./services/sweeper.js";
 import { startPrintOrderMailSweeper } from "./services/print-mail-sweeper.js";
@@ -94,6 +95,22 @@ async function buildServer() {
         done(null, parsed);
       } catch (err) {
         done(err as Error, undefined);
+      }
+    }
+  );
+
+  // CSP-Verstoss-Reports kommen mit Content-Type "application/csp-report"
+  // (vom Browser via report-uri). Fastify kennt den Typ nicht und wuerde
+  // sonst 415 antworten — wir parsen ihn wie JSON.
+  app.addContentTypeParser(
+    "application/csp-report",
+    { parseAs: "string" },
+    (_req, body, done) => {
+      try {
+        done(null, body ? JSON.parse(body as string) : null);
+      } catch {
+        // Kaputter Report: nicht hart fehlschlagen, leeres Objekt -> Route 204.
+        done(null, {});
       }
     }
   );
@@ -175,6 +192,7 @@ async function buildServer() {
       await registerAnalyticsRoutes(api);
       // Auto-Tag-Routes — Feature-Flag-gated (ai_tagging)
       await registerAutoTagRoutes(api);
+      await registerCspRoutes(api);
       if (config.BILLING_ENABLED) {
         await registerBillingRoutes(api);
         await registerSignupRoutes(api);

@@ -2282,3 +2282,22 @@ model DpaAcceptance {
   @@index([tenantId])
   @@map("dpa_acceptances")
 }
+
+/// Aggregierte CSP-Verstoesse (Content-Security-Policy-Report-Only).
+/// Der oeffentliche /csp-report-Endpoint upsertet hier nach
+/// (effectiveDirective, blockedUri) und zaehlt hoch — so bleibt die
+/// Zeilenzahl beschraenkt. Dient als Datenbasis, um die Policy vor dem
+/// Scharfschalten (enforced) gegen echten Traffic zu tunen.
+model CspViolation {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  effectiveDirective String   // z.B. "script-src-elem"
+  blockedUri         String   // normalisiert: Origin oder Keyword (inline/eval/data/blob)
+  sampleDocumentUri  String?  // eine Beispiel-Seite, auf der es auftrat
+  count              Int      @default(1)
+  firstSeenAt        DateTime @default(now())
+  lastSeenAt         DateTime @default(now())
+
+  @@unique([effectiveDirective, blockedUri])
+  @@index([lastSeenAt])
+  @@map("csp_violations")
+}
