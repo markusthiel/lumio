@@ -30,6 +30,22 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.19.0] - 2026-06-04
+
+Neues Feature. `git pull` + regulärer Deploy genügt.
+
+### Added
+- Super-Admin: Im Studio-Detail kann ein kostenloses Abo jetzt per Button
+  „Abo entfernen" zurückgesetzt werden. Danach hat das Studio kein Abo mehr und
+  der Owner kann im Studio ganz normal über Stripe einen Plan buchen — kein
+  Eingriff in die Datenbank mehr nötig. Stripe-Abos sind davon ausgenommen
+  (die werden weiter über Archivieren bzw. das Stripe-Dashboard gekündigt).
+
+### Fixed
+- Bucht ein Studio mit kostenlosem Abo später selbst einen Stripe-Plan, wird
+  es jetzt korrekt als zahlend geführt (vorher blieb die interne „Gratis"-
+  Markierung bestehen und das Studio fehlte in der Umsatz-Auswertung).
+
 ## [0.18.1] - 2026-06-04
 
 Bugfix. `git pull` + regulärer Deploy genügt.

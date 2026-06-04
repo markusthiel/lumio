@@ -171,6 +171,11 @@ export async function syncSubscriptionFromStripe(
       planId: plan.id,
       status: sub.status,
       billingInterval,
+      // Sobald ein echtes Stripe-Abo synchronisiert wird, ist es kein
+      // manuell zugewiesenes Gratis-Abo mehr — comped zurücksetzen, damit
+      // der jetzt zahlende Tenant wieder in die MRR zählt. (Greift z.B.
+      // wenn ein comped-Partner über sein Studio einen Plan bucht.)
+      comped: false,
       stripeSubscriptionId: sub.id,
       stripePlanItemId: planItem.id,
       stripeStorageAddonItemId: storageAddonItem?.id ?? null,

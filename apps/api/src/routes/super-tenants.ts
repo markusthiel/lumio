@@ -2306,6 +2306,65 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
   );
 
   // -------------------------------------------------------------------------
+  // DELETE /super/tenants/:id/subscription
+  // -------------------------------------------------------------------------
+  // Entfernt ein manuell zugewiesenes (Gratis-)Abo. Danach hat der Tenant
+  // keine Subscription mehr und fällt auf Trial-Limits zurück — der Owner
+  // kann dann im Studio regulär über Stripe einen Plan buchen (sauberer
+  // Self-Service statt DB-Handarbeit).
+  //
+  // Guardrail: ein Stripe-verknüpftes Abo wird NICHT gelöscht (das würde DB
+  // und Stripe auseinanderlaufen lassen). Solche Abos über Archivieren/
+  // Stripe-Dashboard kündigen.
+  app.delete<{ Params: { id: string } }>(
+    "/super/tenants/:id/subscription",
+    async (req, reply) => {
+      const sa = req.requireSuperAdmin();
+
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: req.params.id },
+        select: { id: true, name: true },
+      });
+      if (!tenant) return reply.status(404).send({ error: "not_found" });
+
+      const sub = await prisma.billingSubscription.findUnique({
+        where: { tenantId: tenant.id },
+        select: { stripeSubscriptionId: true, comped: true, plan: { select: { slug: true } } },
+      });
+      if (!sub) {
+        return reply.status(409).send({
+          error: "no_subscription",
+          message: "Tenant hat kein Abo, das entfernt werden könnte.",
+        });
+      }
+      if (sub.stripeSubscriptionId) {
+        return reply.status(409).send({
+          error: "stripe_managed",
+          message:
+            "Stripe-Abo kann hier nicht entfernt werden. Bitte über Archivieren bzw. das Stripe-Dashboard kündigen.",
+        });
+      }
+
+      await prisma.billingSubscription.delete({
+        where: { tenantId: tenant.id },
+      });
+
+      await logEvent({
+        tenantId: tenant.id,
+        actorType: "super_admin",
+        actorId: sa.admin.id,
+        action: "super.tenant.subscription_removed",
+        targetType: "tenant",
+        targetId: tenant.id,
+        payload: { plan: sub.plan.slug, wasComped: sub.comped },
+        ipAddress: req.ip,
+      });
+
+      return { ok: true };
+    }
+  );
+
+  // -------------------------------------------------------------------------
   // POST /super/tenants/:id/owner-password-reset
   // -------------------------------------------------------------------------
   // Super-Admin kann fuer einen User des Tenants einen Passwort-Reset-Link

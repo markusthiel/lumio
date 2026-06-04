@@ -2335,6 +2335,14 @@ export const api = {
       body: JSON.stringify(input),
     }),
 
+  /** Entfernt ein manuell zugewiesenes (Gratis-)Abo. Tenant fällt danach
+   *  auf Trial-Limits und kann im Studio regulär über Stripe buchen. Der
+   *  Server blockt mit 409 stripe_managed bei Stripe-Abos. */
+  superDeleteSubscription: (tenantId: string) =>
+    request<{ ok: true }>(`/super/tenants/${tenantId}/subscription`, {
+      method: "DELETE",
+    }),
+
   /** Impersonate-Login: Super-Admin bekommt eine redirect-URL auf die
    *  Tenant-Subdomain. Der Cookie wird erst dort gesetzt (Cross-Domain-
    *  Sicherheits-Workaround via Intent-Token). */

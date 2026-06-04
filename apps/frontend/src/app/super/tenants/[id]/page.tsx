@@ -1099,8 +1099,30 @@ function BillingBlock({
   const plan = subscription.plan;
   const [extendOpen, setExtendOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
+  const [removing, setRemoving] = useState(false);
   // Stripe-verwaltete Abos werden nicht manuell angefasst (Server blockt).
   const stripeManaged = Boolean(subscription.stripeSubscriptionId);
+
+  async function removeSubscription() {
+    if (
+      !confirm(
+        "Kostenloses Abo entfernen? Der Tenant fällt danach auf Trial-Limits " +
+          "zurück (bestehende Galerien bleiben, aber Uploads/neue Galerien sind " +
+          "bis zur Buchung begrenzt). Der Owner kann dann im Studio regulär " +
+          "über Stripe einen Plan buchen."
+      )
+    )
+      return;
+    setRemoving(true);
+    try {
+      await api.superDeleteSubscription(tenantId);
+      onChanged();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Fehler beim Entfernen");
+    } finally {
+      setRemoving(false);
+    }
+  }
 
   const price = (() => {
     if (subscription.billingInterval === "yearly" && plan.priceYearlyCents !== null) {
@@ -1292,13 +1314,23 @@ function BillingBlock({
             Über Stripe verwaltet — Plan-Wechsel im Stripe-Dashboard.
           </span>
         ) : (
-          <button
-            type="button"
-            onClick={() => setAssignOpen(true)}
-            className="text-sm px-3 py-1.5 rounded-md border border-line-subtle hover:bg-surface-sunken"
-          >
-            Plan zuweisen / ändern
-          </button>
+          <>
+            <button
+              type="button"
+              onClick={() => setAssignOpen(true)}
+              className="text-sm px-3 py-1.5 rounded-md border border-line-subtle hover:bg-surface-sunken"
+            >
+              Plan zuweisen / ändern
+            </button>
+            <button
+              type="button"
+              onClick={removeSubscription}
+              disabled={removing}
+              className="text-sm px-3 py-1.5 rounded-md border border-semantic-danger/40 text-semantic-danger hover:bg-semantic-danger/8 disabled:opacity-50"
+            >
+              {removing ? "Entfernt…" : "Abo entfernen"}
+            </button>
+          </>
         )}
       </div>
 
