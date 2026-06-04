@@ -2740,6 +2740,11 @@ export const api = {
 
   superClearCsp: () =>
     request<{ ok: true; deleted: number }>("/super/csp", { method: "DELETE" }),
+
+  superGetPlanCatalog: () =>
+    request<{ plans: PlanCatalogEntry[]; dbOnly: PlanCatalogDbOnly[] }>(
+      "/super/plan-catalog"
+    ),
   superGetTenant: (id: string) =>
     request<{ tenant: SuperTenantDetail }>(`/super/tenants/${id}`),
 
@@ -3579,6 +3584,35 @@ export interface SuperUserListItem {
   lastLoginAt: string | null;
   createdAt: string;
   tenant: { id: string; slug: string; name: string; status: string };
+}
+
+export interface PlanCatalogEntry {
+  slug: string;
+  code: {
+    name: string;
+    storageGib: number;
+    priceMonthlyCents: number;
+    priceYearlyCents: number;
+    watermark: boolean;
+  };
+  db: {
+    name: string;
+    storageGib: number | null;
+    priceMonthlyCents: number | null;
+    priceYearlyCents: number | null;
+    watermark: boolean;
+    isActive: boolean;
+    hasStripeMonthly: boolean;
+    hasStripeYearly: boolean;
+  } | null;
+  drift: Array<{ field: string; code: unknown; db: unknown }>;
+  missingInDb: boolean;
+}
+
+export interface PlanCatalogDbOnly {
+  slug: string;
+  name: string;
+  isActive: boolean;
 }
 
 export interface CspViolationRow {

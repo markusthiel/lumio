@@ -160,6 +160,11 @@ export function SuperShell({ children }: { children: React.ReactNode }) {
             active={pathname?.startsWith("/super/csp") ?? false}
             label={t("super.navCsp")}
           />
+          <SidebarLink
+            href="/super/plan-catalog"
+            active={pathname?.startsWith("/super/plan-catalog") ?? false}
+            label={t("super.navPlanCatalog")}
+          />
         </nav>
 
         <div className="border-t border-line-subtle p-4">

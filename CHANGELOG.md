@@ -30,6 +30,19 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.28.0] - 2026-06-04
+
+Neues Feature (Super-Admin), read-only. `git pull` + regulärer Deploy genügt,
+keine Migration.
+
+### Added
+- **Super-Admin → Plan-Katalog.** Stellt die zentrale Plan-Definition im Code
+  (Limits & Preise) der DB-Tabelle `billing_plans` gegenüber und markiert
+  Abweichungen pro Feld (Name, Speicher, Preise, Watermark). Zeigt außerdem
+  Stripe-Preis-IDs (vorhanden/fehlt), `isActive` und Pläne, die nur in der DB
+  bzw. nur im Code existieren. Diagnose-Werkzeug — hätte den Storage-Drift
+  (1000 statt 3000 GB) sofort sichtbar gemacht.
+
 ## [0.27.1] - 2026-06-04
 
 Kleiner UI-Fix. `git pull` + regulärer Deploy genügt, nur Frontend.

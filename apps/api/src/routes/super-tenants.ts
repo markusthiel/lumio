@@ -36,6 +36,7 @@ import { z } from "zod";
 
 import { prisma } from "../db.js";
 import { Prisma } from "@prisma/client";
+import { PLANS, type PlanSlug } from "../services/plans.js";
 import { config } from "../config.js";
 import { hashPassword, createSession } from "../services/auth.js";
 import { createSetupToken, buildSetupUrl, buildResetUrl } from "../services/setupToken.js";
@@ -1497,6 +1498,67 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
       return { ok: true, resetUrl, expiresAt: setupResult.expiresAt };
     }
   );
+
+  // -------------------------------------------------------------------------
+  // GET /super/plan-catalog — Code-PLANS vs. DB-billing_plans (Drift-Check)
+  // -------------------------------------------------------------------------
+  // Stellt die zentrale Plan-Definition (Code) der DB-Spiegelung gegenüber
+  // und markiert Abweichungen. Hätte den Storage-1000-vs-3000-Bug sofort
+  // sichtbar gemacht. Read-only.
+  app.get("/super/plan-catalog", async (req) => {
+    req.requireSuperAdmin();
+    const dbPlans = await prisma.billingPlan.findMany();
+    const dbBySlug = new Map(dbPlans.map((p) => [p.slug, p]));
+    const slugs = Object.keys(PLANS) as PlanSlug[];
+
+    const plans = slugs.map((slug) => {
+      const code = PLANS[slug];
+      const db = dbBySlug.get(slug) ?? null;
+      const drift: Array<{ field: string; code: unknown; db: unknown }> = [];
+      if (db) {
+        const cmp = [
+          ["name", code.name, db.name],
+          ["storageGib", code.storageGib, db.storageGib],
+          ["priceMonthlyCents", code.priceMonthlyCents, db.priceMonthlyCents],
+          ["priceYearlyCents", code.priceYearlyCents, db.priceYearlyCents],
+          ["watermark", code.watermarkAllowed, db.watermarking],
+        ] as const;
+        for (const [field, c, d] of cmp) {
+          if (c !== d) drift.push({ field, code: c, db: d });
+        }
+      }
+      return {
+        slug,
+        code: {
+          name: code.name,
+          storageGib: code.storageGib,
+          priceMonthlyCents: code.priceMonthlyCents,
+          priceYearlyCents: code.priceYearlyCents,
+          watermark: code.watermarkAllowed,
+        },
+        db: db
+          ? {
+              name: db.name,
+              storageGib: db.storageGib,
+              priceMonthlyCents: db.priceMonthlyCents,
+              priceYearlyCents: db.priceYearlyCents,
+              watermark: db.watermarking,
+              isActive: db.isActive,
+              hasStripeMonthly: !!db.stripePriceIdMonthly,
+              hasStripeYearly: !!db.stripePriceIdYearly,
+            }
+          : null,
+        drift,
+        missingInDb: !db,
+      };
+    });
+
+    const dbOnly = dbPlans
+      .filter((p) => !(p.slug in PLANS))
+      .map((p) => ({ slug: p.slug, name: p.name, isActive: p.isActive }));
+
+    return { plans, dbOnly };
+  });
 
   // -------------------------------------------------------------------------
   // GET /super/stats — globale Übersicht
