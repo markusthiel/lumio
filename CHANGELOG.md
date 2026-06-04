@@ -30,6 +30,21 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.37.2] - 2026-06-04
+
+Pull genügt — kein manueller Eingriff. **Worker-Änderung:** nach dem
+Deploy auf dem Hauptserver auch alle Worker-Nodes neu deployen, sonst
+greift die Änderung dort nicht.
+
+### Fixed
+- **Video-Scrubbing zeigt jetzt deutlich mehr Einzelbilder**: Bisher gab es
+  nur 1 Vorschaubild alle 10 Sekunden (ein 40-Sekunden-Video hatte also nur
+  rund 4 Bilder). Jetzt werden so viele Bilder erzeugt wie sinnvoll möglich
+  (bis zu 100), höchstens eins alle 0,5 Sekunden — ein 40-Sekunden-Video hat
+  damit etwa 80 Vorschaubilder. Gilt für neu hochgeladene/verarbeitete
+  Videos; bereits verarbeitete behalten ihr bisheriges Vorschaubild-Set, bis
+  sie neu verarbeitet werden.
+
 ## [0.37.1] - 2026-06-04
 
 Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
