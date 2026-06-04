@@ -2761,6 +2761,9 @@ export const api = {
     }),
 
   superGetSecurity: () => request<SuperSecurityResponse>("/super/security"),
+
+  superGetCompliance: () =>
+    request<SuperComplianceResponse>("/super/compliance"),
   superGetTenant: (id: string) =>
     request<{ tenant: SuperTenantDetail }>(`/super/tenants/${id}`),
 
@@ -3724,6 +3727,35 @@ export interface SuperSecurityResponse {
   topIps: SecurityTopIp[];
   recentLogins: SecurityLoginRow[];
   recentUnlocks: SecurityUnlockRow[];
+}
+
+export interface ComplianceTenantRow {
+  id: string;
+  name: string;
+  slug: string;
+  status: string;
+  dpaSigned: boolean;
+  dpaVersion: string | null;
+  dpaOutdated: boolean;
+  dpaAcceptedAt: string | null;
+  dpaAcceptedBy: string | null;
+  deletionScheduledFor: string | null;
+  archiveScheduledAt: string | null;
+  archivedAt: string | null;
+}
+
+export interface SuperComplianceResponse {
+  currentDpaVersion: string;
+  counts: {
+    total: number;
+    dpaSigned: number;
+    dpaOutdated: number;
+    dpaMissing: number;
+    deletionScheduled: number;
+    archiveScheduled: number;
+    archived: number;
+  };
+  tenants: ComplianceTenantRow[];
 }
 
 export interface CspViolationRow {

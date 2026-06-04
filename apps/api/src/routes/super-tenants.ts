@@ -37,6 +37,7 @@ import { z } from "zod";
 import { prisma } from "../db.js";
 import { Prisma } from "@prisma/client";
 import { PLANS, type PlanSlug } from "../services/plans.js";
+import { DPA_VERSION } from "../services/dpa.js";
 import { config } from "../config.js";
 import { hashPassword, createSession } from "../services/auth.js";
 import { createSetupToken, buildSetupUrl, buildResetUrl } from "../services/setupToken.js";
@@ -1911,6 +1912,80 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
         tenant: e.tenant?.name ?? null,
         at: e.createdAt,
       })),
+    };
+  });
+
+  // -------------------------------------------------------------------------
+  // GET /super/compliance — DPA-/Löschstatus pro Tenant (DSGVO)
+  // -------------------------------------------------------------------------
+  app.get("/super/compliance", async (req) => {
+    req.requireSuperAdmin();
+    const tenants = await prisma.tenant.findMany({
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+        displayName: true,
+        status: true,
+        archivedAt: true,
+        archiveScheduledAt: true,
+        selfDeletionScheduledFor: true,
+        dpaAcceptances: {
+          orderBy: { acceptedAt: "desc" },
+          take: 1,
+          select: { version: true, acceptedAt: true, acceptedByName: true },
+        },
+      },
+      orderBy: { createdAt: "asc" },
+      take: 1000,
+    });
+
+    let dpaSigned = 0;
+    let dpaOutdated = 0;
+    let dpaMissing = 0;
+    let deletionScheduled = 0;
+    let archiveScheduled = 0;
+    let archived = 0;
+
+    const rows = tenants.map((t) => {
+      const latest = t.dpaAcceptances[0] ?? null;
+      const signed = !!latest;
+      const outdated = signed && latest!.version !== DPA_VERSION;
+      if (!signed) dpaMissing++;
+      else if (outdated) dpaOutdated++;
+      else dpaSigned++;
+      if (t.selfDeletionScheduledFor) deletionScheduled++;
+      if (t.archiveScheduledAt) archiveScheduled++;
+      if (t.status === "archived") archived++;
+
+      return {
+        id: t.id,
+        name: t.displayName ?? t.name,
+        slug: t.slug,
+        status: t.status,
+        dpaSigned: signed,
+        dpaVersion: latest?.version ?? null,
+        dpaOutdated: outdated,
+        dpaAcceptedAt: latest?.acceptedAt ?? null,
+        dpaAcceptedBy: latest?.acceptedByName ?? null,
+        deletionScheduledFor: t.selfDeletionScheduledFor,
+        archiveScheduledAt: t.archiveScheduledAt,
+        archivedAt: t.archivedAt,
+      };
+    });
+
+    return {
+      currentDpaVersion: DPA_VERSION,
+      counts: {
+        total: tenants.length,
+        dpaSigned,
+        dpaOutdated,
+        dpaMissing,
+        deletionScheduled,
+        archiveScheduled,
+        archived,
+      },
+      tenants: rows,
     };
   });
 

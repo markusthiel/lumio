@@ -180,6 +180,11 @@ export function SuperShell({ children }: { children: React.ReactNode }) {
             active={pathname?.startsWith("/super/security") ?? false}
             label={t("super.navSecurity")}
           />
+          <SidebarLink
+            href="/super/compliance"
+            active={pathname?.startsWith("/super/compliance") ?? false}
+            label={t("super.navCompliance")}
+          />
         </nav>
 
         <div className="border-t border-line-subtle p-4">

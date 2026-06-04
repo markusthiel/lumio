@@ -30,6 +30,18 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.32.0] - 2026-06-04
+
+Neues Feature (Super-Admin), read-only. `git pull` + regulärer Deploy genügt,
+keine Migration.
+
+### Added
+- **Super-Admin → Compliance.** AVV-/DSGVO-Status pro Tenant: zeigt, ob der
+  Auftragsverarbeitungsvertrag (DPA) unterschrieben ist, ob die zugestimmte
+  Version veraltet ist (gegen die aktuelle DPA-Version), und den
+  Lösch-/Archivierungs-Lifecycle (geplante Löschung, geplante Archivierung,
+  bereits archiviert). Mit Übersichtszahlen und Filter „nur auffällige".
+
 ## [0.31.0] - 2026-06-04
 
 Neues Feature (Super-Admin), read-only. `git pull` + regulärer Deploy genügt;
