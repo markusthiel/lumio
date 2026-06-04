@@ -30,6 +30,17 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.32.1] - 2026-06-04
+
+Bugfix. `git pull` + regulärer Deploy genügt, nur API.
+
+### Fixed
+- Nach der Stripe-Zahlung im Self-Service-Signup wird der frisch registrierte
+  Owner jetzt auf seine **eigene Tenant-Subdomain** (`{slug}.<domain>`) geleitet
+  statt auf einen festen Host. Dort macht `/welcome` das Auto-Login, sodass man
+  direkt im richtigen Studio landet. Greift, wenn `LUMIO_DOMAIN_BASE` gesetzt ist
+  (Wildcard-SaaS); ohne Wildcard-Domain bleibt es beim bisherigen Verhalten.
+
 ## [0.32.0] - 2026-06-04
 
 Neues Feature (Super-Admin), read-only. `git pull` + regulärer Deploy genügt,

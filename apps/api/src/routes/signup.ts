@@ -300,6 +300,17 @@ export async function registerSignupRoutes(app: FastifyInstance) {
         data: { stripeCustomerId: customer.id },
       });
 
+      // Stripe-Return auf die TENANT-Subdomain leiten (z.B.
+      // thieltest.lumio-cloud.de), nicht auf einen festen Host — sonst
+      // landet der frisch registrierte Owner nach der Zahlung auf
+      // studio.lumio-cloud.de statt auf seinem eigenen Studio. /welcome
+      // macht dort per checkout-login das Auto-Login (Cookie host-only auf
+      // der Subdomain). Fallback auf STRIPE_RETURN_URL_BASE, wenn keine
+      // Wildcard-Domain konfiguriert ist (Self-Host single/multi).
+      const tenantOrigin = config.LUMIO_DOMAIN_BASE
+        ? `https://${slug}.${config.LUMIO_DOMAIN_BASE}`
+        : config.STRIPE_RETURN_URL_BASE;
+
       session = await stripe.checkout.sessions.create({
         mode: "subscription",
         customer: customer.id,
@@ -332,8 +343,8 @@ export async function registerSignupRoutes(app: FastifyInstance) {
       // erstellte Coupons funktionieren damit ohne Code-Anpassung im
       // Frontend.
       allow_promotion_codes: true,
-      success_url: `${config.STRIPE_RETURN_URL_BASE}/welcome?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${config.STRIPE_RETURN_URL_BASE}/signup-cancelled`,
+      success_url: `${tenantOrigin}/welcome?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${tenantOrigin}/signup-cancelled`,
       metadata: {
         lumio_tenant_id: tenantId,
         lumio_signup: "true",
