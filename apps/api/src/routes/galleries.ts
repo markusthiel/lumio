@@ -2239,6 +2239,10 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
       // wüsste nicht warum nichts gespeichert wird — siehe Bugreport
       // "Markierungen verschwinden nach Reload".
       let canSelect = false;
+      // Datei-IDs, auf denen DIESER Visitor eigenes Feedback (Kommentar
+      // oder Markierung) hinterlassen hat — fürs dezente Grid-Icon. Nur
+      // eigene (accessId-gebunden); Studio-Kommentare bleiben außen vor.
+      let myCommentFileIds: string[] = [];
       if (visitor.accessId) {
         const selections = await prisma.selection.findMany({
           where: { accessId: visitor.accessId },
@@ -2250,6 +2254,12 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
             { color: s.color, rating: s.rating, liked: s.liked },
           ])
         );
+        const myComments = await prisma.comment.findMany({
+          where: { accessId: visitor.accessId },
+          select: { fileId: true },
+          distinct: ["fileId"],
+        });
+        myCommentFileIds = myComments.map((c) => c.fileId);
         const access = await prisma.galleryAccess.findUnique({
           where: { id: visitor.accessId },
           select: { finalizedAt: true, canSelect: true },
@@ -2258,7 +2268,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         canSelect = access?.canSelect ?? false;
       }
 
-      return { files: items, mySelections, finalizedAt, canSelect };
+      return { files: items, mySelections, myCommentFileIds, finalizedAt, canSelect };
     }
   );
 

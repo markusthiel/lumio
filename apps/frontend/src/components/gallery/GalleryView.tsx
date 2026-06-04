@@ -34,6 +34,9 @@ interface Props {
   slug: string;
   files: PublicFile[];
   mySelections: Record<string, MySelection>;
+  /** Datei-IDs, auf denen der Visitor eigenes Feedback (Kommentar/
+   *  Markierung) hinterlassen hat — fürs dezente Grid-Icon. */
+  myCommentFileIds: string[];
   finalizedAt: string | null;
   canSelect: boolean;
   /** Wenn true: zeigt einen Print-Shop-Button in der Toolbar, der zur
@@ -86,6 +89,7 @@ export function GalleryView({
   slug,
   files,
   mySelections,
+  myCommentFileIds,
   finalizedAt,
   canSelect,
   printShopAvailable = false,
@@ -106,6 +110,24 @@ export function GalleryView({
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [slideshowIdx, setSlideshowIdx] = useState<number | null>(null);
   const [finalizing, setFinalizing] = useState(false);
+  // Datei-IDs mit eigenem Feedback (Kommentar/Markierung) fürs Grid-Icon.
+  // Aus dem Prop geseedet (Server-Wahrheit beim Laden), lokal optimistisch
+  // hochgezählt sobald der Visitor in der Lightbox etwas speichert — damit
+  // das Icon sofort nach dem Schließen erscheint, ohne Reload.
+  const [commentedIds, setCommentedIds] = useState<Set<string>>(
+    () => new Set(myCommentFileIds)
+  );
+  useEffect(() => {
+    setCommentedIds(new Set(myCommentFileIds));
+  }, [myCommentFileIds]);
+  const markCommented = useCallback((fileId: string) => {
+    setCommentedIds((prev) => {
+      if (prev.has(fileId)) return prev;
+      const next = new Set(prev);
+      next.add(fileId);
+      return next;
+    });
+  }, []);
 
   // Pick-Modus: Customer kann Bilder ad-hoc markieren und gezielt
   // herunterladen, unabhängig vom Like/Selection-System des
@@ -542,6 +564,7 @@ export function GalleryView({
             files={orderedFiles}
             mode={meta.gridLayout}
             mySelections={mySelections}
+            commentedIds={commentedIds}
             onOpen={(f) =>
               setLightboxIdx(orderedFiles.findIndex((ff) => ff.id === f.id))
             }
@@ -576,6 +599,7 @@ export function GalleryView({
                         files={defaultFiles}
                         mode={meta.gridLayout}
                         mySelections={mySelections}
+                        commentedIds={commentedIds}
                         onOpen={(f) =>
                           setLightboxIdx(
                             orderedFiles.findIndex((ff) => ff.id === f.id)
@@ -600,6 +624,7 @@ export function GalleryView({
                           files={sectionFiles}
                           mode={meta.gridLayout}
                           mySelections={mySelections}
+                          commentedIds={commentedIds}
                           onOpen={(f) =>
                             setLightboxIdx(
                               orderedFiles.findIndex((ff) => ff.id === f.id)
@@ -634,6 +659,7 @@ export function GalleryView({
           onClose={() => setLightboxIdx(null)}
           onNavigate={(i) => setLightboxIdx(i)}
           onSelectionChange={onSelectionChange}
+          onFeedbackSaved={markCommented}
         />
       )}
 
@@ -859,6 +885,7 @@ function FilesGrid({
   files,
   mode,
   mySelections,
+  commentedIds,
   onOpen,
   pickMode,
   pickedIds,
@@ -867,6 +894,7 @@ function FilesGrid({
   files: PublicFile[];
   mode: "justified" | "equal";
   mySelections: Record<string, MySelection>;
+  commentedIds: Set<string>;
   onOpen: (f: PublicFile) => void;
   pickMode: boolean;
   pickedIds: Set<string>;
@@ -881,6 +909,7 @@ function FilesGrid({
             file={f}
             index={i}
             sel={mySelections[f.id]}
+            commented={commentedIds.has(f.id)}
             mode="justified"
             onOpen={() => onOpen(f)}
             pickMode={pickMode}
@@ -905,6 +934,7 @@ function FilesGrid({
           file={f}
           index={i}
           sel={mySelections[f.id]}
+          commented={commentedIds.has(f.id)}
           mode="equal"
           onOpen={() => onOpen(f)}
           pickMode={pickMode}
@@ -1032,6 +1062,7 @@ function GalleryTile({
   pickMode,
   isPicked,
   onTogglePick,
+  commented = false,
 }: {
   file: PublicFile;
   index: number;
@@ -1042,6 +1073,8 @@ function GalleryTile({
   pickMode: boolean;
   isPicked: boolean;
   onTogglePick: () => void;
+  /** Wenn true: dezentes Sprechblasen-Icon (Visitor hat hier Feedback). */
+  commented?: boolean;
 }) {
   const { ref, revealed } = useReveal<HTMLDivElement>();
   // Thumbnail-Selbstheilung: abgebrochene/transiente Loads (vor allem in
@@ -1205,6 +1238,29 @@ function GalleryTile({
           </div>
         )}
 
+        {/* Feedback-Indikator — dezente Sprechblase unten rechts, wenn der
+            Visitor auf diesem File eine Markierung/Kommentar hinterlassen
+            hat. Bewusst klein & zurückhaltend: erinnert nur daran, wo schon
+            etwas notiert wurde, ohne das Bild zu überlagern. */}
+        {commented && (
+          <div
+            className="absolute bottom-2 right-2 flex items-center justify-center w-6 h-6 rounded-full bg-black/55 backdrop-blur-sm text-white/95 ring-1 ring-white/20"
+            aria-hidden="true"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className="w-3.5 h-3.5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+            </svg>
+          </div>
+        )}
+
         {/* Pick-Checkbox-Overlay — nur sichtbar im pickMode. Bei
             isPicked: voller Akzent-Kreis mit Häkchen. Sonst: weißer
             outlined Kreis, semi-transparent damit das Bild durch-
@@ -1314,6 +1370,7 @@ function Lightbox({
   onClose,
   onNavigate,
   onSelectionChange,
+  onFeedbackSaved,
 }: {
   files: PublicFile[];
   index: number;
@@ -1324,6 +1381,9 @@ function Lightbox({
   onClose: () => void;
   onNavigate: (idx: number) => void;
   onSelectionChange: (fileId: string, sel: MySelection) => void;
+  /** Wird gerufen, sobald der Visitor auf einer Datei Feedback
+   *  (Markierung/Kommentar) gespeichert hat — fürs sofortige Grid-Icon. */
+  onFeedbackSaved?: (fileId: string) => void;
 }) {
   const t = useT();
   // Defensiv: wenn `index` aus der Range fällt (z.B. weil der User die
@@ -1529,6 +1589,7 @@ function Lightbox({
             /* Annotation-Save-Fehler still — der User hat das Bild eh
              * schon verlassen, ein Toast hier wäre verwirrend. */
           });
+        onFeedbackSaved?.(previousFileId);
       }
       // State für das neue File resetten
       setMyStrokes([]);
@@ -1547,6 +1608,7 @@ function Lightbox({
         void api
           .postComment(slug, file.id, { body: "", annotation })
           .catch(() => {});
+        onFeedbackSaved?.(file.id);
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1604,6 +1666,7 @@ function Lightbox({
       const res = await api.postComment(slug, file.id, { body: newComment });
       setComments((prev) => [...(prev ?? []), res.comment]);
       setNewComment("");
+      onFeedbackSaved?.(file.id);
     } catch (err) {
       console.error(err);
     } finally {
@@ -1798,6 +1861,7 @@ function Lightbox({
                 });
                 const res = await api.listComments(slug, file.id);
                 setComments(res.comments);
+                onFeedbackSaved?.(file.id);
               }}
             />
           ) : file.previewUrl || file.webUrl ? (

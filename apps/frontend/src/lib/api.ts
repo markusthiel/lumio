@@ -1673,6 +1673,7 @@ export const api = {
     request<{
       files: PublicFile[];
       mySelections: Record<string, MySelection>;
+      myCommentFileIds: string[];
       finalizedAt: string | null;
       canSelect: boolean;
     }>(`/g/${slug}/files`),

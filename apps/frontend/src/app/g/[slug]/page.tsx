@@ -43,6 +43,7 @@ function PublicGalleryInner() {
   );
   const [finalizedAt, setFinalizedAt] = useState<string | null>(null);
   const [canSelect, setCanSelect] = useState(false);
+  const [myCommentFileIds, setMyCommentFileIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   // Zugang verweigert: Link abgelaufen bzw. Galerie nur mit Freigabe-Link.
@@ -68,6 +69,7 @@ function PublicGalleryInner() {
       setMySelections(res.mySelections ?? {});
       setFinalizedAt(res.finalizedAt);
       setCanSelect(res.canSelect);
+      setMyCommentFileIds(res.myCommentFileIds ?? []);
     } catch (err) {
       console.error(err);
     }
@@ -260,6 +262,7 @@ function PublicGalleryInner() {
         slug={slug}
         files={files ?? []}
         mySelections={mySelections}
+        myCommentFileIds={myCommentFileIds}
         finalizedAt={finalizedAt}
         canSelect={canSelect}
         printShopAvailable={printShopAvailable}
