@@ -2745,6 +2745,12 @@ export const api = {
     request<{ plans: PlanCatalogEntry[]; dbOnly: PlanCatalogDbOnly[] }>(
       "/super/plan-catalog"
     ),
+
+  superGetMailLog: () =>
+    request<{
+      recent: MailLogRow[];
+      stats: { last24h: MailCounts; last7d: MailCounts };
+    }>("/super/mail-log"),
   superGetTenant: (id: string) =>
     request<{ tenant: SuperTenantDetail }>(`/super/tenants/${id}`),
 
@@ -3613,6 +3619,21 @@ export interface PlanCatalogDbOnly {
   slug: string;
   name: string;
   isActive: boolean;
+}
+
+export interface MailLogRow {
+  id: string;
+  recipient: string;
+  subject: string;
+  status: string; // sent | failed | skipped
+  error: string | null;
+  createdAt: string;
+}
+
+export interface MailCounts {
+  sent: number;
+  failed: number;
+  skipped: number;
 }
 
 export interface CspViolationRow {

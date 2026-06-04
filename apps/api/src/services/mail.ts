@@ -12,6 +12,7 @@ import nodemailer, { type Transporter } from "nodemailer";
 
 import { config } from "../config.js";
 import { logger } from "../logger.js";
+import { prisma } from "../db.js";
 
 let _transport: Transporter | null = null;
 let _initAttempted = false;
@@ -54,6 +55,7 @@ export async function sendMail(msg: MailMessage): Promise<void> {
       { to: msg.to, subject: msg.subject },
       "mail (no-op, SMTP not configured)"
     );
+    void logMail(msg.to, msg.subject, "skipped");
     return;
   }
   try {
@@ -65,9 +67,38 @@ export async function sendMail(msg: MailMessage): Promise<void> {
       html: msg.html,
     });
     logger.info({ to: msg.to, subject: msg.subject }, "mail sent");
+    void logMail(msg.to, msg.subject, "sent");
   } catch (err) {
     logger.warn({ err, to: msg.to, subject: msg.subject }, "mail send failed");
+    void logMail(
+      msg.to,
+      msg.subject,
+      "failed",
+      err instanceof Error ? err.message : String(err)
+    );
     // Wir werfen NICHT — Mail-Fehler sollten Business-Operationen nicht killen
+  }
+}
+
+// Schreibt einen Zustell-Log-Eintrag. Komplett fail-safe: ein Fehler hier
+// darf den Mailversand niemals beeinflussen.
+async function logMail(
+  recipient: string,
+  subject: string,
+  status: "sent" | "failed" | "skipped",
+  error?: string
+): Promise<void> {
+  try {
+    await prisma.mailLog.create({
+      data: {
+        recipient: recipient.slice(0, 500),
+        subject: subject.slice(0, 500),
+        status,
+        error: error ? error.slice(0, 1000) : null,
+      },
+    });
+  } catch (e) {
+    logger.warn({ e }, "mailLog write failed");
   }
 }
 

@@ -76,6 +76,8 @@ async function runOnce() {
     recalculateStorageUsage(),
     // Galerien, die bald ablaufen → Studio-Mail (einmalig, mit Reset).
     checkExpiringGalleries(),
+    // Mail-Log auf 30 Tage begrenzen.
+    pruneMailLog(),
     // Täglicher Super-Admin-Digest (nur SaaS), idempotent via PK(date).
     runDailyDigest(),
     // Billing-Archiv-Lifecycle (nur SaaS): Read-only → Archiv → Löschung.
@@ -390,6 +392,17 @@ async function notifyArchiveScheduleReached() {
       { tenantId: t.id, name: t.name },
       "sweeper.archive_schedule_reached (super-admin action required)"
     );
+  }
+}
+
+// Mail-Log nach 30 Tagen aufräumen — die Deliverability-Ansicht braucht nur
+// einen rollierenden Zeitraum, die Tabelle soll nicht unbegrenzt wachsen.
+async function pruneMailLog() {
+  try {
+    const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    await prisma.mailLog.deleteMany({ where: { createdAt: { lt: cutoff } } });
+  } catch (err) {
+    logger.warn({ err }, "sweeper.mail_log_prune.failed");
   }
 }
 

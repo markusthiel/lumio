@@ -30,6 +30,19 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.29.0] - 2026-06-04
+
+Neues Feature (Super-Admin). `git pull` + regulärer Deploy genügt; additive
+Migration läuft automatisch.
+
+### Added
+- **Super-Admin → E-Mail-Log.** Jeder Mailversand wird protokolliert
+  (gesendet / fehlgeschlagen / übersprungen). Die Ansicht zeigt 24-h- und
+  7-Tage-Zahlen, die letzten 100 Mails mit Status und Fehlermeldung sowie einen
+  Hinweis, falls offenbar kein SMTP konfiguriert ist. Besonders relevant nach
+  dem Notification-Ausbau — man sieht jetzt, ob die Mails ankommen. Log wird
+  nach 30 Tagen automatisch aufgeräumt.
+
 ## [0.28.0] - 2026-06-04
 
 Neues Feature (Super-Admin), read-only. `git pull` + regulärer Deploy genügt,

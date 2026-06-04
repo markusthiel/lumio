@@ -1561,6 +1561,56 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
   });
 
   // -------------------------------------------------------------------------
+  // GET /super/mail-log — E-Mail-Zustellbarkeit (sent/failed/skipped)
+  // -------------------------------------------------------------------------
+  app.get("/super/mail-log", async (req) => {
+    req.requireSuperAdmin();
+    const now = Date.now();
+    const since24h = new Date(now - 24 * 60 * 60 * 1000);
+    const since7d = new Date(now - 7 * 24 * 60 * 60 * 1000);
+
+    const [recent, agg24h, agg7d] = await Promise.all([
+      prisma.mailLog.findMany({
+        orderBy: { createdAt: "desc" },
+        take: 100,
+        select: {
+          id: true,
+          recipient: true,
+          subject: true,
+          status: true,
+          error: true,
+          createdAt: true,
+        },
+      }),
+      prisma.mailLog.groupBy({
+        by: ["status"],
+        where: { createdAt: { gte: since24h } },
+        _count: true,
+      }),
+      prisma.mailLog.groupBy({
+        by: ["status"],
+        where: { createdAt: { gte: since7d } },
+        _count: true,
+      }),
+    ]);
+
+    const toCounts = (agg: Array<{ status: string; _count: number }>) => {
+      const c = { sent: 0, failed: 0, skipped: 0 };
+      for (const r of agg) {
+        if (r.status === "sent") c.sent = r._count;
+        else if (r.status === "failed") c.failed = r._count;
+        else if (r.status === "skipped") c.skipped = r._count;
+      }
+      return c;
+    };
+
+    return {
+      recent,
+      stats: { last24h: toCounts(agg24h), last7d: toCounts(agg7d) },
+    };
+  });
+
+  // -------------------------------------------------------------------------
   // GET /super/stats — globale Übersicht
   // -------------------------------------------------------------------------
   app.get("/super/stats", async () => {

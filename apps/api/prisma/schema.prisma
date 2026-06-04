@@ -2327,3 +2327,19 @@ model SuperAdminDigestLog {
 
   @@map("super_admin_digest_log")
 }
+
+/// Zustellungs-Log für ausgehende Mails — speist die Super-Admin-
+/// Deliverability-Ansicht (sent/failed/skipped). Wird vom Sweeper nach
+/// 30 Tagen geprunt, damit die Tabelle nicht unbegrenzt wächst.
+model MailLog {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  recipient String
+  subject   String
+  status    String // sent | failed | skipped
+  error     String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([status, createdAt])
+  @@map("mail_log")
+}
