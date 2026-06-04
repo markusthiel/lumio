@@ -32,6 +32,7 @@ function TenantDetail() {
   // den "Endgültig löschen"-Button geoeffnet, der wiederum nur
   // erscheint wenn Karenz vorbei ist.
   const [deleteDialog, setDeleteDialog] = useState<{
+    mode: "delete" | "purge";
     typedSlug: string;
     error: string | null;
     pending: boolean;
@@ -103,28 +104,20 @@ function TenantDetail() {
       setActionBusy(false);
     }
   }
-  async function purge() {
-    if (!tenant) return;
-    const typed = window.prompt(
-      `SOFORT-LÖSCHEN von „${tenant.name}" — inkl. aller Daten, Stripe-Customer und S3.\n\nDas ist endgültig und ohne Karenz. Zum Bestätigen den Slug eingeben:`,
-      ""
-    );
-    if (typed === null) return;
-    if (typed.trim() !== tenant.slug) {
-      alert("Slug stimmt nicht — abgebrochen.");
-      return;
-    }
-    setActionBusy(true);
+  async function performPurge() {
+    if (!tenant || !deleteDialog) return;
+    setDeleteDialog({ ...deleteDialog, pending: true, error: null });
     try {
-      await api.superPurgeTenant(tenant.id, { confirmSlug: typed.trim() });
+      await api.superPurgeTenant(tenant.id, {
+        confirmSlug: deleteDialog.typedSlug,
+      });
       router.push("/super/tenants");
     } catch (err) {
-      alert(
+      const msg =
         err instanceof Error
           ? err.message
-          : "Löschen fehlgeschlagen (nur möglich, wenn der Tenant nicht aktiv zahlend ist)."
-      );
-      setActionBusy(false);
+          : "Fehler beim Löschen (nur möglich, wenn der Tenant nicht aktiv zahlend ist).";
+      setDeleteDialog({ ...deleteDialog, pending: false, error: msg });
     }
   }
 
@@ -285,7 +278,14 @@ function TenantDetail() {
             (tenant.subscription.status !== "active" &&
               tenant.subscription.status !== "past_due")) && (
             <ActionButton
-              onClick={purge}
+              onClick={() =>
+                setDeleteDialog({
+                  mode: "purge",
+                  typedSlug: "",
+                  error: null,
+                  pending: false,
+                })
+              }
               disabled={actionBusy}
               variant="danger"
             >
@@ -302,6 +302,7 @@ function TenantDetail() {
               <ActionButton
                 onClick={() =>
                   setDeleteDialog({
+                    mode: "delete",
                     typedSlug: "",
                     error: null,
                     pending: false,
@@ -549,7 +550,9 @@ function TenantDetail() {
             onClick={(e) => e.stopPropagation()}
           >
             <h2 className="text-lg font-medium text-ink-primary">
-              Tenant endgültig löschen?
+              {deleteDialog.mode === "purge"
+                ? "Test-Tenant sofort löschen?"
+                : "Tenant endgültig löschen?"}
             </h2>
             <div className="text-ui-sm text-ink-secondary mt-3 space-y-2">
               <p>
@@ -564,11 +567,16 @@ function TenantDetail() {
                 <li>Alle User-Accounts dieses Tenants</li>
                 <li>Alle S3-Objekte unter t/{tenant.id.slice(0, 8)}…/</li>
                 <li>Branding, Templates, Webhooks, Tags</li>
-                <li>Billing-Subscription (lokal — Stripe-Customer bleibt)</li>
+                <li>
+                  {deleteDialog.mode === "purge"
+                    ? "Billing-Subscription + Stripe-Customer (wird in Stripe gelöscht)"
+                    : "Billing-Subscription (lokal — Stripe-Customer bleibt)"}
+                </li>
               </ul>
               <p className="pt-2">
-                Audit-Logs bleiben erhalten. Stripe-Customer bleibt im Stripe-
-                Dashboard für die Buchhaltung.
+                {deleteDialog.mode === "purge"
+                  ? "Ohne Archivierung und ohne Karenzfrist. Die Stripe-Subscription wird gekündigt und der Stripe-Customer gelöscht. Nur für nicht-zahlende Test-/Trial-Tenants. Audit-Logs bleiben erhalten."
+                  : "Audit-Logs bleiben erhalten. Stripe-Customer bleibt im Stripe-Dashboard für die Buchhaltung."}
               </p>
             </div>
             <div className="mt-4">
@@ -610,7 +618,11 @@ function TenantDetail() {
                 Abbrechen
               </ActionButton>
               <ActionButton
-                onClick={performHardDelete}
+                onClick={
+                  deleteDialog.mode === "purge"
+                    ? performPurge
+                    : performHardDelete
+                }
                 disabled={
                   deleteDialog.pending ||
                   deleteDialog.typedSlug !== tenant.slug
@@ -619,6 +631,8 @@ function TenantDetail() {
               >
                 {deleteDialog.pending
                   ? "Lösche…"
+                  : deleteDialog.mode === "purge"
+                  ? "Sofort löschen"
                   : "Endgültig löschen"}
               </ActionButton>
             </div>

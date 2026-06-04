@@ -30,6 +30,16 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.33.1] - 2026-06-04
+
+Bugfix. `git pull` + regulärer Deploy genügt, nur Frontend.
+
+### Fixed
+- „Sofort löschen (Test)" reagierte auf manchen Geräten nicht (die
+  Bestätigung lief über ein Browser-`prompt`, das mobil/in manchen Browsern
+  blockiert wird). Läuft jetzt über denselben In-Page-Dialog wie der reguläre
+  Hard-Delete (Slug-Eingabefeld) und funktioniert zuverlässig.
+
 ## [0.33.0] - 2026-06-04
 
 Neues Feature (Super-Admin). `git pull` + regulärer Deploy genügt, keine
