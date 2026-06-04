@@ -44,6 +44,10 @@ const TICK_COLOR = {
   studio: "#f59e0b", // amber
 };
 
+// Eine Markierung wird nur sichtbar, wenn die aktuelle Zeit innerhalb
+// dieses Fensters (Sekunden) um ihren Zeitpunkt liegt.
+const MARKER_WINDOW = 0.5;
+
 export function VideoMarkup({
   src,
   poster,
@@ -83,17 +87,28 @@ export function VideoMarkup({
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
 
-  // Ausgewählter Marker (Anzeige-Modus, read-only Overlay)
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const selected = markers.find((m) => m.id === selectedId) ?? null;
+  // Aktuelle Wiedergabezeit — bestimmt, welcher Marker gerade „aktiv" ist.
+  const [current, setCurrent] = useState(0);
 
   const drawing = markT !== null;
+
+  // Aktiver Marker = der zeitlich nächste innerhalb eines schmalen
+  // Fensters um die aktuelle Sekunde. So erscheint eine Markierung NUR
+  // an ihrer Zeit, nicht das ganze Video über. Beim Zeichnen aus.
+  const activeMarker = drawing
+    ? null
+    : markers.reduce<(typeof markers)[number] | null>((best, m) => {
+        if (Math.abs(m.t - current) > MARKER_WINDOW) return best;
+        if (!best) return m;
+        return Math.abs(m.t - current) < Math.abs(best.t - current)
+          ? m
+          : best;
+      }, null);
 
   function startMarking() {
     const p = playerRef.current;
     if (!p) return;
     p.pause();
-    setSelectedId(null);
     setMarkT(p.getCurrentTime());
     setTool("arrow");
     setStrokes([]);
@@ -124,15 +139,10 @@ export function VideoMarkup({
     }
   }
 
-  function onMarkerClick(id: string) {
-    if (drawing) return;
+  function onMarkerClick(_id: string) {
+    // VideoPlayer ist bereits zu m.t gesprungen; nur pausieren, damit
+    // der Frame (und die Markierung) stehen bleibt.
     playerRef.current?.pause();
-    setSelectedId(id);
-  }
-
-  // Beim Abspielen die Marker-Anzeige ausblenden.
-  function onPlayingChange(playing: boolean) {
-    if (playing && selectedId) setSelectedId(null);
   }
 
   // Welches Overlay liegt über dem Frame?
@@ -147,10 +157,10 @@ export function VideoMarkup({
         color={color}
       />
     );
-  } else if (selected) {
+  } else if (activeMarker) {
     overlay = (
       <AnnotationOverlay
-        existing={selected.strokes}
+        existing={activeMarker.strokes}
         author={null}
         tool={null}
         color="red"
@@ -174,10 +184,11 @@ export function VideoMarkup({
         srcType={srcType}
         className="flex-1 min-h-0"
         markers={tickMarkers}
-        activeMarkerId={selectedId}
+        activeMarkerId={activeMarker?.id ?? null}
         onMarkerClick={onMarkerClick}
-        onPlayingChange={onPlayingChange}
+        onTimeUpdate={setCurrent}
         overlay={overlay}
+        overlayInteractive={drawing}
       />
 
       {/* Steuerleiste oben über dem Video */}
@@ -251,33 +262,25 @@ export function VideoMarkup({
         </div>
       )}
 
-      {/* Caption des ausgewählten Markers */}
-      {selected && !drawing && (
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-black/70 backdrop-blur rounded-full pl-3 pr-1.5 py-1 max-w-[90%]">
+      {/* Caption des aktiven Markers (zeitgebunden) */}
+      {activeMarker && !drawing && (
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-black/70 backdrop-blur rounded-full px-3 py-1 max-w-[90%] pointer-events-none">
           <span
             className="w-2 h-2 rounded-full shrink-0"
             style={{
-              background: selected.authorIsStudio
+              background: activeMarker.authorIsStudio
                 ? TICK_COLOR.studio
                 : TICK_COLOR.customer,
             }}
           />
           <span className="text-ui-xs text-white/70 font-mono shrink-0">
-            {formatTime(selected.t)}
+            {formatTime(activeMarker.t)}
           </span>
-          {selected.body && (
+          {activeMarker.body && (
             <span className="text-ui-xs text-white/90 truncate">
-              {selected.body}
+              {activeMarker.body}
             </span>
           )}
-          <button
-            type="button"
-            onClick={() => setSelectedId(null)}
-            className="w-6 h-6 rounded-full text-white/70 hover:bg-white/15 inline-flex items-center justify-center shrink-0 transition-colors duration-motion"
-            aria-label={t("annotation.videoMarkup.close")}
-          >
-            ✕
-          </button>
         </div>
       )}
     </div>

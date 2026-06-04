@@ -6,6 +6,7 @@ import Link from "next/link";
 import { api, ApiError, type GalleryDetail, type GalleryFile } from "@/lib/api";
 import { uploadFiles, type UploadProgress } from "@/lib/upload";
 import { useImageZoom } from "@/lib/useImageZoom";
+import { VideoPlayer } from "@/components/gallery/VideoPlayer";
 import { SharePanel } from "@/components/studio/SharePanel";
 import { GalleryHeaderEditor } from "@/components/studio/GalleryHeaderEditor";
 import { GalleryShareSection } from "@/components/studio/GalleryShareSection";
@@ -2342,7 +2343,28 @@ function Lightbox({
         </button>
       )}
 
-      {url ? (
+      {file.kind === "video" ? (
+        file.videoUrl ? (
+          <div
+            className="absolute inset-0 flex items-center justify-center p-6 z-0"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) onClose();
+            }}
+          >
+            <VideoPlayer
+              src={file.videoUrl}
+              srcType="mp4"
+              poster={url}
+              sprite={file.sprite ?? null}
+              className="w-full max-w-5xl max-h-[84vh]"
+            />
+          </div>
+        ) : (
+          <div className="text-white/50 text-ui px-12 py-24">
+            Keine Vorschau verfügbar
+          </div>
+        )
+      ) : url ? (
         <div
           ref={zoom.containerRef}
           {...zoom.containerProps}
@@ -2392,7 +2414,7 @@ function Lightbox({
 
       {/* Zoom-Controls oben rechts — identische Optik und Funktion wie
           in der Kundengalerie-Lightbox. */}
-      {url && (
+      {url && file.kind !== "video" && (
         <div
           className="absolute top-3 right-3 z-30 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full p-1"
           onClick={(e) => e.stopPropagation()}

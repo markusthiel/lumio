@@ -1787,7 +1787,7 @@ function Lightbox({
               src={file.hlsUrl}
               poster={file.previewUrl ?? file.thumbUrl}
               sprite={file.sprite}
-              className="w-full max-w-5xl max-h-[calc(100vh-160px)]"
+              className="w-full max-w-5xl max-h-[calc(100vh-220px)]"
               comments={comments}
               canAnnotate={interactive && commentsActive}
               author="customer"
@@ -2006,7 +2006,7 @@ function Lightbox({
               wenn der Visitor Auswahl-Rechte hat. */}
           {interactive && (
             <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10">
-              {bottomMode === "mark" && commentsActive ? (
+              {bottomMode === "mark" && commentsActive && file.kind !== "video" ? (
                 <AnnotationToolbar
                   tool={annotationTool}
                   setTool={setAnnotationTool}
@@ -2123,7 +2123,7 @@ function Lightbox({
             label={t("gallery.modePick")}
             icon={<StarIcon filled={sel.liked} />}
           />
-          {commentsActive && (
+          {commentsActive && file.kind !== "video" && (
             <ModeTab
               active={bottomMode === "mark"}
               onClick={() => setBottomMode("mark")}

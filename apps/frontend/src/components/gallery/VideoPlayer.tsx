@@ -74,6 +74,10 @@ export interface VideoPlayerProps {
   /** Overlay passgenau über der sichtbaren Videofläche (z.B. das
    *  AnnotationOverlay). */
   overlay?: ReactNode;
+  /** Ob das Overlay Pointer-Events fängt. false (Default) ⇒ das Overlay
+   *  ist durchklickbar, die nativen Video-Controls bleiben bedienbar.
+   *  true nur beim aktiven Zeichnen. */
+  overlayInteractive?: boolean;
   onTimeUpdate?: (t: number) => void;
   onPlayingChange?: (playing: boolean) => void;
 }
@@ -90,6 +94,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
       activeMarkerId,
       onMarkerClick,
       overlay,
+      overlayInteractive,
       onTimeUpdate,
       onPlayingChange,
     },
@@ -227,19 +232,27 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
     }, [sprite]);
 
     // ---- Maße messen: Leiste + Videobox ------------------------------------
+    // WICHTIG: hängt an `duration`, weil die Scrub-Leiste (barRef) erst
+    // gerendert wird sobald duration > 0. Ohne diese Abhängigkeit würde
+    // der Observer beim Mount laufen, wenn barRef noch null ist →
+    // barWidth bliebe 0 und der Filmstrip fiele auf den Fallback zurück.
     useEffect(() => {
       const bar = barRef.current;
       const media = mediaRef.current;
       const update = () => {
-        if (bar) setBarWidth(bar.clientWidth);
-        if (media) setBox({ w: media.clientWidth, h: media.clientHeight });
+        if (barRef.current) setBarWidth(barRef.current.clientWidth);
+        if (mediaRef.current)
+          setBox({
+            w: mediaRef.current.clientWidth,
+            h: mediaRef.current.clientHeight,
+          });
       };
       update();
       const ro = new ResizeObserver(update);
       if (bar) ro.observe(bar);
       if (media) ro.observe(media);
       return () => ro.disconnect();
-    }, []);
+    }, [duration]);
 
     // ---- Content-Rect (letterbox-korrekt) für das Overlay ------------------
     const contentRect = (() => {
@@ -358,6 +371,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
                 width: contentRect.width,
                 height: contentRect.height,
                 zIndex: 10,
+                pointerEvents: overlayInteractive ? undefined : "none",
               }}
             >
               {overlay}
