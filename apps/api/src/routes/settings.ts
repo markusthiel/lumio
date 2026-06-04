@@ -16,6 +16,11 @@ import { config } from "../config.js";
 import { checkFeatureAvailable } from "../services/usage.js";
 import { validateSlugFormat } from "../services/slugs.js";
 import {
+  STUDIO_NOTIFICATION_EVENTS,
+  resolveStudioPrefs,
+  sanitizeStudioPrefs,
+} from "../services/notifications.js";
+import {
   defaultAllowedKinds,
   ALL_FILE_KINDS,
 } from "../services/upload-allow.js";
@@ -125,6 +130,41 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
   // -------------------------------------------------------------------------
   // PATCH /settings
   // -------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // E-Mail-Benachrichtigungen — Katalog + Einstellungen
+  // ---------------------------------------------------------------------------
+  app.get("/settings/notifications", async (req, reply) => {
+    req.requireAuth();
+    const t = await prisma.tenant.findUnique({
+      where: { id: req.tenantId },
+      select: { notificationPrefs: true },
+    });
+    if (!t) return reply.status(404).send({ error: "not_found" });
+    return {
+      events: STUDIO_NOTIFICATION_EVENTS.map((e) => ({
+        key: e.key,
+        label: e.label,
+        description: e.description,
+      })),
+      prefs: resolveStudioPrefs(t.notificationPrefs),
+    };
+  });
+
+  app.put("/settings/notifications", async (req, reply) => {
+    const s = req.requireAuth();
+    if (s.user.role !== "owner" && s.user.role !== "admin") {
+      return reply.status(403).send({ error: "forbidden" });
+    }
+    const body = z.object({ prefs: z.record(z.boolean()) }).parse(req.body);
+    const clean = sanitizeStudioPrefs(body.prefs);
+    const updated = await prisma.tenant.update({
+      where: { id: req.tenantId },
+      data: { notificationPrefs: clean },
+      select: { notificationPrefs: true },
+    });
+    return { ok: true, prefs: resolveStudioPrefs(updated.notificationPrefs) };
+  });
+
   app.patch("/settings", async (req, reply) => {
     const s = req.requireAuth();
     if (s.user.role !== "owner" && s.user.role !== "admin") {

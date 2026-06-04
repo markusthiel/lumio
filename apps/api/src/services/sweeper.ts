@@ -32,6 +32,9 @@ import { logEvent } from "./audit.js";
 import { writeMrrSnapshot } from "./mrr.js";
 import { processBroadcast } from "./broadcast.js";
 import { computeStorageBytes } from "./usage.js";
+import { getPlan, effectiveStorageBytes } from "./plans.js";
+import { tmplStorageWarning } from "./mail.js";
+import { studioNotifyEnabled } from "./notifications.js";
 import { logger } from "../logger.js";
 import { config } from "../config.js";
 import {
@@ -170,8 +173,93 @@ async function recalculateStorageUsage() {
       { updated, failed, total: tenants.length },
       "sweeper.storage_recalc.done"
     );
+    // Direkt im Anschluss prüfen, wer nahe am Limit ist (nutzt die eben
+    // geschriebenen Werte).
+    await checkStorageWarnings();
   } catch (err) {
     logger.warn({ err }, "sweeper.storage_recalc.failed");
+  }
+}
+
+// "Speicher fast voll"-Studio-Mail ab 90% Auslastung. Throttle über
+// storageWarnedAt: nach dem Warnen frühestens nach 7 Tagen erneut; sinkt die
+// Auslastung wieder unter den Schwellwert, wird der Marker genullt.
+const STORAGE_WARN_REMINDER_MS = 7 * 24 * 60 * 60 * 1000;
+
+async function checkStorageWarnings() {
+  try {
+    const subs = await prisma.billingSubscription.findMany({
+      where: { tenant: { status: { not: "archived" } } },
+      select: {
+        tenantId: true,
+        storageBytesUsed: true,
+        storageAddonGib: true,
+        storageWarnedAt: true,
+        plan: { select: { slug: true } },
+      },
+    });
+
+    for (const s of subs) {
+      try {
+        const limit = effectiveStorageBytes(
+          getPlan(s.plan?.slug),
+          s.storageAddonGib
+        );
+        if (limit <= 0n) continue;
+        const used = s.storageBytesUsed;
+        // used/limit >= 0.9  ⇔  used*100 >= limit*90
+        const overThreshold = used * 100n >= limit * 90n;
+
+        if (!overThreshold) {
+          if (s.storageWarnedAt) {
+            await prisma.billingSubscription.update({
+              where: { tenantId: s.tenantId },
+              data: { storageWarnedAt: null },
+            });
+          }
+          continue;
+        }
+
+        const recentlyWarned =
+          s.storageWarnedAt &&
+          Date.now() - s.storageWarnedAt.getTime() < STORAGE_WARN_REMINDER_MS;
+        if (recentlyWarned) continue;
+
+        if (!(await studioNotifyEnabled(s.tenantId, "storage_warning"))) continue;
+
+        const owner = await prisma.user.findFirst({
+          where: { tenantId: s.tenantId, role: "owner", status: "active" },
+          select: { email: true },
+        });
+        if (!owner?.email) continue;
+
+        const GIB = 1024n * 1024n * 1024n;
+        const usedGib = Number(used / GIB);
+        const limitGib = Number(limit / GIB);
+        const percent = Math.min(100, Number((used * 100n) / limit));
+
+        await sendMail({
+          to: owner.email,
+          ...tmplStorageWarning({
+            usedGib,
+            limitGib,
+            percent,
+            billingUrl: `${config.PUBLIC_URL}/studio/billing`,
+          }),
+        });
+        await prisma.billingSubscription.update({
+          where: { tenantId: s.tenantId },
+          data: { storageWarnedAt: new Date() },
+        });
+      } catch (err) {
+        logger.warn(
+          { err, tenantId: s.tenantId },
+          "sweeper.storage_warn.tenant_failed"
+        );
+      }
+    }
+  } catch (err) {
+    logger.warn({ err }, "sweeper.storage_warn.failed");
   }
 }
 

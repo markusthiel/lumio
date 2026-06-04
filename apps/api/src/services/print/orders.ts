@@ -15,6 +15,7 @@ import {
   tmplPrintOrderShippedGuest,
 } from "../mail-print.js";
 import { config } from "../../config.js";
+import { studioNotifyEnabled } from "../notifications.js";
 
 // Order-Number: LP-YYYYMMDD-XXXX, mit XXXX = 4 hex random.
 // Kurz genug zum telefonieren, lang genug fuer Eindeutigkeit.
@@ -494,7 +495,7 @@ export async function sendOrderMails(
       }),
     });
     // Studio: Eingang
-    if (ownerEmail) {
+    if (ownerEmail && (await studioNotifyEnabled(order.tenantId, "print_order"))) {
       await sendMail({
         to: ownerEmail,
         ...tmplPrintOrderNotifyStudio({

@@ -1872,6 +1872,18 @@ export const api = {
     `${API_URL}/api/v1/galleries/${galleryId}/export/xmp`,
 
   // Tenant Settings
+  getStudioNotifications: () =>
+    request<{
+      events: Array<{ key: string; label: string; description: string }>;
+      prefs: Record<string, boolean>;
+    }>("/settings/notifications"),
+
+  updateStudioNotifications: (prefs: Record<string, boolean>) =>
+    request<{ ok: true; prefs: Record<string, boolean> }>(
+      "/settings/notifications",
+      { method: "PUT", body: JSON.stringify({ prefs }) }
+    ),
+
   getTenantSettings: () =>
     request<{
       tenant: TenantSettings;

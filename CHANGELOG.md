@@ -30,6 +30,24 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.25.0] - 2026-06-04
+
+Neues Feature. `git pull` + regulärer Deploy genügt; additive Migration läuft
+automatisch.
+
+### Added
+- **Studio-E-Mail-Benachrichtigungen steuerbar.** Unter Einstellungen →
+  „E-Mail-Benachrichtigungen" kann das Studio pro Event an-/abschalten, was per
+  Mail kommt: neuer Kommentar, abgeschlossene Auswahl, neue Print-Bestellung.
+- Neue Benachrichtigung **„Speicher fast voll"**: ab 90 % Tarif-Auslastung
+  bekommt der Owner eine Mail (mit Throttle, höchstens einmal pro Woche, Reset
+  sobald wieder unter Schwelle). Läuft über den periodischen Sweeper.
+
+### Changed
+- Die bestehenden Studio-Mails (Kommentar, Auswahl, Print-Bestellung) sind jetzt
+  über diese Einstellungen abschaltbar. Kunden-Mails (Galerie-Einladung,
+  ZIP-Download-fertig) bleiben unberührt.
+
 ## [0.24.0] - 2026-06-04
 
 Neues optionales Feature. `git pull` + regulärer Deploy genügt; ohne Konfiguration

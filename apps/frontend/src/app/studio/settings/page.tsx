@@ -8,6 +8,7 @@ import { TwoFactorSection } from "@/components/studio/TwoFactorSection";
 import { PasskeysSection } from "@/components/studio/PasskeysSection";
 import { ApiTokensSection } from "@/components/studio/ApiTokensSection";
 import { MotionSection } from "@/components/studio/MotionSection";
+import { NotificationSettings } from "@/components/studio/NotificationSettings";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { useT, useLocale } from "@/lib/i18n";
 
@@ -922,6 +923,10 @@ export default function StudioSettingsPage() {
             <em> watermarkEnabled</em> {t("settings.watermarkHintPost")}
           </div>
         </section>
+
+        <NotificationSettings
+          canEdit={role === "owner" || role === "admin"}
+        />
       </div>
     </>
   );

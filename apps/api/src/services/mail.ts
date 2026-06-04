@@ -181,6 +181,41 @@ export function tmplZipReady(opts: {
   };
 }
 
+export function tmplStorageWarning(opts: {
+  usedGib: number;
+  limitGib: number;
+  percent: number;
+  billingUrl: string;
+  branding?: MailBranding;
+}): { subject: string; text: string; html: string } {
+  return {
+    subject: `Speicher fast voll: ${opts.percent}% belegt`,
+    text:
+      `Dein Lumio-Speicher ist zu ${opts.percent}% belegt ` +
+      `(${opts.usedGib} von ${opts.limitGib} GB).\n\n` +
+      `Ist das Limit erreicht, sind keine neuen Uploads mehr möglich. Du ` +
+      `kannst alte Galerien aufräumen oder deinen Speicher/Tarif erweitern:\n\n` +
+      `${opts.billingUrl}\n\n— Lumio`,
+    html: renderMailLayout({
+      branding: opts.branding,
+      preheader: `Dein Speicher ist zu ${opts.percent}% belegt`,
+      bodyHtml:
+        mailHeading("Speicher fast voll") +
+        mailParagraph(
+          `Dein belegter Speicher liegt bei <strong>${opts.percent}%</strong> — ${opts.usedGib} von ${opts.limitGib} GB.`
+        ) +
+        mailParagraph(
+          `Ist das Limit erreicht, sind keine neuen Uploads mehr möglich. Du kannst alte Galerien aufräumen oder deinen Speicher erweitern.`
+        ) +
+        mailButton(
+          opts.billingUrl,
+          "Speicher & Tarif",
+          opts.branding?.accentColor
+        ),
+    }),
+  };
+}
+
 export function tmplOwnerSetup(opts: {
   displayName: string;
   tenantName: string;

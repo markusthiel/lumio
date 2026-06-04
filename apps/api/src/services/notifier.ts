@@ -17,6 +17,7 @@ import {
   tmplWelcome,
 } from "./mail.js";
 import type { MailBranding } from "./mail-layout.js";
+import { studioNotifyEnabled } from "./notifications.js";
 
 function studioUrl(galleryId: string): string {
   return `${config.PUBLIC_URL}/studio/${galleryId}`;
@@ -88,7 +89,8 @@ export async function notifyNewComment(opts: {
       },
     });
     if (!gallery?.owner?.email) return;
-
+    if (!(await studioNotifyEnabled(gallery.tenantId, "gallery_comment")))
+      return;
     const tpl = tmplNewComment({
       galleryTitle: gallery.title,
       galleryUrl: studioUrl(gallery.id),
@@ -125,6 +127,8 @@ export async function notifySelectionFinished(opts: {
       },
     });
     if (!gallery?.owner?.email || !access) return;
+    if (!(await studioNotifyEnabled(gallery.tenantId, "selection_finished")))
+      return;
 
     // Aktuelle Auswahl zählen
     const count = await prisma.selection.count({

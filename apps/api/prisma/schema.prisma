@@ -96,6 +96,11 @@ model Tenant {
   //   mailHeaderStyle:  line  | banner               (Kopf-Optik)
   mailLogoPosition   String?  @default("left")
   mailHeaderStyle    String?  @default("line")
+
+  // E-Mail-Benachrichtigungs-Einstellungen des Studios. JSON-Map
+  // eventKey→bool. Fehlender Key = Default (siehe services/notifications.ts).
+  // Null = alle Defaults (an).
+  notificationPrefs  Json?
   
   // Watermark-Konfiguration (siehe docs/KONZEPT.md §9)
   // Wenn watermarkImageKey gesetzt: PNG aus S3 wird als Overlay verwendet.
@@ -1092,6 +1097,10 @@ model BillingSubscription {
   
   // Aktuelle Nutzung (wird vom Worker periodisch geupdatet)
   storageBytesUsed   BigInt   @default(0)
+  // Throttle für die "Speicher fast voll"-Studio-Mail: gesetzt, wenn zuletzt
+  // gewarnt wurde; wieder genullt, sobald die Auslastung unter den Schwellwert
+  // fällt. Verhindert Mail-Spam bei jedem Sweep.
+  storageWarnedAt    DateTime?
   bandwidthBytesUsed BigInt   @default(0)  // monatlich, wird zurückgesetzt
   galleriesCount     Int      @default(0)
 

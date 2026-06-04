@@ -11,6 +11,6 @@ from __future__ import annotations
 
 import os
 
-_BUILTIN_VERSION = "0.24.0"
+_BUILTIN_VERSION = "0.25.0"
 
 __version__ = os.environ.get("LUMIO_VERSION", "").strip() or _BUILTIN_VERSION
