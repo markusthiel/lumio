@@ -262,9 +262,11 @@ export function VideoMarkup({
         </div>
       )}
 
-      {/* Caption des aktiven Markers (zeitgebunden) */}
+      {/* Caption des aktiven Markers (zeitgebunden). Sitzt UNTERHALB des
+          „Markieren"-Buttons (der ebenfalls oben mittig liegt), damit sich
+          beide nicht überlagern. */}
       {activeMarker && !drawing && (
-        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-black/70 backdrop-blur rounded-full px-3 py-1 max-w-[90%] pointer-events-none">
+        <div className="absolute top-14 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 bg-black/70 backdrop-blur rounded-full px-3 py-1 max-w-[90%] pointer-events-none">
           <span
             className="w-2 h-2 rounded-full shrink-0"
             style={{
