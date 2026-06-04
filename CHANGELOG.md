@@ -30,6 +30,26 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.37.1] - 2026-06-04
+
+Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
+(Frontend).
+
+### Fixed
+- **Video im Studio-Medien-Tab abspielbar**: In der großen Ansicht des
+  Medien-Tabs ließ sich ein Video bisher nicht abspielen (nur Standbild) —
+  jetzt mit Player und Vorschau-Leiste.
+- **Vorschau-Leiste beim Video-Scrubbing**: Die Einzelbilder in der Leiste
+  wurden teils gar nicht angezeigt (nur ein Fallback). Sie laden jetzt
+  zuverlässig.
+- **Video-Markierungen nur noch zeitpunktgenau sichtbar**: Eine Markierung
+  erscheint jetzt nur an ihrer Sekunde und nicht mehr über das ganze Video.
+  Außerdem funktionieren Play/Pause wieder zuverlässig (das Markierungs-
+  Overlay blockierte vorher die Bedienelemente).
+- **Doppelte Werkzeugleiste in der Kundengalerie entfernt**: Bei Videos
+  wurde zusätzlich die Foto-Zeichenleiste eingeblendet und überlappte die
+  Scrub-Leiste. Für Videos ist jetzt nur noch die Video-Markierung aktiv.
+
 ## [0.37.0] - 2026-06-04
 
 Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
