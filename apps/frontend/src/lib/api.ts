@@ -2816,6 +2816,18 @@ export const api = {
       body: JSON.stringify(input),
     }),
 
+  superPurgeTenant: (id: string, input: { confirmSlug: string }) =>
+    request<{
+      ok: true;
+      stripe: {
+        subscription: { canceled: boolean; reason: string };
+        customer: { deleted: boolean; reason: string };
+      };
+    }>(`/super/tenants/${id}/purge`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
   /** Tenant-Datenexport anstoßen. Bei archived Tenants wird zusätzlich
    *  ein Token erzeugt und eine Mail mit Download-Link an alle Owner
    *  verschickt — der Tenant kann ohne Login darauf zugreifen. */

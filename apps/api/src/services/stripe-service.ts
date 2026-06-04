@@ -276,6 +276,32 @@ export async function cancelSubscriptionImmediately(
 }
 
 /**
+ * Löscht einen Stripe-Customer komplett (inkl. aller seiner Subscriptions,
+ * die Stripe dabei automatisch kündigt). Nur für Test-/Trial-Aufräumen
+ * gedacht — bei echten zahlenden Kunden behält man den Customer für die
+ * Buchhaltung. Best-Effort: meldet das Ergebnis statt zu werfen.
+ */
+export async function deleteStripeCustomer(
+  customerId: string | null | undefined
+): Promise<{ deleted: boolean; reason: string }> {
+  if (!customerId) return { deleted: false, reason: "no_customer" };
+  const stripe = getStripe();
+  try {
+    await stripe.customers.del(customerId);
+    return { deleted: true, reason: "ok" };
+  } catch (err) {
+    const e = err as { statusCode?: number };
+    if (e.statusCode === 404) {
+      return { deleted: false, reason: "not_found_in_stripe" };
+    }
+    return {
+      deleted: false,
+      reason: err instanceof Error ? err.message : "stripe_error",
+    };
+  }
+}
+
+/**
  * Trial-Ende einer Subscription nach vorne verschieben.
  *
  * Use-Case: Owner braucht ein paar Tage mehr Zeit zum Evaluieren.

@@ -30,6 +30,21 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.33.0] - 2026-06-04
+
+Neues Feature (Super-Admin). `git pull` + regulärer Deploy genügt, keine
+Migration.
+
+### Added
+- **Sofort-Löschen für Test-/Trial-Tenants** (Super-Admin → Tenant-Detail,
+  „Sofort löschen (Test)"). Überspringt Archivierung + 30-Tage-Karenz, kündigt
+  die Stripe-Subscription, **löscht den Stripe-Customer** und macht
+  DB-Cascade + S3-Cleanup in einem Schritt. Schutzschranke: nur möglich, wenn
+  der Tenant **nicht aktiv zahlend** ist (Subscription-Status nicht
+  `active`/`past_due`) — laufende Kunden lassen sich so nicht versehentlich
+  löschen, dafür bleibt der reguläre Weg (Archivieren → Karenz → Hard-Delete,
+  der die Stripe-Daten behält). Slug-Eingabe zur Bestätigung Pflicht.
+
 ## [0.32.1] - 2026-06-04
 
 Bugfix. `git pull` + regulärer Deploy genügt, nur API.

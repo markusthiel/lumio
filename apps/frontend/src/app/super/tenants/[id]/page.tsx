@@ -103,6 +103,31 @@ function TenantDetail() {
       setActionBusy(false);
     }
   }
+  async function purge() {
+    if (!tenant) return;
+    const typed = window.prompt(
+      `SOFORT-LÖSCHEN von „${tenant.name}" — inkl. aller Daten, Stripe-Customer und S3.\n\nDas ist endgültig und ohne Karenz. Zum Bestätigen den Slug eingeben:`,
+      ""
+    );
+    if (typed === null) return;
+    if (typed.trim() !== tenant.slug) {
+      alert("Slug stimmt nicht — abgebrochen.");
+      return;
+    }
+    setActionBusy(true);
+    try {
+      await api.superPurgeTenant(tenant.id, { confirmSlug: typed.trim() });
+      router.push("/super/tenants");
+    } catch (err) {
+      alert(
+        err instanceof Error
+          ? err.message
+          : "Löschen fehlgeschlagen (nur möglich, wenn der Tenant nicht aktiv zahlend ist)."
+      );
+      setActionBusy(false);
+    }
+  }
+
   async function archive() {
     if (!tenant) return;
     if (
@@ -254,6 +279,17 @@ function TenantDetail() {
               variant="danger"
             >
               Archivieren
+            </ActionButton>
+          )}
+          {(!tenant.subscription ||
+            (tenant.subscription.status !== "active" &&
+              tenant.subscription.status !== "past_due")) && (
+            <ActionButton
+              onClick={purge}
+              disabled={actionBusy}
+              variant="danger"
+            >
+              Sofort löschen (Test)
             </ActionButton>
           )}
           {/* Hard-Delete erst nach Karenz. Button nur sichtbar wenn:

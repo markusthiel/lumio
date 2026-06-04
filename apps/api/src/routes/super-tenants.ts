@@ -43,7 +43,7 @@ import { hashPassword, createSession } from "../services/auth.js";
 import { createSetupToken, buildSetupUrl, buildResetUrl } from "../services/setupToken.js";
 import { logEvent } from "../services/audit.js";
 import { sendMail, tmplOwnerSetup, tmplPasswordReset } from "../services/mail.js";
-import { cancelSubscriptionImmediately, extendTrial } from "../services/stripe-service.js";
+import { cancelSubscriptionImmediately, extendTrial, deleteStripeCustomer } from "../services/stripe-service.js";
 import { enqueue, Queues } from "../services/queue.js";
 import { createExport } from "../services/export-service.js";
 import { cancelDeletion } from "../services/tenant-deletion.js";
@@ -1104,7 +1104,94 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
   );
 
   // -------------------------------------------------------------------------
-  // POST /super/tenants/:id/owners — weiteren Owner einladen
+  // POST /super/tenants/:id/purge — Sofort-Löschen für Test-/Trial-Tenants
+  // -------------------------------------------------------------------------
+  // Umgeht Archivierung + Karenz UND löscht den Stripe-Customer mit. Gedacht
+  // fürs Aufräumen von Test-/Trial-Tenants. Schutzschranke: NICHT erlaubt,
+  // wenn der Tenant aktuell zahlend ist (Subscription active/past_due) —
+  // dafür ist der reguläre Pfad Archive → 30 Tage Karenz → Hard-Delete da,
+  // der die Stripe-Daten für die Buchhaltung behält. Slug-Bestätigung Pflicht.
+  app.post<{ Params: { id: string } }>(
+    "/super/tenants/:id/purge",
+    async (req, reply) => {
+      const sa = req.requireSuperAdmin();
+      const body = deleteTenantBody.parse(req.body ?? {});
+
+      const t = await prisma.tenant.findUnique({
+        where: { id: req.params.id },
+        select: {
+          id: true,
+          slug: true,
+          name: true,
+          stripeCustomerId: true,
+          subscription: { select: { status: true } },
+        },
+      });
+      if (!t) return reply.status(404).send({ error: "not_found" });
+
+      // Schutzschranke: laufende/zahlende Subscription nicht sofort purgen.
+      const subStatus = t.subscription?.status ?? null;
+      if (subStatus === "active" || subStatus === "past_due") {
+        return reply.status(409).send({
+          error: "tenant_is_paying",
+          message:
+            "Tenant hat eine aktive/offene Subscription. Sofort-Löschen ist nur für nicht-zahlende (Test-/Trial-)Tenants erlaubt. Nutze den regulären Weg: Archivieren → 30 Tage Karenz → Hard-Delete.",
+          subscriptionStatus: subStatus,
+        });
+      }
+
+      // Slug-Bestätigung
+      if (body.confirmSlug !== t.slug) {
+        return reply.status(400).send({
+          error: "slug_mismatch",
+          message:
+            "Slug-Bestätigung stimmt nicht. Bitte den exakten Tenant-Slug eingeben.",
+        });
+      }
+
+      // Audit VOR dem Cascade.
+      await logEvent({
+        tenantId: t.id,
+        actorType: "super_admin",
+        actorId: sa.admin.id,
+        action: "super.tenant.purge",
+        targetType: "tenant",
+        targetId: t.id,
+        payload: { slug: t.slug, name: t.name, subscriptionStatus: subStatus },
+        ipAddress: req.ip,
+      });
+
+      // Stripe aufräumen (best-effort): Subscription kündigen + Customer löschen.
+      let subCancel = { canceled: false, reason: "skipped" };
+      let custDelete = { deleted: false, reason: "skipped" };
+      try {
+        subCancel = await cancelSubscriptionImmediately(t.id);
+      } catch (err) {
+        app.log.warn({ err, tenantId: t.id }, "purge: stripe cancel failed");
+      }
+      try {
+        custDelete = await deleteStripeCustomer(t.stripeCustomerId);
+      } catch (err) {
+        app.log.warn({ err, tenantId: t.id }, "purge: stripe customer delete failed");
+      }
+
+      // DB-Cascade-Delete (User, Gallery, File, BillingSubscription, …).
+      await prisma.tenant.delete({ where: { id: t.id } });
+
+      // S3-Prefix t/<tenantId>/ asynchron wegräumen.
+      await enqueue(Queues.CLEANUP, {
+        type: "cleanup_tenant",
+        tenantId: t.id,
+      }).catch((err) => {
+        app.log.warn({ err, tenantId: t.id }, "cleanup_tenant enqueue failed");
+      });
+
+      return {
+        ok: true,
+        stripe: { subscription: subCancel, customer: custDelete },
+      };
+    }
+  );
   // -------------------------------------------------------------------------
   app.post<{ Params: { id: string } }>(
     "/super/tenants/:id/owners",
