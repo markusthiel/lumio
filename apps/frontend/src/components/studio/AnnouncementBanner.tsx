@@ -58,9 +58,16 @@ export function AnnouncementBanner() {
     }
     void load();
     const id = setInterval(load, POLL_INTERVAL_MS);
+    // Beim Zurückkehren auf den Tab sofort neu laden — so ist ein frisch
+    // angelegter Banner gleich da, ohne auf den 5-Min-Tick zu warten.
+    function onVisible() {
+      if (document.visibilityState === "visible") void load();
+    }
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
       cancelled = true;
       clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
 

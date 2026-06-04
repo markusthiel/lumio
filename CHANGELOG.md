@@ -30,6 +30,16 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.35.1] - 2026-06-04
+
+Kleine Verbesserung. `git pull` + regulärer Deploy genügt, nur Frontend.
+
+### Changed
+- Studio-Banner werden jetzt **sofort beim Zurückkehren auf den Tab** neu
+  geladen (zusätzlich zum 5-Minuten-Polling). Ein frisch angelegter Banner
+  erscheint damit praktisch sofort, sobald jemand wieder ins Studio schaut —
+  ohne Reload.
+
 ## [0.35.0] - 2026-06-04
 
 Neues Feature (Super-Admin). `git pull` + regulärer Deploy genügt; additive
