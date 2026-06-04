@@ -30,6 +30,20 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.26.0] - 2026-06-04
+
+Neues Feature. `git pull` + regulärer Deploy genügt; additive Migration läuft
+automatisch.
+
+### Added
+- **Super-Admin-Benachrichtigungen.** Bei jedem neuen Self-Service-Signup geht
+  eine Mail an alle Super-Admins (Name, Slug, Plan, Owner). Zusätzlich ein
+  **täglicher Report** an alle Super-Admins: neue Tenants der letzten 24 h,
+  Plattform-Kennzahlen (aktive Tenants, User, Gesamtspeicher), Top-Speicher und
+  Tenants nahe am Limit (≥90 %). Läuft über den Sweeper, idempotent (genau
+  einmal pro Tag). Beides nur im SaaS-Mode (`BILLING_ENABLED`); ohne Billing
+  bleibt alles still.
+
 ## [0.25.0] - 2026-06-04
 
 Neues Feature. `git pull` + regulärer Deploy genügt; additive Migration läuft

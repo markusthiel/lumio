@@ -202,7 +202,7 @@ export function tmplStorageWarning(opts: {
       bodyHtml:
         mailHeading("Speicher fast voll") +
         mailParagraph(
-          `Dein belegter Speicher liegt bei <strong>${opts.percent}%</strong> — ${opts.usedGib} von ${opts.limitGib} GB.`
+          `Dein belegter Speicher liegt bei ${opts.percent}% — ${opts.usedGib} von ${opts.limitGib} GB.`
         ) +
         mailParagraph(
           `Ist das Limit erreicht, sind keine neuen Uploads mehr möglich. Du kannst alte Galerien aufräumen oder deinen Speicher erweitern.`
@@ -782,4 +782,111 @@ export function tmplBillingPurgeReminder(opts: {
         mailNoticeBox(`Nach dem Stichtag ist keine Wiederherstellung mehr möglich.`),
     }),
   };
+}
+
+// =============================================================================
+// Super-Admin / Plattform-Benachrichtigungen (ohne Tenant-Branding)
+// =============================================================================
+
+export function tmplSuperNewTenant(opts: {
+  tenantName: string;
+  slug: string;
+  plan: string;
+  ownerEmail: string;
+  superUrl: string;
+}): { subject: string; text: string; html: string } {
+  return {
+    subject: `Neuer Tenant: ${opts.tenantName} (${opts.plan})`,
+    text:
+      `Neuer Tenant registriert:\n\n` +
+      `Name:  ${opts.tenantName}\n` +
+      `Slug:  ${opts.slug}\n` +
+      `Plan:  ${opts.plan}\n` +
+      `Owner: ${opts.ownerEmail}\n\n` +
+      `Super-Admin: ${opts.superUrl}\n\n— Lumio`,
+    html: renderMailLayout({
+      preheader: `Neuer Tenant: ${opts.tenantName}`,
+      bodyHtml:
+        mailHeading("Neuer Tenant registriert") +
+        mailBullets([
+          `Name: ${opts.tenantName}`,
+          `Slug: ${opts.slug}`,
+          `Plan: ${opts.plan}`,
+          `Owner: ${opts.ownerEmail}`,
+        ]) +
+        mailButton(opts.superUrl, "Im Super-Admin öffnen"),
+    }),
+  };
+}
+
+export function tmplSuperDigest(opts: {
+  dateLabel: string;
+  newTenants: Array<{ name: string; plan: string }>;
+  activeTenants: number;
+  totalUsers: number;
+  totalStorageGib: number;
+  topStorage: Array<{ name: string; usedGib: number; percent: number }>;
+  nearLimit: Array<{ name: string; percent: number }>;
+  superUrl: string;
+}): { subject: string; text: string; html: string } {
+  const newCount = opts.newTenants.length;
+  const newLines = opts.newTenants.map((t) => `${t.name} (${t.plan})`);
+  const topLines = opts.topStorage.map(
+    (t) => `${t.name}: ${t.usedGib} GB (${t.percent}%)`
+  );
+  const nearLines = opts.nearLimit.map((t) => `${t.name}: ${t.percent}%`);
+
+  const textParts = [
+    `Lumio Täglicher Report — ${opts.dateLabel}`,
+    ``,
+    `Neue Tenants (24h): ${newCount}`,
+    ...newLines.map((l) => `  - ${l}`),
+    ``,
+    `Aktive Tenants: ${opts.activeTenants}`,
+    `User gesamt: ${opts.totalUsers}`,
+    `Speicher gesamt: ${opts.totalStorageGib} GB`,
+    ``,
+    `Top-Speicher:`,
+    ...topLines.map((l) => `  - ${l}`),
+    ``,
+    `Nahe am Limit (>=90%): ${opts.nearLimit.length}`,
+    ...nearLines.map((l) => `  - ${l}`),
+    ``,
+    `Super-Admin: ${opts.superUrl}`,
+    `— Lumio`,
+  ];
+
+  let body =
+    mailHeading(`Täglicher Report — ${opts.dateLabel}`) +
+    mailHeading2sub(`Neue Tenants (24h): ${newCount}`);
+  body +=
+    newCount > 0
+      ? mailBullets(newLines)
+      : mailParagraph("Keine neuen Tenants in den letzten 24 Stunden.");
+  body += mailDivider();
+  body += mailBullets([
+    `Aktive Tenants: ${opts.activeTenants}`,
+    `User gesamt: ${opts.totalUsers}`,
+    `Speicher gesamt: ${opts.totalStorageGib} GB`,
+  ]);
+  if (opts.topStorage.length > 0) {
+    body += mailParagraph("Top-Speicher:") + mailBullets(topLines);
+  }
+  body += mailParagraph(`Nahe am Limit (>=90%): ${opts.nearLimit.length}`);
+  if (opts.nearLimit.length > 0) body += mailBullets(nearLines);
+  body += mailButton(opts.superUrl, "Super-Admin öffnen");
+
+  return {
+    subject: `Lumio Report ${opts.dateLabel} — ${newCount} neue Tenant(s)`,
+    text: textParts.join("\n"),
+    html: renderMailLayout({
+      preheader: `${newCount} neue Tenants · ${opts.totalStorageGib} GB gesamt`,
+      bodyHtml: body,
+    }),
+  };
+}
+
+// Kleiner Zwischen-Titel (mailHeading ist groß; hier eine dezentere Variante).
+function mailHeading2sub(text: string): string {
+  return mailParagraph(text);
 }

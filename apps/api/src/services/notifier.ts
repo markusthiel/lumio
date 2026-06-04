@@ -15,7 +15,10 @@ import {
   tmplZipReady,
   tmplGalleryInvite,
   tmplWelcome,
+  tmplSuperNewTenant,
+  tmplSuperDigest,
 } from "./mail.js";
+import { getPlan, effectiveStorageBytes } from "./plans.js";
 import type { MailBranding } from "./mail-layout.js";
 import { studioNotifyEnabled } from "./notifications.js";
 
@@ -373,5 +376,136 @@ export async function sendWelcomeMail(opts: {
     await sendMail({ to: user.email, ...tpl });
   } catch (err) {
     logger.warn({ err, userId: opts.userId }, "sendWelcomeMail failed before SMTP");
+  }
+}
+
+// =============================================================================
+// Super-Admin / Plattform-Benachrichtigungen
+// =============================================================================
+
+const GIB_BYTES = 1024n * 1024n * 1024n;
+
+/** E-Mail-Adressen aller Super-Admins. */
+async function superAdminEmails(): Promise<string[]> {
+  const admins = await prisma.superAdmin.findMany({ select: { email: true } });
+  return admins.map((a) => a.email).filter((e): e is string => !!e);
+}
+
+/**
+ * Alle Super-Admins über einen neuen Tenant informieren (Self-Service-Signup).
+ * Stille Failures.
+ */
+export async function notifySuperAdminsNewTenant(opts: {
+  tenantId: string;
+  tenantName: string;
+  slug: string;
+  plan: string;
+  ownerEmail: string;
+}): Promise<void> {
+  try {
+    const recipients = await superAdminEmails();
+    if (recipients.length === 0) return;
+    const tpl = tmplSuperNewTenant({
+      tenantName: opts.tenantName,
+      slug: opts.slug,
+      plan: opts.plan,
+      ownerEmail: opts.ownerEmail,
+      superUrl: `${config.PUBLIC_URL}/super/tenants/${opts.tenantId}`,
+    });
+    for (const to of recipients) {
+      await sendMail({ to, ...tpl });
+    }
+  } catch (err) {
+    logger.warn({ err }, "notifySuperAdminsNewTenant failed");
+  }
+}
+
+/**
+ * Täglicher Super-Admin-Digest: neue Tenants (24h), Plattform-Kennzahlen,
+ * Top-Speicher und Tenants nahe am Limit. Wird vom Sweeper (1×/Tag) aufgerufen.
+ * Stille Failures.
+ */
+export async function sendSuperAdminDigest(): Promise<void> {
+  try {
+    const recipients = await superAdminEmails();
+    if (recipients.length === 0) return;
+
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    const [newTenantsRaw, activeTenants, totalUsers, subs] = await Promise.all([
+      prisma.tenant.findMany({
+        where: { createdAt: { gte: since } },
+        select: {
+          name: true,
+          displayName: true,
+          subscription: { select: { plan: { select: { slug: true } } } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      }),
+      prisma.tenant.count({ where: { status: "active" } }),
+      prisma.user.count(),
+      prisma.billingSubscription.findMany({
+        where: { tenant: { status: { not: "archived" } } },
+        select: {
+          storageBytesUsed: true,
+          storageAddonGib: true,
+          plan: { select: { slug: true } },
+          tenant: { select: { name: true, displayName: true } },
+        },
+      }),
+    ]);
+
+    const newTenants = newTenantsRaw.map((t) => ({
+      name: t.displayName ?? t.name,
+      plan: t.subscription?.plan?.slug ?? "—",
+    }));
+
+    let totalBytes = 0n;
+    const withUsage = subs.map((s) => {
+      const limit = effectiveStorageBytes(getPlan(s.plan?.slug), s.storageAddonGib);
+      totalBytes += s.storageBytesUsed;
+      const percent =
+        limit > 0n ? Number((s.storageBytesUsed * 100n) / limit) : 0;
+      return {
+        name: s.tenant.displayName ?? s.tenant.name,
+        usedBytes: s.storageBytesUsed,
+        usedGib: Number(s.storageBytesUsed / GIB_BYTES),
+        percent,
+      };
+    });
+
+    const topStorage = [...withUsage]
+      .sort((a, b) => (b.usedBytes > a.usedBytes ? 1 : -1))
+      .slice(0, 5)
+      .map((t) => ({ name: t.name, usedGib: t.usedGib, percent: t.percent }));
+
+    const nearLimit = withUsage
+      .filter((t) => t.percent >= 90)
+      .sort((a, b) => b.percent - a.percent)
+      .map((t) => ({ name: t.name, percent: t.percent }));
+
+    const dateLabel = new Date().toLocaleDateString("de-DE", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+
+    const tpl = tmplSuperDigest({
+      dateLabel,
+      newTenants,
+      activeTenants,
+      totalUsers,
+      totalStorageGib: Number(totalBytes / GIB_BYTES),
+      topStorage,
+      nearLimit,
+      superUrl: `${config.PUBLIC_URL}/super`,
+    });
+
+    for (const to of recipients) {
+      await sendMail({ to, ...tpl });
+    }
+  } catch (err) {
+    logger.warn({ err }, "sendSuperAdminDigest failed");
   }
 }

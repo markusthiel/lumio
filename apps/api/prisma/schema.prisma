@@ -2310,3 +2310,13 @@ model CspViolation {
   @@index([lastSeenAt])
   @@map("csp_violations")
 }
+
+/// Idempotenz-Marker für den täglichen Super-Admin-Digest. Ein Row pro Tag
+/// (UTC); der Sweeper "claimt" den Tag per Insert — schlägt der wegen der
+/// Unique-Constraint fehl, wurde heute schon gesendet. Restart-sicher.
+model SuperAdminDigestLog {
+  date   DateTime @id @db.Date
+  sentAt DateTime @default(now())
+
+  @@map("super_admin_digest_log")
+}

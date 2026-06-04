@@ -35,6 +35,7 @@ import { computeStorageBytes } from "./usage.js";
 import { getPlan, effectiveStorageBytes } from "./plans.js";
 import { tmplStorageWarning } from "./mail.js";
 import { studioNotifyEnabled } from "./notifications.js";
+import { sendSuperAdminDigest } from "./notifier.js";
 import { logger } from "../logger.js";
 import { config } from "../config.js";
 import {
@@ -73,6 +74,8 @@ async function runOnce() {
     // gebraucht. Studio-UI nutzt computeStorageBytes() live, also für die
     // Limit-Checks ist Drift unkritisch.
     recalculateStorageUsage(),
+    // Täglicher Super-Admin-Digest (nur SaaS), idempotent via PK(date).
+    runDailyDigest(),
     // Billing-Archiv-Lifecycle (nur SaaS): Read-only → Archiv → Löschung.
     ...(config.BILLING_ENABLED
       ? [
@@ -385,6 +388,26 @@ async function notifyArchiveScheduleReached() {
       { tenantId: t.id, name: t.name },
       "sweeper.archive_schedule_reached (super-admin action required)"
     );
+  }
+}
+
+// Täglicher Super-Admin-Digest. Idempotent über den PK(date)-Claim: der
+// erste Sweep des Tages, der den Insert schafft, sendet; alle weiteren am
+// selben Tag schlagen wegen Primary-Key-Konflikt fehl und überspringen.
+// Nur in SaaS-Mode (BILLING_ENABLED) — ohne Billing kein sinnvoller Digest.
+async function runDailyDigest() {
+  if (!config.BILLING_ENABLED) return;
+  try {
+    const today = new Date();
+    today.setUTCHours(0, 0, 0, 0);
+    try {
+      await prisma.superAdminDigestLog.create({ data: { date: today } });
+    } catch {
+      return; // heute bereits gesendet
+    }
+    await sendSuperAdminDigest();
+  } catch (err) {
+    logger.warn({ err }, "sweeper.daily_digest.failed");
   }
 }
 

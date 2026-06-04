@@ -31,6 +31,7 @@ import { SESSION_COOKIE } from "../plugins/auth.js";
 import { getStripe, isStripeEnabled } from "../services/stripe-client.js";
 import { verifyTurnstile } from "../services/turnstile.js";
 import { sendWelcomeMail } from "../services/notifier.js";
+import { notifySuperAdminsNewTenant } from "../services/notifier.js";
 import {
   PLANS,
   planLookupKey,
@@ -399,6 +400,15 @@ export async function registerSignupRoutes(app: FastifyInstance) {
     // Welcome-Mail fire-and-forget — Response soll nicht auf SMTP warten
     // (3-5s Latenz waeren UX-Killer beim Checkout-Redirect).
     void sendWelcomeMail({ userId, tenantId });
+
+    // Super-Admins über den neuen Tenant informieren (fire-and-forget).
+    void notifySuperAdminsNewTenant({
+      tenantId,
+      tenantName: body.studioName,
+      slug,
+      plan: body.plan,
+      ownerEmail: body.email,
+    });
 
     return {
       checkoutUrl: session.url,
