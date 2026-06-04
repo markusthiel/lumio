@@ -51,6 +51,10 @@ Das Studio — Galerien verwalten, Smart Collections, Tag-Filter, Team-Proofing:
 
 ![Video-Markierung an einem Zeitpunkt](docs/images/feat-video-annotation.jpg)
 
+Scrubbing per Filmstrip — beim Ziehen über die Leiste zeigt eine Vorschau den jeweiligen Frame samt Zeitstempel:
+
+![Scrubbing-Vorschau mit Frame und Zeitstempel](docs/images/feat-video-scrubbing.jpg)
+
 **Upload & Formate** — Drag & Drop mit parallelen Uploads, Duplikat-Erkennung und Smart-Sections. JPEG, PNG, WebP, RAW, HEIC/HEIF, Video und PDF — bis zum konfigurierbaren Datei-Limit.
 
 ![Upload mit unterstützten Formaten](docs/images/feat-upload.png)
