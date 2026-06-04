@@ -30,6 +30,20 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.39.0] - 2026-06-04
+
+Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
+(Frontend + API), kein Worker.
+
+### Added
+- **Feedback-Indikator in der Kundengalerie**: Auf Thumbnails, zu denen
+  der Besucher eine Markierung oder einen Kommentar hinterlassen hat,
+  erscheint jetzt eine dezente Sprechblase (unten rechts) — als
+  Erinnerung, wo bereits etwas notiert wurde. Das Icon erscheint sofort
+  nach dem Schließen der Lightbox (ohne Reload) und bleibt nach erneutem
+  Laden erhalten. Es zeigt ausschließlich das eigene Feedback des
+  Besuchers; Studio-Kommentare bleiben außen vor.
+
 ## [0.38.1] - 2026-06-04
 
 Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
