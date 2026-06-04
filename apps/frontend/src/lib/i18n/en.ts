@@ -1853,6 +1853,8 @@ export const en: Dict = {
     statUsers: "Users total",
     statGalleries: "Galleries total",
     statFiles: "Files total",
+    statComped: "Free (comped)",
+    ofWhichFree: "{n} free",
     graceTitle: "Tenants in grace period",
     graceDesc:
       "These studios are marked for final deletion. They can undo it themselves until the deadline, or you do it manually — e.g. if the owner can no longer log in.",

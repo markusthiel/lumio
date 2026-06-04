@@ -60,6 +60,10 @@ function DashboardContent() {
             <StatCard label={t("superDash.statUsers")} value={stats.totalUsers} />
             <StatCard label={t("superDash.statGalleries")} value={stats.totalGalleries} />
             <StatCard label={t("superDash.statFiles")} value={stats.totalFiles} />
+            <StatCard
+              label={t("superDash.statComped")}
+              value={stats.compedTenants ?? 0}
+            />
           </div>
 
           {stats.failedPayments.length > 0 && (
@@ -326,6 +330,11 @@ function PlanDistribution({
               <span className="font-medium">{p.planName}</span>
               <span className="text-ink-tertiary">
                 {p.total} {t(p.total === 1 ? "superDash.tenant" : "superDash.tenants")}
+                {p.comped > 0 && (
+                  <span className="ml-1 text-semantic-success">
+                    ({t("superDash.ofWhichFree", { n: p.comped })})
+                  </span>
+                )}
               </span>
             </div>
             <StatusStackBar

@@ -2171,6 +2171,7 @@ export const api = {
       totalUsers: number;
       totalGalleries: number;
       totalFiles: number;
+      compedTenants: number;
       pendingDeletions: Array<{
         id: string;
         name: string;
@@ -2195,6 +2196,7 @@ export const api = {
         planSlug: string;
         planName: string;
         total: number;
+        comped: number;
         byStatus: Record<string, number>;
       }>;
       signupsPerWeek: Array<{ weekStart: string; count: number }>;

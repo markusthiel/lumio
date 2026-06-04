@@ -26,6 +26,7 @@ import { promises as fs } from "node:fs";
 import { prisma } from "../db.js";
 import { logger } from "../logger.js";
 import { config } from "../config.js";
+import { LUMIO_VERSION } from "../version.js";
 import { Queues } from "./queue.js";
 import Redis from "ioredis";
 import { S3Client, HeadBucketCommand } from "@aws-sdk/client-s3";
@@ -252,19 +253,12 @@ const UPDATE_CACHE_TTL_MS = 60 * 60 * 1000; // 1 Stunde
 let _updateCache: { data: UpdateInfo; expires: number } | null = null;
 
 const CURRENT_VERSION = (() => {
-  // Lazy: lese package.json einmal beim Modul-Load.
-  // process.cwd() ist apps/api wenn der API-Prozess gestartet wird —
-  // aber bei verschiedenen Modes (vitest, build, prod) kann das variieren.
-  // Daher fallback chain: env LUMIO_VERSION → package.json → 'unknown'.
-  if (process.env.LUMIO_VERSION) return process.env.LUMIO_VERSION;
-  try {
-    // dynamic require ohne ESM-Komplikation:
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const pkg = require("../../package.json") as { version?: string };
-    return pkg.version ?? "unknown";
-  } catch {
-    return "unknown";
-  }
+  // Single Source of Truth ist /VERSION → version.ts (vom Bump-Script
+  // gestempelt), mit optionalem ENV-Override LUMIO_VERSION. Früher wurde
+  // hier package.json via require() gelesen, was im dist/-Build je nach
+  // Pfad als "unknown" durchfiel.
+  const v = LUMIO_VERSION?.trim();
+  return v && v.length > 0 ? v : "unknown";
 })();
 
 function semverGreater(a: string, b: string): boolean {
@@ -305,13 +299,23 @@ export async function checkForUpdate(force = false): Promise<UpdateInfo> {
     return _updateCache.data;
   }
 
+  // Default: das kanonische Lumio-Repo auf Forgejo. Die Forgejo-Release-API
+  // ist GitHub-kompatibel (tag_name/name/body/html_url/published_at). Da das
+  // Repo derzeit privat ist, braucht der Check ein Token — optional via
+  // LUMIO_UPDATE_REPO_TOKEN (Read-only-Token genügt). Ohne Token liefert
+  // Forgejo 404 und der Check zeigt sich als "nicht erreichbar".
   const repoBase =
     process.env.LUMIO_UPDATE_REPO_URL ??
-    "https://api.github.com/repos/markusthiel/lumio";
+    "https://forgejo.thiel.tools/api/v1/repos/thiel/lumio";
+  const repoToken = process.env.LUMIO_UPDATE_REPO_TOKEN?.trim();
 
   try {
+    const headers: Record<string, string> = { Accept: "application/json" };
+    if (repoToken) {
+      headers.Authorization = `token ${repoToken}`;
+    }
     const resp = await fetch(`${repoBase}/releases/latest`, {
-      headers: { Accept: "application/json" },
+      headers,
       signal: AbortSignal.timeout(5000),
     });
     if (!resp.ok) {

@@ -30,6 +30,29 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.21.0] - 2026-06-04
+
+Neues Feature + Fixes. `git pull` + regulärer Deploy genügt. Optionaler
+Schritt für den Update-Check siehe Hinweis unten.
+
+### Added
+- Super-Admin-Übersicht zeigt jetzt kostenlose (comped) Studios: eine eigene
+  Kennzahl „Kostenlos (comped)" und pro Plan in der Plan-Verteilung ein
+  „davon N kostenlos". So sind Partner-/Goodwill-Konten von zahlenden trennbar.
+
+### Fixed
+- Update-Check (Super-Admin → System): zeigte die aktuelle Version als
+  „unknown" und fragte eine nicht existierende Quelle ab (HTTP-Fehler). Die
+  Version kommt jetzt zuverlässig aus der gestempelten Versionsdatei, und der
+  Check fragt standardmäßig das Lumio-Repo auf Forgejo ab.
+
+> **Hinweis (optional):** Da das Forgejo-Repo privat ist, braucht der
+> Update-Check ein Lesetoken. In der `.env` setzen:
+> `LUMIO_UPDATE_REPO_TOKEN=<read-only-token>` (siehe `.env.example.full`).
+> Ohne Token zeigt der Check „nicht erreichbar" — die aktuelle Version wird
+> trotzdem korrekt angezeigt. Alternativ eigene Quelle via
+> `LUMIO_UPDATE_REPO_URL` oder Abschalten mit `DISABLE_UPDATE_CHECK=1`.
+
 ## [0.20.0] - 2026-06-04
 
 Neues Feature. `git pull` + regulärer Deploy genügt, nur Frontend.

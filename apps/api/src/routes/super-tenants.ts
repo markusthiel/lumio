@@ -1210,6 +1210,7 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
       planDistribution,
       signupTenants,
       failedPaymentSubs,
+      compedCount,
     ] = await Promise.all([
       prisma.tenant.groupBy({
         by: ["status"],
@@ -1259,7 +1260,7 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
       // weglassen — auch trialing/canceled gehoeren in die Statistik
       // damit man sieht wie sich die Basis bewegt.
       prisma.billingSubscription.groupBy({
-        by: ["planId", "status"],
+        by: ["planId", "status", "comped"],
         _count: { _all: true },
       }),
       // Signups der letzten 12 Wochen — fuer Sparkline
@@ -1303,6 +1304,9 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
         },
         orderBy: { updatedAt: "asc" },
       }),
+      // Anzahl kostenlos zugewiesener (comped) Abos — für die Statistik,
+      // damit man Gratis-Studios (Partner/Goodwill) von zahlenden trennt.
+      prisma.billingSubscription.count({ where: { comped: true } }),
     ]);
 
     // Plan-Distribution: ueber Status-Buckets aggregieren, Plan-Name
@@ -1323,6 +1327,7 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
       planSlug: string;
       planName: string;
       total: number;
+      comped: number;
       byStatus: Record<string, number>;
     };
     const planDistMap = new Map<string, PlanDistRow>();
@@ -1334,9 +1339,11 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
         planSlug: plan?.slug ?? "unknown",
         planName: plan?.name ?? "Unknown",
         total: 0,
+        comped: 0,
         byStatus: {},
       };
       existing.total += row._count._all;
+      if (row.comped) existing.comped += row._count._all;
       existing.byStatus[row.status] =
         (existing.byStatus[row.status] ?? 0) + row._count._all;
       planDistMap.set(key, existing);
@@ -1371,6 +1378,7 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
       totalUsers,
       totalGalleries,
       totalFiles,
+      compedTenants: compedCount,
       pendingDeletions: pendingDeletions.map((t) => ({
         id: t.id,
         name: t.displayName ?? t.name,

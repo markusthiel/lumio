@@ -1858,6 +1858,8 @@ export const de: Dict = {
     statUsers: "User insgesamt",
     statGalleries: "Galerien insgesamt",
     statFiles: "Files insgesamt",
+    statComped: "Kostenlos (comped)",
+    ofWhichFree: "davon {n} kostenlos",
     graceTitle: "Tenants in Karenzphase",
     graceDesc:
       "Diese Studios sind zur endgültigen Löschung markiert. Sie können sich bis zum Stichtag selbst zurücknehmen oder du machst es manuell — z.B. wenn der Owner sich nicht mehr einloggen kann.",
