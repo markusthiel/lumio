@@ -30,6 +30,26 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.35.0] - 2026-06-04
+
+Neues Feature (Super-Admin). `git pull` + regulärer Deploy genügt; additive
+Migration läuft automatisch.
+
+### Added
+- **Studio-Banner an einzelne User oder Tenants** (Super-Admin → Users, Button
+  „Banner" pro User). Erzeugt einen In-Studio-Banner, der wahlweise nur diesem
+  User oder seinem ganzen Studio angezeigt wird — mit Titel, Text, Stufe
+  (Info/Warnung/Kritisch), Wegklickbarkeit und optionalem Ablauf (7/30 Tage
+  oder manuell). Globale Banner gibt es weiterhin über die bestehende
+  Announcement-Verwaltung.
+
+### Changed
+- Ziel-Banner werden über einen neuen **authentifizierten** Endpoint
+  (`/announcements/mine`) ausgeliefert; der öffentliche `/announcements/active`
+  liefert nur noch globale Banner (damit zielgerichtete Banner nicht an
+  Unbeteiligte ausgespielt werden). Das Studio nutzt automatisch den neuen
+  Endpoint.
+
 ## [0.34.0] - 2026-06-04
 
 Neues Feature (Super-Admin). `git pull` + regulärer Deploy genügt, keine

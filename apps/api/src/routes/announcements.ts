@@ -49,6 +49,10 @@ export async function registerAnnouncementRoutes(app: FastifyInstance) {
         AND: [
           { OR: [{ activeFrom: null }, { activeFrom: { lte: now } }] },
           { OR: [{ activeUntil: null }, { activeUntil: { gt: now } }] },
+          // Öffentlich nur globale Banner — Ziel-Banner werden über den
+          // authentifizierten Endpoint /announcements/mine ausgeliefert.
+          { targetUserId: null },
+          { targetTenantId: null },
         ],
       },
       orderBy: [{ severity: "desc" }, { createdAt: "desc" }],
@@ -66,7 +70,43 @@ export async function registerAnnouncementRoutes(app: FastifyInstance) {
   });
 
   // -------------------------------------------------------------------------
-  // Super-Admin: GET /super/announcements
+  // Authenticated: GET /announcements/mine
+  // -------------------------------------------------------------------------
+  // Wie /active, liefert aber zusätzlich die auf den eingeloggten User bzw.
+  // seinen Tenant zugeschnittenen Banner. Wird vom Studio-Shell gepollt.
+  app.get("/announcements/mine", async (req) => {
+    const s = req.requireAuth();
+    const now = new Date();
+    const rows = await prisma.systemAnnouncement.findMany({
+      where: {
+        AND: [
+          { OR: [{ activeFrom: null }, { activeFrom: { lte: now } }] },
+          { OR: [{ activeUntil: null }, { activeUntil: { gt: now } }] },
+          {
+            OR: [
+              // global
+              { AND: [{ targetUserId: null }, { targetTenantId: null }] },
+              // an diesen User
+              { targetUserId: s.user.id },
+              // an diesen Tenant
+              { targetTenantId: req.tenantId },
+            ],
+          },
+        ],
+      },
+      orderBy: [{ severity: "desc" }, { createdAt: "desc" }],
+      select: {
+        id: true,
+        title: true,
+        body: true,
+        severity: true,
+        dismissible: true,
+        activeUntil: true,
+        createdAt: true,
+      },
+    });
+    return { announcements: rows };
+  });
   // -------------------------------------------------------------------------
   app.get("/super/announcements", async (req) => {
     req.requireSuperAdmin();

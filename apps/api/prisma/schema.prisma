@@ -1689,7 +1689,18 @@ model SystemAnnouncement {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  /// Zielsteuerung. Beide null = globaler Banner (für alle Studios).
+  /// targetUserId gesetzt = nur dieser eine User sieht ihn (eingeloggt).
+  /// targetTenantId gesetzt = alle User dieses Tenants sehen ihn.
+  /// Bewusst ohne FK/Back-Relation auf User/Tenant — verwaiste Ziele
+  /// matchen einfach niemanden mehr (harmlos) und der Super-Admin kann sie
+  /// weiterhin löschen.
+  targetUserId   String? @db.Uuid
+  targetTenantId String? @db.Uuid
+
   @@index([activeFrom, activeUntil])
+  @@index([targetUserId])
+  @@index([targetTenantId])
   @@map("system_announcements")
 }
 

@@ -1632,6 +1632,65 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
   );
 
   // -------------------------------------------------------------------------
+  // POST /super/users/:userId/announcement — Ziel-Banner (User oder Tenant)
+  // -------------------------------------------------------------------------
+  // Erzeugt einen In-Studio-Banner, der entweder nur diesem User oder seinem
+  // ganzen Tenant angezeigt wird. Auslieferung über GET /announcements/mine.
+  const userAnnouncementBody = z.object({
+    title: z.string().min(1).max(200),
+    body: z.string().min(1).max(2000),
+    severity: z.enum(["info", "warning", "critical"]).default("info"),
+    dismissible: z.boolean().default(true),
+    target: z.enum(["user", "tenant"]),
+    activeUntilDays: z.number().int().min(1).max(365).nullable().optional(),
+  });
+  app.post<{ Params: { userId: string } }>(
+    "/super/users/:userId/announcement",
+    async (req, reply) => {
+      const sa = req.requireSuperAdmin();
+      const input = userAnnouncementBody.parse(req.body ?? {});
+
+      const user = await prisma.user.findUnique({
+        where: { id: req.params.userId },
+        select: { id: true, email: true, tenantId: true },
+      });
+      if (!user) return reply.status(404).send({ error: "not_found" });
+
+      const activeUntil = input.activeUntilDays
+        ? new Date(Date.now() + input.activeUntilDays * 24 * 60 * 60 * 1000)
+        : null;
+
+      const row = await prisma.systemAnnouncement.create({
+        data: {
+          title: input.title,
+          body: input.body,
+          severity: input.severity,
+          dismissible: input.dismissible,
+          activeFrom: null,
+          activeUntil,
+          targetUserId: input.target === "user" ? user.id : null,
+          targetTenantId: input.target === "tenant" ? user.tenantId : null,
+          createdById: sa.admin.id,
+          createdByEmail: sa.admin.email,
+        },
+      });
+
+      await logEvent({
+        tenantId: user.tenantId,
+        actorType: "super_admin",
+        actorId: sa.admin.id,
+        action: "super.user.announcement",
+        targetType: "user",
+        targetId: user.id,
+        payload: { target: input.target, severity: input.severity, announcementId: row.id },
+        ipAddress: req.ip,
+      });
+
+      return { ok: true, id: row.id };
+    }
+  );
+
+  // -------------------------------------------------------------------------
   // GET /super/plan-catalog — Code-PLANS vs. DB-billing_plans (Drift-Check)
   // -------------------------------------------------------------------------
   // Stellt die zentrale Plan-Definition (Code) der DB-Spiegelung gegenüber

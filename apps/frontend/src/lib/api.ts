@@ -2435,6 +2435,21 @@ export const api = {
       }>;
     }>("/announcements/active"),
 
+  /** Wie listActiveAnnouncements, aber inkl. der auf den eingeloggten User
+   *  bzw. seinen Tenant zugeschnittenen Banner. Erfordert Login. */
+  listMyAnnouncements: () =>
+    request<{
+      announcements: Array<{
+        id: string;
+        title: string;
+        body: string;
+        severity: "info" | "warning" | "critical";
+        dismissible: boolean;
+        activeUntil: string | null;
+        createdAt: string;
+      }>;
+    }>("/announcements/mine"),
+
   /** Super-Admin: alle Announcements (inkl. zukuenftige + vergangene). */
   superListAnnouncements: () =>
     request<{
@@ -2739,6 +2754,22 @@ export const api = {
       method: "POST",
       body: JSON.stringify(input),
     }),
+
+  superSendUserAnnouncement: (
+    userId: string,
+    input: {
+      title: string;
+      body: string;
+      severity: "info" | "warning" | "critical";
+      dismissible: boolean;
+      target: "user" | "tenant";
+      activeUntilDays?: number | null;
+    }
+  ) =>
+    request<{ ok: true; id: string }>(
+      `/super/users/${userId}/announcement`,
+      { method: "POST", body: JSON.stringify(input) }
+    ),
 
   superListCspViolations: () =>
     request<{

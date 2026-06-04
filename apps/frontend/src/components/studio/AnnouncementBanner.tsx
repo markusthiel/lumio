@@ -49,7 +49,7 @@ export function AnnouncementBanner() {
     let cancelled = false;
     async function load() {
       try {
-        const r = await api.listActiveAnnouncements();
+        const r = await api.listMyAnnouncements();
         if (!cancelled) setAnnouncements(r.announcements);
       } catch {
         // Banner-Fehler sind nicht kritisch; einfach naechsten Poll

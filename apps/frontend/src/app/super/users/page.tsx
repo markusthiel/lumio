@@ -33,6 +33,7 @@ function UsersList() {
   const [tenants, setTenants] = useState<SuperTenantSummary[]>([]);
   const [editing, setEditing] = useState<SuperUserListItem | null>(null);
   const [emailing, setEmailing] = useState<SuperUserListItem | null>(null);
+  const [announcing, setAnnouncing] = useState<SuperUserListItem | null>(null);
   const [creating, setCreating] = useState(false);
 
   // Tenant-Liste einmal laden — für das Filter-Dropdown.
@@ -197,6 +198,13 @@ function UsersList() {
                     </button>
                     <button
                       type="button"
+                      onClick={() => setAnnouncing(u)}
+                      className="text-ui-xs text-accent hover:underline mr-3"
+                    >
+                      Banner
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setEditing(u)}
                       className="text-ui-xs text-accent hover:underline"
                     >
@@ -240,6 +248,12 @@ function UsersList() {
         <EmailUserDialog
           user={emailing}
           onClose={() => setEmailing(null)}
+        />
+      )}
+      {announcing && (
+        <AnnouncementUserDialog
+          user={announcing}
+          onClose={() => setAnnouncing(null)}
         />
       )}
       {creating && (
@@ -366,6 +380,204 @@ function EmailUserDialog({
                 className="h-9 px-4 rounded bg-accent text-accent-contrast text-ui-sm disabled:opacity-50"
               >
                 {busy ? "Sende…" : "Senden"}
+              </button>
+            </div>
+          </>
+        )}
+      </form>
+    </div>
+  );
+}
+
+function AnnouncementUserDialog({
+  user,
+  onClose,
+}: {
+  user: SuperUserListItem;
+  onClose: () => void;
+}) {
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [severity, setSeverity] = useState<"info" | "warning" | "critical">(
+    "info"
+  );
+  const [dismissible, setDismissible] = useState(true);
+  const [target, setTarget] = useState<"user" | "tenant">("user");
+  const [expiry, setExpiry] = useState<"none" | "7" | "30">("30");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  async function send(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setBusy(true);
+    try {
+      await api.superSendUserAnnouncement(user.id, {
+        title: title.trim(),
+        body: body.trim(),
+        severity,
+        dismissible: severity === "critical" ? false : dismissible,
+        target,
+        activeUntilDays: expiry === "none" ? null : Number(expiry),
+      });
+      setDone(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Fehlgeschlagen");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[100]"
+      onClick={onClose}
+    >
+      <form
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={send}
+        className="w-full max-w-md bg-surface-raised border border-line-subtle shadow-2xl rounded-lg p-6 space-y-4"
+      >
+        <div>
+          <h2 className="text-lg font-semibold">Studio-Banner</h2>
+          <p className="text-ui-xs text-ink-tertiary mt-0.5">
+            {user.email} · {user.tenant.name} ({user.tenant.slug})
+          </p>
+        </div>
+
+        {done ? (
+          <>
+            <p className="text-ui-sm text-semantic-success">
+              Banner wurde angelegt — erscheint im Studio (Polling alle ~5 Min).
+            </p>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={onClose}
+                className="h-9 px-4 rounded bg-accent text-accent-contrast text-ui-sm"
+              >
+                Schließen
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div>
+              <label className="text-ui-xs text-ink-secondary block mb-1.5">
+                Empfänger
+              </label>
+              <div className="flex gap-2">
+                {(["user", "tenant"] as const).map((tg) => (
+                  <button
+                    key={tg}
+                    type="button"
+                    onClick={() => setTarget(tg)}
+                    className={
+                      "flex-1 h-9 rounded border text-ui-sm transition-colors " +
+                      (target === tg
+                        ? "border-accent bg-accent/10 text-ink-primary"
+                        : "border-line-subtle text-ink-secondary hover:bg-surface-sunken")
+                    }
+                  >
+                    {tg === "user" ? "Nur dieser User" : "Ganzes Studio"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="text-ui-xs text-ink-secondary block mb-1.5">
+                Titel
+              </label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                disabled={busy}
+                maxLength={200}
+                className="w-full h-9 px-2.5 rounded bg-surface-sunken border border-line-subtle focus:border-accent text-ui text-ink-primary focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-ui-xs text-ink-secondary block mb-1.5">
+                Text
+              </label>
+              <textarea
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                disabled={busy}
+                rows={4}
+                maxLength={2000}
+                className="w-full px-2.5 py-2 rounded bg-surface-sunken border border-line-subtle focus:border-accent text-ui text-ink-primary focus:outline-none resize-y"
+              />
+            </div>
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="text-ui-xs text-ink-secondary block mb-1.5">
+                  Stufe
+                </label>
+                <select
+                  value={severity}
+                  onChange={(e) =>
+                    setSeverity(
+                      e.target.value as "info" | "warning" | "critical"
+                    )
+                  }
+                  disabled={busy}
+                  className="w-full h-9 px-2 rounded bg-surface-sunken border border-line-subtle text-ui text-ink-primary focus:outline-none focus:border-accent"
+                >
+                  <option value="info">Info</option>
+                  <option value="warning">Warnung</option>
+                  <option value="critical">Kritisch</option>
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="text-ui-xs text-ink-secondary block mb-1.5">
+                  Läuft ab
+                </label>
+                <select
+                  value={expiry}
+                  onChange={(e) =>
+                    setExpiry(e.target.value as "none" | "7" | "30")
+                  }
+                  disabled={busy}
+                  className="w-full h-9 px-2 rounded bg-surface-sunken border border-line-subtle text-ui text-ink-primary focus:outline-none focus:border-accent"
+                >
+                  <option value="7">nach 7 Tagen</option>
+                  <option value="30">nach 30 Tagen</option>
+                  <option value="none">manuell</option>
+                </select>
+              </div>
+            </div>
+            {severity !== "critical" && (
+              <label className="flex items-center gap-2 text-ui-sm text-ink-secondary">
+                <input
+                  type="checkbox"
+                  checked={dismissible}
+                  onChange={(e) => setDismissible(e.target.checked)}
+                  disabled={busy}
+                />
+                Wegklickbar
+              </label>
+            )}
+            {error && (
+              <p className="text-ui-sm text-semantic-danger">{error}</p>
+            )}
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={busy}
+                className="h-9 px-4 rounded border border-line-subtle text-ui-sm hover:bg-surface-sunken disabled:opacity-50"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="submit"
+                disabled={busy || !title.trim() || !body.trim()}
+                className="h-9 px-4 rounded bg-accent text-accent-contrast text-ui-sm disabled:opacity-50"
+              >
+                {busy ? "Lege an…" : "Banner anlegen"}
               </button>
             </div>
           </>
