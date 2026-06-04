@@ -1787,7 +1787,7 @@ function Lightbox({
               src={file.hlsUrl}
               poster={file.previewUrl ?? file.thumbUrl}
               sprite={file.sprite}
-              className="w-full max-w-5xl max-h-[calc(100vh-220px)]"
+              className="w-full max-w-5xl"
               comments={comments}
               canAnnotate={interactive && commentsActive}
               author="customer"

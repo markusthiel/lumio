@@ -182,7 +182,7 @@ export function VideoMarkup({
         poster={poster}
         sprite={sprite}
         srcType={srcType}
-        className="flex-1 min-h-0"
+        className="w-full"
         markers={tickMarkers}
         activeMarkerId={activeMarker?.id ?? null}
         onMarkerClick={onMarkerClick}

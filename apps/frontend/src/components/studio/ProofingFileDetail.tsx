@@ -181,7 +181,7 @@ export function ProofingFileDetail({ galleryId, file, onClose }: Props) {
                   srcType="mp4"
                   poster={previewUrl}
                   sprite={file.sprite ?? null}
-                  className="w-full max-w-4xl max-h-[calc(100vh-140px)]"
+                  className="w-full max-w-4xl"
                   comments={comments}
                   canAnnotate
                   author="studio"

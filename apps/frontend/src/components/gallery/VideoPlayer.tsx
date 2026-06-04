@@ -14,23 +14,14 @@ import {
  * Adaptive Video-Player mit sichtbarer Filmstrip-Scrub-Leiste,
  * Zeit-Markern und optionalem Annotation-Overlay.
  *
- * Quellen:
- *   - HLS (.m3u8): Safari nativ, sonst hls.js dynamisch.
- *   - MP4: direkt als <video src> (Studio nutzt die video_mp4-Rendition;
- *     HLS ist dort visitor-gebunden). srcType wird aus der Endung
- *     abgeleitet, kann aber explizit gesetzt werden.
+ * Sizing: das <video> begrenzt sich SELBST per max-width/max-height
+ * (Viewport-basiert) und behält sein Seitenverhältnis — analog zur
+ * Bild-Lightbox. Dadurch passen Hoch- UND Querformat ins Bild, ohne
+ * dass unten etwas abgeschnitten wird, und die nativen Controls bleiben
+ * sichtbar. Overlay + Scrub-Leiste richten sich an der tatsächlich
+ * gerenderten Videofläche aus (gemessen).
  *
- * Scrubbing: native Controls bleiben für Play/Pause/Lautstärke/Vollbild,
- * darunter eine IMMER sichtbare Filmstrip-Leiste (Sprite-Frames) mit
- * Playhead und großer Hover-Vorschau. Sprite wird vorgeladen.
- *
- * Marker: `markers` rendert Ticks auf der Leiste (z.B. Kommentar-
- * Markierungen). Klick → onMarkerClick.
- *
- * Annotation: `overlay` wird passgenau über die SICHTBARE Videofläche
- * gelegt (Content-Rect, letterbox-korrekt berechnet). Damit landen
- * normalisierte [0..1]-Koordinaten exakt auf dem Frame. Über das
- * Imperative-Handle (ref) kann der Parent pausieren/springen.
+ * Quellen: HLS (.m3u8, Safari nativ / sonst hls.js) oder MP4 (direkt).
  */
 export interface SpriteSheet {
   url: string;
@@ -45,7 +36,6 @@ export interface SpriteSheet {
 export interface VideoMarkerTick {
   id: string;
   t: number;
-  /** CSS-Farbe des Ticks. Default: weiß. */
   color?: string;
 }
 
@@ -63,23 +53,26 @@ export interface VideoPlayerProps {
   src: string;
   poster?: string | null;
   sprite?: SpriteSheet | null;
-  /** Erzwingt den Quelltyp. Default: aus der Endung (.m3u8 → hls). */
   srcType?: "hls" | "mp4";
   className?: string;
-  /** Zeit-Ticks auf der Scrub-Leiste. */
+  /** CSS-max-height für das <video> selbst. Default lässt Platz für
+   *  Kopf-/Fußzeilen + die Scrub-Leiste. */
+  videoMaxHeight?: string;
   markers?: VideoMarkerTick[];
-  /** Hervorgehobener Tick. */
   activeMarkerId?: string | null;
   onMarkerClick?: (id: string) => void;
-  /** Overlay passgenau über der sichtbaren Videofläche (z.B. das
-   *  AnnotationOverlay). */
   overlay?: ReactNode;
-  /** Ob das Overlay Pointer-Events fängt. false (Default) ⇒ das Overlay
-   *  ist durchklickbar, die nativen Video-Controls bleiben bedienbar.
-   *  true nur beim aktiven Zeichnen. */
+  /** false (Default) ⇒ Overlay durchklickbar, native Controls bedienbar. */
   overlayInteractive?: boolean;
   onTimeUpdate?: (t: number) => void;
   onPlayingChange?: (playing: boolean) => void;
+}
+
+interface Rect {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
 }
 
 export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
@@ -90,6 +83,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
       sprite,
       srcType,
       className,
+      videoMaxHeight = "calc(100vh - 220px)",
       markers,
       activeMarkerId,
       onMarkerClick,
@@ -110,17 +104,19 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
     const [scrubbing, setScrubbing] = useState(false);
     const [spriteReady, setSpriteReady] = useState(false);
     const [barWidth, setBarWidth] = useState<number>(0);
-    const [natural, setNatural] = useState<{ w: number; h: number } | null>(
-      null
-    );
-    const [box, setBox] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
+    // Tatsächlich gerenderte Videofläche, relativ zur mediaRef-Box.
+    const [videoRect, setVideoRect] = useState<Rect>({
+      left: 0,
+      top: 0,
+      width: 0,
+      height: 0,
+    });
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
     const fullSrc = src.startsWith("http") ? src : `${apiUrl}${src}`;
     const kind: "hls" | "mp4" =
       srcType ?? (fullSrc.includes(".m3u8") ? "hls" : "mp4");
 
-    // ---- Imperative Handle -------------------------------------------------
     useImperativeHandle(
       ref,
       () => ({
@@ -149,7 +145,6 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
     useEffect(() => {
       const video = videoRef.current;
       if (!video) return;
-
       if (kind === "mp4") {
         video.src = fullSrc;
         return;
@@ -181,23 +176,17 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
       };
     }, [fullSrc, kind]);
 
-    // Callbacks in Refs halten, damit der Listener-Effect NICHT bei
-    // jeder Parent-Render-Iteration neu subscriben muss (beim Zeichnen
-    // feuert setStrokes häufig → viele Re-Renders).
+    // ---- Callbacks in Refs halten (kein Re-Subscribe beim Zeichnen) --------
     const onTimeUpdateRef = useRef(onTimeUpdate);
     const onPlayingChangeRef = useRef(onPlayingChange);
     onTimeUpdateRef.current = onTimeUpdate;
     onPlayingChangeRef.current = onPlayingChange;
 
-    // ---- Dauer / Zeit / Natural-Size / Play-State --------------------------
+    // ---- Dauer / Zeit / Play-State -----------------------------------------
     useEffect(() => {
       const video = videoRef.current;
       if (!video) return;
-      const onMeta = () => {
-        setDuration(video.duration || 0);
-        if (video.videoWidth && video.videoHeight)
-          setNatural({ w: video.videoWidth, h: video.videoHeight });
-      };
+      const onMeta = () => setDuration(video.duration || 0);
       const onTime = () => {
         setCurrent(video.currentTime || 0);
         onTimeUpdateRef.current?.(video.currentTime || 0);
@@ -231,44 +220,38 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
       img.src = sprite.url;
     }, [sprite]);
 
-    // ---- Maße messen: Leiste + Videobox ------------------------------------
-    // WICHTIG: hängt an `duration`, weil die Scrub-Leiste (barRef) erst
-    // gerendert wird sobald duration > 0. Ohne diese Abhängigkeit würde
-    // der Observer beim Mount laufen, wenn barRef noch null ist →
-    // barWidth bliebe 0 und der Filmstrip fiele auf den Fallback zurück.
+    // ---- Videofläche + Leistenbreite messen --------------------------------
+    // Das <video> sizet sich per max-w/max-h selbst; wir messen die
+    // resultierende Box (relativ zur mediaRef) fürs Overlay und die
+    // Scrub-Leiste. Hängt an `duration`, weil die Leiste erst dann
+    // gerendert wird und die Videogröße sich nach loadedmetadata ändert.
     useEffect(() => {
-      const bar = barRef.current;
-      const media = mediaRef.current;
-      const update = () => {
-        if (barRef.current) setBarWidth(barRef.current.clientWidth);
-        if (mediaRef.current)
-          setBox({
-            w: mediaRef.current.clientWidth,
-            h: mediaRef.current.clientHeight,
+      const measure = () => {
+        const v = videoRef.current;
+        const m = mediaRef.current;
+        if (v && m) {
+          const vr = v.getBoundingClientRect();
+          const mr = m.getBoundingClientRect();
+          setVideoRect({
+            left: vr.left - mr.left,
+            top: vr.top - mr.top,
+            width: vr.width,
+            height: vr.height,
           });
+        }
+        if (barRef.current) setBarWidth(barRef.current.clientWidth);
       };
-      update();
-      const ro = new ResizeObserver(update);
-      if (bar) ro.observe(bar);
-      if (media) ro.observe(media);
-      return () => ro.disconnect();
+      measure();
+      const ro = new ResizeObserver(measure);
+      if (videoRef.current) ro.observe(videoRef.current);
+      if (mediaRef.current) ro.observe(mediaRef.current);
+      if (barRef.current) ro.observe(barRef.current);
+      window.addEventListener("resize", measure);
+      return () => {
+        ro.disconnect();
+        window.removeEventListener("resize", measure);
+      };
     }, [duration]);
-
-    // ---- Content-Rect (letterbox-korrekt) für das Overlay ------------------
-    const contentRect = (() => {
-      if (!natural || box.w <= 0 || box.h <= 0)
-        return { left: 0, top: 0, width: box.w, height: box.h };
-      const arV = natural.w / natural.h;
-      const arBox = box.w / box.h;
-      if (arV > arBox) {
-        const width = box.w;
-        const height = width / arV;
-        return { left: 0, top: (box.h - height) / 2, width, height };
-      }
-      const height = box.h;
-      const width = height * arV;
-      return { left: (box.w - width) / 2, top: 0, width, height };
-    })();
 
     // ---- Scrub-Interaktion -------------------------------------------------
     const timeAtClientX = useCallback(
@@ -352,24 +335,28 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
           )
         : 0;
 
+    // Scrub-Leiste so breit wie das Video (zentriert darunter).
+    const barWrapWidth = videoRect.width > 0 ? videoRect.width : undefined;
+
     return (
-      <div className={`flex flex-col ${className ?? ""}`}>
-        <div ref={mediaRef} className="relative flex-1 min-h-0">
+      <div className={`flex flex-col items-center ${className ?? ""}`}>
+        <div ref={mediaRef} className="relative w-full flex justify-center min-h-0">
           <video
             ref={videoRef}
             controls
             playsInline
             poster={poster ?? undefined}
-            className="w-full h-full object-contain bg-black block"
+            className="block max-w-full object-contain bg-black"
+            style={{ maxHeight: videoMaxHeight }}
           />
           {overlay && (
             <div
               className="absolute"
               style={{
-                left: contentRect.left,
-                top: contentRect.top,
-                width: contentRect.width,
-                height: contentRect.height,
+                left: videoRect.left,
+                top: videoRect.top,
+                width: videoRect.width,
+                height: videoRect.height,
                 zIndex: 10,
                 pointerEvents: overlayInteractive ? undefined : "none",
               }}
@@ -380,8 +367,10 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
         </div>
 
         {duration > 0 && (
-          <div className="relative select-none mt-1">
-            {/* große Hover-Vorschau */}
+          <div
+            className="relative select-none mt-2"
+            style={{ width: barWrapWidth }}
+          >
             {sprite && spriteReady && hover && hoverTile >= 0 && (
               <div
                 className="absolute z-20 pointer-events-none flex flex-col items-center"
@@ -455,7 +444,6 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
                 />
               )}
 
-              {/* Zeit-Marker (Kommentar-Markierungen) */}
               {duration > 0 &&
                 markers?.map((m) => {
                   const left = `${Math.max(
@@ -467,9 +455,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
                     <button
                       key={m.id}
                       type="button"
-                      onPointerDown={(e) => {
-                        e.stopPropagation();
-                      }}
+                      onPointerDown={(e) => e.stopPropagation()}
                       onClick={(e) => {
                         e.stopPropagation();
                         seekTo(m.t);

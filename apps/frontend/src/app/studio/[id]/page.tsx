@@ -2376,7 +2376,8 @@ function Lightbox({
               srcType="mp4"
               poster={url}
               sprite={file.sprite ?? null}
-              className="w-full max-w-5xl max-h-[84vh]"
+              className="w-full max-w-5xl"
+              videoMaxHeight="calc(100vh - 160px)"
             />
           </div>
         ) : (
