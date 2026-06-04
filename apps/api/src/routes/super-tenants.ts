@@ -109,9 +109,10 @@ const createTenantSchema = z.object({
   ownerName: z.string().min(1).max(120),
   // Optional: dem neuen Tenant direkt einen Plan zuweisen (Partner/Goodwill).
   // Ohne 'plan' bleibt der Tenant ohne Subscription und fällt — wie bisher —
-  // auf Trial-Limits zurück. comped=true => Gratis-Abo ohne Stripe/Karte.
+  // auf Trial-Limits zurück. Eine so zugewiesene Subscription ist immer ein
+  // Gratis-Abo (comped, ohne Stripe/Karte). Zahlende Kunden gehen den
+  // Stripe-Self-Service.
   plan: z.enum(["start", "solo", "studio", "pro"]).optional(),
-  comped: z.boolean().default(true),
   storageAddonGib: z.number().int().min(0).max(100000).optional(),
 });
 
@@ -241,7 +242,7 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
         },
       });
 
-      // Optional direkt eine (i.d.R. comped) Subscription anlegen, damit der
+      // Optional direkt eine Gratis-Subscription (comped) anlegen, damit der
       // Partner sofort auf dem echten Plan läuft — kein Stripe, kein Trial.
       if (planId) {
         await tx.billingSubscription.create({
@@ -250,7 +251,7 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
             planId,
             status: "active",
             billingInterval: "monthly",
-            comped: body.comped,
+            comped: true,
             storageAddonGib: body.storageAddonGib ?? 0,
           },
         });
@@ -318,7 +319,7 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
         name: body.name,
         ownerEmail: body.ownerEmail,
         plan: body.plan ?? null,
-        comped: body.plan ? body.comped : null,
+        comped: body.plan ? true : null,
       },
       ipAddress: req.ip,
     });
@@ -2215,7 +2216,6 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
   const assignSubscriptionSchema = z.object({
     plan: z.enum(["start", "solo", "studio", "pro"]),
     interval: z.enum(["monthly", "yearly"]).default("monthly"),
-    comped: z.boolean().default(true),
     // Zusätzlicher Speicher in GiB on top des Plan-Speichers (Goodwill/
     // Sondervereinbarung). Weggelassen => bestehenden Wert beibehalten.
     storageAddonGib: z.number().int().min(0).max(100000).optional(),
@@ -2262,7 +2262,7 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
         planId: plan.id,
         status: "active",
         billingInterval: body.interval,
-        comped: body.comped,
+        comped: true,
         trialEndsAt: null,
         readOnlySince: null,
         cancelAtPeriodEnd: false,
@@ -2289,7 +2289,7 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
         payload: {
           plan: plan.slug,
           interval: body.interval,
-          comped: body.comped,
+          comped: true,
           storageAddonGib: addonGib,
           reason: body.reason ?? null,
         },
@@ -2299,7 +2299,7 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
       return {
         ok: true,
         plan: plan.slug,
-        comped: body.comped,
+        comped: true,
         storageAddonGib: addonGib,
       };
     }

@@ -30,6 +30,18 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.18.1] - 2026-06-04
+
+Bugfix. `git pull` + regulärer Deploy genügt.
+
+### Fixed
+- Manuelle Plan-Zuweisung im Super-Admin ist jetzt immer ein kostenloses Abo.
+  Der frühere „Gratis"-Schalter konnte abgewählt werden, ohne dass dadurch ein
+  Bezahl-Vorgang ausgelöst wurde — das Studio bekam den Plan trotzdem gratis,
+  wurde aber fälschlich als zahlend in der Umsatz-Auswertung (MRR) gezählt. Der
+  Schalter ist entfernt; zahlende Kunden buchen weiterhin über den regulären
+  Stripe-Ablauf im Studio.
+
 ## [0.18.0] - 2026-06-04
 
 Neues Feature. `git pull` + regulärer Deploy genügt, nur Frontend.

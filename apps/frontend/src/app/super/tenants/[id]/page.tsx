@@ -1318,7 +1318,6 @@ function BillingBlock({
         <AssignPlanDialog
           tenantId={tenantId}
           currentPlanSlug={plan.slug}
-          currentComped={subscription.comped}
           currentInterval={subscription.billingInterval}
           currentStorageAddonGib={subscription.storageAddonGib}
           onClose={() => setAssignOpen(false)}
@@ -1359,7 +1358,6 @@ function NoSubscriptionBlock({
         <AssignPlanDialog
           tenantId={tenantId}
           currentPlanSlug={null}
-          currentComped={true}
           currentInterval="monthly"
           currentStorageAddonGib={0}
           onClose={() => setAssignOpen(false)}
@@ -1380,11 +1378,11 @@ const ASSIGNABLE_PLANS: { slug: "start" | "solo" | "studio" | "pro"; label: stri
   { slug: "pro", label: "Pro" },
 ];
 
-// Manuelle Plan-Zuweisung / -Wechsel. comped=true => Gratis-Abo ohne Stripe.
+// Manuelle Plan-Zuweisung / -Wechsel. Immer als Gratis-Abo (comped) ohne
+// Stripe — zahlende Kunden gehen den Stripe-Self-Service.
 function AssignPlanDialog({
   tenantId,
   currentPlanSlug,
-  currentComped,
   currentInterval,
   currentStorageAddonGib,
   onClose,
@@ -1392,7 +1390,6 @@ function AssignPlanDialog({
 }: {
   tenantId: string;
   currentPlanSlug: string | null;
-  currentComped: boolean;
   currentInterval: string;
   currentStorageAddonGib: number;
   onClose: () => void;
@@ -1404,7 +1401,6 @@ function AssignPlanDialog({
   const [plan, setPlan] = useState<"start" | "solo" | "studio" | "pro">(
     initialPlan
   );
-  const [comped, setComped] = useState(currentComped);
   const [billInterval, setBillInterval] = useState<"monthly" | "yearly">(
     currentInterval === "yearly" ? "yearly" : "monthly"
   );
@@ -1423,7 +1419,6 @@ function AssignPlanDialog({
       await api.superAssignSubscription(tenantId, {
         plan,
         interval: billInterval,
-        comped,
         storageAddonGib,
         reason: reason.trim() || undefined,
       });
@@ -1467,26 +1462,17 @@ function AssignPlanDialog({
           </select>
         </div>
 
-        <label className="flex items-start gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={comped}
-            onChange={(e) => setComped(e.target.checked)}
-            className="mt-0.5"
-          />
-          <span>
-            Gratis-Abo (comped)
-            <span className="block text-ui-xs text-ink-tertiary">
-              Kein Stripe, keine Karte, kein Ablauf. Zählt nicht zur MRR. Für
-              Partner-/Goodwill-Konten.
-            </span>
-          </span>
-        </label>
+        <div className="rounded-md border border-line-subtle bg-surface-sunken px-3 py-2 text-ui-xs text-ink-secondary">
+          Wird als <strong>kostenloses Abo</strong> zugewiesen — kein Stripe,
+          keine Karte, kein Ablauf, zählt nicht zur MRR. Für Partner-/
+          Goodwill-Konten. Zahlende Kunden upgraden über den Stripe-Self-Service
+          im Studio.
+        </div>
 
         <div>
           <label htmlFor="assign-interval" className="text-sm font-medium block mb-1">
             Abrechnungsintervall{" "}
-            <span className="text-ink-tertiary">(bei comped nur kosmetisch)</span>
+            <span className="text-ink-tertiary">(bei Gratis-Abo nur kosmetisch)</span>
           </label>
           <select
             id="assign-interval"

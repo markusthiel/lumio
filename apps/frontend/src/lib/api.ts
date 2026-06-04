@@ -2312,8 +2312,8 @@ export const api = {
       }
     ),
 
-  /** Weist einem Tenant manuell einen Plan zu (oder wechselt ihn). Mit
-   *  comped=true entsteht ein Gratis-Abo ohne Stripe/Karte (Partner). Der
+  /** Weist einem Tenant manuell einen Plan zu (oder wechselt ihn). Immer
+   *  als Gratis-Abo (comped) ohne Stripe/Karte — für Partner/Goodwill. Der
    *  Server blockt mit 409 stripe_managed, wenn eine Stripe-Subscription
    *  existiert. */
   superAssignSubscription: (
@@ -2321,7 +2321,6 @@ export const api = {
     input: {
       plan: "start" | "solo" | "studio" | "pro";
       interval?: "monthly" | "yearly";
-      comped?: boolean;
       storageAddonGib?: number;
       reason?: string;
     }
