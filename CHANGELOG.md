@@ -30,6 +30,17 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.38.1] - 2026-06-04
+
+Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
+(Frontend).
+
+### Fixed
+- **Marker-Beschriftung im Video überlappte den „Markieren"-Button**: Lag
+  eine Markierung am aktuellen Zeitpunkt, lag deren Beschriftung
+  (Zeit/Notiz) hinter dem „Markieren"-Button und war unlesbar. Die
+  Beschriftung sitzt jetzt darunter.
+
 ## [0.38.0] - 2026-06-04
 
 Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
