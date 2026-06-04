@@ -30,6 +30,22 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.24.0] - 2026-06-04
+
+Neues optionales Feature. `git pull` + regulärer Deploy genügt; ohne Konfiguration
+ändert sich nichts.
+
+### Added
+- **CAPTCHA (Cloudflare Turnstile) auf dem Self-Service-Signup.** Schützt den
+  öffentlichen Signup-Endpoint zusätzlich zum bestehenden Rate-Limit gegen
+  Bots. Nur aktiv, wenn `TURNSTILE_SECRET_KEY` (API) gesetzt ist — sonst
+  bleibt der Signup wie bisher, Self-Hoster/Single-Mode brauchen nichts. Auf
+  der Marketing-Site (`lumio-cloud.de`) muss zusätzlich der passende
+  `PUBLIC_TURNSTILE_SITE_KEY` als Build-Arg gesetzt sein, damit das Widget
+  erscheint. Verifikation ist fail-closed (kann der Token nicht geprüft
+  werden, wird der Signup abgelehnt). Keys gibt es im Cloudflare-Dashboard
+  (kostenlos, keine Domain bei Cloudflare nötig).
+
 ## [0.23.0] - 2026-06-04
 
 Neues Feature. **Wichtig:** nach dem Deploy Caddy einmal reloaden (siehe unten),

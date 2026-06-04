@@ -29,6 +29,7 @@ import { config } from "../config.js";
 import { hashPassword, createSession } from "../services/auth.js";
 import { SESSION_COOKIE } from "../plugins/auth.js";
 import { getStripe, isStripeEnabled } from "../services/stripe-client.js";
+import { verifyTurnstile } from "../services/turnstile.js";
 import { sendWelcomeMail } from "../services/notifier.js";
 import {
   PLANS,
@@ -55,6 +56,10 @@ const signupSchema = z.object({
   // Subscription mit trial_period_days=14).
   plan: z.enum(["start", "solo", "studio", "pro"]).default("solo"),
   interval: z.enum(["monthly", "yearly"]).default("monthly"),
+  // Cloudflare-Turnstile-Token (cf-turnstile-response). Optional im Schema,
+  // weil bei deaktiviertem Turnstile keiner mitkommt; die Pflicht erzwingt
+  // verifyTurnstile, wenn ein Secret gesetzt ist.
+  turnstileToken: z.string().max(4096).optional(),
 });
 
 const cookieOpts = (maxAgeDays: number) => ({
@@ -144,6 +149,16 @@ export async function registerSignupRoutes(app: FastifyInstance) {
       });
     }
     const body = parsed.data;
+
+    // CAPTCHA prüfen (nur aktiv, wenn TURNSTILE_SECRET_KEY gesetzt ist).
+    const captchaOk = await verifyTurnstile(body.turnstileToken, req.ip);
+    if (!captchaOk) {
+      return reply.status(400).send({
+        error: "captcha_failed",
+        message:
+          "CAPTCHA-Prüfung fehlgeschlagen. Bitte lade die Seite neu und versuche es erneut.",
+      });
+    }
 
     // E-Mail darf nicht bereits an einen Tenant gebunden sein.
     // Wir checken global — multi-tenant-Wiederverwendung von E-Mails

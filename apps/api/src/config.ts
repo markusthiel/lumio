@@ -83,6 +83,12 @@ const envSchema = z.object({
     .transform((v) => v === "true"),
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
+
+  // Cloudflare Turnstile (CAPTCHA) für den Self-Service-Signup. Nur aktiv,
+  // wenn ein Secret gesetzt ist — sonst wird der Signup nicht gegated
+  // (Self-Hoster/Single-Mode brauchen das nicht). Der zugehörige Site-Key
+  // lebt im Frontend/Marketing-Site-Env (PUBLIC_TURNSTILE_SITE_KEY).
+  TURNSTILE_SECRET_KEY: z.string().optional(),
   /** Publishable key — wird ans Frontend gegeben für Checkout-Forms.
    * Frontend braucht den, weil Stripe-Elements im Browser laufen.
    * Beginnt mit pk_test_ oder pk_live_. */
