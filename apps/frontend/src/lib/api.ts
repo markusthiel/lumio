@@ -2759,6 +2759,8 @@ export const api = {
     request<{ ok: true }>(`/super/jobs/webhook/${id}/retry`, {
       method: "POST",
     }),
+
+  superGetSecurity: () => request<SuperSecurityResponse>("/super/security"),
   superGetTenant: (id: string) =>
     request<{ tenant: SuperTenantDetail }>(`/super/tenants/${id}`),
 
@@ -3687,6 +3689,41 @@ export interface SuperJobsResponse {
   stuckFiles: JobFileRow[];
   failedZips: JobZipRow[];
   failedWebhooks: JobWebhookRow[];
+}
+
+export interface SecurityWindowCount {
+  d1: number;
+  d7: number;
+}
+
+export interface SecurityTopIp {
+  ip: string;
+  count: number;
+}
+
+export interface SecurityLoginRow {
+  action: string;
+  ip: string;
+  email: string | null;
+  reason: string | null;
+  tenant: string | null;
+  at: string;
+}
+
+export interface SecurityUnlockRow {
+  ip: string;
+  tenant: string | null;
+  at: string;
+}
+
+export interface SuperSecurityResponse {
+  counts: {
+    failedLogins: SecurityWindowCount;
+    failedUnlocks: SecurityWindowCount;
+  };
+  topIps: SecurityTopIp[];
+  recentLogins: SecurityLoginRow[];
+  recentUnlocks: SecurityUnlockRow[];
 }
 
 export interface CspViolationRow {

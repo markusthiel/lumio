@@ -1812,6 +1812,109 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
   );
 
   // -------------------------------------------------------------------------
+  // GET /super/security — Abuse-/Security-Signale aus dem Audit-Log
+  // -------------------------------------------------------------------------
+  // Fehlgeschlagene Logins (Tenant + Super + TOTP + WebAuthn) und
+  // fehlgeschlagene Galerie-Entsperrungen (Brute-Force-Indikator). Read-only.
+  app.get("/super/security", async (req) => {
+    req.requireSuperAdmin();
+    const FAILED_LOGIN = [
+      "auth.login.failed",
+      "auth.login.totp.failed",
+      "auth.webauthn.login.failed",
+      "super.login.failed",
+    ];
+    const FAILED_UNLOCK = "share.unlock.failed";
+    const now = Date.now();
+    const d1 = new Date(now - 24 * 60 * 60 * 1000);
+    const d7 = new Date(now - 7 * 24 * 60 * 60 * 1000);
+
+    const [
+      logins24h,
+      logins7d,
+      unlocks24h,
+      unlocks7d,
+      topIpsRaw,
+      recentLoginsRaw,
+      recentUnlocksRaw,
+    ] = await Promise.all([
+      prisma.event.count({
+        where: { action: { in: FAILED_LOGIN }, createdAt: { gte: d1 } },
+      }),
+      prisma.event.count({
+        where: { action: { in: FAILED_LOGIN }, createdAt: { gte: d7 } },
+      }),
+      prisma.event.count({
+        where: { action: FAILED_UNLOCK, createdAt: { gte: d1 } },
+      }),
+      prisma.event.count({
+        where: { action: FAILED_UNLOCK, createdAt: { gte: d7 } },
+      }),
+      prisma.event.groupBy({
+        by: ["ipAddress"],
+        where: {
+          action: { in: FAILED_LOGIN },
+          createdAt: { gte: d7 },
+          ipAddress: { not: null },
+        },
+        _count: true,
+        orderBy: { _count: { ipAddress: "desc" } },
+        take: 10,
+      }),
+      prisma.event.findMany({
+        where: { action: { in: FAILED_LOGIN }, createdAt: { gte: d7 } },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        select: {
+          action: true,
+          ipAddress: true,
+          payload: true,
+          createdAt: true,
+          tenant: { select: { name: true } },
+        },
+      }),
+      prisma.event.findMany({
+        where: { action: FAILED_UNLOCK, createdAt: { gte: d7 } },
+        orderBy: { createdAt: "desc" },
+        take: 20,
+        select: {
+          ipAddress: true,
+          createdAt: true,
+          tenant: { select: { name: true } },
+        },
+      }),
+    ]);
+
+    const recentLogins = recentLoginsRaw.map((e) => {
+      const p = (e.payload ?? {}) as { email?: string; reason?: string };
+      return {
+        action: e.action,
+        ip: e.ipAddress ?? "—",
+        email: typeof p.email === "string" ? p.email : null,
+        reason: typeof p.reason === "string" ? p.reason : null,
+        tenant: e.tenant?.name ?? null,
+        at: e.createdAt,
+      };
+    });
+
+    return {
+      counts: {
+        failedLogins: { d1: logins24h, d7: logins7d },
+        failedUnlocks: { d1: unlocks24h, d7: unlocks7d },
+      },
+      topIps: topIpsRaw
+        .filter((r) => r.ipAddress)
+        .map((r) => ({ ip: r.ipAddress as string, count: r._count })),
+      recentLogins,
+      recentUnlocks: recentUnlocksRaw.map((e) => ({
+        ip: e.ipAddress ?? "—",
+        tenant: e.tenant?.name ?? null,
+        at: e.createdAt,
+      })),
+    };
+  });
+
+  // -------------------------------------------------------------------------
   // GET /super/stats — globale Übersicht
   // -------------------------------------------------------------------------
   app.get("/super/stats", async () => {

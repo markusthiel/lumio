@@ -1017,6 +1017,7 @@ model Event {
   
   @@index([tenantId, createdAt])
   @@index([tenantId, action])
+  @@index([action, createdAt])
   @@map("events")
 }
 

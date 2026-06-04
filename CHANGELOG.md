@@ -30,6 +30,19 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.31.0] - 2026-06-04
+
+Neues Feature (Super-Admin), read-only. `git pull` + regulärer Deploy genügt;
+additive Migration (ein Index) läuft automatisch.
+
+### Added
+- **Super-Admin → Security.** Abuse-Signale aus dem Audit-Log:
+  fehlgeschlagene Anmeldungen (inkl. 2FA, WebAuthn, Super-Admin) und
+  fehlgeschlagene Galerie-Entsperrungen (Brute-Force-Indikator). Mit 24-h-/
+  7-Tage-Zahlen, Top-IPs nach Fehl-Logins und einer Liste der letzten Vorfälle.
+  Nutzt vorhandene Audit-Daten, keine zusätzliche Erfassung nötig. Neuer Index
+  `events(action, createdAt)` für die Cross-Tenant-Auswertung.
+
 ## [0.30.0] - 2026-06-04
 
 Neues Feature (Super-Admin), read-only + Retry. `git pull` + regulärer Deploy
