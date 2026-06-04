@@ -5,7 +5,8 @@ Video-Verarbeitung via ffmpeg:
   - poster:    Frame bei ~10 % der Laufzeit als JPEG
   - hls:       Adaptive Bitrate HLS (480p / 720p / 1080p, je nach Quelle)
                mit Master-Playlist + Segmenten — für Streaming im Browser
-  - sprite:    Scrubbing-Sprite-Sheet (1 Frame alle 10s, 10×10 Kacheln)
+  - sprite:    Scrubbing-Sprite-Sheet (adaptiv: bis 10×10 Kacheln,
+               höchstens 1 Frame alle 0.5s)
   - video_mp4: Standalone-MP4 in 1080p (oder Quellauflösung wenn kleiner)
                für den Customer-Download als "Web-Version" — eine Datei,
                +faststart, libx264/HW je nach Encoder-Profil
@@ -91,10 +92,15 @@ HLS_VARIANTS_4K = HLS_VARIANTS_STANDARD + [
 HLS_VARIANTS = HLS_VARIANTS_STANDARD
 
 POSTER_QUALITY = 90  # ffmpeg JPEG-Qualität (1-31, niedriger = besser)
-SPRITE_INTERVAL_S = 10
+# Sprite-Scrubbing: so viele Frames wie ins Grid passen (cols*rows), aber
+# höchstens 1 Frame alle SPRITE_MIN_INTERVAL_S Sekunden. Bei kurzen/mittleren
+# Videos heißt das feines Scrubbing (z.B. 40s → ~80 Frames), bei langen
+# Videos wächst das Intervall automatisch, bis das Grid voll ist.
 SPRITE_TILE_W = 160
 SPRITE_TILE_COLS = 10
-SPRITE_TILE_ROWS = 10  # max 100 Tiles → max 1000s = 16:40 abgedeckt
+SPRITE_TILE_ROWS = 10  # max 100 Tiles
+SPRITE_MIN_INTERVAL_S = 0.5  # höchstens 1 Frame alle 0.5s
+SPRITE_MIN_DURATION_S = 2  # darunter lohnt sich kein Sprite
 
 
 @app.task(
@@ -210,7 +216,7 @@ def _process(file_row: dict) -> None:
         )
 
         # 4) Sprite-Sheet — optional, nur wenn Video lang genug
-        if duration >= SPRITE_INTERVAL_S * 2:
+        if duration >= SPRITE_MIN_DURATION_S:
             sprite_path = tmpdir / "sprite.jpg"
             sprite_meta = _make_sprite(src_path, sprite_path, duration)
             if sprite_meta is not None and sprite_path.exists():
@@ -530,8 +536,8 @@ def _upload_hls_tree(local_dir: Path, *, tenant_id: str,
 # Sprite
 # ---------------------------------------------------------------------------
 def _make_sprite(src: Path, dest: Path, duration_s: float) -> dict | None:
-    """Sprite-Sheet: 1 Frame alle interval Sekunden, 160px breit, gekachelt
-    bis zu 10×10. Gibt ein Metadaten-Dict zurück, das der Player für
+    """Sprite-Sheet: 1 Frame alle `interval` Sekunden (adaptiv, fein),
+    160px breit, gekachelt bis zu 10×10. Gibt ein Metadaten-Dict für
     Scrubbing braucht, oder None bei ffmpeg-Fehler.
 
     Schema:
@@ -541,7 +547,10 @@ def _make_sprite(src: Path, dest: Path, duration_s: float) -> dict | None:
         "frames": int (tatsächlich enthaltene Frames, <= cols*rows) }
     """
     max_tiles = SPRITE_TILE_COLS * SPRITE_TILE_ROWS
-    interval = max(SPRITE_INTERVAL_S, duration_s / max_tiles)
+    # So viele Frames wie ins Grid passen, aber nicht dichter als
+    # SPRITE_MIN_INTERVAL_S. Kurze/mittlere Videos → feines Scrubbing,
+    # lange Videos → Intervall wächst bis das Grid voll ist.
+    interval = max(SPRITE_MIN_INTERVAL_S, duration_s / max_tiles)
     fps_expr = f"1/{interval:.4f}"
 
     vf = (
