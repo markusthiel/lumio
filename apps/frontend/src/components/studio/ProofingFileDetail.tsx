@@ -38,6 +38,7 @@ import {
 } from "@/components/annotation/AnnotationOverlay";
 import { AutoTagsSection } from "@/components/studio/AutoTagsSection";
 import { FileTagsSection } from "@/components/studio/FileTagsSection";
+import { VideoPlayer } from "@/components/gallery/VideoPlayer";
 
 interface Props {
   galleryId: string;
@@ -150,6 +151,7 @@ export function ProofingFileDetail({ galleryId, file, onClose }: Props) {
   }
 
   const previewUrl = file.webUrl ?? file.thumbUrl;
+  const isVideo = file.kind === "video";
 
   return (
     <div className="fixed inset-0 bg-surface-canvas z-50 flex flex-col">
@@ -171,7 +173,23 @@ export function ProofingFileDetail({ galleryId, file, onClose }: Props) {
       <div className="flex-1 flex overflow-hidden">
         {/* Bild + Annotation-Overlay */}
         <div className="flex-1 flex items-center justify-center relative bg-black/95 overflow-hidden">
-          {previewUrl ? (
+          {isVideo ? (
+            file.videoUrl ? (
+              <div className="relative z-0 w-full h-full flex items-center justify-center p-4">
+                <VideoPlayer
+                  src={file.videoUrl}
+                  srcType="mp4"
+                  poster={previewUrl}
+                  sprite={file.sprite ?? null}
+                  className="w-full max-w-4xl max-h-[calc(100vh-140px)]"
+                />
+              </div>
+            ) : (
+              <div className="text-white/50">
+                {t("annotation.studioDetail.videoUnavailable")}
+              </div>
+            )
+          ) : previewUrl ? (
             /* Zoom-Container (absolute, inset-0) liefert die volle
                Hit-Area für Wheel/Pinch/Pan auch im schwarzen Bereich
                rechts/links neben dem Bild. Wenn ein Zeichen-Tool aktiv
@@ -231,7 +249,7 @@ export function ProofingFileDetail({ galleryId, file, onClose }: Props) {
               Customer-Lightbox — bewusste Konsistenz, sodass User die
               den Studio-Detail-View aus der Lightbox kennen die UI
               wiedererkennen. */}
-          {previewUrl && (
+          {previewUrl && !isVideo && (
             <div className="absolute top-3 right-3 z-30 flex items-center gap-1 bg-black/50 backdrop-blur-sm rounded-full p-1">
               {zoom.zoomed && (
                 <span className="text-ui-xs text-white/80 px-2 tabular-nums select-none">
@@ -299,18 +317,22 @@ export function ProofingFileDetail({ galleryId, file, onClose }: Props) {
             </div>
           )}
 
-          {/* Toolbar unten */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
-            <AnnotationToolbar
-              tool={tool}
-              setTool={setTool}
-              color={color}
-              setColor={setColor}
-              hasMine={strokes.length > 0}
-              onUndo={() => setStrokes((arr) => arr.slice(0, -1))}
-              onClear={() => setStrokes([])}
-            />
-          </div>
+          {/* Toolbar unten — nur für Bilder. Zeichen-Markierungen auf
+              Videos sind (noch) nicht möglich, die Overlay-Logik ist
+              bildbasiert. */}
+          {!isVideo && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
+              <AnnotationToolbar
+                tool={tool}
+                setTool={setTool}
+                color={color}
+                setColor={setColor}
+                hasMine={strokes.length > 0}
+                onUndo={() => setStrokes((arr) => arr.slice(0, -1))}
+                onClear={() => setStrokes([])}
+              />
+            </div>
+          )}
         </div>
 
         {/* Sidebar: Tags + Auto-Tags + Comments + Studio-Reply-Form */}
@@ -393,6 +415,8 @@ export function ProofingFileDetail({ galleryId, file, onClose }: Props) {
                         : "annotation.studioDetail.marksReadyPlural",
                       { n: strokes.length }
                     )
+                  : isVideo
+                  ? ""
                   : t("annotation.studioDetail.drawHint")}
               </div>
               <button

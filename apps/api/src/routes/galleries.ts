@@ -675,7 +675,13 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
               rejectedAt: true,
               rejectedReason: true,
               renditions: {
-                select: { kind: true, storageKey: true, format: true, page: true },
+                select: {
+                  kind: true,
+                  storageKey: true,
+                  format: true,
+                  page: true,
+                  metadata: true,
+                },
               },
               tags: {
                 select: {
@@ -719,6 +725,39 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
             : preview
             ? await presignGet({ key: preview.storageKey })
             : null;
+
+          // Video-Playback im Proofing-Detail: die standalone video_mp4-
+          // Rendition direkt presignen (nativ in allen Browsern abspielbar).
+          // Kein HLS — die HLS-Route ist visitor-gebunden und im Studio
+          // nicht erreichbar.
+          const mp4 =
+            f.kind === "video"
+              ? f.renditions.find((r) => r.kind === "video_mp4")
+              : undefined;
+          const videoUrl = mp4
+            ? await presignGet({ key: mp4.storageKey })
+            : null;
+
+          // Sprite-Sheet zum Scrubbing — gleiche Form wie im Customer-View.
+          const spriteRend =
+            f.kind === "video"
+              ? f.renditions.find((r) => r.kind === "sprite")
+              : undefined;
+          const sprite =
+            spriteRend && spriteRend.metadata
+              ? {
+                  url: await presignGet({ key: spriteRend.storageKey }),
+                  ...(spriteRend.metadata as {
+                    interval: number;
+                    cols: number;
+                    rows: number;
+                    tileWidth: number;
+                    tileHeight: number;
+                    frames: number;
+                  }),
+                }
+              : null;
+
           const pages =
             f.pageCount && f.pageCount > 1
               ? await Promise.all(
@@ -760,6 +799,8 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
             createdAt: f.createdAt,
             thumbUrl,
             webUrl,
+            videoUrl,
+            sprite,
             pageCount: f.pageCount,
             pages,
             tags: f.tags.map((ft) => ft.tag),

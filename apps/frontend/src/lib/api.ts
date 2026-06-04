@@ -114,6 +114,12 @@ export interface GalleryFile {
    *  Detail-Antwort gesetzt; wird für die Proofing-Detail-Ansicht
    *  benutzt, wo das Studio in voller Größe annotieren will. */
   webUrl?: string | null;
+  /** Nur bei Videos: presignte video_mp4-Rendition für Playback im
+   *  Studio-Proofing (nativ abspielbar, kein HLS). */
+  videoUrl?: string | null;
+  /** Nur bei Videos: Sprite-Sheet fürs Scrubbing (gleiche Form wie
+   *  PublicFile.sprite). Null wenn kein Sprite erzeugt wurde. */
+  sprite?: SpriteSheet | null;
   tags?: Tag[];
   /** "studio" = vom Owner direkt hochgeladen.
    *  "upload_link" = von einem externen Uploader via /u/<token>. */

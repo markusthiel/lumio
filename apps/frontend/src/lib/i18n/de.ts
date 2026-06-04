@@ -815,6 +815,7 @@ export const de: Dict = {
     studioDetail: {
       close: "Schließen",
       noPreview: "Keine Vorschau verfügbar",
+      videoUnavailable: "Video-Vorschau nicht verfügbar (wird noch verarbeitet).",
       commentsHeading: "Kommentare",
       loading: "Lädt…",
       noComments: "Noch keine Kommentare zu diesem Bild.",
