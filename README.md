@@ -3,8 +3,6 @@
 **Self-hosted Foto- und Video-Galerie für Fotograf:innen und Studios.**
 Self-hostbare Alternative zu Picdrop, Pixieset und Pic-Time — Daten bleiben bei dir.
 
-> ⚠️ **Status: Pre-Alpha.** In aktiver Entwicklung. Noch nicht produktionsreif. Daten sichern.
-
 ![Lumio Galerie aus Kundensicht](docs/images/01-gallery.jpg)
 
 ---
@@ -29,7 +27,7 @@ Im **Single-Mode** wird der Tenant beim ersten Start automatisch angelegt – du
 - 🚀 **Schnell** — Direkt-zu-S3-Uploads, virtualisierte Galerien, libvips-Thumbnails
 - 📷 **RAW-Support** — CR2, CR3, NEF, ARW, RAF, DNG, ORF, PEF, RW2, X3F via LibRaw
 - 🎬 **Video-Streaming** — HLS Adaptive Bitrate, Scrubbing-Previews, Poster-Frames
-- 💬 **Proofing** — Likes, Color-Tags, Star-Ratings, Kommentare, Team-Voting
+- 💬 **Proofing** — Likes, Color-Tags, Star-Ratings, Kommentare, Zeichen-Markierungen auf Foto **und Video** (zeitgebunden), Team-Voting
 - 🎨 **Whitelabel** — Logo, Farben, Custom Domains pro Studio oder Galerie
 - 🔐 **Sicher** — Signed URLs, Argon2-Passwörter, Audit-Log
 - ☁️ **Storage-flexibel** — MinIO, S3, R2, B2, Wasabi, Hetzner Object Storage
@@ -48,6 +46,10 @@ Das Studio — Galerien verwalten, Smart Collections, Tag-Filter, Team-Proofing:
 ![Proofing mit Markierungen und Color-Tags](docs/images/03-proofing.jpg)
 
 ![Markieren direkt am Bild](docs/images/feat-annotation.jpg)
+
+**Video-Proofing** — Auch Bewegtbild wird abgenommen wie ein Foto: Kunden scrubben per Filmstrip durch das Video, setzen Markierungen an einem bestimmten Zeitpunkt und zeichnen direkt aufs Standbild — mit optionaler Notiz pro Markierung.
+
+![Video-Markierung an einem Zeitpunkt](docs/images/feat-video-annotation.jpg)
 
 **Upload & Formate** — Drag & Drop mit parallelen Uploads, Duplikat-Erkennung und Smart-Sections. JPEG, PNG, WebP, RAW, HEIC/HEIF, Video und PDF — bis zum konfigurierbaren Datei-Limit.
 
