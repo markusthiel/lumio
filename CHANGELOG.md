@@ -30,6 +30,20 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.37.3] - 2026-06-04
+
+Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
+(Frontend).
+
+### Fixed
+- **Video-Upload vom iPhone/iPad aus der Fotomediathek**: Beim Auswählen
+  eines Videos im Foto-Picker und Tippen auf das Häkchen passierte nichts —
+  das Picker-Fenster blieb offen und es wurde keine Datei übergeben (Fotos
+  funktionierten). Ursache war ein iOS/WebKit-Verhalten beim Datei-Dialog
+  ohne Typ-Vorgabe; der Studio-Upload gibt jetzt eine Typ-Vorgabe mit, womit
+  iOS das Video korrekt übergibt. Drag&Drop und Desktop-Uploads bleiben
+  unverändert (auch RAW/HEIC/PDF weiterhin wählbar).
+
 ## [0.37.2] - 2026-06-04
 
 Pull genügt — kein manueller Eingriff. **Worker-Änderung:** nach dem
