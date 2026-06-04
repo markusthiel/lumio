@@ -2,7 +2,8 @@
  * Lumio API — Bootstrap
  *
  * Wird beim Start ausgeführt. Stellt sicher, dass im single-Mode immer
- * genau ein Tenant existiert; seedet bei Bedarf Default-Billing-Pläne.
+ * genau ein Tenant existiert; synchronisiert die Default-Billing-Pläne
+ * (Limits/Preise) bei jedem Start aus services/plans.ts in die DB.
  */
 import { prisma } from "./db.js";
 import { config } from "./config.js";
@@ -64,14 +65,15 @@ export async function getDefaultTenantId(): Promise<string | null> {
 }
 
 async function seedDefaultPlans(): Promise<void> {
-  const existing = await prisma.billingPlan.count();
-  if (existing > 0) return;
-
   // Die Plan-Limits + Preise sind in services/plans.ts die kanonische
   // Quelle (wird auch von Stripe-Bootstrap, Billing, Signup und Usage
-  // genutzt). Wir leiten den Seed daraus ab, damit bootstrap nie wieder
-  // davon abweichen kann. Stripe-Price-IDs werden hier NICHT gesetzt —
-  // die kommen pro Umgebung aus dem Stripe-Bootstrap-Script.
+  // genutzt). Wir synchronisieren sie bei JEDEM Start per Upsert in die
+  // DB, damit die DB-Zeilen nie von PLANS abweichen — sonst zeigt z.B.
+  // die Super-Admin-Area (liest billing_plans.storageGib) stale Limits,
+  // während die Tenant-Sicht (rechnet über PLANS) korrekt ist.
+  // Bewusst NICHT angefasst, weil pro Umgebung/Admin gepflegt:
+  // stripePriceIdMonthly/Yearly (Stripe-Bootstrap-Script),
+  // printApplicationFeeBps und isActive.
   const sortOrder: Record<PlanSlug, number> = {
     trial: 0,
     start: 5,
@@ -112,6 +114,17 @@ async function seedDefaultPlans(): Promise<void> {
     };
   });
 
-  await prisma.billingPlan.createMany({ data });
-  logger.info(`bootstrap: seeded ${data.length} default billing plans`);
+  // Upsert pro Slug: anlegen falls neu, sonst die PLANS-abgeleiteten
+  // Felder aktualisieren. slug ist der unique Key. Stripe-Price-IDs /
+  // printApplicationFeeBps / isActive sind NICHT Teil von `data` und
+  // bleiben dadurch unverändert erhalten.
+  for (const d of data) {
+    const { slug, ...fields } = d;
+    await prisma.billingPlan.upsert({
+      where: { slug },
+      create: d,
+      update: fields,
+    });
+  }
+  logger.info(`bootstrap: synced ${data.length} billing plans from PLANS`);
 }

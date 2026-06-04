@@ -30,6 +30,20 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.16.2] - 2026-06-04
+
+Bugfix. `git pull` + regulärer Deploy genügt; die Korrektur greift beim
+nächsten API-Start automatisch, keine manuelle Aktion nötig.
+
+### Fixed
+- Plan-Limits (z.B. Speicher) wurden in der Super-Admin-Ansicht teils mit
+  veralteten Werten angezeigt, weil die Plan-Tabelle in der Datenbank nur
+  beim allerersten Start befüllt und danach nie wieder aktualisiert wurde.
+  Spätere Änderungen an Limits oder Preisen kamen so nie in der DB an. Die
+  Pläne werden jetzt bei jedem Start mit der zentralen Plan-Definition
+  abgeglichen. Stripe-Preis-IDs und Sonderkonditionen bleiben dabei
+  unangetastet.
+
 ## [0.16.1] - 2026-06-04
 
 Bugfix. `git pull` + regulärer Deploy genügt. Nur Frontend.
