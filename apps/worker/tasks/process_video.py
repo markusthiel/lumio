@@ -235,67 +235,43 @@ def _process(file_row: dict) -> None:
                     metadata=sprite_meta,
                 )
 
-        # 5) Web-MP4 — downloadbare Variante als 'Web-Version'. Eine
-        #    einzelne MP4-Datei (nicht HLS-Segmente), 1080p oder
-        #    Quellauflösung wenn kleiner, AAC-Audio, +faststart damit
-        #    der Browser beim Klick sofort streamt statt erst alles
-        #    runterzuziehen.
-        #
-        # Wichtig: wir erzeugen NUR dann eine Web-MP4 wenn sie auch
-        # tatsächlich kleiner ist als das Original. Wenn die Quelle
-        # schon kompakt komprimiert ist (z.B. 720p mit niedriger
-        # Bitrate), würden wir mit unserem fixen 2800k/5000k-Target
-        # eine GRÖSSERE Datei produzieren — das wäre für den Customer
-        # irreführend ("Web-Version" sollte klein sein). In dem Fall
-        # überspringen wir die Rendition; die API liefert dann beim
-        # Download "Web" einen 404 zurück und das Frontend versteckt
-        # den Button.
-        src_bitrate_kbps = _estimate_bitrate_kbps(
-            file_bytes=src_path.stat().st_size,
-            duration_s=duration,
-        )
+        # 5) Web-MP4 — web-spielbare standalone MP4 (1080p oder kleiner,
+        #    H.264 + AAC, +faststart). Wird IMMER erzeugt: das Studio spielt
+        #    Videos ausschließlich über diese Rendition (HLS ist visitor-
+        #    gebunden und im Studio nicht erreichbar). Sie früher zu über-
+        #    springen, wenn sie nicht kleiner als das Original gewesen wäre,
+        #    hat die Studio-Video-Vorschau lautlos kaputtgemacht ("wird noch
+        #    verarbeitet"). Die paar Fälle, in denen die Web-MP4 ~gleich groß
+        #    wie das Original ist, nehmen wir dafür in Kauf.
         target_h = min(1080, height) if height > 0 else 1080
-        target_video_kbps = _web_mp4_video_bitrate_kbps(target_h)
-        # Audio (128k bei has_audio, sonst 0) zur Output-Gesamtbitrate
-        target_total_kbps = target_video_kbps + (128 if has_audio else 0)
-
-        if src_bitrate_kbps > 0 and target_total_kbps >= src_bitrate_kbps:
-            log.info(
-                "process_video.web_mp4_skipped",
-                file_id=file_id,
-                reason="source_already_compact",
-                src_kbps=src_bitrate_kbps,
-                target_kbps=target_total_kbps,
+        web_mp4_path = tmpdir / "web.mp4"
+        try:
+            _make_web_mp4(
+                src_path=src_path, out_path=web_mp4_path,
+                target_height=target_h, has_audio=has_audio,
             )
-        else:
-            web_mp4_path = tmpdir / "web.mp4"
-            try:
-                _make_web_mp4(
-                    src_path=src_path, out_path=web_mp4_path,
-                    target_height=target_h, has_audio=has_audio,
+            if web_mp4_path.exists():
+                mp4_key = rendition_key(
+                    tenant_id, gallery_id, file_id, "video_mp4", "mp4"
                 )
-                if web_mp4_path.exists():
-                    mp4_key = rendition_key(
-                        tenant_id, gallery_id, file_id, "video_mp4", "mp4"
-                    )
-                    mp4_size = upload_file(
-                        str(web_mp4_path), mp4_key, "video/mp4"
-                    )
-                    # Wir kennen die exakte Höhe der Ausgabe nicht ohne
-                    # Re-Probe — target_h ist eine gute Approximation
-                    # (ffmpeg hat scale=-2:target_h, also wird die Höhe
-                    # exakt target_h sein).
-                    upsert_rendition(
-                        file_id=file_id, kind="video_mp4",
-                        storage_key=mp4_key, fmt="mp4",
-                        width=0, height=target_h,
-                        size_bytes=mp4_size,
-                    )
-            except Exception as err:
-                # Web-MP4-Fehler ist nicht fatal — HLS + Original
-                # funktionieren weiter. Wir loggen und gehen weiter.
-                log.warn("process_video.web_mp4_failed",
-                         file_id=file_id, err=str(err))
+                mp4_size = upload_file(
+                    str(web_mp4_path), mp4_key, "video/mp4"
+                )
+                # Wir kennen die exakte Höhe der Ausgabe nicht ohne
+                # Re-Probe — target_h ist eine gute Approximation
+                # (ffmpeg hat scale=-2:target_h, also wird die Höhe
+                # exakt target_h sein).
+                upsert_rendition(
+                    file_id=file_id, kind="video_mp4",
+                    storage_key=mp4_key, fmt="mp4",
+                    width=0, height=target_h,
+                    size_bytes=mp4_size,
+                )
+        except Exception as err:
+            # Web-MP4-Fehler ist nicht fatal — HLS + Original
+            # funktionieren weiter. Wir loggen und gehen weiter.
+            log.warn("process_video.web_mp4_failed",
+                     file_id=file_id, err=str(err))
 
         # 6) Status auf ready, Dimensions des Source-Videos
         mark_file_ready(file_id, width, height, sha256=src_sha)

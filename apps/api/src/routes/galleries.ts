@@ -667,6 +667,10 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
               sortIndex: true,
               sectionId: true,
               createdAt: true,
+              // Original-Key für Video-Fallback (s.u.): wenn keine
+              // video_mp4-Rendition existiert (z.B. Altbestand oder
+              // kompaktes Quellvideo), spielt das Studio das Original.
+              storageKey: true,
               // Upload-Link-Metadaten — Studio kann pending-Files filtern
               // und markieren, woher sie kommen.
               uploadedVia: true,
@@ -730,12 +734,19 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           // Rendition direkt presignen (nativ in allen Browsern abspielbar).
           // Kein HLS — die HLS-Route ist visitor-gebunden und im Studio
           // nicht erreichbar.
+          //
+          // Fallback: existiert (noch) keine video_mp4 (Altbestand, oder der
+          // Worker hat sie früher bei kompakten Quellen übersprungen), spielt
+          // das Studio direkt das Original. Das Studio ist authentifiziert,
+          // also unbedenklich — nur eben evtl. größer / je nach Browser-Codec.
           const mp4 =
             f.kind === "video"
               ? f.renditions.find((r) => r.kind === "video_mp4")
               : undefined;
           const videoUrl = mp4
             ? await presignGet({ key: mp4.storageKey })
+            : f.kind === "video"
+            ? await presignGet({ key: f.storageKey })
             : null;
 
           // Sprite-Sheet zum Scrubbing — gleiche Form wie im Customer-View.
