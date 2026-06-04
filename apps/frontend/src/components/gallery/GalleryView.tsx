@@ -814,7 +814,7 @@ function DownloadMenu({
           onClick={() => setOpen(false)}
           style={{
             borderColor: "var(--brand-border)",
-            backgroundColor: "var(--brand-surface)",
+            backgroundColor: "var(--brand-surface-solid)",
           }}
           className="absolute right-0 mt-1 z-30 min-w-[15rem] rounded-md border p-1.5 shadow-xl flex flex-col gap-1.5"
         >

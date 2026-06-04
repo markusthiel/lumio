@@ -179,6 +179,12 @@ export function GalleryShell({
   const surfaceHover = light
     ? "rgba(0,0,0,0.08)"
     : "rgba(255,255,255,0.12)";
+  // Deckende Surface für schwebende Overlays (Dropdowns/Popover/Modals).
+  // --brand-surface ist bewusst fast transparent (nur ein Toolbar-Tint) —
+  // als Hintergrund eines schwebenden Panels scheint sonst der Inhalt
+  // dahinter durch ("liegt hinter den Tags"). Hier nehmen wir den opaken
+  // Branding-Hintergrund; der fg-Kontrast ist gegen primary garantiert.
+  const surfaceSolid = primary;
 
   (style as Record<string, string>)["--brand-fg"] = fg;
   (style as Record<string, string>)["--brand-bg"] = primary;
@@ -188,6 +194,7 @@ export function GalleryShell({
   (style as Record<string, string>)["--brand-toolbar-bg"] = toolbarBg;
   (style as Record<string, string>)["--brand-surface"] = surface;
   (style as Record<string, string>)["--brand-surface-hover"] = surfaceHover;
+  (style as Record<string, string>)["--brand-surface-solid"] = surfaceSolid;
   (style as Record<string, string>)["--brand-is-light"] = light ? "1" : "0";
 
   return (
