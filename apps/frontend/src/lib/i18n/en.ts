@@ -825,6 +825,15 @@ export const en: Dict = {
       saving: "Saving…",
       imagesCount: "Images",
     },
+    videoMarkup: {
+      annotate: "Mark",
+      at: "Mark at {time}",
+      notePlaceholder: "Note (optional)…",
+      save: "Save mark",
+      saving: "Saving…",
+      cancel: "Cancel",
+      close: "Close",
+    },
   },
 
   upload: {

@@ -828,6 +828,15 @@ export const de: Dict = {
       saving: "Speichert…",
       imagesCount: "Bilder",
     },
+    videoMarkup: {
+      annotate: "Markieren",
+      at: "Markierung bei {time}",
+      notePlaceholder: "Notiz (optional)…",
+      save: "Markierung speichern",
+      saving: "Speichert…",
+      cancel: "Abbrechen",
+      close: "Schließen",
+    },
   },
 
   upload: {

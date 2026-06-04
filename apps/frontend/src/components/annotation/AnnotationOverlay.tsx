@@ -51,8 +51,62 @@ export type AnnotationStroke =
     };
 
 export interface AnnotationData {
-  version: 1;
+  /** version 1 = Bild-Annotation (immer sichtbar). version 2 = Video-
+   *  Markierung, zeitlich an `t` (Sekunde) verankert. */
+  version: 1 | 2;
   strokes: AnnotationStroke[];
+  /** Nur bei Video (version 2): Sekunde im Video, an der die Markierung
+   *  sitzt. Bei Bildern weggelassen. */
+  t?: number;
+}
+
+/** Eine aus einem Comment extrahierte Video-Markierung (version 2). */
+export interface VideoMarker {
+  id: string;
+  t: number;
+  authorIsStudio: boolean;
+  body: string;
+  strokes: AnnotationStroke[];
+}
+
+/** Filtert aus einer Comment-Liste die zeitverankerten Video-Markierungen
+ *  (version 2) heraus, getaggt nach Autor, sortiert nach Zeit. Comments
+ *  ohne `t` (Bild-Annotationen) werden ignoriert. */
+export function extractVideoMarkers(
+  comments:
+    | Array<{
+        id: string;
+        annotation?: unknown;
+        authorIsStudio?: boolean;
+        body?: string;
+      }>
+    | null
+    | undefined
+): VideoMarker[] {
+  if (!comments) return [];
+  const out: VideoMarker[] = [];
+  for (const c of comments) {
+    const data = c.annotation as AnnotationData | null | undefined;
+    if (
+      !data ||
+      data.version !== 2 ||
+      typeof data.t !== "number" ||
+      !Array.isArray(data.strokes)
+    )
+      continue;
+    const author: "customer" | "studio" = c.authorIsStudio
+      ? "studio"
+      : "customer";
+    out.push({
+      id: c.id,
+      t: data.t,
+      authorIsStudio: !!c.authorIsStudio,
+      body: c.body ?? "",
+      strokes: data.strokes.map((s) => ({ ...s, author })),
+    });
+  }
+  out.sort((a, b) => a.t - b.t);
+  return out;
 }
 
 /** Hex-Farben pro Annotation-Color. Bewusst kräftig, weil sie auf

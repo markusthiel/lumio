@@ -38,7 +38,7 @@ import {
 } from "@/components/annotation/AnnotationOverlay";
 import { AutoTagsSection } from "@/components/studio/AutoTagsSection";
 import { FileTagsSection } from "@/components/studio/FileTagsSection";
-import { VideoPlayer } from "@/components/gallery/VideoPlayer";
+import { VideoMarkup } from "@/components/gallery/VideoMarkup";
 
 interface Props {
   galleryId: string;
@@ -176,12 +176,26 @@ export function ProofingFileDetail({ galleryId, file, onClose }: Props) {
           {isVideo ? (
             file.videoUrl ? (
               <div className="relative z-0 w-full h-full flex items-center justify-center p-4">
-                <VideoPlayer
+                <VideoMarkup
                   src={file.videoUrl}
                   srcType="mp4"
                   poster={previewUrl}
                   sprite={file.sprite ?? null}
                   className="w-full max-w-4xl max-h-[calc(100vh-140px)]"
+                  comments={comments}
+                  canAnnotate
+                  author="studio"
+                  onCreate={async ({ strokes: s, t: markT, body }) => {
+                    await api.studioPostComment(galleryId, file.id, {
+                      body,
+                      annotation: { version: 2, strokes: s, t: markT },
+                    });
+                    const res = await api.studioListComments(
+                      galleryId,
+                      file.id
+                    );
+                    setComments(res.comments);
+                  }}
                 />
               </div>
             ) : (

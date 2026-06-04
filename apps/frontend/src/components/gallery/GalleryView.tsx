@@ -10,7 +10,7 @@ import {
   type MySelection,
   type Comment,
 } from "@/lib/api";
-import { VideoPlayer } from "./VideoPlayer";
+import { VideoMarkup } from "./VideoMarkup";
 import { ZipDownloadButton } from "./ZipDownloadButton";
 import { CustomerTagFilter } from "./CustomerTagFilter";
 import { Slideshow } from "./Slideshow";
@@ -1783,11 +1783,22 @@ function Lightbox({
           </button>
 
           {file.kind === "video" && file.hlsUrl ? (
-            <VideoPlayer
+            <VideoMarkup
               src={file.hlsUrl}
               poster={file.previewUrl ?? file.thumbUrl}
               sprite={file.sprite}
-              className="max-h-full max-w-full"
+              className="w-full max-w-5xl max-h-[calc(100vh-160px)]"
+              comments={comments}
+              canAnnotate={interactive && commentsActive}
+              author="customer"
+              onCreate={async ({ strokes, t: markT, body }) => {
+                await api.postComment(slug, file.id, {
+                  body,
+                  annotation: { version: 2, strokes, t: markT },
+                });
+                const res = await api.listComments(slug, file.id);
+                setComments(res.comments);
+              }}
             />
           ) : file.previewUrl || file.webUrl ? (
             /* Bild + Annotation-Overlay übereinander, eingebettet in einen
