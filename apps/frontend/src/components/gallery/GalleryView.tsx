@@ -2000,35 +2000,61 @@ function Lightbox({
             </div>
           )}
 
-          {/* Schwebende Werkzeug-Toolbar — Position oben am unteren
-              Bildrand, je nach Mode entweder Annotation-Pill oder
-              Selection-Pill (Farben + Auswahl-Stern). Nur sichtbar
-              wenn der Visitor Auswahl-Rechte hat. */}
+          {/* Schwebende Auswahl-Pille unten (Farben + Stern). Markieren
+              läuft jetzt über den Button OBEN am Bild — einheitlich mit
+              dem Video-Player. */}
           {interactive && (
             <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10">
-              {bottomMode === "mark" && commentsActive && file.kind !== "video" ? (
-                <AnnotationToolbar
-                  tool={annotationTool}
-                  setTool={setAnnotationTool}
-                  color={annotationColor}
-                  setColor={setAnnotationColor}
-                  hasMine={myStrokes.length > 0}
-                  onUndo={() =>
-                    setMyStrokes((arr) => arr.slice(0, -1))
-                  }
-                  onClear={() => setMyStrokes([])}
-                />
-              ) : (
-                <SelectionPill
-                  selColor={sel.color}
-                  liked={sel.liked}
-                  onSetColor={setColor}
-                  onToggleLike={toggleLike}
-                  t={t}
-                />
-              )}
+              <SelectionPill
+                selColor={sel.color}
+                liked={sel.liked}
+                onSetColor={setColor}
+                onToggleLike={toggleLike}
+                t={t}
+              />
             </div>
           )}
+
+          {/* Markieren-Steuerung OBEN am Bild (nur Fotos; Videos haben
+              ihren eigenen Markieren-Button im Player). Nicht-markieren:
+              ein „Markieren"-Button. Markieren aktiv: Werkzeugleiste +
+              „Fertig". Einheitlich mit dem Video-Markup. */}
+          {interactive &&
+            commentsActive &&
+            file.kind !== "video" &&
+            (file.previewUrl || file.webUrl) && (
+              <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
+                {bottomMode !== "mark" ? (
+                  <button
+                    type="button"
+                    onClick={() => setBottomMode("mark")}
+                    className="h-8 px-3 rounded-full bg-black/65 backdrop-blur text-white text-ui-xs inline-flex items-center gap-1.5 hover:bg-black/80 transition-colors duration-motion"
+                  >
+                    <PencilIcon />
+                    {t("gallery.modeMark")}
+                  </button>
+                ) : (
+                  <>
+                    <AnnotationToolbar
+                      tool={annotationTool}
+                      setTool={setAnnotationTool}
+                      color={annotationColor}
+                      setColor={setAnnotationColor}
+                      hasMine={myStrokes.length > 0}
+                      onUndo={() => setMyStrokes((arr) => arr.slice(0, -1))}
+                      onClear={() => setMyStrokes([])}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setBottomMode("pick")}
+                      className="h-8 px-3 rounded-full bg-white text-black text-ui-xs font-medium hover:bg-white/90 transition-colors duration-motion"
+                    >
+                      {t("gallery.markDone")}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
 
           {/* Keyboard-Hint-Overlay — verschwindet nach 5s. Sitzt
               höher weil die schwebende Werkzeug-Toolbar immer da
@@ -2108,31 +2134,9 @@ function Lightbox({
         )}
       </div>
 
-      {/* Bottom-Bar — Mode-Umschalter zwischen Auswahl (Farb-Tags +
-          Stern) und Markieren (Annotation-Werkzeuge). Die jeweilige
-          Werkzeug-Leiste erscheint dann auf dem Bild oben drauf
-          (siehe SelectionPill / AnnotationToolbar weiter oben).
-          Markieren-Tab nur sichtbar wenn die Galerie Kommentare/
-          Annotationen erlaubt — sonst ergibt das Werkzeug keinen
-          Sinn weil's nicht persistieren könnte. */}
-      {interactive && (
-        <div className="border-t border-white/5 px-3 py-2 flex items-center justify-center gap-2">
-          <ModeTab
-            active={bottomMode === "pick"}
-            onClick={() => setBottomMode("pick")}
-            label={t("gallery.modePick")}
-            icon={<StarIcon filled={sel.liked} />}
-          />
-          {commentsActive && file.kind !== "video" && (
-            <ModeTab
-              active={bottomMode === "mark"}
-              onClick={() => setBottomMode("mark")}
-              label={t("gallery.modeMark")}
-              icon={<PencilIcon />}
-            />
-          )}
-        </div>
-      )}
+      {/* Der frühere untere „Auswahl/Markieren"-Umschalter entfällt:
+          Auswahl liegt als Pille über dem Bild, Markieren über den
+          Button oben am Bild — einheitlich mit dem Video-Player. */}
     </div>
   );
 }
@@ -2237,33 +2241,6 @@ function SelectionPill({
 /** Tab-Button für die Mode-Umschaltung am unteren Rand. Bewusst groß
  *  und mit Label+Icon — das ist die zentrale Bedien-Entscheidung des
  *  Kunden, soll nicht versteckt sein. */
-function ModeTab({
-  active,
-  onClick,
-  label,
-  icon,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  icon: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`h-10 px-5 rounded-full inline-flex items-center gap-2 text-ui-sm font-medium transition-colors duration-motion ${
-        active
-          ? "bg-white text-neutral-950"
-          : "text-white/70 hover:text-white hover:bg-white/10"
-      }`}
-    >
-      {icon}
-      <span>{label}</span>
-    </button>
-  );
-}
-
 /** Stern-Icon — gefüllt wenn der Visitor das Bild in seine Auswahl
  *  aufgenommen hat, hohl sonst. Stern statt Herz weil "Herz" emotional
  *  ist, "Stern" eindeutiger ein Auswahl-Marker. */

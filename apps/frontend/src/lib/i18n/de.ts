@@ -691,6 +691,7 @@ export const de: Dict = {
     likeTitle: "Zur Auswahl hinzufügen (Leertaste)",
     modePick: "Auswahl",
     modeMark: "Markieren",
+    markDone: "Fertig",
     poweredBy: "Powered by Lumio",
   },
 

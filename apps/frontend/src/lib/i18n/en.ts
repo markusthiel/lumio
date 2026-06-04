@@ -690,6 +690,7 @@ export const en: Dict = {
     likeTitle: "Add to selection (spacebar)",
     modePick: "Selection",
     modeMark: "Mark",
+    markDone: "Done",
     poweredBy: "Powered by Lumio",
   },
 
