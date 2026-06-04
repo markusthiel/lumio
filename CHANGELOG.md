@@ -30,6 +30,15 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.22.3] - 2026-06-04
+
+Kleine Verbesserung. `git pull` + regulärer Deploy genügt.
+
+### Changed
+- Super-Admin User-Liste: Das Suchfeld findet User jetzt auch über ihren
+  Tenant (Name, Anzeigename, Slug) — praktisch, wenn es viele Tenants gibt und
+  das Dropdown lang wird. Der Tenant-Filter bleibt zusätzlich erhalten.
+
 ## [0.22.2] - 2026-06-04
 
 Kleine UI-Ergänzung. `git pull` + regulärer Deploy genügt, nur Frontend.

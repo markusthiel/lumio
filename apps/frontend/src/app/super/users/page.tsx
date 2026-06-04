@@ -104,7 +104,7 @@ function UsersList() {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Suche E-Mail oder Name…"
+          placeholder="Suche E-Mail, Name oder Tenant…"
           className="flex-1 min-w-48 h-9 px-3 rounded-md border border-line-subtle bg-surface-raised text-ui-sm"
         />
         <select

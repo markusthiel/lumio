@@ -1217,6 +1217,11 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
         // email ist citext (case-insensitive); name normal.
         { email: { contains: qp.q } },
         { name: { contains: qp.q, mode: "insensitive" } },
+        // Tenant mitdurchsuchen, damit man bei vielen Tenants nicht aufs
+        // Dropdown angewiesen ist.
+        { tenant: { name: { contains: qp.q, mode: "insensitive" } } },
+        { tenant: { displayName: { contains: qp.q, mode: "insensitive" } } },
+        { tenant: { slug: { contains: qp.q, mode: "insensitive" } } },
       ];
     }
 
