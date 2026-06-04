@@ -33,7 +33,7 @@ import { writeMrrSnapshot } from "./mrr.js";
 import { processBroadcast } from "./broadcast.js";
 import { computeStorageBytes } from "./usage.js";
 import { getPlan, effectiveStorageBytes } from "./plans.js";
-import { tmplStorageWarning } from "./mail.js";
+import { tmplStorageWarning, tmplGalleryExpiring } from "./mail.js";
 import { studioNotifyEnabled } from "./notifications.js";
 import { sendSuperAdminDigest } from "./notifier.js";
 import { logger } from "../logger.js";
@@ -74,6 +74,8 @@ async function runOnce() {
     // gebraucht. Studio-UI nutzt computeStorageBytes() live, also für die
     // Limit-Checks ist Drift unkritisch.
     recalculateStorageUsage(),
+    // Galerien, die bald ablaufen → Studio-Mail (einmalig, mit Reset).
+    checkExpiringGalleries(),
     // Täglicher Super-Admin-Digest (nur SaaS), idempotent via PK(date).
     runDailyDigest(),
     // Billing-Archiv-Lifecycle (nur SaaS): Read-only → Archiv → Löschung.
@@ -388,6 +390,78 @@ async function notifyArchiveScheduleReached() {
       { tenantId: t.id, name: t.name },
       "sweeper.archive_schedule_reached (super-admin action required)"
     );
+  }
+}
+
+// Galerien, die in <= 7 Tagen ablaufen, einmalig melden (Throttle über
+// gallery.expiryWarnedAt; Reset, sobald expiresAt wieder außerhalb des
+// Fensters liegt oder entfernt wurde — dann kann später erneut gewarnt werden).
+const GALLERY_EXPIRY_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+async function checkExpiringGalleries() {
+  try {
+    const now = new Date();
+    const soon = new Date(Date.now() + GALLERY_EXPIRY_WINDOW_MS);
+
+    // Reset: Marker löschen, wenn die Galerie nicht mehr im Fenster ist.
+    await prisma.gallery.updateMany({
+      where: {
+        expiryWarnedAt: { not: null },
+        OR: [{ expiresAt: null }, { expiresAt: { gt: soon } }],
+      },
+      data: { expiryWarnedAt: null },
+    });
+
+    const galleries = await prisma.gallery.findMany({
+      where: {
+        expiresAt: { gt: now, lte: soon },
+        expiryWarnedAt: null,
+        tenant: { status: "active" },
+      },
+      select: {
+        id: true,
+        title: true,
+        tenantId: true,
+        expiresAt: true,
+        owner: { select: { email: true } },
+      },
+      take: 200,
+    });
+
+    for (const g of galleries) {
+      try {
+        // Marker setzen (auch wenn Gate aus / kein Owner) — verhindert
+        // erneutes Einsammeln bis zum Reset.
+        await prisma.gallery.update({
+          where: { id: g.id },
+          data: { expiryWarnedAt: new Date() },
+        });
+        if (!g.owner?.email) continue;
+        if (!(await studioNotifyEnabled(g.tenantId, "gallery_expiring"))) continue;
+        if (!g.expiresAt) continue;
+
+        const daysLeft = Math.max(
+          1,
+          Math.ceil((g.expiresAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000))
+        );
+        await sendMail({
+          to: g.owner.email,
+          ...tmplGalleryExpiring({
+            galleryTitle: g.title,
+            daysLeft,
+            expiresAtLabel: g.expiresAt.toLocaleDateString("de-DE"),
+            galleryUrl: `${config.PUBLIC_URL}/studio/${g.id}`,
+          }),
+        });
+      } catch (err) {
+        logger.warn(
+          { err, galleryId: g.id },
+          "sweeper.gallery_expiry.gallery_failed"
+        );
+      }
+    }
+  } catch (err) {
+    logger.warn({ err }, "sweeper.gallery_expiry.failed");
   }
 }
 

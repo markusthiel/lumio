@@ -43,6 +43,7 @@ import {
   deleteObject,
 } from "../services/storage.js";
 import { enqueue, Queues } from "../services/queue.js";
+import { notifyUploadReceived } from "../services/notifier.js";
 import { publish } from "../services/events.js";
 import { checkStorageLimit } from "../services/usage.js";
 import { logEvent } from "../services/audit.js";
@@ -1080,6 +1081,9 @@ export async function registerUploadLinkRoutes(app: FastifyInstance) {
           lastUploadAt: new Date(),
         },
       });
+
+      // Studio-Benachrichtigung (gebündelt/gethrottlet, fire-and-forget).
+      void notifyUploadReceived({ uploadLinkId: link.id });
 
       // Realtime-Pushes an den Studio-Browser (oder Customer-Browser,
       // aber Customer sieht das File eh nicht weil publicVisibility=hidden)

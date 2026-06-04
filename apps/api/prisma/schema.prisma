@@ -406,6 +406,10 @@ model Gallery {
   // Zugangskontrolle
   passwordHash    String?
   expiresAt       DateTime?
+  // Throttle für die "Galerie läuft bald ab"-Studio-Mail: gesetzt, wenn
+  // gewarnt wurde; genullt, wenn expiresAt wieder außerhalb des Fensters
+  // liegt (oder entfernt wird), damit eine spätere Warnung erneut greift.
+  expiryWarnedAt  DateTime?
   
   // Feature-Toggles pro Galerie
   downloadEnabled Boolean  @default(true)
@@ -785,6 +789,9 @@ model UploadLink {
   uploadCount     Int      @default(0)
   bytesUploaded   BigInt   @default(0)
   lastUploadAt    DateTime?
+  // Throttle für die "Uploads eingegangen"-Studio-Mail: gebündelt, damit ein
+  // Batch von vielen Dateien nur eine Mail auslöst (Claim alle ~15 min).
+  lastUploadNotifyAt DateTime?
 
   // Files die über diesen Link reingekommen sind. SetNull bei Delete,
   // damit alte Files erhalten bleiben aber den Link-Bezug verlieren.

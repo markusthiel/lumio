@@ -890,3 +890,88 @@ export function tmplSuperDigest(opts: {
 function mailHeading2sub(text: string): string {
   return mailParagraph(text);
 }
+
+// =============================================================================
+// Weitere Studio-Benachrichtigungen (Phase 3)
+// =============================================================================
+
+export function tmplTeamMemberJoined(opts: {
+  memberName: string;
+  memberEmail: string;
+  role: string;
+  teamUrl: string;
+  branding?: MailBranding;
+}): { subject: string; text: string; html: string } {
+  const who = opts.memberName || opts.memberEmail;
+  return {
+    subject: `Neues Team-Mitglied: ${who}`,
+    text:
+      `${who} (${opts.memberEmail}, Rolle: ${opts.role}) hat das Konto ` +
+      `eingerichtet und ist deinem Team beigetreten.\n\n` +
+      `Team verwalten: ${opts.teamUrl}\n\n— Lumio`,
+    html: renderMailLayout({
+      branding: opts.branding,
+      preheader: `${who} ist deinem Team beigetreten`,
+      bodyHtml:
+        mailHeading("Neues Team-Mitglied") +
+        mailParagraph(
+          `${who} (${opts.memberEmail}) hat das Konto eingerichtet und ist deinem Team als „${opts.role}" beigetreten.`
+        ) +
+        mailButton(opts.teamUrl, "Team verwalten", opts.branding?.accentColor),
+    }),
+  };
+}
+
+export function tmplGalleryExpiring(opts: {
+  galleryTitle: string;
+  daysLeft: number;
+  expiresAtLabel: string;
+  galleryUrl: string;
+  branding?: MailBranding;
+}): { subject: string; text: string; html: string } {
+  const dayWord = opts.daysLeft === 1 ? "Tag" : "Tagen";
+  return {
+    subject: `Galerie läuft ab: „${opts.galleryTitle}" (in ${opts.daysLeft} ${dayWord})`,
+    text:
+      `Die Galerie „${opts.galleryTitle}" läuft am ${opts.expiresAtLabel} ab ` +
+      `(in ${opts.daysLeft} ${dayWord}). Danach ist sie für Kunden nicht ` +
+      `mehr erreichbar.\n\nGalerie öffnen: ${opts.galleryUrl}\n\n— Lumio`,
+    html: renderMailLayout({
+      branding: opts.branding,
+      preheader: `„${opts.galleryTitle}" läuft in ${opts.daysLeft} ${dayWord} ab`,
+      bodyHtml:
+        mailHeading("Galerie läuft bald ab") +
+        mailParagraph(
+          `Die Galerie „${opts.galleryTitle}" läuft am ${opts.expiresAtLabel} ab (in ${opts.daysLeft} ${dayWord}). Danach ist sie für Kunden nicht mehr erreichbar.`
+        ) +
+        mailParagraph(
+          `Falls du sie länger online halten möchtest, kannst du das Ablaufdatum in den Galerie-Einstellungen anpassen.`
+        ) +
+        mailButton(opts.galleryUrl, "Galerie öffnen", opts.branding?.accentColor),
+    }),
+  };
+}
+
+export function tmplUploadReceived(opts: {
+  galleryTitle: string;
+  linkLabel: string;
+  galleryUrl: string;
+  branding?: MailBranding;
+}): { subject: string; text: string; html: string } {
+  return {
+    subject: `Neue Uploads: „${opts.galleryTitle}"`,
+    text:
+      `Es sind neue Uploads über den Link „${opts.linkLabel}" in der Galerie ` +
+      `„${opts.galleryTitle}" eingegangen.\n\nGalerie öffnen: ${opts.galleryUrl}\n\n— Lumio`,
+    html: renderMailLayout({
+      branding: opts.branding,
+      preheader: `Neue Uploads in „${opts.galleryTitle}"`,
+      bodyHtml:
+        mailHeading("Neue Uploads eingegangen") +
+        mailParagraph(
+          `Über den Upload-Link „${opts.linkLabel}" sind neue Dateien in „${opts.galleryTitle}" eingegangen.`
+        ) +
+        mailButton(opts.galleryUrl, "Galerie öffnen", opts.branding?.accentColor),
+    }),
+  };
+}

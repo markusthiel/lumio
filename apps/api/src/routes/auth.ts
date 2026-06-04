@@ -54,6 +54,7 @@ import {
   deleteCredential as webauthnDeleteCredential,
 } from "../services/webauthn.js";
 import { logEvent } from "../services/audit.js";
+import { notifyTeamMemberJoined } from "../services/notifier.js";
 import { getEffectiveFlags } from "../services/feature-flags.js";
 import { getStripe } from "../services/stripe-client.js";
 import { resolveTenantBranding } from "../services/branding.js";
@@ -1003,6 +1004,18 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         action: "auth.setup_password",
         ipAddress: req.ip,
       });
+
+      // War der User vorher "invited", ist das ein echter Team-Beitritt →
+      // andere Owner/Admins informieren (fire-and-forget).
+      if (user.status === "invited") {
+        void notifyTeamMemberJoined({
+          tenantId: user.tenantId,
+          joinedUserId: user.id,
+          memberName: user.name,
+          memberEmail: user.email,
+          role: user.role,
+        });
+      }
 
       // Direkt einloggen — Setup ist Onboarding, der erste Studio-Klick
       // soll nicht zur Login-Maske zurückspringen.

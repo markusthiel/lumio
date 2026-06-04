@@ -47,6 +47,26 @@ export const STUDIO_NOTIFICATION_EVENTS: StudioNotificationEvent[] = [
     defaultOn: true,
   },
   {
+    key: "upload_received",
+    label: "Uploads eingegangen",
+    description:
+      "Ein Kunde hat über einen Upload-Link Dateien hochgeladen (gebündelt).",
+    defaultOn: true,
+  },
+  {
+    key: "team_member_joined",
+    label: "Team-Mitglied beigetreten",
+    description:
+      "Ein eingeladenes Team-Mitglied hat sein Konto eingerichtet.",
+    defaultOn: true,
+  },
+  {
+    key: "gallery_expiring",
+    label: "Galerie läuft bald ab",
+    description: "Eine Galerie erreicht in den nächsten 7 Tagen ihr Ablaufdatum.",
+    defaultOn: true,
+  },
+  {
     key: "storage_warning",
     label: "Speicher fast voll",
     description:

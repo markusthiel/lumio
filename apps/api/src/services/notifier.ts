@@ -17,6 +17,8 @@ import {
   tmplWelcome,
   tmplSuperNewTenant,
   tmplSuperDigest,
+  tmplTeamMemberJoined,
+  tmplUploadReceived,
 } from "./mail.js";
 import { getPlan, effectiveStorageBytes } from "./plans.js";
 import type { MailBranding } from "./mail-layout.js";
@@ -507,5 +509,96 @@ export async function sendSuperAdminDigest(): Promise<void> {
     }
   } catch (err) {
     logger.warn({ err }, "sendSuperAdminDigest failed");
+  }
+}
+
+/**
+ * Studio (Owner + Admins, außer dem Beigetretenen) informieren, dass ein
+ * eingeladenes Team-Mitglied sein Konto eingerichtet hat. Stille Failures.
+ */
+export async function notifyTeamMemberJoined(opts: {
+  tenantId: string;
+  joinedUserId: string;
+  memberName: string | null;
+  memberEmail: string;
+  role: string;
+}): Promise<void> {
+  try {
+    if (!(await studioNotifyEnabled(opts.tenantId, "team_member_joined"))) return;
+    const recipients = await prisma.user.findMany({
+      where: {
+        tenantId: opts.tenantId,
+        status: "active",
+        role: { in: ["owner", "admin"] },
+        id: { not: opts.joinedUserId },
+      },
+      select: { email: true },
+    });
+    if (recipients.length === 0) return;
+    const tpl = tmplTeamMemberJoined({
+      memberName: opts.memberName ?? "",
+      memberEmail: opts.memberEmail,
+      role: opts.role,
+      teamUrl: `${config.PUBLIC_URL}/studio/team`,
+      branding: await tenantMailBranding(opts.tenantId),
+    });
+    for (const r of recipients) {
+      if (r.email) await sendMail({ to: r.email, ...tpl });
+    }
+  } catch (err) {
+    logger.warn({ err }, "notifyTeamMemberJoined failed");
+  }
+}
+
+/**
+ * Studio informieren, dass über einen Upload-Link neue Dateien eingegangen
+ * sind. Gebündelt über einen atomaren Claim auf uploadLink.lastUploadNotifyAt
+ * (Fenster ~15 min), damit ein Batch vieler Dateien nur EINE Mail auslöst.
+ * Stille Failures.
+ */
+const UPLOAD_NOTIFY_WINDOW_MS = 15 * 60 * 1000;
+
+export async function notifyUploadReceived(opts: {
+  uploadLinkId: string;
+}): Promise<void> {
+  try {
+    const cutoff = new Date(Date.now() - UPLOAD_NOTIFY_WINDOW_MS);
+    // Atomarer Claim: nur EIN paralleler File-Complete gewinnt das Fenster.
+    const claim = await prisma.uploadLink.updateMany({
+      where: {
+        id: opts.uploadLinkId,
+        OR: [{ lastUploadNotifyAt: null }, { lastUploadNotifyAt: { lt: cutoff } }],
+      },
+      data: { lastUploadNotifyAt: new Date() },
+    });
+    if (claim.count === 0) return; // im Fenster schon benachrichtigt
+
+    const link = await prisma.uploadLink.findUnique({
+      where: { id: opts.uploadLinkId },
+      select: {
+        label: true,
+        gallery: {
+          select: {
+            id: true,
+            title: true,
+            tenantId: true,
+            owner: { select: { email: true } },
+          },
+        },
+      },
+    });
+    if (!link?.gallery?.owner?.email) return;
+    if (!(await studioNotifyEnabled(link.gallery.tenantId, "upload_received")))
+      return;
+
+    const tpl = tmplUploadReceived({
+      galleryTitle: link.gallery.title,
+      linkLabel: link.label,
+      galleryUrl: studioUrl(link.gallery.id),
+      branding: await tenantMailBranding(link.gallery.tenantId),
+    });
+    await sendMail({ to: link.gallery.owner.email, ...tpl });
+  } catch (err) {
+    logger.warn({ err }, "notifyUploadReceived failed");
   }
 }

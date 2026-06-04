@@ -30,6 +30,22 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.27.0] - 2026-06-04
+
+Neues Feature. `git pull` + regulärer Deploy genügt; additive Migration läuft
+automatisch.
+
+### Added
+- Drei weitere **Studio-Benachrichtigungen** (alle unter Einstellungen →
+  „E-Mail-Benachrichtigungen" abschaltbar, standardmäßig an):
+  - **Uploads eingegangen**: Ein Kunde hat über einen Upload-Link Dateien
+    hochgeladen. Gebündelt — ein Batch vieler Dateien löst nur eine Mail aus
+    (Fenster ~15 min pro Link).
+  - **Team-Mitglied beigetreten**: Ein eingeladenes Mitglied hat sein Konto
+    eingerichtet → Mail an die übrigen Owner/Admins.
+  - **Galerie läuft bald ab**: ab 7 Tagen vor dem Ablaufdatum (einmalig; wird
+    zurückgesetzt, falls das Ablaufdatum verlängert/entfernt wird).
+
 ## [0.26.0] - 2026-06-04
 
 Neues Feature. `git pull` + regulärer Deploy genügt; additive Migration läuft
