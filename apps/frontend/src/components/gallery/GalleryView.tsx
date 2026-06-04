@@ -1238,13 +1238,13 @@ function GalleryTile({
           </div>
         )}
 
-        {/* Feedback-Indikator — dezente Sprechblase unten rechts, wenn der
-            Visitor auf diesem File eine Markierung/Kommentar hinterlassen
-            hat. Bewusst klein & zurückhaltend: erinnert nur daran, wo schon
-            etwas notiert wurde, ohne das Bild zu überlagern. */}
+        {/* Feedback-Indikator — dezente Sprechblase, wenn der Visitor auf
+            diesem File eine Markierung/Kommentar hinterlassen hat. Sitzt
+            unten LINKS, damit es nicht mit dem Format-Badge (RAW/HEIC,
+            unten rechts) kollidiert. Oben sind die Auswahl-Indikatoren. */}
         {commented && (
           <div
-            className="absolute bottom-2 right-2 flex items-center justify-center w-6 h-6 rounded-full bg-black/55 backdrop-blur-sm text-white/95 ring-1 ring-white/20"
+            className="absolute bottom-2 left-2 flex items-center justify-center w-6 h-6 rounded-full bg-black/55 backdrop-blur-sm text-white/95 ring-1 ring-white/20"
             aria-hidden="true"
           >
             <svg
