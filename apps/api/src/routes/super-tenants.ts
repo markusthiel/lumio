@@ -44,6 +44,7 @@ import { cancelSubscriptionImmediately, extendTrial } from "../services/stripe-s
 import { enqueue, Queues } from "../services/queue.js";
 import { createExport } from "../services/export-service.js";
 import { cancelDeletion } from "../services/tenant-deletion.js";
+import { clearArchiveOnReactivation } from "../services/billing-archive.js";
 import { computeCurrentMrr, listRecentSnapshots } from "../services/mrr.js";
 import { FEATURE_FLAG_DEFS, setFeatureFlag } from "../services/feature-flags.js";
 import {
@@ -106,6 +107,12 @@ const createTenantSchema = z.object({
     .transform((v) => (v ? v.trim().toLowerCase() : null)),
   ownerEmail: z.string().email().max(200),
   ownerName: z.string().min(1).max(120),
+  // Optional: dem neuen Tenant direkt einen Plan zuweisen (Partner/Goodwill).
+  // Ohne 'plan' bleibt der Tenant ohne Subscription und fällt — wie bisher —
+  // auf Trial-Limits zurück. comped=true => Gratis-Abo ohne Stripe/Karte.
+  plan: z.enum(["start", "solo", "studio", "pro"]).optional(),
+  comped: z.boolean().default(true),
+  storageAddonGib: z.number().int().min(0).max(100000).optional(),
 });
 
 const updateTenantSchema = z.object({
@@ -209,6 +216,20 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
     // Transaktion: tenant + user + token gemeinsam, damit nichts halb
     // entsteht. Bei Mail-Fehler später ist der DB-State trotzdem
     // konsistent.
+    // Optionaler Plan: vor der Transaktion auflösen, damit ein unbekannter
+    // Slug früh als 409 zurückkommt und kein halber Tenant entsteht.
+    let planId: string | null = null;
+    if (body.plan) {
+      const plan = await prisma.billingPlan.findUnique({
+        where: { slug: body.plan },
+        select: { id: true },
+      });
+      if (!plan) {
+        return reply.status(409).send({ error: "unknown_plan" });
+      }
+      planId = plan.id;
+    }
+
     const inviteToken = await prisma.$transaction(async (tx) => {
       const tenant = await tx.tenant.create({
         data: {
@@ -219,6 +240,21 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
           customDomain: body.customDomain ?? null,
         },
       });
+
+      // Optional direkt eine (i.d.R. comped) Subscription anlegen, damit der
+      // Partner sofort auf dem echten Plan läuft — kein Stripe, kein Trial.
+      if (planId) {
+        await tx.billingSubscription.create({
+          data: {
+            tenantId: tenant.id,
+            planId,
+            status: "active",
+            billingInterval: "monthly",
+            comped: body.comped,
+            storageAddonGib: body.storageAddonGib ?? 0,
+          },
+        });
+      }
 
       // Owner-User mit Placeholder-Passwort. Status "invited" verhindert
       // Login bis der Setup-Token eingelöst wurde (siehe Login-Pfade in
@@ -281,6 +317,8 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
         slug: body.slug,
         name: body.name,
         ownerEmail: body.ownerEmail,
+        plan: body.plan ?? null,
+        comped: body.plan ? body.comped : null,
       },
       ipAddress: req.ip,
     });
@@ -359,6 +397,7 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
             select: {
               status: true,
               billingInterval: true,
+              comped: true,
               stripeCustomerId: true,
               stripeSubscriptionId: true,
               currentPeriodStart: true,
@@ -432,6 +471,7 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
         ? {
             status: sub.status,
             billingInterval: sub.billingInterval,
+            comped: sub.comped,
             stripeCustomerId: sub.stripeCustomerId,
             stripeSubscriptionId: sub.stripeSubscriptionId,
             currentPeriodStart: sub.currentPeriodStart,
@@ -2155,6 +2195,112 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
         ok: true,
         newTrialEnd: result.newTrialEnd,
         extraDays: body.extraDays,
+      };
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // PUT /super/tenants/:id/subscription
+  // -------------------------------------------------------------------------
+  // Plan manuell zuweisen oder wechseln. Use-Case: Partner-/Goodwill-Account
+  // dauerhaft und kostenlos auf einen echten Plan setzen (comped=true, ohne
+  // Stripe/Karte), oder bei einem manuell verwalteten Tenant Plan bzw.
+  // Storage-Override anpassen. Ein so gesetztes Abo läuft als status=active
+  // ohne trialEndsAt — der Sweeper rührt es nicht an, weil er nur über
+  // readOnlySince eskaliert.
+  //
+  // Guardrail: ist die Subscription Stripe-verknüpft (zahlender Kunde),
+  // wird der manuelle Wechsel mit 409 geblockt — sonst driften DB und
+  // Stripe auseinander. Solche Wechsel gehören ins Stripe-Dashboard.
+  const assignSubscriptionSchema = z.object({
+    plan: z.enum(["start", "solo", "studio", "pro"]),
+    interval: z.enum(["monthly", "yearly"]).default("monthly"),
+    comped: z.boolean().default(true),
+    // Zusätzlicher Speicher in GiB on top des Plan-Speichers (Goodwill/
+    // Sondervereinbarung). Weggelassen => bestehenden Wert beibehalten.
+    storageAddonGib: z.number().int().min(0).max(100000).optional(),
+    reason: z.string().max(500).optional(),
+  });
+  app.put<{ Params: { id: string } }>(
+    "/super/tenants/:id/subscription",
+    async (req, reply) => {
+      const sa = req.requireSuperAdmin();
+      const body = assignSubscriptionSchema.parse(req.body);
+
+      const tenant = await prisma.tenant.findUnique({
+        where: { id: req.params.id },
+        select: { id: true, name: true },
+      });
+      if (!tenant) return reply.status(404).send({ error: "not_found" });
+
+      const plan = await prisma.billingPlan.findUnique({
+        where: { slug: body.plan },
+        select: { id: true, slug: true, name: true, storageGib: true },
+      });
+      if (!plan) return reply.status(409).send({ error: "unknown_plan" });
+
+      const existing = await prisma.billingSubscription.findUnique({
+        where: { tenantId: tenant.id },
+        select: { stripeSubscriptionId: true, storageAddonGib: true },
+      });
+
+      // Guardrail: Stripe-verknüpfte Subscription nicht manuell anfassen.
+      if (existing?.stripeSubscriptionId) {
+        return reply.status(409).send({
+          error: "stripe_managed",
+          message:
+            "Tenant hat eine Stripe-Subscription. Plan-Wechsel bitte über Stripe, nicht manuell.",
+        });
+      }
+
+      const addonGib = body.storageAddonGib ?? existing?.storageAddonGib ?? 0;
+
+      // Felder, die ein manuell verwaltetes Abo definieren: aktiv, kein
+      // Trial-Ablauf, keine Read-only-/Cancel-Eskalation. Stripe-IDs werden
+      // bewusst nicht gesetzt (bleiben null).
+      const data = {
+        planId: plan.id,
+        status: "active",
+        billingInterval: body.interval,
+        comped: body.comped,
+        trialEndsAt: null,
+        readOnlySince: null,
+        cancelAtPeriodEnd: false,
+        storageAddonGib: addonGib,
+      };
+
+      await prisma.billingSubscription.upsert({
+        where: { tenantId: tenant.id },
+        create: { tenantId: tenant.id, ...data },
+        update: data,
+      });
+
+      // Falls der Tenant zuvor kalt-archiviert war: Flags leeren und
+      // Renditions neu erzeugen. No-op, wenn nicht archiviert.
+      await clearArchiveOnReactivation(tenant.id);
+
+      await logEvent({
+        tenantId: tenant.id,
+        actorType: "super_admin",
+        actorId: sa.admin.id,
+        action: "super.tenant.subscription_assigned",
+        targetType: "tenant",
+        targetId: tenant.id,
+        payload: {
+          plan: plan.slug,
+          interval: body.interval,
+          comped: body.comped,
+          storageAddonGib: addonGib,
+          reason: body.reason ?? null,
+        },
+        ipAddress: req.ip,
+      });
+
+      return {
+        ok: true,
+        plan: plan.slug,
+        comped: body.comped,
+        storageAddonGib: addonGib,
       };
     }
   );

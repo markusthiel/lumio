@@ -1067,6 +1067,12 @@ model BillingSubscription {
   
   status             String   // trialing | active | past_due | canceled | unpaid
   billingInterval    String   // monthly | yearly
+
+  // Manuell zugewiesenes Gratis-Abo (Partner/Goodwill). Wenn true: kein
+  // Stripe, keine Bezahlpflicht, kein Trial-Ablauf. Der Sweeper rührt es
+  // nicht an (er eskaliert nur über readOnlySince). Wird vom Super-Admin
+  // gesetzt und aus der MRR-Berechnung ausgeschlossen.
+  comped             Boolean  @default(false)
   
   // Stripe
   stripeCustomerId   String?

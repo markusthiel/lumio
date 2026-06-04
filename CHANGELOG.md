@@ -30,6 +30,27 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.17.0] - 2026-06-04
+
+Neues Feature. `git pull` + regulärer Deploy genügt; die DB-Migration läuft
+beim Start automatisch (`prisma migrate deploy`), kein manueller Eingriff.
+
+### Added
+- Super-Admin kann einem Studio jetzt manuell einen Plan zuweisen — auch als
+  kostenloses Abo (z.B. für Partner oder Goodwill), ohne Stripe und ohne
+  hinterlegte Karte. Solche Abos laufen dauerhaft (kein Trial-Ablauf) und
+  werden nicht automatisch wegen fehlender Zahlung archiviert. Beim Anlegen
+  eines neuen Studios kann der Plan direkt mitgegeben werden, sodass ein
+  Partner ohne den normalen Bezahl-Ablauf sofort startklar ist.
+- Optionaler Zusatz-Speicher (GiB) lässt sich beim Zuweisen direkt mitgeben.
+
+### Changed
+- Manuell zugewiesene Gratis-Abos werden aus der Umsatz-Auswertung (MRR)
+  ausgeschlossen, damit Partner-/Goodwill-Konten den Umsatz nicht verfälschen.
+- Schutz: Hat ein Studio bereits ein über Stripe laufendes Abo, lehnt der
+  manuelle Plan-Wechsel ab — solche Änderungen gehören weiterhin ins
+  Stripe-Dashboard, damit Datenbank und Stripe nicht auseinanderlaufen.
+
 ## [0.16.2] - 2026-06-04
 
 Bugfix. `git pull` + regulärer Deploy genügt; die Korrektur greift beim

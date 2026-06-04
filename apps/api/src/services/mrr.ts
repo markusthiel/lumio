@@ -42,6 +42,9 @@ export async function computeCurrentMrr(): Promise<MrrSnapshot> {
   const subs = await prisma.billingSubscription.findMany({
     where: {
       status: { in: ["active", "past_due", "trialing"] },
+      // Manuell zugewiesene Gratis-Abos (Partner/Goodwill) erzeugen keinen
+      // Umsatz und dürfen die MRR nicht aufblähen.
+      comped: false,
     },
     select: {
       status: true,
