@@ -30,6 +30,16 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.39.2] - 2026-06-04
+
+Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
+(Frontend).
+
+### Fixed
+- **Feedback-Sprechblase überlappte das RAW/HEIC-Format-Badge** in der
+  Kundengalerie (beide unten rechts). Die Sprechblase sitzt jetzt unten
+  links, das Format-Badge bleibt unten rechts.
+
 ## [0.39.1] - 2026-06-04
 
 Pull genügt, ABER: diese Version ändert auch den Worker. Nach dem Deploy
