@@ -2731,6 +2731,15 @@ export const api = {
       { method: "POST" }
     ),
 
+  superSendUserEmail: (
+    userId: string,
+    input: { subject: string; body: string }
+  ) =>
+    request<{ ok: true }>(`/super/users/${userId}/email`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
   superListCspViolations: () =>
     request<{
       violations: CspViolationRow[];

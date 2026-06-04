@@ -32,6 +32,7 @@ function UsersList() {
   const [tenantId, setTenantId] = useState("");
   const [tenants, setTenants] = useState<SuperTenantSummary[]>([]);
   const [editing, setEditing] = useState<SuperUserListItem | null>(null);
+  const [emailing, setEmailing] = useState<SuperUserListItem | null>(null);
   const [creating, setCreating] = useState(false);
 
   // Tenant-Liste einmal laden — für das Filter-Dropdown.
@@ -189,6 +190,13 @@ function UsersList() {
                   <td className="px-3 py-2 text-right">
                     <button
                       type="button"
+                      onClick={() => setEmailing(u)}
+                      className="text-ui-xs text-accent hover:underline mr-3"
+                    >
+                      E-Mail
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setEditing(u)}
                       className="text-ui-xs text-accent hover:underline"
                     >
@@ -228,6 +236,12 @@ function UsersList() {
           }}
         />
       )}
+      {emailing && (
+        <EmailUserDialog
+          user={emailing}
+          onClose={() => setEmailing(null)}
+        />
+      )}
       {creating && (
         <CreateUserDialog
           onClose={() => setCreating(false)}
@@ -237,6 +251,126 @@ function UsersList() {
           }}
         />
       )}
+    </div>
+  );
+}
+
+function EmailUserDialog({
+  user,
+  onClose,
+}: {
+  user: SuperUserListItem;
+  onClose: () => void;
+}) {
+  const [subject, setSubject] = useState("");
+  const [body, setBody] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
+
+  async function send(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setBusy(true);
+    try {
+      await api.superSendUserEmail(user.id, {
+        subject: subject.trim(),
+        body: body.trim(),
+      });
+      setSent(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Senden fehlgeschlagen");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-[100]"
+      onClick={onClose}
+    >
+      <form
+        onClick={(e) => e.stopPropagation()}
+        onSubmit={send}
+        className="w-full max-w-md bg-surface-raised border border-line-subtle shadow-2xl rounded-lg p-6 space-y-4"
+      >
+        <div>
+          <h2 className="text-lg font-semibold">E-Mail an User</h2>
+          <p className="text-ui-xs text-ink-tertiary mt-0.5">
+            {user.email} · {user.tenant.name} ({user.tenant.slug})
+          </p>
+        </div>
+
+        {sent ? (
+          <>
+            <p className="text-ui-sm text-semantic-success">
+              E-Mail wurde gesendet.
+            </p>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={onClose}
+                className="h-9 px-4 rounded bg-accent text-accent-contrast text-ui-sm"
+              >
+                Schließen
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div>
+              <label className="text-ui-xs text-ink-secondary block mb-1.5">
+                Betreff
+              </label>
+              <input
+                type="text"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                disabled={busy}
+                maxLength={200}
+                className="w-full h-9 px-2.5 rounded bg-surface-sunken border border-line-subtle focus:border-accent text-ui text-ink-primary focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-ui-xs text-ink-secondary block mb-1.5">
+                Nachricht (Markdown)
+              </label>
+              <textarea
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                disabled={busy}
+                rows={8}
+                className="w-full px-2.5 py-2 rounded bg-surface-sunken border border-line-subtle focus:border-accent text-ui text-ink-primary focus:outline-none resize-y"
+              />
+              <p className="text-ui-xs text-ink-tertiary mt-1">
+                Direkte 1:1-Nachricht, ohne Abmelde-Footer. Versand wird im
+                E-Mail-Log protokolliert.
+              </p>
+            </div>
+            {error && (
+              <p className="text-ui-sm text-semantic-danger">{error}</p>
+            )}
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={onClose}
+                disabled={busy}
+                className="h-9 px-4 rounded border border-line-subtle text-ui-sm hover:bg-surface-sunken disabled:opacity-50"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="submit"
+                disabled={busy || !subject.trim() || !body.trim()}
+                className="h-9 px-4 rounded bg-accent text-accent-contrast text-ui-sm disabled:opacity-50"
+              >
+                {busy ? "Sende…" : "Senden"}
+              </button>
+            </div>
+          </>
+        )}
+      </form>
     </div>
   );
 }

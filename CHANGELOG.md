@@ -30,6 +30,16 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.34.0] - 2026-06-04
+
+Neues Feature (Super-Admin). `git pull` + regulärer Deploy genügt, keine
+Migration.
+
+### Added
+- **Direkt-E-Mail an einzelne User** (Super-Admin → Users, Button „E-Mail" pro
+  User). Betreff + Markdown-Nachricht, wird als 1:1-Mail gesendet (ohne
+  Abmelde-Footer, anders als Broadcasts) und im E-Mail-Log protokolliert.
+
 ## [0.33.1] - 2026-06-04
 
 Bugfix. `git pull` + regulärer Deploy genügt, nur Frontend.

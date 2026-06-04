@@ -77,6 +77,23 @@ export function renderBroadcastHtml(
   });
 }
 
+/**
+ * Rendert eine direkte 1:1-Admin-Nachricht (Super-Admin → einzelner User).
+ * Wie renderBroadcastHtml, aber OHNE Abmelde-Footer — das ist kein Bulk-
+ * Marketing, sondern eine persönliche/operative Nachricht.
+ */
+export function renderAdminMessageHtml(bodyMarkdown: string): string {
+  const inner = marked.parse(bodyMarkdown, {
+    async: false,
+    gfm: true,
+    breaks: true,
+  }) as string;
+  return renderMailLayout({
+    bodyHtml: inner,
+    preheader: extractPreheader(bodyMarkdown),
+  });
+}
+
 /** Erste ~80 Zeichen des Plain-Markdowns als Preheader nutzen. */
 function extractPreheader(md: string): string {
   // Headings + Listen-Marker raus, dann erste 80 Zeichen

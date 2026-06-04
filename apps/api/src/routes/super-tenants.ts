@@ -43,6 +43,7 @@ import { hashPassword, createSession } from "../services/auth.js";
 import { createSetupToken, buildSetupUrl, buildResetUrl } from "../services/setupToken.js";
 import { logEvent } from "../services/audit.js";
 import { sendMail, tmplOwnerSetup, tmplPasswordReset } from "../services/mail.js";
+import { renderAdminMessageHtml } from "../services/broadcast.js";
 import { cancelSubscriptionImmediately, extendTrial, deleteStripeCustomer } from "../services/stripe-service.js";
 import { enqueue, Queues } from "../services/queue.js";
 import { createExport } from "../services/export-service.js";
@@ -1584,6 +1585,49 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
       });
 
       return { ok: true, resetUrl, expiresAt: setupResult.expiresAt };
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // POST /super/users/:userId/email — Direkt-E-Mail an einen einzelnen User
+  // -------------------------------------------------------------------------
+  // 1:1-Nachricht vom Super-Admin (kein Bulk, kein Abmelde-Footer). Body als
+  // Markdown, wird wie bei Broadcasts gerendert.
+  const userEmailBody = z.object({
+    subject: z.string().min(1).max(200),
+    body: z.string().min(1).max(20000),
+  });
+  app.post<{ Params: { userId: string } }>(
+    "/super/users/:userId/email",
+    async (req, reply) => {
+      const sa = req.requireSuperAdmin();
+      const body = userEmailBody.parse(req.body ?? {});
+
+      const user = await prisma.user.findUnique({
+        where: { id: req.params.userId },
+        select: { id: true, email: true, name: true, tenantId: true },
+      });
+      if (!user) return reply.status(404).send({ error: "not_found" });
+
+      await sendMail({
+        to: user.email,
+        subject: body.subject,
+        text: body.body,
+        html: renderAdminMessageHtml(body.body),
+      });
+
+      await logEvent({
+        tenantId: user.tenantId,
+        actorType: "super_admin",
+        actorId: sa.admin.id,
+        action: "super.user.email",
+        targetType: "user",
+        targetId: user.id,
+        payload: { email: user.email, subject: body.subject },
+        ipAddress: req.ip,
+      });
+
+      return { ok: true };
     }
   );
 
