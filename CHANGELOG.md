@@ -30,6 +30,19 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.37.5] - 2026-06-04
+
+Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
+(Frontend).
+
+### Fixed
+- **Play/Pause bei Videos mit Markierungen funktioniert wieder**: Lag eine
+  Markierung am aktuellen Zeitpunkt (z.B. direkt nach dem Setzen), fing
+  deren Anzeige-Overlay die Klicks ab und der Play-Button reagierte nicht.
+  Das Anzeige-Overlay ist jetzt vollständig „durchklickbar"; die
+  Video-Bedienelemente darunter sind wieder erreichbar. (Zeichnen ist
+  unverändert.)
+
 ## [0.37.4] - 2026-06-04
 
 Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
