@@ -1126,6 +1126,7 @@ export const en: Dict = {
     switchToYearly: "Switch to yearly billing",
     switchToMonthly: "Switch to monthly billing",
     selectPlan: "Choose this plan",
+    bookNow: "Subscribe now",
     managePortalTitle: "Manage card & invoices",
     managePortalInfo:
       "Update your card, download invoices, change your address or cancel — all in the Stripe portal.",

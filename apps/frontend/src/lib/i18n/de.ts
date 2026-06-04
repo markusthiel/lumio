@@ -1131,6 +1131,7 @@ export const de: Dict = {
     switchToYearly: "Auf Jahres-Abrechnung wechseln",
     switchToMonthly: "Auf Monats-Abrechnung wechseln",
     selectPlan: "Diesen Plan wählen",
+    bookNow: "Jetzt kostenpflichtig buchen",
     managePortalTitle: "Karte & Rechnungen verwalten",
     managePortalInfo:
       "Karte aktualisieren, Rechnungen herunterladen, Adresse ändern oder kündigen — alles im Stripe-Portal.",

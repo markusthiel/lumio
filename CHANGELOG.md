@@ -30,6 +30,18 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.20.0] - 2026-06-04
+
+Neues Feature. `git pull` + regulärer Deploy genügt, nur Frontend.
+
+### Added
+- Studios mit kostenlosem (oder Trial-)Abo können denselben Plan jetzt direkt
+  im Studio kostenpflichtig buchen — der aktuelle Plan zeigt dafür einen
+  „Jetzt kostenpflichtig buchen"-Button statt nur „Aktueller Plan". Das macht
+  das vorherige Entfernen des Gratis-Abos durch den Super-Admin überflüssig,
+  wenn der Kunde beim selben Plan bleiben will. Echte (bereits zahlende)
+  Stripe-Abos zeigen weiterhin „Aktueller Plan" ohne Button.
+
 ## [0.19.0] - 2026-06-04
 
 Neues Feature. `git pull` + regulärer Deploy genügt.

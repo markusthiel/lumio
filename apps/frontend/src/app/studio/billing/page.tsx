@@ -326,6 +326,10 @@ export default function BillingPage() {
             const isCurrent =
               p.slug === usage.plan.slug &&
               (sub?.billingInterval ?? "monthly") === interval;
+            // „Aktueller Plan" (ohne Button) nur bei echtem Stripe-Abo.
+            // Gratis-/Trial-Abo (kein Stripe) → buchbar lassen, damit der
+            // Kunde denselben Plan auch zahlend buchen kann.
+            const isPaidCurrent = isCurrent && (sub?.hasStripeId ?? false);
             const priceCents =
               interval === "yearly" ? p.priceYearlyCents : p.priceMonthlyCents;
             const slug = p.slug as "solo" | "studio" | "pro";
@@ -377,7 +381,7 @@ export default function BillingPage() {
                   )}
                 </div>
                 <div className="mt-4">
-                  {isCurrent ? (
+                  {isPaidCurrent ? (
                     <div className="text-ui-sm text-accent font-medium">{t("billing.currentPlan")}</div>
                   ) : (
                     <button
@@ -387,6 +391,8 @@ export default function BillingPage() {
                     >
                       {busyAction === `plan:${slug}`
                         ? t("billing.preparing")
+                        : isCurrent
+                        ? t("billing.bookNow")
                         : sub?.planSlug === p.slug
                         ? t(interval === "yearly" ? "billing.switchToYearly" : "billing.switchToMonthly")
                         : t("billing.selectPlan")}
