@@ -30,6 +30,24 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.36.0] - 2026-06-04
+
+Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
+(Frontend + API), kein Worker-Deploy nötig.
+
+### Added
+- **Video-Wiedergabe im Studio-Proofing**: Videos lassen sich in der
+  Datei-Detailansicht jetzt direkt abspielen (vorher war nur das Standbild
+  zu sehen). Mit der gleichen Vorschau-Leiste zum Vorspulen wie in der
+  Kundengalerie.
+
+### Fixed
+- **Video-Scrubbing in der Kundengalerie**: Unter dem Video liegt jetzt eine
+  immer sichtbare Vorschau-Leiste mit Einzelbildern statt einer unsichtbaren
+  Hover-Zone — es ist sofort erkennbar, wo man zum Spulen hinfahren muss. Die
+  Vorschaubilder werden vorgeladen und erscheinen ohne Verzögerung, und die
+  Leiste lässt sich per Touch (Tablet) bedienen.
+
 ## [0.35.1] - 2026-06-04
 
 Kleine Verbesserung. `git pull` + regulärer Deploy genügt, nur Frontend.
