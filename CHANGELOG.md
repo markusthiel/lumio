@@ -30,6 +30,23 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.39.1] - 2026-06-04
+
+Pull genügt, ABER: diese Version ändert auch den Worker. Nach dem Deploy
+des Hauptservers müssen die Worker-Nodes ebenfalls neu deployt werden
+(siehe Worker-Deploy-Befehl). Keine Env-/DB-Änderung.
+
+### Fixed
+- **Video-Vorschau im Studio funktioniert wieder** (Auswahl- und
+  Medien-Ansicht zeigten „Video-Vorschau nicht verfügbar / Keine Vorschau
+  verfügbar"). Ursache: Das Studio spielt Videos über eine eigene
+  MP4-Rendition (nicht über den HLS-Stream der Kundengalerie), und diese
+  MP4 wurde bei bereits kompakten Quellvideos übersprungen. Jetzt:
+  - Bestehende Videos spielen sofort (die API liefert ersatzweise das
+    Original aus — greift bereits nach dem Hauptserver-Deploy).
+  - Neue Uploads erhalten wieder zuverlässig eine web-optimierte
+    MP4-Version (Worker-Änderung — daher Worker-Nodes neu deployen).
+
 ## [0.39.0] - 2026-06-04
 
 Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
