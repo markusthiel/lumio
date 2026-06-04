@@ -310,6 +310,12 @@ export function AnnotationOverlay({
       style={{
         cursor,
         touchAction: "none",
+        // Im Readonly-Modus (nur Anzeige, z.B. Marker-Overlay über einem
+        // Video) darf das Overlay KEINE Pointer-Events fangen — sonst
+        // blockiert die Hit-Box unten (rect pointerEvents="all") die
+        // nativen Video-Controls / Pan-Zoom darunter. pointer-events am
+        // SVG schaltet alle Kinder mit ab.
+        pointerEvents: readonly ? "none" : undefined,
       }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -332,7 +338,7 @@ export function AnnotationOverlay({
         width="1"
         height="1"
         fill="transparent"
-        pointerEvents="all"
+        pointerEvents={readonly ? "none" : "all"}
       />
       {/* Pfeilspitzen-Definitionen pro Farbe. Wir verwenden ein
           orientiertes Marker-Element, damit die Spitze immer auf
