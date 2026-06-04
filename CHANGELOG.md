@@ -30,6 +30,16 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.16.1] - 2026-06-04
+
+Bugfix. `git pull` + regulärer Deploy genügt. Nur Frontend.
+
+### Fixed
+- Kunden-Galerie: Das „Herunterladen"-Dropdown war halbtransparent und ließ
+  die darunterliegenden Tag-Filter-Chips durchscheinen — es wirkte, als läge
+  das Menü hinter den Tags. Schwebende Menüs nutzen jetzt einen deckenden
+  Hintergrund.
+
 ## [0.16.0] - 2026-06-04
 
 Nur SaaS. `git pull` + regulärer Deploy genügt, keine `.env`- oder
