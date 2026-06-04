@@ -29,8 +29,22 @@ function UsersList() {
   const [q, setQ] = useState("");
   const [role, setRole] = useState<RoleFilter>("");
   const [status, setStatus] = useState<StatusFilter>("");
+  const [tenantId, setTenantId] = useState("");
+  const [tenants, setTenants] = useState<SuperTenantSummary[]>([]);
   const [editing, setEditing] = useState<SuperUserListItem | null>(null);
   const [creating, setCreating] = useState(false);
+
+  // Tenant-Liste einmal laden — für das Filter-Dropdown.
+  useEffect(() => {
+    void (async () => {
+      try {
+        const r = await api.superListTenants();
+        setTenants(r.tenants);
+      } catch {
+        // Filter bleibt dann ohne Tenant-Optionen — kein harter Fehler.
+      }
+    })();
+  }, []);
 
   // Debounce-Timer für die Suche, damit nicht jeder Tastendruck feuert.
   const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -43,6 +57,7 @@ function UsersList() {
           q: q.trim() || undefined,
           role: role || undefined,
           status: status || undefined,
+          tenantId: tenantId || undefined,
           limit: PAGE_SIZE,
           offset,
         });
@@ -52,7 +67,7 @@ function UsersList() {
         setLoading(false);
       }
     },
-    [q, role, status]
+    [q, role, status, tenantId]
   );
 
   useEffect(() => {
@@ -111,6 +126,18 @@ function UsersList() {
           <option value="active">active</option>
           <option value="invited">invited</option>
           <option value="disabled">disabled</option>
+        </select>
+        <select
+          value={tenantId}
+          onChange={(e) => setTenantId(e.target.value)}
+          className="h-9 px-2 rounded-md border border-line-subtle bg-surface-raised text-ui-sm max-w-56"
+        >
+          <option value="">Alle Tenants</option>
+          {tenants.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.displayName ?? t.name} ({t.slug})
+            </option>
+          ))}
         </select>
       </div>
 

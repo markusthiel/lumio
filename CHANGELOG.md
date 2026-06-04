@@ -30,6 +30,14 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.22.2] - 2026-06-04
+
+Kleine UI-Ergänzung. `git pull` + regulärer Deploy genügt, nur Frontend.
+
+### Added
+- Super-Admin User-Liste: zusätzlicher Filter nach Tenant (neben Rolle und
+  Status).
+
 ## [0.22.1] - 2026-06-04
 
 Kleine UI-Ergänzung. `git pull` + regulärer Deploy genügt, nur Frontend.
