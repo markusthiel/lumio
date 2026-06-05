@@ -223,6 +223,7 @@ function TenantExportPanel({
 }) {
   const [exports, setExports] = useState<ExportList | null>(null);
   const [busy, setBusy] = useState(false);
+  const [busyR, setBusyR] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
 
@@ -256,6 +257,27 @@ function TenantExportPanel({
     }
   }
 
+  async function recover() {
+    setBusyR(true);
+    setMsg(null);
+    try {
+      const r = await api.superRecoverDeletedOriginals(tenant.id);
+      setMsg(
+        `Wiederherstellung gestartet: ${r.itemCount} gelöschte Galerie(n) gefunden. Die ZIPs werden im Hintergrund gebaut.`
+      );
+      await loadExports();
+    } catch (err) {
+      const m = err instanceof Error ? err.message : "Fehler";
+      setMsg(
+        m.includes("no_deleted_originals")
+          ? "Keine wiederherstellbaren gelöschten Originale gefunden (evtl. außerhalb des 30-Tage-Fensters)."
+          : `Fehler: ${m}`
+      );
+    } finally {
+      setBusyR(false);
+    }
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
@@ -271,13 +293,23 @@ function TenantExportPanel({
             <span className="text-ink-tertiary text-sm">/{tenant.slug}</span>
           </div>
         </div>
-        <button
-          onClick={trigger}
-          disabled={busy || tenant.galleryCount === 0}
-          className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-contrast disabled:opacity-50"
-        >
-          {busy ? "Startet…" : "Originale exportieren"}
-        </button>
+        <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={trigger}
+            disabled={busy || tenant.galleryCount === 0}
+            className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-contrast disabled:opacity-50"
+          >
+            {busy ? "Startet…" : "Originale exportieren"}
+          </button>
+          <button
+            onClick={recover}
+            disabled={busyR}
+            title="Stellt gelöschte Originale aus den S3-Versionen der letzten 30 Tage als ZIP bereit."
+            className="rounded-md border border-line-subtle px-4 py-2 text-sm font-medium hover:bg-surface-sunken disabled:opacity-50"
+          >
+            {busyR ? "Sucht…" : "Gelöschte wiederherstellen"}
+          </button>
+        </div>
       </div>
 
       {msg && (
@@ -353,7 +385,10 @@ function ExportRow({
         onClick={onToggle}
         className="w-full text-left px-3 py-2 flex items-center justify-between gap-2"
       >
-        <span className="text-sm">
+        <span className="text-sm flex items-center gap-2">
+          <span className="text-xs rounded bg-surface-sunken px-1.5 py-0.5 text-ink-tertiary">
+            {sourceLabel(exportSummary.source)}
+          </span>
           {new Date(exportSummary.createdAt).toLocaleString("de-DE", {
             day: "2-digit",
             month: "short",
@@ -414,6 +449,21 @@ function ExportRow({
 // ---------------------------------------------------------------------------
 // Utils
 // ---------------------------------------------------------------------------
+
+function sourceLabel(source: string): string {
+  switch (source) {
+    case "super_admin_recovery":
+      return "Wiederherstellung";
+    case "super_admin":
+      return "Voll-Export";
+    case "studio":
+      return "Studio";
+    case "studio_all":
+      return "Studio (alle)";
+    default:
+      return source;
+  }
+}
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";

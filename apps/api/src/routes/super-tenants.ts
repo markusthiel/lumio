@@ -46,7 +46,7 @@ import { sendMail, tmplOwnerSetup, tmplPasswordReset } from "../services/mail.js
 import { renderAdminMessageHtml } from "../services/broadcast.js";
 import { cancelSubscriptionImmediately, extendTrial, deleteStripeCustomer } from "../services/stripe-service.js";
 import { enqueue, Queues } from "../services/queue.js";
-import { createExport } from "../services/export-service.js";
+import { createExport, createRecoveryExport } from "../services/export-service.js";
 import { presignGet } from "../services/storage.js";
 import { cancelDeletion } from "../services/tenant-deletion.js";
 import { clearArchiveOnReactivation } from "../services/billing-archive.js";
@@ -2555,6 +2555,57 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
             : null,
         })),
       };
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // POST /super/tenants/:id/recover-deleted — gelöschte Originale retten
+  // -------------------------------------------------------------------------
+  // Notfall-Wiederherstellung: sucht über die noncurrent S3-Versionen die
+  // gelöschten Originale des Tenants und packt sie pro Galerie in ein ZIP
+  // (gleiche Export-Liste wie der normale Export, source=super_admin_recovery).
+  // Stellt NICHT die Galerien in der App wieder her — nur die Quelldateien.
+  app.post<{ Params: { id: string } }>(
+    "/super/tenants/:id/recover-deleted",
+    async (req, reply) => {
+      const sa = req.requireSuperAdmin();
+      const t = await prisma.tenant.findUnique({
+        where: { id: req.params.id },
+        select: { id: true },
+      });
+      if (!t) return reply.status(404).send({ error: "not_found" });
+
+      try {
+        const result = await createRecoveryExport({
+          tenantId: t.id,
+          triggeredBySuperAdminId: sa.admin.id,
+        });
+
+        await logEvent({
+          tenantId: t.id,
+          actorType: "super_admin",
+          actorId: sa.admin.id,
+          action: "super.tenant.recover_deleted",
+          targetType: "tenant_export",
+          targetId: result.exportId,
+          payload: { itemCount: result.itemCount },
+          ipAddress: req.ip,
+        });
+
+        return reply.status(201).send({
+          exportId: result.exportId,
+          itemCount: result.itemCount,
+        });
+      } catch (err) {
+        if (err instanceof Error && err.message === "no_deleted_originals") {
+          return reply.status(400).send({
+            error: "no_deleted_originals",
+            message:
+              "Keine wiederherstellbaren gelöschten Originale gefunden (evtl. außerhalb des 30-Tage-Fensters).",
+          });
+        }
+        throw err;
+      }
     }
   );
 

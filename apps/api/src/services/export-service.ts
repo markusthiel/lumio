@@ -18,6 +18,7 @@
 import crypto from "node:crypto";
 import { prisma } from "../db.js";
 import { enqueue, Queues } from "./queue.js";
+import { listDeletedOriginalGalleries } from "./storage.js";
 
 /** 30 Tage Lebensdauer der Export-ZIPs in S3 plus Token. Wenn jemand
  *  später runterladen will, müssten wir das verlängern. */
@@ -137,5 +138,81 @@ export async function createExport(
     exportId: result.exportId,
     itemCount: result.items.length,
     token: result.token,
+  };
+}
+
+/** Ergebnis einer Recovery-Export-Erstellung. */
+export interface CreateRecoveryResult {
+  exportId: string;
+  itemCount: number;
+}
+
+/**
+ * Notfall-Wiederherstellung gelöschter Originale (Super-Admin).
+ *
+ * Anders als createExport ist das NICHT DB-getrieben (die Galerien sind ja
+ * gelöscht), sondern S3-getrieben: wir suchen über die noncurrent Versionen
+ * des Buckets die Galerie-Prefixe mit gelöschten Originalen, legen pro
+ * Galerie ein TenantExportItem an und stoßen je einen recover_deleted-Job
+ * an. Der Worker baut pro Galerie ein ZIP aus den gelöschten Versionen.
+ *
+ * Wirft "no_deleted_originals", wenn nichts Wiederherstellbares gefunden
+ * wird (nichts gelöscht, oder außerhalb des 30-Tage-Fensters).
+ */
+export async function createRecoveryExport(opts: {
+  tenantId: string;
+  triggeredBySuperAdminId: string;
+}): Promise<CreateRecoveryResult> {
+  const galleryIds = await listDeletedOriginalGalleries(opts.tenantId);
+  if (galleryIds.length === 0) {
+    throw new Error("no_deleted_originals");
+  }
+
+  const expiresAt = new Date(Date.now() + EXPORT_TTL_MS);
+
+  const result = await prisma.$transaction(async (tx) => {
+    const exportRow = await tx.tenantExport.create({
+      data: {
+        tenantId: opts.tenantId,
+        source: "super_admin_recovery",
+        status: "pending",
+        triggeredBySuperAdminId: opts.triggeredBySuperAdminId,
+        expiresAt,
+      },
+    });
+
+    const items = await Promise.all(
+      galleryIds.map((gid) =>
+        tx.tenantExportItem.create({
+          data: {
+            exportId: exportRow.id,
+            // galleryId snapshotten wir als Referenz; die Galerie existiert
+            // in der DB nicht mehr, daher Slug/Name aus der ID ableiten.
+            galleryId: gid,
+            gallerySlug: `recovered-${gid.slice(0, 8)}`,
+            galleryName: `Gelöschte Galerie ${gid.slice(0, 8)}`,
+            status: "pending",
+          },
+        })
+      )
+    );
+
+    return { exportId: exportRow.id, items };
+  });
+
+  await Promise.all(
+    result.items.map((item) =>
+      enqueue(Queues.EXPORT, {
+        type: "recover_deleted",
+        exportItemId: item.id,
+        tenantId: opts.tenantId,
+        galleryId: item.galleryId!,
+      })
+    )
+  );
+
+  return {
+    exportId: result.exportId,
+    itemCount: result.items.length,
   };
 }

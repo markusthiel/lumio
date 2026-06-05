@@ -11,7 +11,11 @@
  * Originalnamen werden im Key beibehalten (URL-encoded), damit Download-Header
  * sauber funktioniert und der S3-Browser intuitiv ist.
  */
-import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  DeleteObjectCommand,
+  ListObjectVersionsCommand,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import {
   PutObjectCommand,
@@ -302,4 +306,51 @@ export async function deleteObject(key: string): Promise<void> {
   await getS3Client().send(
     new DeleteObjectCommand({ Bucket: getBucket(), Key: key })
   );
+}
+
+// ---------------------------------------------------------------------------
+// Recovery: gelöschte Originale aufspüren (versionierter Bucket)
+// ---------------------------------------------------------------------------
+/**
+ * Findet die Galerie-IDs eines Tenants, unter denen aktuell GELÖSCHTE
+ * Originale liegen, die sich aus den noncurrent S3-Versionen noch
+ * wiederherstellen lassen. Grundlage: ein Original ist "gelöscht", wenn
+ * seine aktuelle Objekt-Version ein Delete-Marker ist (IsLatest). Das
+ * Key-Layout ist t/<tenant>/g/<gallery>/orig/<file>/<name>.
+ *
+ * Setzt Bucket-Versioning voraus. Auf nicht-versionierten Buckets liefert
+ * list_object_versions keine DeleteMarkers → leeres Ergebnis.
+ */
+export async function listDeletedOriginalGalleries(
+  tenantId: string
+): Promise<string[]> {
+  const client = getS3Client();
+  const bucket = getBucket();
+  const prefix = `t/${tenantId}/g/`;
+  const galleries = new Set<string>();
+
+  let keyMarker: string | undefined;
+  let versionIdMarker: string | undefined;
+  // Sicherheitslimit gegen Endlosschleifen bei riesigen Buckets.
+  for (let page = 0; page < 1000; page++) {
+    const res = await client.send(
+      new ListObjectVersionsCommand({
+        Bucket: bucket,
+        Prefix: prefix,
+        KeyMarker: keyMarker,
+        VersionIdMarker: versionIdMarker,
+      })
+    );
+    for (const dm of res.DeleteMarkers ?? []) {
+      if (!dm.IsLatest || !dm.Key) continue;
+      // Nur Originale (nicht Renditions/Downloads).
+      const m = dm.Key.match(/^t\/[^/]+\/g\/([^/]+)\/orig\//);
+      if (m) galleries.add(m[1]);
+    }
+    if (!res.IsTruncated) break;
+    keyMarker = res.NextKeyMarker;
+    versionIdMarker = res.NextVersionIdMarker;
+  }
+
+  return [...galleries];
 }

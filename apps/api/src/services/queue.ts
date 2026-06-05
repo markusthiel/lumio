@@ -126,7 +126,7 @@ export interface CleanupJob {
 }
 
 export interface ExportJob {
-  type: "export_zip";
+  type: "export_zip" | "recover_deleted";
   exportItemId: string;
   tenantId: string;
   galleryId: string;

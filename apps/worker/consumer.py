@@ -185,6 +185,18 @@ def _dispatch(stream: str, payload: dict) -> None:
                 payload.get("galleryId"),
             ],
         )
+    elif job_type == "recover_deleted":
+        # Notfall-Wiederherstellung: gelöschte Originale einer Galerie aus
+        # den noncurrent S3-Versionen in ein ZIP packen. Pro Export-Item
+        # ein Job (gleiche tenant_export_items-Tabelle wie export_zip).
+        app.send_task(
+            "tasks.recover_deleted.build",
+            args=[
+                payload.get("exportItemId"),
+                payload.get("tenantId"),
+                payload.get("galleryId"),
+            ],
+        )
     elif job_type == "process_appearance_asset":
         # Lade-Optimierung fuer ein Studio-/Login-/Mail-Asset (Logo oder
         # Login-Background): WebP-Konvertierung + Resize (Logos 512px,

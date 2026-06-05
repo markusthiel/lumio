@@ -30,6 +30,21 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.42.0] - 2026-06-05
+
+> Pull genügt für Self-Hoster (keine neue ENV, keine Migration). **Betrifft
+> den Worker** — wer mit separaten Worker-Nodes deployt, muss diese ebenfalls
+> aktualisieren (nach dem Hauptserver). Wiederherstellung gelöschter Originale
+> setzt Bucket-Versioning voraus.
+
+### Added
+- Super-Admin → Backup: **Notfall-Wiederherstellung gelöschter Originale**.
+  Hat ein Kunde Galerien/Bilder versehentlich gelöscht, rekonstruiert der
+  neue Worker-Job aus den noncurrent S3-Versionen (Aufbewahrungsfenster, i.d.R.
+  30 Tage) die verlorenen Quelldateien und stellt sie pro Galerie als ZIP zum
+  Download bereit. Stellt die Galerien NICHT in der App wieder her — liefert
+  ausschließlich die Quelldateien.
+
 ## [0.41.0] - 2026-06-05
 
 > Pull genügt. Frontend- und API-only Änderung; keine neue ENV, keine

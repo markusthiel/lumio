@@ -61,6 +61,7 @@ app = Celery(
         "tasks.backfill_sha256",
         "tasks.cleanup_storage",
         "tasks.export_zip",
+        "tasks.recover_deleted",
         "tasks.billing",
         "tasks.webhook_delivery",
         "tasks.auto_tag",

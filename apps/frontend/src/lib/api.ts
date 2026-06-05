@@ -2691,6 +2691,12 @@ export const api = {
       mailsSent: number;
     }>(`/super/tenants/${tenantId}/export`, { method: "POST" }),
 
+  superRecoverDeletedOriginals: (tenantId: string) =>
+    request<{ exportId: string; itemCount: number }>(
+      `/super/tenants/${tenantId}/recover-deleted`,
+      { method: "POST" }
+    ),
+
   superTenantExportDetail: (tenantId: string, exportId: string) =>
     request<{
       export: {
