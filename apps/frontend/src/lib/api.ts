@@ -2683,6 +2683,38 @@ export const api = {
       }>;
     }>("/super/system"),
 
+  superTriggerTenantExport: (tenantId: string) =>
+    request<{
+      exportId: string;
+      itemCount: number;
+      tokenIssued: boolean;
+      mailsSent: number;
+    }>(`/super/tenants/${tenantId}/export`, { method: "POST" }),
+
+  superTenantExportDetail: (tenantId: string, exportId: string) =>
+    request<{
+      export: {
+        id: string;
+        source: string;
+        status: string;
+        expiresAt: string;
+        createdAt: string;
+        items: Array<{
+          id: string;
+          galleryId: string | null;
+          gallerySlug: string;
+          galleryName: string;
+          status: string;
+          sizeBytes: number | null;
+          fileCount: number | null;
+          errorMessage: string | null;
+          downloadUrl: string | null;
+          createdAt: string;
+          updatedAt: string;
+        }>;
+      };
+    }>(`/super/tenants/${tenantId}/exports/${exportId}`),
+
   superListTenants: () =>
     request<{ tenants: SuperTenantSummary[] }>("/super/tenants"),
 

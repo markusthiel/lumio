@@ -47,6 +47,7 @@ import { renderAdminMessageHtml } from "../services/broadcast.js";
 import { cancelSubscriptionImmediately, extendTrial, deleteStripeCustomer } from "../services/stripe-service.js";
 import { enqueue, Queues } from "../services/queue.js";
 import { createExport } from "../services/export-service.js";
+import { presignGet } from "../services/storage.js";
 import { cancelDeletion } from "../services/tenant-deletion.js";
 import { clearArchiveOnReactivation } from "../services/billing-archive.js";
 import { computeCurrentMrr, listRecentSnapshots } from "../services/mrr.js";
@@ -2553,6 +2554,65 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
               }
             : null,
         })),
+      };
+    }
+  );
+
+  // -------------------------------------------------------------------------
+  // GET /super/tenants/:id/exports/:exportId — Detail mit Download-Links
+  // -------------------------------------------------------------------------
+  // Liefert die Galerie-ZIPs eines Exports mit presigned Download-URLs
+  // (1h gültig, nur für 'ready'-Items). Damit kann der Super-Admin die
+  // Originale eines Tenants abholen — z.B. wenn ein Kunde versehentlich
+  // alles gelöscht hat und einen Notfall-Export braucht.
+  app.get<{ Params: { id: string; exportId: string } }>(
+    "/super/tenants/:id/exports/:exportId",
+    async (req, reply) => {
+      req.requireSuperAdmin();
+      const exp = await prisma.tenantExport.findFirst({
+        where: { id: req.params.exportId, tenantId: req.params.id },
+        include: { items: { orderBy: { createdAt: "asc" } } },
+      });
+      if (!exp) return reply.status(404).send({ error: "not_found" });
+
+      const sanitize = (name: string) =>
+        name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 120) || "galerie";
+
+      const items = await Promise.all(
+        exp.items.map(async (it) => {
+          let downloadUrl: string | null = null;
+          if (it.status === "ready" && it.storageKey) {
+            downloadUrl = await presignGet({
+              key: it.storageKey,
+              ttlSeconds: 3600,
+              responseContentDisposition: `attachment; filename="${sanitize(it.gallerySlug)}.zip"`,
+            });
+          }
+          return {
+            id: it.id,
+            galleryId: it.galleryId,
+            gallerySlug: it.gallerySlug,
+            galleryName: it.galleryName,
+            status: it.status,
+            sizeBytes: it.sizeBytes ? Number(it.sizeBytes) : null,
+            fileCount: it.fileCount,
+            errorMessage: it.errorMessage,
+            downloadUrl,
+            createdAt: it.createdAt,
+            updatedAt: it.updatedAt,
+          };
+        })
+      );
+
+      return {
+        export: {
+          id: exp.id,
+          source: exp.source,
+          status: exp.status,
+          expiresAt: exp.expiresAt,
+          createdAt: exp.createdAt,
+          items,
+        },
       };
     }
   );

@@ -2123,6 +2123,7 @@ export const en: Dict = {
     navPrintProvider: "Print provider",
     navAudit: "Audit log",
     navSystem: "System",
+    navBackup: "Backup",
     navCsp: "CSP",
     navPlanCatalog: "Plan catalog",
     navMailLog: "Email log",

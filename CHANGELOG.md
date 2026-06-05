@@ -30,6 +30,19 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.41.0] - 2026-06-05
+
+> Pull genügt. Frontend- und API-only Änderung; keine neue ENV, keine
+> Migration, keine Worker-Änderung.
+
+### Added
+- Super-Admin: neuer Bereich **Backup**. Bündelt das Backup-Monitoring
+  (DB + Medien) und einen **Notfall-Export pro Tenant**: Originaldateien
+  aller Galerien eines Studios als ZIP (ein Archiv pro Galerie, inkl.
+  metadata.json), mit Download-Links direkt im Portal. Use-Case: ein Kunde
+  hat versehentlich Inhalte gelöscht und braucht seine Quelldateien.
+  Nutzt die bestehende Export-Engine; Download-Links sind 30 Tage gültig.
+
 ## [0.40.0] - 2026-06-05
 
 > Pull genügt. Die neuen Backup-Funktionen sind optional und additiv — ohne
