@@ -151,6 +151,19 @@ lumio-app.de {
 	encode zstd gzip
 }
 
+# lumio-cloud.com — internationale Portal-/Einstiegsseite (Split-Screen,
+# zweigt zu Cloud bzw. Self-Hosted ab). Eigenes Repo (Lumio-cloud-com),
+# statische Astro-Site → Nginx, am lumio_lumio_net.
+lumio-cloud.com {
+	reverse_proxy lumio-cloud-com-web-1:80
+	encode zstd gzip
+}
+
+# www → apex (nur wirksam, wenn auch ein www-A-Record gesetzt ist).
+www.lumio-cloud.com {
+	redir https://lumio-cloud.com{uri} permanent
+}
+
 # -----------------------------------------------------------------------------
 # Umami — Web-Analytics (opt-in via LUMIO_UMAMI_HOST)
 # -----------------------------------------------------------------------------
