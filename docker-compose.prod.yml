@@ -63,6 +63,7 @@ services:
     # docs/BACKUP.md). environment/volumes mergen mit der Basis-Compose.
     environment:
       - BACKUP_STATUS_PATH=/backup-status/status.txt
+      - BACKUP_MEDIA_STATUS_PATH=/backup-status/media-status.txt
     volumes:
       - ${BACKUP_STATUS_DIR:-/backup/lumio}:/backup-status:ro
 

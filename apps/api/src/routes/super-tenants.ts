@@ -58,7 +58,7 @@ import {
 import {
   checkSystemHealth,
   checkForUpdate,
-  checkBackupStatus,
+  checkBackups,
 } from "../services/system-health.js";
 import { logger } from "../logger.js";
 
@@ -2742,7 +2742,7 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
     const [health, update, backup] = await Promise.all([
       checkSystemHealth(),
       checkForUpdate(),
-      checkBackupStatus(),
+      checkBackups(),
     ]);
     return { health, update, backup };
   });

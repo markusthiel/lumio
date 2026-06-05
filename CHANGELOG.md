@@ -30,6 +30,26 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.40.0] - 2026-06-05
+
+> Pull genügt. Die neuen Backup-Funktionen sind optional und additiv — ohne
+> gesetzte ENV bleibt das Verhalten unverändert. Self-Hoster, die das Monitoring
+> nutzen wollen: siehe `docs/BACKUP.md` (ENV `BACKUP_STATUS_PATH` und optional
+> `BACKUP_MEDIA_STATUS_PATH`).
+
+### Added
+- Produktionsreifes Backup-Runbook (`docs/BACKUP.md`) nach 3-2-1: Postgres via
+  restic in zwei Repos (z. B. Hetzner Object Storage + Backblaze B2), Bilder/
+  Videos per rclone cross-provider, Versioning/Object-Lock, Dead-Man's-Switch
+  und Restore-Test. Inklusive fertiger Skripte `scripts/lumio-backup.sh` und
+  `scripts/lumio-media-sync.sh` plus Konfig-Vorlage.
+- Backup-Monitoring im Super-Admin (System) zeigt jetzt mehrere Backups statt
+  nur die Datenbank: DB **und** Medien-Sync mit je eigener Status-Karte. Pro
+  Typ passende Alters-Schwellen (DB täglich: gelb > 24 h, rot > 72 h; Medien
+  wöchentlich: gelb > 8 Tage, rot > 10 Tage). Aktivierung über
+  `BACKUP_MEDIA_STATUS_PATH`; der Media-Sync schreibt dafür eine eigene
+  Status-Datei.
+
 ## [0.39.2] - 2026-06-04
 
 Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver

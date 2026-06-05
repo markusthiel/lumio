@@ -72,7 +72,9 @@ function SystemContent() {
         <div className="space-y-6">
           <SystemHealthCard health={data.health} />
           <UpdateCheckCard update={data.update} />
-          <BackupStatusCard backup={data.backup} />
+          {data.backup.map((b) => (
+            <BackupStatusCard key={b.key} backup={b} />
+          ))}
         </div>
       )}
     </div>
@@ -311,12 +313,12 @@ function UpdateCheckCard({
 function BackupStatusCard({
   backup,
 }: {
-  backup: SystemResponse["backup"];
+  backup: SystemResponse["backup"][number];
 }) {
   if (!backup.configured) {
     return (
       <section>
-        <h2 className="text-lg font-semibold mb-3">DB-Backup</h2>
+        <h2 className="text-lg font-semibold mb-3">{backup.label}</h2>
         <div className="rounded-md border border-semantic-warning/30 bg-semantic-warning/8 p-4">
           <div className="text-sm text-ink-secondary mb-2">{backup.message}</div>
           <details className="text-xs">
@@ -366,7 +368,7 @@ echo -e "$(date -u +%FT%TZ)\\n$(stat -c%s "$DUMP_PATH")" \\
 
   return (
     <section>
-      <h2 className="text-lg font-semibold mb-3">DB-Backup</h2>
+      <h2 className="text-lg font-semibold mb-3">{backup.label}</h2>
       <div className={`rounded-md border ${healthColor} p-4`}>
         <div className="flex items-start justify-between mb-2 flex-wrap gap-2">
           <div>

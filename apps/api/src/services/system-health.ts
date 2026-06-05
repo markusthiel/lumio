@@ -8,10 +8,11 @@
  *   2. checkForUpdate(): fetcht latest Forgejo-Release-Tag, vergleicht mit
  *      lokaler version aus package.json. Cached In-Memory fuer 1h damit
  *      wir Forgejo nicht hammern.
- *   3. checkBackupStatus(): liest ENV BACKUP_STATUS_PATH — eine Datei in
- *      die das Backup-Skript einen Timestamp schreibt nach erfolgreichem
- *      Backup. Wenn nicht konfiguriert: 'not_configured' zurueck und das
- *      Frontend zeigt einen Hinweis.
+ *   3. checkBackups(): liest pro konfiguriertem Backup eine Status-Datei
+ *      (BACKUP_STATUS_PATH = DB, BACKUP_MEDIA_STATUS_PATH = Medien), in die
+ *      das jeweilige Backup-Skript Timestamp + Größe schreibt. Pro Typ
+ *      eigene Alters-Schwellen (DB täglich, Medien wöchentlich). Nicht
+ *      konfiguriert: 'not_configured' und das Frontend zeigt einen Hinweis.
  *
  * Bewusste Pragmatik:
  *  - Health-Checks haben 2s Timeout — wenn etwas nicht antwortet, ist es
@@ -364,6 +365,8 @@ export async function checkForUpdate(force = false): Promise<UpdateInfo> {
 // =============================================================================
 
 export interface BackupStatus {
+  key: string;
+  label: string;
   configured: boolean;
   statusPath: string | null;
   lastBackupAt: string | null;
@@ -378,30 +381,55 @@ export interface BackupStatus {
  *
  *      echo "$(date -u +%FT%TZ)\n$(stat -c%s "$DUMP")" > /backups/latest.txt
  */
-export async function checkBackupStatus(): Promise<BackupStatus> {
-  const path = process.env.BACKUP_STATUS_PATH ?? null;
-  if (!path) {
+interface BackupCheckConfig {
+  key: string;
+  label: string;
+  path: string | null;
+  /** Alter, ab dem 'warning' gilt (Stunden). */
+  warnAfterHours: number;
+  /** Alter, ab dem 'critical' gilt (Stunden). */
+  critAfterHours: number;
+  /** Hinweis, wenn der Status-Pfad nicht gesetzt ist (Onboarding). */
+  setupHint: string;
+}
+
+/** Menschlich lesbares Alter: Stunden bis 48h, danach Tage. */
+function formatAgeHours(ageHours: number): string {
+  if (ageHours < 48) return `${Math.floor(ageHours)}h`;
+  return `${Math.floor(ageHours / 24)} Tagen`;
+}
+
+/** Liest einen Status-File mit Format 'TIMESTAMP\nSIZE_BYTES\n' und bewertet
+ *  das Alter gegen die backup-typ-spezifischen Schwellen. Das Backup-Skript
+ *  schreibt nach erfolgreichem Lauf z.B.:
+ *
+ *      echo -e "$(date -u +%FT%TZ)\n$(stat -c%s "$DUMP")" > "$STATUS_FILE"
+ */
+async function checkOneBackup(cfg: BackupCheckConfig): Promise<BackupStatus> {
+  const base = { key: cfg.key, label: cfg.label };
+  if (!cfg.path) {
     return {
+      ...base,
       configured: false,
       statusPath: null,
       lastBackupAt: null,
       ageHours: null,
       sizeBytes: null,
       health: "unknown",
-      message:
-        "Backup-Monitoring nicht aktiv. Setze BACKUP_STATUS_PATH und schreibe dort den Timestamp nach jedem pg_dump.",
+      message: cfg.setupHint,
     };
   }
 
   try {
-    const content = await fs.readFile(path, "utf-8");
+    const content = await fs.readFile(cfg.path, "utf-8");
     const lines = content.trim().split(/\r?\n/);
     const timestampStr = lines[0]?.trim();
     const sizeStr = lines[1]?.trim();
     if (!timestampStr) {
       return {
+        ...base,
         configured: true,
-        statusPath: path,
+        statusPath: cfg.path,
         lastBackupAt: null,
         ageHours: null,
         sizeBytes: null,
@@ -412,8 +440,9 @@ export async function checkBackupStatus(): Promise<BackupStatus> {
     const ts = new Date(timestampStr);
     if (isNaN(ts.getTime())) {
       return {
+        ...base,
         configured: true,
-        statusPath: path,
+        statusPath: cfg.path,
         lastBackupAt: null,
         ageHours: null,
         sizeBytes: null,
@@ -424,16 +453,22 @@ export async function checkBackupStatus(): Promise<BackupStatus> {
     const ageHours = (Date.now() - ts.getTime()) / (60 * 60 * 1000);
     const sizeBytes = sizeStr ? parseInt(sizeStr, 10) || null : null;
     const health: BackupStatus["health"] =
-      ageHours > 72 ? "critical" : ageHours > 24 ? "warning" : "ok";
+      ageHours > cfg.critAfterHours
+        ? "critical"
+        : ageHours > cfg.warnAfterHours
+          ? "warning"
+          : "ok";
+    const ageTxt = formatAgeHours(ageHours);
     const message =
-      ageHours > 72
-        ? `Letzter erfolgreicher Backup ist ${Math.floor(ageHours)}h alt — sofort prüfen!`
-        : ageHours > 24
-          ? `Backup ist ${Math.floor(ageHours)}h alt — nightly läuft offenbar nicht mehr.`
-          : `Letzter erfolgreicher Backup vor ${Math.floor(ageHours)}h.`;
+      ageHours > cfg.critAfterHours
+        ? `Letzte erfolgreiche Sicherung ist ${ageTxt} alt — sofort prüfen!`
+        : ageHours > cfg.warnAfterHours
+          ? `Letzte Sicherung ist ${ageTxt} alt — der Job läuft offenbar nicht mehr.`
+          : `Letzte erfolgreiche Sicherung vor ${ageTxt}.`;
     return {
+      ...base,
       configured: true,
-      statusPath: path,
+      statusPath: cfg.path,
       lastBackupAt: ts.toISOString(),
       ageHours,
       sizeBytes,
@@ -442,8 +477,9 @@ export async function checkBackupStatus(): Promise<BackupStatus> {
     };
   } catch (err) {
     return {
+      ...base,
       configured: true,
-      statusPath: path,
+      statusPath: cfg.path,
       lastBackupAt: null,
       ageHours: null,
       sizeBytes: null,
@@ -451,4 +487,38 @@ export async function checkBackupStatus(): Promise<BackupStatus> {
       message: `Status-Datei nicht lesbar: ${err instanceof Error ? err.message : String(err)}`,
     };
   }
+}
+
+/** Wertet alle konfigurierten Backups aus. Die DB ist immer dabei (zeigt
+ *  sonst den Onboarding-Hinweis); das Medien-Backup erscheint nur, wenn
+ *  BACKUP_MEDIA_STATUS_PATH gesetzt ist. Schwellen pro Typ:
+ *    - DB (täglich):       gelb > 24h, rot > 72h
+ *    - Medien (wöchentl.):  gelb > 8 Tagen, rot > 10 Tagen
+ */
+export async function checkBackups(): Promise<BackupStatus[]> {
+  const configs: BackupCheckConfig[] = [
+    {
+      key: "db",
+      label: "DB-Backup",
+      path: process.env.BACKUP_STATUS_PATH ?? null,
+      warnAfterHours: 24,
+      critAfterHours: 72,
+      setupHint:
+        "Backup-Monitoring nicht aktiv. Setze BACKUP_STATUS_PATH und schreibe dort den Timestamp nach jedem pg_dump.",
+    },
+  ];
+
+  const mediaPath = process.env.BACKUP_MEDIA_STATUS_PATH ?? null;
+  if (mediaPath) {
+    configs.push({
+      key: "media",
+      label: "Medien (S3)",
+      path: mediaPath,
+      warnAfterHours: 24 * 8, // 8 Tage
+      critAfterHours: 24 * 10, // 10 Tage
+      setupHint: "",
+    });
+  }
+
+  return Promise.all(configs.map(checkOneBackup));
 }

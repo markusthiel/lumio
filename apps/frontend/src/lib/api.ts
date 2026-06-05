@@ -2670,7 +2670,9 @@ export const api = {
         checkedAt: string | null;
         disabled: string | null;
       };
-      backup: {
+      backup: Array<{
+        key: string;
+        label: string;
         configured: boolean;
         statusPath: string | null;
         lastBackupAt: string | null;
@@ -2678,7 +2680,7 @@ export const api = {
         sizeBytes: number | null;
         health: "ok" | "warning" | "critical" | "unknown";
         message: string;
-      };
+      }>;
     }>("/super/system"),
 
   superListTenants: () =>

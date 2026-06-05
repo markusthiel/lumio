@@ -36,5 +36,14 @@ rclone sync "$SRC" "$DST" \
   --fast-list \
   --stats-one-line
 
+# Status-Datei für die Super-Admin-Ampel (gleiches Format wie das DB-Backup:
+# Zeile 1 = ISO-Timestamp, Zeile 2 = Gesamtgröße im Ziel in Bytes). Die
+# Größe ist best-effort — ein Fehler hier darf den erfolgreichen Sync nicht
+# als fehlgeschlagen markieren.
+STATUS_FILE="${MEDIA_STATUS_FILE:-/backup/lumio/media-status.txt}"
+BYTES="$(rclone size "$DST" --json 2>/dev/null | sed -n 's/.*"bytes":\([0-9]\+\).*/\1/p' || true)"
+mkdir -p "$(dirname "$STATUS_FILE")"
+printf '%s\n%s\n' "$(date -u +%FT%TZ)" "${BYTES:-}" > "$STATUS_FILE"
+
 echo "[$(date -u +%FT%TZ)] Media-Sync fertig"
 ping_hc
