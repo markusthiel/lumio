@@ -56,6 +56,15 @@
 services:
   api:
     image: forgejo.thiel.tools/thiel/lumio-api:${LUMIO_TAG:-latest}
+    # Backup-Status-Ampel (Super-Admin → System): das Backup-Skript schreibt
+    # nach jedem erfolgreichen pg_dump einen Timestamp + Größe in diese Datei,
+    # die API liest sie read-only und zeigt Alter/Health an. Host-Pfad über
+    # BACKUP_STATUS_DIR überschreibbar; Default passt zum Skript (siehe
+    # docs/BACKUP.md). environment/volumes mergen mit der Basis-Compose.
+    environment:
+      - BACKUP_STATUS_PATH=/backup-status/status.txt
+    volumes:
+      - ${BACKUP_STATUS_DIR:-/backup/lumio}:/backup-status:ro
 
   frontend:
     image: forgejo.thiel.tools/thiel/lumio-frontend:${LUMIO_TAG:-latest}
