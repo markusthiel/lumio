@@ -1,19 +1,16 @@
+**English** · [Deutsch](OPERATIONS.de.md)
+
 # Lumio — Operations Cookbook
 
-Alltagsaufgaben für den Betrieb einer produktiven Lumio-Instanz. Gedacht
-für Self-Hoster die schon ein laufendes Setup haben (siehe
-[DEVELOPMENT.md](./DEVELOPMENT.md) für die Erstinstallation).
+Everyday tasks for operating a production Lumio instance. Intended for self-hosters who already have a running setup (see [DEVELOPMENT.md](./DEVELOPMENT.md) for the first installation).
 
-Alle Befehle in diesem Dokument gehen davon aus, dass das aktuelle
-Verzeichnis das Lumio-Repo-Root ist:
+All commands in this document assume the current directory is the Lumio repo root:
 
 ```bash
-cd /opt/docker/lumio/lumio   # oder wo dein Klon liegt
+cd /opt/docker/lumio/lumio   # or wherever your clone lives
 ```
 
-Wenn dein Setup andere Compose-Files braucht (GPU, externer Proxy, etc.),
-ersetze in jedem `docker compose`-Aufruf entsprechend. Die meisten
-Beispiele nutzen das volle Set, das du auch im Production-Setup hast:
+If your setup needs different Compose files (GPU, external proxy, etc.), replace accordingly in every `docker compose` call. Most examples use the full set you also have in the production setup:
 
 ```bash
 docker compose \
@@ -23,70 +20,61 @@ docker compose \
   <subcommand>
 ```
 
-Für die Lesbarkeit schreiben wir das im Cookbook abgekürzt als
-`docker compose <subcommand>` — vergiss die Flags nicht in echt.
+For readability we abbreviate this in the cookbook as `docker compose <subcommand>` — don't forget the flags in real life.
 
 ---
 
-## Inhaltsverzeichnis
+## Table of contents
 
 1. [Deploy](#deploy)
-2. [Service-Lifecycle](#service-lifecycle)
-3. [ENV-Variable ändern und neu laden](#env-variable-ändern-und-neu-laden)
-4. [Secrets & Passwörter rotieren](#secrets--passwörter-rotieren)
-5. [Logs ansehen](#logs-ansehen)
-6. [Datenbank-Zugriff](#datenbank-zugriff)
-7. [Redis / Job-Streams](#redis--job-streams)
-8. [Failed Files re-queuen](#failed-files-re-queuen)
-9. [Worker-Backfills](#worker-backfills)
-10. [Storage-Inspektion (S3 / MinIO)](#storage-inspektion-s3--minio)
-11. [Tenant-Verwaltung](#tenant-verwaltung)
-12. [Diagnose: ist das wirklich kaputt?](#diagnose-ist-das-wirklich-kaputt)
-13. [Backup & Restore](#backup--restore)
-14. [Storage-Aufräumen](#storage-aufräumen)
-15. [Häufige Probleme](#häufige-probleme)
+2. [Service lifecycle](#service-lifecycle)
+3. [Changing an ENV variable and reloading](#changing-an-env-variable-and-reloading)
+4. [Rotating secrets & passwords](#rotating-secrets--passwords)
+5. [Viewing logs](#viewing-logs)
+6. [Database access](#database-access)
+7. [Redis / job streams](#redis--job-streams)
+8. [Re-queueing failed files](#re-queueing-failed-files)
+9. [Worker backfills](#worker-backfills)
+10. [Storage inspection (S3 / MinIO)](#storage-inspection-s3--minio)
+11. [Tenant management](#tenant-management)
+12. [Diagnosis: is it really broken?](#diagnosis-is-it-really-broken)
+13. [Backup & restore](#backup--restore)
+14. [Storage cleanup](#storage-cleanup)
+15. [Common problems](#common-problems)
 
 ---
 
 ## Deploy
 
-### Code aktualisieren
+### Update the code
 
 ```bash
 git pull
 docker compose up -d --build api frontend worker
 ```
 
-`--build` ist wichtig: ohne läuft das alte Image weiter, auch wenn du
-gepullt hast. `up -d` ohne `--build` zieht **nur dann** neu, wenn der
-Image-Tag sich geändert hat (Compose merkt File-Änderungen nicht).
+`--build` is important: without it the old image keeps running, even after you pulled. `up -d` without `--build` only pulls anew **if** the image tag changed (Compose doesn't notice file changes).
 
-**Selektiv pro Service deployen** wenn du z.B. nur Frontend-Änderungen
-hattest:
+**Deploy selectively per service** if, for example, you only had frontend changes:
 
 ```bash
 docker compose up -d --build frontend
 ```
 
-Service-Namen: `api`, `frontend`, `worker`, `caddy`, `postgres`, `redis`,
-`minio`. Letztere drei rebuildet man fast nie — sie nutzen vorgefertigte
-Images.
+Service names: `api`, `frontend`, `worker`, `caddy`, `postgres`, `redis`, `minio`. The latter three are almost never rebuilt — they use prebuilt images.
 
-### Rebuild ohne Cache (wenn Build-Probleme)
+### Rebuild without cache (on build problems)
 
 ```bash
 docker compose build --no-cache worker
 docker compose up -d worker
 ```
 
-Hilft bei seltsamen „die Datei ist im Repo, fehlt aber im Container"-
-Bugs, normalerweise nicht nötig.
+Helps with weird "the file is in the repo but missing in the container" bugs, normally not needed.
 
-### Frontend Hard-Reload für User
+### Frontend hard reload for users
 
-Nach CSS- oder JS-Änderungen müssen Customers ggf. Ctrl+F5 machen, weil
-Next.js statische Assets cached. Bei kritischen Änderungen kannst du den
-Frontend-Container neustarten, das invalidiert die Build-Hashes:
+After CSS or JS changes, customers may need to do Ctrl+F5, because Next.js caches static assets. For critical changes you can restart the frontend container, which invalidates the build hashes:
 
 ```bash
 docker compose restart frontend
@@ -94,69 +82,65 @@ docker compose restart frontend
 
 ---
 
-## Service-Lifecycle
+## Service lifecycle
 
-### Alle Services starten
+### Start all services
 
 ```bash
 docker compose up -d
 ```
 
-### Alle stoppen
+### Stop all
 
 ```bash
 docker compose stop
 ```
 
-`stop` vs `down`: `stop` behält die Container, `down` löscht sie (Volumes
-bleiben). Im Normalbetrieb `stop`.
+`stop` vs `down`: `stop` keeps the containers, `down` removes them (volumes remain). In normal operation use `stop`.
 
-### Einzelner Service Restart
+### Restart a single service
 
 ```bash
 docker compose restart api
 ```
 
-Praktisch z.B. nach einer `.env`-Änderung — der Container liest die ENV
-beim Start neu, kein Image-Rebuild nötig.
+Handy e.g. after a `.env` change — the container re-reads the ENV on start, no image rebuild needed.
 
-### Container-Status
+### Container status
 
 ```bash
 docker compose ps
 ```
 
-Zeigt welche Services laufen, welche Ports gemappt sind, ob welcher
-unhealthy ist.
+Shows which services are running, which ports are mapped, whether any is unhealthy.
 
 ---
 
-## ENV-Variable ändern und neu laden
+## Changing an ENV variable and reloading
 
-`.env`-Änderungen greifen erst beim **Container-Restart**, nicht
-automatisch im laufenden Prozess. Workflow:
+`.env` changes only take effect on a **container restart**, not automatically in the running process. Workflow:
 
 ```bash
 cd /opt/docker/lumio/lumio
 
-# 1) ENV bearbeiten
+# 1) Edit the ENV
 nano .env
 
-# 2) Service restarten (kein --build nötig, kein git pull nötig)
+# 2) Restart the service (no --build needed, no git pull needed)
 docker compose \
   -f docker-compose.yml \
   -f docker-compose.prod.yml \
   -f docker-compose.gpu.yml \
   restart api
 
-# 3) Verifizieren dass der neue Wert wirklich drin ist
+# 3) Verify the new value really made it in
 docker compose \
   -f docker-compose.yml \
   -f docker-compose.prod.yml \
   -f docker-compose.gpu.yml \
-  exec api env | grep <DEIN_KEY>
+  exec api env | grep <YOUR_KEY>
 
-# 4) Optional: Logs verfolgen während er hochkommt
+# 4) Optional: follow the logs while it comes up
 docker compose \
   -f docker-compose.yml \
   -f docker-compose.prod.yml \
@@ -164,174 +148,143 @@ docker compose \
   logs -f api
 ```
 
-**Welcher Service muss restarten?** ENV-Variablen werden pro Service in
-`docker-compose.yml` ans Container-Image gebunden, der Restart-Service
-hängt davon ab was du änderst:
+**Which service has to restart?** ENV variables are bound to the container image per service in `docker-compose.yml`; the service to restart depends on what you change:
 
-| ENV-Variable | Restart |
+| ENV variable | Restart |
 |---|---|
 | `MAX_FILE_SIZE_MIB`, `MAX_UPLOAD_HARD_CAP_MIB` | `api` |
 | `BILLING_ENABLED`, `STRIPE_*` | `api` |
 | `LUMIO_DOMAIN_BASE`, `PUBLIC_URL` | `api`, `frontend` |
-| Caddy-Domain-Konfiguration | `caddy` |
+| Caddy domain configuration | `caddy` |
 | `S3_*`, `MINIO_*` | `api`, `worker` |
-| Worker-Tuning (Concurrency etc.) | `worker` |
-| Postgres-Credentials | `api`, `worker`, `postgres` |
-| Im Zweifel | alle: `docker compose restart` |
+| Worker tuning (concurrency etc.) | `worker` |
+| Postgres credentials | `api`, `worker`, `postgres` |
+| When in doubt | all: `docker compose restart` |
 
-**Warum nicht `docker compose up -d`?** Geht auch — aber `up` baut
-nur dann neu, wenn das Image sich geändert hat. Bei reinen
-`.env`-Änderungen ist `restart` schneller (kein Image-Check) und
-expliziter („ich wollte wirklich nur ENV neu laden").
+**Why not `docker compose up -d`?** That works too — but `up` only rebuilds if the image changed. For pure `.env` changes `restart` is faster (no image check) and more explicit ("I really just wanted to reload ENV").
 
-**Warum nicht `kill -HUP`?** Node-Apps haben kein SIGHUP-Reload. Bei
-Caddy ginge das, aber wir nutzen für alle Services dasselbe Pattern
-weil's leichter zu merken ist.
+**Why not `kill -HUP`?** Node apps have no SIGHUP reload. For Caddy it would work, but we use the same pattern for all services because it's easier to remember.
 
 ---
 
-## Secrets & Passwörter rotieren
+## Rotating secrets & passwords
 
-> ⚠️ Hier gibt es zwei Fallen, die jeweils einen Ausfall verursachen, wenn
-> man "einfach nur die `.env` ändert". Bitte den passenden Abschnitt
-> komplett lesen, bevor du etwas änderst.
+> ⚠️ There are two traps here, each of which causes an outage if you "just change the `.env`". Please read the relevant section completely before changing anything.
 
-### Boot-Guard: Platzhalter-Secrets blockieren den Start
+### Boot guard: placeholder secrets block the start
 
-Die API **verweigert den Start**, wenn `JWT_SECRET` oder `SESSION_SECRET`
-noch die öffentlich bekannten Platzhalter aus `.env.example` sind:
+The API **refuses to start** if `JWT_SECRET` or `SESSION_SECRET` are still the publicly known placeholders from `.env.example`:
 
 ```
 [lumio:api] Refusing to start: insecure secret(s) detected: JWT_SECRET, SESSION_SECRET.
 ```
 
-Das ist Absicht — diese Werte sind im Repo einsehbar, jeder könnte damit
-Tokens fälschen. Starke Werte setzen:
+That's intentional — these values are visible in the repo, anyone could forge tokens with them. Set strong values:
 
 ```
 openssl rand -base64 32   # → JWT_SECRET
 openssl rand -base64 32   # → SESSION_SECRET
 ```
 
-### App-Secrets rotieren (`JWT_SECRET` / `SESSION_SECRET`)
+### Rotating app secrets (`JWT_SECRET` / `SESSION_SECRET`)
 
-Sessions und API-Tokens werden **DB-seitig gehasht** und hängen NICHT an
-diesen Secrets. Heißt: eine Rotation **loggt niemanden aus**, eingeloggte
-User bleiben drin. Was `SESSION_SECRET` aber sehr wohl betrifft (es ist
-HMAC-/Ableitungs-Basis):
+Sessions and API tokens are **hashed on the DB side** and do NOT depend on these secrets. Meaning: a rotation **logs nobody out**, logged-in users stay in. What `SESSION_SECRET` does affect, however (it's the HMAC/derivation base):
 
-- **Galerie-Visitor-Cookies** sind HMAC-signiert über `SESSION_SECRET`.
-  Nach Rotation müssen aktive Galerie-Besucher das Galerie-Passwort einmal
-  neu eingeben. Die geteilten Links selbst bleiben gültig — nichts neu
-  erzeugen.
-- **Print-Shop-Credentials** werden mit einem Key verschlüsselt, der per
-  HKDF aus `SESSION_SECRET` abgeleitet wird. Nach Rotation sind zuvor
-  gespeicherte Lab-Zugangsdaten nicht mehr entschlüsselbar → einmal neu
-  hinterlegen. (Wer das Print-Feature nicht nutzt: irrelevant.)
-- Login-Challenge-Tokens sind kurzlebig → unkritisch.
+- **Gallery visitor cookies** are HMAC-signed with `SESSION_SECRET`. After a rotation, active gallery visitors have to enter the gallery password once again. The shared links themselves stay valid — nothing to regenerate.
+- **Print shop credentials** are encrypted with a key derived from `SESSION_SECRET` via HKDF. After a rotation, previously stored lab credentials can no longer be decrypted → re-enter them once. (If you don't use the print feature: irrelevant.)
+- Login challenge tokens are short-lived → not critical.
 
-`JWT_SECRET` wird zwar erzwungen, signiert im aktuellen Code aber nichts,
-woran bestehende Sessions/Tokens hängen → Rotation ohne User-Impact.
-Trotzdem stark halten.
+`JWT_SECRET` is enforced but in the current code signs nothing that existing sessions/tokens depend on → rotation without user impact. Keep it strong anyway.
 
-Vorgehen (kein Build, kein `git pull`):
+Procedure (no build, no `git pull`):
 
 ```
-# .env auf dem Hauptserver anpassen, dann:
+# Adjust .env on the main server, then:
 docker compose --profile wildcard \
   -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.ml.yml \
   up -d --force-recreate api
 ```
 
-### DB-Passwort rotieren (`POSTGRES_PASSWORD`) — die größere Falle
+### Rotating the DB password (`POSTGRES_PASSWORD`) — the bigger trap
 
-Das Postgres-Image liest `POSTGRES_PASSWORD` **nur beim allerersten Init**
-eines leeren Datenverzeichnisses. Bei vorhandenem Volume wird die Variable
-beim Neustart **ignoriert** — das echte Passwort der Rolle liegt in der DB.
-Wer nur die `.env` ändert und neu startet, verbindet die API mit dem neuen
-Passwort gegen eine DB mit dem alten → Auth-Fehler → API unten.
+The Postgres image reads `POSTGRES_PASSWORD` **only on the very first init** of an empty data directory. With an existing volume the variable is **ignored** on restart — the role's real password lives in the DB. If you only change the `.env` and restart, the API connects with the new password against a DB with the old one → auth error → API down.
 
-Das Passwort muss also **zuerst in Postgres selbst** geändert werden:
+So the password must be changed **in Postgres itself first**:
 
 ```
-# 1) Backup als Sicherheitsnetz (Hauptserver)
+# 1) Backup as a safety net (main server)
 docker exec lumio_postgres pg_dump -U lumio lumio | gzip > ~/lumio-db-$(date +%F).sql.gz
 
-# 2) Neues Passwort OHNE Sonderzeichen (sonst bricht die DATABASE_URL-Syntax)
-openssl rand -hex 24        # → im Folgenden NEUESPW
+# 2) New password WITHOUT special characters (otherwise the DATABASE_URL syntax breaks)
+openssl rand -hex 24        # → referred to below as NEWPW
 
-# 3) Passwort in Postgres ändern (ändert nur das Passwort, keine Daten)
+# 3) Change the password in Postgres (changes only the password, no data)
 docker exec -it lumio_postgres psql -U lumio -d lumio
-#   im psql-Prompt:  \password lumio   (fragt 2× ab, ohne Echo)  →  \q
+#   at the psql prompt:  \password lumio   (asks twice, no echo)  →  \q
 ```
 
-Danach das neue Passwort überall nachziehen, **wo die `lumio`-Rolle genutzt
-wird**:
+Then propagate the new password everywhere **the `lumio` role is used**:
 
-- **Hauptserver** `.env`: `POSTGRES_PASSWORD=NEUESPW`
-- **Jede Worker-Node** `.env.worker`:
-  `DATABASE_URL=postgres://lumio:NEUESPW@10.0.0.2:5432/lumio`
+- **Main server** `.env`: `POSTGRES_PASSWORD=NEWPW`
+- **Every worker node** `.env.worker`:
+  `DATABASE_URL=postgres://lumio:NEWPW@10.0.0.2:5432/lumio`
 
-Und neu erzeugen:
+And recreate:
 
 ```
-# Hauptserver
+# Main server
 cd /opt/docker/lumio/lumio && docker compose --profile wildcard \
   -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.ml.yml up -d
 
-# danach jede Worker-Node
+# then every worker node
 cd /opt/docker/lumio/lumio && docker compose \
   -f docker-compose.worker.yml --env-file .env.worker up -d
 ```
 
-Postgres wird dabei zwar mit-recreated, läuft aber **nicht** erneut durch den
-Init (Volume ist voll) — das Passwort aus Schritt 3 bleibt gültig.
-Verifizieren: `curl -s https://<deine-domain>/health` → `status: ok` heißt,
-die API hat sich mit dem neuen Passwort verbunden.
+Postgres is recreated in the process but does **not** run through init again (the volume is full) — the password from step 3 stays valid. Verify: `curl -s https://<your-domain>/health` → `status: ok` means the API connected with the new password.
 
-**Nicht betroffen** von dieser Rotation: Umami (eigene Postgres-Instanz mit
-eigenem `UMAMI_DB_PASSWORD`) und acme-dns (eigene DB-Rolle).
+**Not affected** by this rotation: Umami (its own Postgres instance with its own `UMAMI_DB_PASSWORD`) and acme-dns (its own DB role).
 
 ---
 
-## Logs ansehen
+## Viewing logs
 
-### Live-Logs eines Services
+### Live logs of a service
 
 ```bash
 docker compose logs -f worker
 ```
 
-`-f` ist follow (Ctrl+C zum Beenden). Ohne `-f` einmaliger Dump.
+`-f` is follow (Ctrl+C to quit). Without `-f` a one-off dump.
 
-### Letzte N Zeilen
+### Last N lines
 
 ```bash
 docker compose logs --tail=200 worker
 ```
 
-### Logs mehrerer Services kombiniert
+### Logs of several services combined
 
 ```bash
 docker compose logs -f api worker
 ```
 
-### Filter nach Zeitfenster
+### Filter by time window
 
 ```bash
 docker compose logs --since 10m worker
 docker compose logs --since 2026-05-21T15:00:00 worker
 ```
 
-### Logs in Datei sichern
+### Save logs to a file
 
 ```bash
 docker compose logs --tail=500 worker > /tmp/worker.log
 ```
 
-### Strukturierte JSON-Logs durchsuchen
+### Searching structured JSON logs
 
-Worker- und API-Logs sind JSON (über structlog/pino). Mit `jq` filtern:
+Worker and API logs are JSON (via structlog/pino). Filter with `jq`:
 
 ```bash
 docker compose logs --no-log-prefix --tail=1000 worker | \
@@ -340,37 +293,35 @@ docker compose logs --no-log-prefix --tail=1000 worker | \
 
 ---
 
-## Datenbank-Zugriff
+## Database access
 
-### psql-Shell öffnen
+### Open a psql shell
 
 ```bash
 docker compose exec postgres psql -U lumio lumio
 ```
 
-`-U lumio` ist der DB-User, das zweite `lumio` ist der DB-Name. Beide
-Standard. Wenn du eigene Credentials hast (`.env`), entsprechend.
+`-U lumio` is the DB user, the second `lumio` is the DB name. Both default. If you have your own credentials (`.env`), use those.
 
-### Einzelne Query ohne interaktive Shell
+### A single query without an interactive shell
 
 ```bash
 docker compose exec postgres psql -U lumio lumio -c \
   "SELECT id, name, status FROM tenants;"
 ```
 
-### Spalten mit Großbuchstaben escapen
+### Escaping columns with uppercase letters
 
-Prisma generiert Tabellen mit camelCase und braucht doppelte
-Anführungszeichen drumherum. Die müssen im Shell-Aufruf geescaped werden:
+Prisma generates tables with camelCase and needs double quotes around them. Those have to be escaped in the shell call:
 
 ```bash
 docker compose exec postgres psql -U lumio lumio -c \
   "SELECT id, status, \"errorMessage\" FROM files WHERE status = 'failed';"
 ```
 
-### Hilfreiche Queries
+### Useful queries
 
-**Status eines Files prüfen:**
+**Check the status of a file:**
 ```sql
 SELECT id, "originalFilename", status, "errorMessage",
        "sizeBytes"/1024/1024 AS mb
@@ -378,7 +329,7 @@ FROM files
 WHERE id = '<file-id>';
 ```
 
-**Failed Files der letzten Stunde:**
+**Failed files in the last hour:**
 ```sql
 SELECT id, "originalFilename", "errorMessage", "updatedAt"
 FROM files
@@ -387,7 +338,7 @@ WHERE status = 'failed'
 ORDER BY "updatedAt" DESC;
 ```
 
-**Tenant-Storage-Übersicht:**
+**Tenant storage overview:**
 ```sql
 SELECT t.slug, t.name,
        COUNT(DISTINCT g.id) AS galleries,
@@ -400,7 +351,7 @@ GROUP BY t.id, t.slug, t.name
 ORDER BY SUM(f."sizeBytes") DESC NULLS LAST;
 ```
 
-**Renditions eines Files anschauen** (welche existieren, wie groß):
+**Look at a file's renditions** (which exist, how large):
 ```sql
 SELECT kind, format, "sizeBytes"/1024/1024 AS mb, "storageKey"
 FROM renditions
@@ -408,7 +359,7 @@ WHERE "fileId" = '<file-id>'
 ORDER BY kind;
 ```
 
-**Tenant-Owner finden** (z.B. für Support-Kontakt):
+**Find a tenant owner** (e.g. for support contact):
 ```sql
 SELECT t.slug, u.email, u.role
 FROM tenants t
@@ -416,112 +367,105 @@ JOIN users u ON u."tenantId" = t.id
 WHERE u.role = 'owner';
 ```
 
-### Dump erstellen
+### Create a dump
 
 ```bash
 docker compose exec postgres pg_dump -U lumio lumio > /backup/lumio-$(date +%F).sql
 ```
 
-### Aus Dump wiederherstellen
+### Restore from a dump
 
 ```bash
 cat /backup/lumio-2026-05-21.sql | \
   docker compose exec -T postgres psql -U lumio lumio
 ```
 
-`-T` deaktiviert die TTY-Allokation, sonst hängt das Cat-Pipe.
+`-T` disables TTY allocation, otherwise the cat pipe hangs.
 
 ---
 
-## Redis / Job-Streams
+## Redis / job streams
 
-Lumio nutzt Redis als Job-Queue zwischen API und Worker. Streams:
+Lumio uses Redis as the job queue between the API and the worker. Streams:
 
-| Stream | Inhalt |
+| Stream | Content |
 |---|---|
-| `lumio:jobs:file_processing` | Bildverarbeitung (Renditions) |
-| `lumio:jobs:video_processing` | Video (HLS + MP4 + Sprite) |
-| `lumio:jobs:zip_build` | ZIP-Erstellung |
-| `lumio:jobs:webhook_delivery` | Outgoing Webhooks |
+| `lumio:jobs:file_processing` | Image processing (renditions) |
+| `lumio:jobs:video_processing` | Video (HLS + MP4 + sprite) |
+| `lumio:jobs:zip_build` | ZIP creation |
+| `lumio:jobs:webhook_delivery` | Outgoing webhooks |
 
-Consumer-Group: `lumio_workers` (alle Worker-Container teilen sich diese).
+Consumer group: `lumio_workers` (all worker containers share it).
 
-### Redis-CLI
+### Redis CLI
 
 ```bash
 docker compose exec redis redis-cli
 ```
 
-### Stream-Status
+### Stream status
 
-**Wie viele Messages im Stream insgesamt:**
+**How many messages in the stream in total:**
 ```bash
 docker compose exec redis redis-cli XLEN lumio:jobs:video_processing
 ```
 
-**Pending = abgeholt aber nicht acked** (Worker hat die noch in Arbeit
-oder ist gecrasht):
+**Pending = picked up but not acked** (the worker still has it in progress or crashed):
 ```bash
 docker compose exec redis redis-cli XPENDING lumio:jobs:video_processing lumio_workers
 ```
 
-Ausgabe-Format: `[count, min-id, max-id, [[consumer, count], ...]]`. Wenn
-da seit Minuten was hängt, hat ein Worker einen Job angenommen aber nicht
-fertiggemacht (Stale-Reclaim kommt nach `CLAIM_MIN_IDLE_MS` = 60s
-automatisch, dann übernimmt ein anderer Consumer).
+Output format: `[count, min-id, max-id, [[consumer, count], ...]]`. If something has been hanging there for minutes, a worker accepted a job but didn't finish it (stale reclaim happens automatically after `CLAIM_MIN_IDLE_MS` = 60s, then another consumer takes over).
 
-**Letzte 5 Einträge im Stream zeigen** (zum Debug):
+**Show the last 5 entries in the stream** (for debugging):
 ```bash
 docker compose exec redis redis-cli XREVRANGE lumio:jobs:video_processing + - COUNT 5
 ```
 
-### Einen Job manuell ins Stream pushen
+### Push a job into the stream manually
 
-Format: ein einzelnes `payload`-Feld mit JSON-Body. Das ist wichtig — der
-Stream-Consumer im Worker liest `fields.get("payload")` und JSON.parsed
-das, **nicht** mehrere separate Felder.
+Format: a single `payload` field with a JSON body. This is important — the stream consumer in the worker reads `fields.get("payload")` and JSON.parses it, **not** several separate fields.
 
 ```bash
 docker compose exec redis redis-cli XADD lumio:jobs:video_processing '*' \
   payload '{"type":"process_video","fileId":"<uuid>"}'
 ```
 
-Für andere Job-Typen siehe `consumer.py` im Worker-Code — z.B.:
-- `{"type":"process_file","fileId":"..."}` → Image-Renditions
-- `{"type":"process_raw","fileId":"..."}` → RAW-Preview
-- `{"type":"process_watermark","fileId":"..."}` → Watermarking
+For other job types see `consumer.py` in the worker code — e.g.:
+- `{"type":"process_file","fileId":"..."}` → image renditions
+- `{"type":"process_raw","fileId":"..."}` → RAW preview
+- `{"type":"process_watermark","fileId":"..."}` → watermarking
 
 ---
 
-## Failed Files re-queuen
+## Re-queueing failed files
 
-Wenn ein File-Processing fehlgeschlagen ist (`status = 'failed'`) und du
-willst, dass es noch mal versucht wird:
+If a file processing failed (`status = 'failed'`) and you want it retried:
 
 ```bash
-# 1. Status zurücksetzen
+# 1. Reset the status
 docker compose exec postgres psql -U lumio lumio -c \
   "UPDATE files SET status='processing', \"errorMessage\"=NULL \
    WHERE id = '<file-id>';"
 
-# 2. Passenden Job in den Redis-Stream pushen
+# 2. Push the matching job into the Redis stream
 docker compose exec redis redis-cli XADD lumio:jobs:video_processing '*' \
   payload '{"type":"process_video","fileId":"<file-id>"}'
 
-# 3. Logs verfolgen
+# 3. Follow the logs
 docker compose logs -f worker
 ```
 
-Job-Typ je nach `files.kind`:
+Job type depending on `files.kind`:
 - `image` → `lumio:jobs:file_processing`, type=`process_file`
 - `heic` → `lumio:jobs:file_processing`, type=`process_file`
 - `raw` → `lumio:jobs:file_processing`, type=`process_raw`
 - `video` → `lumio:jobs:video_processing`, type=`process_video`
 
-### Mehrere Failed Files auf einmal
+### Several failed files at once
 
 ```sql
--- Erst SQL nachgucken welche es sind
+-- First check via SQL which ones they are
 SELECT id, "originalFilename", kind, "errorMessage"
 FROM files
 WHERE status = 'failed'
@@ -529,10 +473,10 @@ WHERE status = 'failed'
 ORDER BY "updatedAt" DESC;
 ```
 
-Dann ein Bash-Loop:
+Then a bash loop:
 
 ```bash
-# Alle failed video-Files einer Galerie neu starten
+# Restart all failed video files of a gallery
 docker compose exec postgres psql -U lumio lumio -At -c \
   "SELECT id FROM files WHERE status='failed' AND kind='video' AND \"galleryId\"='<gallery-id>'" | \
 while read FILE_ID; do
@@ -544,65 +488,61 @@ while read FILE_ID; do
 done
 ```
 
-`-At` macht das Output rein (`A` = unaligned, `t` = tuples only).
+`-At` makes the output clean (`A` = unaligned, `t` = tuples only).
 
 ---
 
-## Worker-Backfills
+## Worker backfills
 
-Wenn Worker-Code neue Renditions hinzufügt (z.B. `web_jpeg` oder
-`video_mp4`), existieren die natürlich nicht für die Files, die vor dem
-Sprint hochgeladen wurden. Dafür gibt es Backfill-Tasks.
+When worker code adds new renditions (e.g. `web_jpeg` or `video_mp4`), they naturally don't exist for files uploaded before the sprint. That's what the backfill tasks are for.
 
-### video_mp4 (Web-MP4-Variante für Customer-Download)
+### video_mp4 (web MP4 variant for customer download)
 
-Pro Galerie:
+Per gallery:
 
 ```bash
 docker compose exec worker celery -A app call \
   tasks.backfill_video_mp4.run_for_gallery --args='["<gallery-id>"]'
 ```
 
-Global mit Limit (idempotent, kann mehrmals laufen):
+Globally with a limit (idempotent, can run multiple times):
 
 ```bash
-# 5 Videos zum Antesten
+# 5 videos to try it out
 docker compose exec worker celery -A app call \
   tasks.backfill_video_mp4.run_global --args='[5]'
 
-# Größerer Batch wenn Test ok
+# Larger batch when the test is OK
 docker compose exec worker celery -A app call \
   tasks.backfill_video_mp4.run_global --args='[200]'
 ```
 
-Auswirkung: pro Video ~5-15% Original-Größe extra im S3. Mit NVENC läuft
-ein 5-Min-1080p-Video in ~30 Sekunden durch, ohne GPU 2-5 Minuten. Bei
-großen Backfills den Worker-Log mitlaufen lassen:
+Effect: ~5-15% of the original size extra in S3 per video. With NVENC a 5-min 1080p video runs through in ~30 seconds, without a GPU 2-5 minutes. For large backfills, keep the worker log running:
 
 ```bash
 docker compose logs -f worker
 ```
 
-### web_jpeg (JPEG-Version für Customer-Bilder-Download)
+### web_jpeg (JPEG version for customer image download)
 
-Pro Galerie:
+Per gallery:
 
 ```bash
 docker compose exec worker celery -A app call \
   tasks.backfill_web_jpeg.run_for_gallery --args='["<gallery-id>"]'
 ```
 
-Pro Tenant (alle Galerien des Tenants):
+Per tenant (all of the tenant's galleries):
 
 ```bash
 docker compose exec worker celery -A app call \
   tasks.backfill_web_jpeg.run_for_tenant --args='["<tenant-id>"]'
 ```
 
-### Backfill-Fortschritt verfolgen
+### Tracking backfill progress
 
 ```sql
--- Wieviele Files haben (noch) keine video_mp4-Rendition?
+-- How many files (still) have no video_mp4 rendition?
 SELECT COUNT(*)
 FROM files f
 WHERE f.kind = 'video' AND f.status = 'ready'
@@ -614,42 +554,42 @@ WHERE f.kind = 'video' AND f.status = 'ready'
 
 ---
 
-## Storage-Inspektion (S3 / MinIO)
+## Storage inspection (S3 / MinIO)
 
-### MinIO Console-UI
+### MinIO console UI
 
 ```
 http://docker5.lan:32092
 ```
 
-Login mit `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD` aus `.env`.
+Log in with `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD` from `.env`.
 
-### mc-CLI (MinIO Client) — von außen
+### mc CLI (MinIO client) — from outside
 
 ```bash
-# Alias anlegen (einmalig)
+# Set up the alias (once)
 mc alias set lumio http://localhost:32091 <root-user> <root-password>
 
-# Bucket-Inhalt zählen
+# Count bucket contents
 mc ls --recursive lumio/lumio-bucket/ | wc -l
 
-# Storage-Verbrauch
+# Storage usage
 mc du lumio/lumio-bucket/
 
-# Pro Tenant
+# Per tenant
 mc du lumio/lumio-bucket/t/<tenant-id>/
 ```
 
-### Storage-Key eines Files in der DB nachschauen
+### Look up a file's storage key in the DB
 
 ```sql
 SELECT "storageKey" FROM files WHERE id = '<file-id>';
 SELECT "storageKey", kind FROM renditions WHERE "fileId" = '<file-id>';
 ```
 
-Die Keys beginnen typisch mit `t/<tenant-id>/galleries/<gallery-id>/...`.
+The keys typically start with `t/<tenant-id>/galleries/<gallery-id>/...`.
 
-### Object aus MinIO holen (zum Debug)
+### Fetch an object from MinIO (for debugging)
 
 ```bash
 mc cp lumio/lumio-bucket/t/.../source /tmp/test.jpg
@@ -657,9 +597,9 @@ mc cp lumio/lumio-bucket/t/.../source /tmp/test.jpg
 
 ---
 
-## Tenant-Verwaltung
+## Tenant management
 
-### Alle Tenants anzeigen
+### Show all tenants
 
 ```sql
 SELECT id, slug, name, status, plan, "createdAt"
@@ -667,165 +607,157 @@ FROM tenants
 ORDER BY "createdAt" DESC;
 ```
 
-### Tenant via Super-Admin-UI verwalten
+### Manage a tenant via the super admin UI
 
 ```
 https://studio.lumio-cloud.de/super/login
 ```
 
-Login mit Super-Admin-Credentials (siehe `.env` oder eigene Notizen).
+Log in with super admin credentials (see `.env` or your own notes).
 
-### Tenant manuell anlegen
+### Create a tenant manually
 
-Geht im Super-Admin per UI. Per CLI nur über die Prisma-API — am
-einfachsten via Studio-UI.
+Works in the super admin via the UI. Via CLI only through the Prisma API — easiest via the studio UI.
 
-### Tenant sperren (suspend)
+### Suspend a tenant
 
 ```sql
 UPDATE tenants SET status = 'suspended' WHERE slug = '<slug>';
 ```
 
-`active` / `suspended` / `archived`. Bei suspended kommen weder Customers
-noch Studio-User rein.
+`active` / `suspended` / `archived`. With suspended, neither customers nor studio users get in.
 
-### Custom-Subdomain für Tenant aktivieren
+### Enable a custom subdomain for a tenant
 
-Drei Dinge müssen stimmen:
+Three things must be right:
 
-1. **DNS-Record**: `mueller.lumio-cloud.de A <server-ip>` (oder
-   Wildcard `*.lumio-cloud.de`)
-2. **Externer Caddy-Block**:
+1. **DNS record**: `mueller.lumio-cloud.de A <server-ip>` (or wildcard `*.lumio-cloud.de`)
+2. **External Caddy block**:
    ```caddyfile
    mueller.lumio-cloud.de {
        reverse_proxy 192.168.178.90:32080
    }
    ```
-   Oder bei Wildcard-Block:
+   Or with a wildcard block:
    ```caddyfile
    *.lumio-cloud.de {
        reverse_proxy 192.168.178.90:32080
    }
    ```
-3. **App-seitig**: `LUMIO_DOMAIN_BASE=lumio-cloud.de` muss in `.env`
-   gesetzt sein. Die App parsed die Subdomain raus und mappt sie auf
-   `tenants.slug`.
+3. **App side**: `LUMIO_DOMAIN_BASE=lumio-cloud.de` must be set in `.env`. The app parses the subdomain out and maps it to `tenants.slug`.
 
-Reload Caddy nach Änderungen:
+Reload Caddy after changes:
 
 ```bash
-sudo systemctl reload caddy   # oder docker exec caddy ...
+sudo systemctl reload caddy   # or docker exec caddy ...
 ```
 
-### Tenant-Custom-Domain (full-custom statt Subdomain)
+### Tenant custom domain (full custom instead of subdomain)
 
-Im Studio unter Settings → Custom-Domain einen Hostname eintragen (z.B.
-`galerien.studio-mueller.de`). Plus auch hier DNS + Caddy außerhalb.
+In the studio under Settings → Custom domain enter a hostname (e.g. `gallery.studio-mueller.de`). Plus DNS + Caddy outside, here too.
 
 ---
 
-## Diagnose: ist das wirklich kaputt?
+## Diagnosis: is it really broken?
 
-### Im Worker-Container nachgucken
+### Look inside the worker container
 
 ```bash
-# Was läuft an Prozessen?
+# What processes are running?
 docker compose exec worker ps auxf
 
-# Speziell ffmpeg-Subprozesse
+# Specifically ffmpeg subprocesses
 docker compose exec worker pgrep -af ffmpeg
 
-# GPU-Auslastung (wenn GPU-Compose-Overlay aktiv)
+# GPU utilization (if the GPU compose overlay is active)
 docker compose exec worker nvidia-smi
 
-# Temp-Verzeichnis (laufende Verarbeitung)
+# Temp directory (processing in progress)
 docker compose exec worker ls -lh /tmp/lumio_vid_* 2>/dev/null
 docker compose exec worker du -sh /tmp/lumio_vid_* 2>/dev/null
 ```
 
-### Speicher / Disk
+### Memory / disk
 
 ```bash
-# Container-RAM
+# Container RAM
 docker stats --no-stream
 
-# Host-Disk
+# Host disk
 df -h
 
-# Container-Disk (Image + Overlay)
+# Container disk (image + overlay)
 docker system df
 ```
 
-### Healthcheck-Endpoint
+### Healthcheck endpoint
 
-API hat einen Health-Endpoint:
+The API has a health endpoint:
 
 ```bash
 curl -s http://localhost:33031/api/v1/health
 # {"status":"ok","db":"ok","redis":"ok","storage":"ok"}
 ```
 
-Wenn einer auf `error`/`down` springt → das ist das Problem.
+If one flips to `error`/`down` → that's the problem.
 
-### Imports im Worker testen
+### Test imports in the worker
 
-Wenn Worker-Tasks mit ModuleNotFoundError abbrechen, schnell verifizieren:
+If worker tasks abort with a ModuleNotFoundError, verify quickly:
 
 ```bash
 docker compose exec worker python -c \
   "from encoder_profile import profile_for; print(profile_for(1080))"
 
 docker compose exec worker env | grep PYTHONPATH
-# erwartet: PYTHONPATH=/app
+# expected: PYTHONPATH=/app
 ```
 
-### Last-Run eines Tasks anschauen
+### Look at the last run of a task
 
 ```sql
--- Failed Jobs in den letzten 24h
+-- Failed jobs in the last 24h
 SELECT id, "originalFilename", kind, "errorMessage", "updatedAt"
 FROM files
 WHERE status = 'failed' AND "updatedAt" > NOW() - INTERVAL '24 hour'
 ORDER BY "updatedAt" DESC;
 ```
 
-`errorMessage` enthält den `str(err)` der Exception. Für volle Tracebacks
-in die Worker-Logs schauen — seit Commit `d590520` werden Stack-Traces
-korrekt mit `format_exc_info` im structlog-Pipeline geloggt.
+`errorMessage` contains the `str(err)` of the exception. For full tracebacks look in the worker logs — since commit `d590520` stack traces are logged correctly with `format_exc_info` in the structlog pipeline.
 
 ---
 
-## Backup & Restore
+## Backup & restore
 
-### Was muss gesichert werden
+### What must be backed up
 
-Drei Dinge:
-1. **Postgres-DB** — alle Tenants, Galerien, Files, Selections, etc.
-2. **S3/MinIO-Bucket** — die eigentlichen Dateien
-3. **`.env`-File** — Credentials, Secrets
+Three things:
+1. **Postgres DB** — all tenants, galleries, files, selections, etc.
+2. **S3/MinIO bucket** — the actual files
+3. **`.env` file** — credentials, secrets
 
-Was **nicht** gesichert werden muss:
-- Redis (Job-Queue, ephemerer State)
-- Docker-Images (lokal gebaut, jederzeit rebuildbar)
+What does **not** need backing up:
+- Redis (job queue, ephemeral state)
+- Docker images (built locally, rebuildable any time)
 
-### Postgres-Dump (manuell)
+### Postgres dump (manual)
 
 ```bash
 docker compose exec postgres pg_dump -U lumio lumio \
   | gzip > /backup/lumio-db-$(date +%F).sql.gz
 ```
 
-### MinIO mirror auf externen Storage
+### MinIO mirror to external storage
 
 ```bash
-# Erstinstallation
+# Initial setup
 mc alias set backup s3.backup-provider.example <key> <secret>
 
-# Sync (idempotent, kopiert nur neue/geänderte Objects)
+# Sync (idempotent, copies only new/changed objects)
 mc mirror lumio/lumio-bucket/ backup/lumio-backup/
 ```
 
-### Cron-Backup-Skript (Beispiel)
+### Cron backup script (example)
 
 ```bash
 #!/bin/bash
@@ -840,7 +772,7 @@ docker compose exec -T postgres pg_dump -U lumio lumio \
 
 mc mirror lumio/lumio-bucket/ $DEST/storage/
 
-# 14 Tage Retention für DB-Dumps
+# 14 days retention for DB dumps
 find $DEST -name "db-*.sql.gz" -mtime +14 -delete
 ```
 
@@ -852,12 +784,12 @@ Crontab:
 ### Restore (DB)
 
 ```bash
-# Container muss laufen und DB leer sein (oder erst dropdb)
+# The container must be running and the DB empty (or dropdb first)
 gunzip -c /backup/lumio-db-2026-05-21.sql.gz | \
   docker compose exec -T postgres psql -U lumio lumio
 ```
 
-### Restore (Storage)
+### Restore (storage)
 
 ```bash
 mc mirror /backup/lumio/storage/ lumio/lumio-bucket/
@@ -865,37 +797,34 @@ mc mirror /backup/lumio/storage/ lumio/lumio-bucket/
 
 ---
 
-## Storage-Aufräumen
+## Storage cleanup
 
-### Verwaiste S3-Objects identifizieren
+### Identify orphaned S3 objects
 
-Verwaist = liegt im Bucket, aber kein DB-Eintrag verweist darauf. Kann
-passieren wenn Files gelöscht wurden aber das Cleanup-Job nicht durchlief.
+Orphaned = sits in the bucket, but no DB entry references it. Can happen if files were deleted but the cleanup job didn't run.
 
-Eingebautes Cleanup gibt's noch nicht (Roadmap). Manuelle Detection:
+Built-in cleanup doesn't exist yet (roadmap). Manual detection:
 
 ```bash
-# Alle Storage-Keys aus der DB
+# All storage keys from the DB
 docker compose exec postgres psql -U lumio lumio -At -c \
   "SELECT \"storageKey\" FROM files
    UNION SELECT \"storageKey\" FROM renditions
    UNION SELECT \"storageKey\" FROM zip_downloads
    WHERE \"storageKey\" IS NOT NULL" > /tmp/db-keys.txt
 
-# Alle Storage-Keys aus MinIO
+# All storage keys from MinIO
 mc ls --recursive lumio/lumio-bucket/ \
   | awk '{print $NF}' > /tmp/minio-keys.txt
 
-# Differenz
+# Difference
 comm -23 <(sort /tmp/minio-keys.txt) <(sort /tmp/db-keys.txt) > /tmp/orphans.txt
 wc -l /tmp/orphans.txt
 ```
 
-**Bevor du löschst:** Sample reinschauen und prüfen ob das wirklich
-verwaiste Dateien sind. Vorsicht bei laufenden Uploads — die haben kurz
-ein S3-Object ohne DB-Eintrag.
+**Before you delete:** look at a sample and check whether these really are orphaned files. Be careful with uploads in progress — they briefly have an S3 object without a DB entry.
 
-### Abgelaufene ZIP-Downloads aufräumen
+### Clean up expired ZIP downloads
 
 ```sql
 SELECT COUNT(*) FROM zip_downloads
@@ -907,76 +836,68 @@ DELETE FROM zip_downloads
 WHERE "expiresAt" < NOW() - INTERVAL '7 day';
 ```
 
-(S3-Objects bleiben — wenn nicht via Cleanup-Job entfernt. Sprint-2-Item.)
+(S3 objects remain — unless removed via the cleanup job. Sprint-2 item.)
 
-### File komplett löschen (Studio + S3)
+### Delete a file completely (studio + S3)
 
-Im Studio per UI. Programmatisch ohne UI:
+In the studio via the UI. Programmatically without the UI:
 
 ```sql
--- File-ID merken
+-- Note the file ID
 SELECT id, "storageKey" FROM files WHERE id = '<file-id>';
 
--- Renditions löschen (CASCADE würde das auch machen, hier explizit)
+-- Delete the renditions (CASCADE would do this too, here explicitly)
 DELETE FROM renditions WHERE "fileId" = '<file-id>';
 
--- File-Row löschen
+-- Delete the file row
 DELETE FROM files WHERE id = '<file-id>';
 ```
 
-Dann S3-Objects manuell entfernen (Keys aus der vorherigen SELECT-Abfrage).
+Then remove the S3 objects manually (keys from the previous SELECT query).
 
 ---
 
-## Häufige Probleme
+## Common problems
 
-### „No module named 'encoder_profile'" im Worker
+### "No module named 'encoder_profile'" in the worker
 
-**Symptom:** `process_video.failed` mit `errorMessage = "No module named 'encoder_profile'"`.
+**Symptom:** `process_video.failed` with `errorMessage = "No module named 'encoder_profile'"`.
 
-**Ursache:** Worker-Image wurde nicht rebuilded nach Code-Update, oder
-`PYTHONPATH=/app` ist nicht gesetzt.
+**Cause:** the worker image wasn't rebuilt after a code update, or `PYTHONPATH=/app` isn't set.
 
-**Lösung:**
+**Fix:**
 ```bash
 git pull
 docker compose up -d --build worker
 
-# Verifizieren
+# Verify
 docker compose exec worker env | grep PYTHONPATH
 docker compose exec worker python -c "from encoder_profile import profile_for; print('ok')"
 ```
 
-### „column f.tenantId does not exist" in Backfill-Task
+### "column f.tenantId does not exist" in a backfill task
 
-**Symptom:** SQL-Error wenn `backfill_video_mp4.run_global` aufgerufen wird.
+**Symptom:** SQL error when `backfill_video_mp4.run_global` is called.
 
-**Ursache:** Alter Bug, sollte mit Commit `74fcb50` gefixt sein. Wenn
-weiter da: nicht das aktuelle Image.
+**Cause:** an old bug, should be fixed with commit `74fcb50`. If still present: not the current image.
 
-**Lösung:** `git pull && docker compose up -d --build worker`.
+**Fix:** `git pull && docker compose up -d --build worker`.
 
-### Tenant-Subdomain nicht erreichbar
+### Tenant subdomain not reachable
 
-**Symptom:** `mueller.lumio-cloud.de` lädt nicht, Login geht nur über die
-Haupt-App-Domain.
+**Symptom:** `mueller.lumio-cloud.de` doesn't load, login only works via the main app domain.
 
-**Ursache:** Externer Caddy-Block fehlt oder DNS-Record fehlt.
+**Cause:** the external Caddy block is missing or the DNS record is missing.
 
-**Lösung:** Beides prüfen, siehe Abschnitt
-[Tenant-Verwaltung > Custom-Subdomain](#custom-subdomain-für-tenant-aktivieren).
+**Fix:** check both, see the section [Tenant management > Enable a custom subdomain](#enable-a-custom-subdomain-for-a-tenant).
 
-### Web-MP4 ist größer als das Original
+### The web MP4 is larger than the original
 
-**Symptom:** Customer-Download „Web-Version" liefert eine größere Datei
-als das Original.
+**Symptom:** the customer download "web version" delivers a larger file than the original.
 
-**Ursache:** Source-Video ist schon stark komprimiert (z.B. 720p mit
-1300 kbps), unser Re-Encoding-Target von 2800 kbps ist da kontraproduktiv.
+**Cause:** the source video is already heavily compressed (e.g. 720p at 1300 kbps), our re-encoding target of 2800 kbps is counterproductive there.
 
-**Lösung:** Seit Commit `36146f8` wird die Web-MP4-Generierung
-übersprungen wenn Source-Bitrate ≤ Target. Für alte Files manuell
-aufräumen (siehe [Storage-Aufräumen](#storage-aufräumen)) oder per SQL:
+**Fix:** since commit `36146f8` the web MP4 generation is skipped if the source bitrate ≤ target. For old files clean up manually (see [Storage cleanup](#storage-cleanup)) or via SQL:
 
 ```sql
 DELETE FROM renditions r
@@ -986,36 +907,28 @@ WHERE r."fileId" = f.id
   AND r."sizeBytes" >= f."sizeBytes";
 ```
 
-Plus die S3-Objects manuell löschen.
+Plus delete the S3 objects manually.
 
-### Input-Felder im Studio sind weiß / unlesbar
+### Input fields in the studio are white / unreadable
 
-**Symptom:** Im Dark-Theme Studio sind Inputs weiß mit unlesbarem Text.
+**Symptom:** in the dark-theme studio, inputs are white with unreadable text.
 
-**Ursache:** Vor Commit `2b20607` betraf das einige Studio-Seiten mit raw
-`<input>`-Tags ohne explizites `bg-`/`text-`. Seit dem Fix sollten alle
-funktionieren.
+**Cause:** before commit `2b20607` this affected some studio pages with raw `<input>` tags without explicit `bg-`/`text-`. Since the fix all should work.
 
-**Lösung:** Frontend rebuilden mit aktuellem Code:
+**Fix:** rebuild the frontend with the current code:
 ```bash
 docker compose up -d --build frontend
 ```
 
-### „Processing failed" — wo ist der Stack-Trace?
+### "Processing failed" — where's the stack trace?
 
-**Vor Commit `d590520`:** structlog-Pipeline hatte `format_exc_info`
-nicht eingebunden, daher wurden Tracebacks bei `log.exception()` und
-`exc_info=True` weggeschmissen. Im Log stand dann nur `"exc_info": true`
-ohne den eigentlichen Stack.
+**Before commit `d590520`:** the structlog pipeline hadn't included `format_exc_info`, so tracebacks were thrown away on `log.exception()` and `exc_info=True`. The log then only said `"exc_info": true` without the actual stack.
 
-**Seit `d590520`:** im Worker-Log unter dem Key `"exception"` steht der
-volle Traceback. Plus die `errorMessage`-Spalte in `files` hat die Kurz-
-Form.
+**Since `d590520`:** the full traceback is in the worker log under the key `"exception"`. Plus the `errorMessage` column in `files` has the short form.
 
-### Worker stoppt jeden Job nach kurzer Zeit
+### The worker stops every job after a short time
 
-**Mögliche Ursache:** Disk voll, OOM-Killer aktiv, oder Redis-Verbindung
-weg. Check:
+**Possible cause:** disk full, the OOM killer active, or the Redis connection gone. Check:
 
 ```bash
 df -h
@@ -1026,24 +939,23 @@ docker compose logs --tail=100 redis
 
 ---
 
-## Wichtige Commits zum Nachschlagen
+## Important commits for reference
 
-Diese Commits sind hinter Bugs / Migrationen, die im Cookbook erwähnt
-sind. Wenn ein Symptom auftaucht, hilft `git log --oneline | grep <key>`:
+These commits are behind bugs / migrations mentioned in the cookbook. When a symptom appears, `git log --oneline | grep <key>` helps:
 
-- `0d8ba99` — App-Domain-Migration zu studio.lumio-cloud.de
-- `62921b8` — Web-MP4-Rendition eingeführt
-- `74fcb50` — Backfill-SQL `tenantId` aus galleries gejoint
+- `0d8ba99` — app domain migration to studio.lumio-cloud.de
+- `62921b8` — web MP4 rendition introduced
+- `74fcb50` — backfill SQL `tenantId` joined from galleries
 - `d590520` — structlog format_exc_info
 - `6085c58` — encoder_profile top-of-module import + PYTHONPATH
-- `88b6fe0` — procps im Worker-Image (pgrep/ps/watch)
-- `36146f8` — Web-MP4 skip wenn Source schon klein
-- `2b20607` — Globaler Dark-Theme-Fix für Form-Inputs
-- `4a7625f` — Theme-aware Sticky-Toolbar
-- `7509cc6` — Akzent-Contrast-Fix
-- `867edb1` — Customer-Pick-Modus mit localStorage
-- `7cbbc37` — Lightbox-Comments-Lesbarkeit
-- `e3e50fd` — Upload-Links MVP (Backend + Studio + Public Drop-Zone)
-- `3fbb24d` — Upload-Links Bulk-Approve, Pending-Filter, Header-Counter
-- `16221bb` — Upload-Links Per-File + Bulk-Reject mit Reason
-- `0dd5c7b` — Einstellbares Pro-File Upload-Limit pro Tenant + Link
+- `88b6fe0` — procps in the worker image (pgrep/ps/watch)
+- `36146f8` — web MP4 skipped when the source is already small
+- `2b20607` — global dark-theme fix for form inputs
+- `4a7625f` — theme-aware sticky toolbar
+- `7509cc6` — accent contrast fix
+- `867edb1` — customer pick mode with localStorage
+- `7cbbc37` — lightbox comments readability
+- `e3e50fd` — upload links MVP (backend + studio + public drop zone)
+- `3fbb24d` — upload links bulk approve, pending filter, header counter
+- `16221bb` — upload links per-file + bulk reject with reason
+- `0dd5c7b` — configurable per-file upload limit per tenant + link

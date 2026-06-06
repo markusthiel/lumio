@@ -193,7 +193,7 @@ Alles optional. Das Quick-Start oben reicht für ein einzelnes Studio.
 | Tenant-Subdomains via Wildcard-Cert | [docs/WILDCARD.md](docs/WILDCARD.de.md) |
 | Last auf mehrere Server verteilen | [docs/SCALING.md](docs/SCALING.de.md) |
 | Externes S3 statt MinIO (R2, B2, Hetzner, Wasabi) | [docs/STORAGE.md](docs/STORAGE.de.md) |
-| Backups, Migrationen, Re-Queue | [docs/OPERATIONS.md](docs/OPERATIONS.md) |
+| Backups, Migrationen, Re-Queue | [docs/OPERATIONS.md](docs/OPERATIONS.de.md) |
 | Mitwirken / Entwicklung | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) |
 
 ---
