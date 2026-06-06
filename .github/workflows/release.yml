@@ -27,6 +27,11 @@ on:
         description: "Bestimmter Tag (z.B. v0.14.5). Leer = alle fehlenden Releases nachziehen."
         required: false
         default: ""
+      resync:
+        description: "Bestehende Release-Notes mit dem aktuellen CHANGELOG-Abschnitt überschreiben (z.B. nach einer Übersetzung). Sonst werden bestehende Releases nur übersprungen."
+        type: boolean
+        required: false
+        default: false
   schedule:
     # Alle 6 Stunden fehlende Releases abgleichen (Minute 17, damit's nicht
     # auf die volle Stunde fällt).
@@ -62,17 +67,15 @@ jobs:
           echo "list=${LIST}" >> "$GITHUB_OUTPUT"
           echo "Zu prüfen: ${LIST}"
 
-      - name: Fehlende Releases aus CHANGELOG anlegen (idempotent)
+      - name: Releases aus CHANGELOG anlegen/aktualisieren (idempotent)
         env:
           GH_TOKEN: ${{ github.token }}
+          RESYNC: ${{ github.event.inputs.resync }}
         run: |
           CREATED=0
+          UPDATED=0
           for TAG in ${{ steps.tags.outputs.list }}; do
             [ -z "$TAG" ] && continue
-            if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-              echo "= $TAG existiert bereits — übersprungen"
-              continue
-            fi
             VER="${TAG#v}"
             # Alles zwischen "## [VER]" und der nächsten "## [" Überschrift.
             awk -v ver="$VER" '
@@ -84,6 +87,18 @@ jobs:
             if [ ! -s NOTES.md ]; then
               echo "Kein CHANGELOG-Abschnitt für $VER gefunden — siehe CHANGELOG.md." > NOTES.md
             fi
+            if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              if [ "$RESYNC" = "true" ]; then
+                echo "~ Aktualisiere Release-Notes $TAG"
+                gh release edit "$TAG" \
+                  --repo "$GITHUB_REPOSITORY" \
+                  --notes-file NOTES.md
+                UPDATED=$((UPDATED+1))
+              else
+                echo "= $TAG existiert bereits — übersprungen"
+              fi
+              continue
+            fi
             echo "+ Lege Release $TAG an"
             gh release create "$TAG" \
               --repo "$GITHUB_REPOSITORY" \
@@ -91,4 +106,4 @@ jobs:
               --notes-file NOTES.md
             CREATED=$((CREATED+1))
           done
-          echo "Neu angelegte Releases: ${CREATED}"
+          echo "Neu angelegt: ${CREATED}, aktualisiert: ${UPDATED}"
