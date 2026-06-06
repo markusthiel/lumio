@@ -8,7 +8,7 @@ Danke, dass du beitragen möchtest!
 
 1. Issue lesen oder neues Issue eröffnen, bevor du an größeren Änderungen arbeitest.
 2. Fork des Repos, neuer Branch (`feat/dein-feature` oder `fix/dein-fix`).
-3. `cp .env.example .env`, `docker compose up -d` — siehe [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+3. `cp .env.example .env`, `docker compose up -d` — siehe [docs/DEVELOPMENT.md](docs/DEVELOPMENT.de.md).
 4. Code schreiben, Tests dazu wenn sinnvoll.
 5. Pull Request mit klarer Beschreibung.
 

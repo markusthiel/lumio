@@ -194,7 +194,7 @@ Alles optional. Das Quick-Start oben reicht für ein einzelnes Studio.
 | Last auf mehrere Server verteilen | [docs/SCALING.md](docs/SCALING.de.md) |
 | Externes S3 statt MinIO (R2, B2, Hetzner, Wasabi) | [docs/STORAGE.md](docs/STORAGE.de.md) |
 | Backups, Migrationen, Re-Queue | [docs/OPERATIONS.md](docs/OPERATIONS.de.md) |
-| Mitwirken / Entwicklung | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) |
+| Mitwirken / Entwicklung | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.de.md) |
 
 ---
 

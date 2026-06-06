@@ -1,14 +1,16 @@
+**English** · [Deutsch](DEVELOPMENT.de.md)
+
 # Lumio — Development Guide
 
-## Voraussetzungen
+## Requirements
 
-- **Docker** + **Docker Compose v2** (Compose v1 funktioniert auch, aber ohne `docker compose`-CLI)
-- **Node.js 20+** (für API + Frontend ohne Docker)
-- **Python 3.12+** (für Worker ohne Docker)
-- **pnpm** oder **npm** (wir verwenden npm im Standard-Setup)
-- **git** und ein Forgejo/Git-Client
+- **Docker** + **Docker Compose v2** (Compose v1 works too, but without the `docker compose` CLI)
+- **Node.js 20+** (for API + frontend without Docker)
+- **Python 3.12+** (for the worker without Docker)
+- **pnpm** or **npm** (we use npm in the standard setup)
+- **git** and a Forgejo/Git client
 
-## Erstes Setup
+## First setup
 
 ```bash
 git clone https://github.com/markusthiel/lumio.git
@@ -16,98 +18,98 @@ cd lumio
 cp .env.example .env
 ```
 
-**Wichtig:** In der `.env` mindestens diese Werte ändern:
+**Important:** change at least these values in `.env`:
 
-- `POSTGRES_PASSWORD` — irgendein langer Random-String
-- `S3_ACCESS_KEY`, `S3_SECRET_KEY` — MinIO-Credentials
+- `POSTGRES_PASSWORD` — any long random string
+- `S3_ACCESS_KEY`, `S3_SECRET_KEY` — MinIO credentials
 - `JWT_SECRET`, `SESSION_SECRET` — `openssl rand -base64 32`
 
-## Komplett in Docker
+## Fully in Docker
 
 ```bash
 docker compose up -d --build
 ```
 
-Beim ersten Start passiert:
+On the first start the following happens:
 
-1. Postgres startet, legt DB an, lädt Extensions
-2. MinIO startet, legt Bucket an (über `minio_init`-Service)
-3. API führt Prisma-Migration aus und startet auf Port 3001
-4. Frontend baut sich und startet auf Port 3000
-5. Caddy bindet 80/443
+1. Postgres starts, creates the DB, loads extensions
+2. MinIO starts, creates the bucket (via the `minio_init` service)
+3. The API runs the Prisma migration and starts on port 3001
+4. The frontend builds itself and starts on port 3000
+5. Caddy binds 80/443
 
-Erreichbar:
+Reachable:
 
 - Frontend: http://localhost:3000
-- API Health: http://localhost:3001/health
-- MinIO Console: http://localhost:9001
-- (via Caddy auf Port 80, einheitliches Routing)
+- API health: http://localhost:3001/health
+- MinIO console: http://localhost:9001
+- (via Caddy on port 80, unified routing)
 
-Logs ansehen:
+View logs:
 
 ```bash
 docker compose logs -f api
 docker compose logs -f worker
 ```
 
-Stoppen:
+Stop:
 
 ```bash
-docker compose down              # behält Volumes
-docker compose down -v           # löscht alles inkl. DB/Storage
+docker compose down              # keeps volumes
+docker compose down -v           # deletes everything incl. DB/storage
 ```
 
-## Production Deployment
+## Production deployment
 
-Der Default-`docker-compose.yml` setzt einen funktionierenden Stack auf — aber für ein echtes Deployment hinter einer öffentlichen Domain gibt's ein paar Stellschrauben, die bei der ersten Inbetriebnahme garantiert wehtun, wenn man sie nicht von Anfang an richtig setzt. Diese Checkliste fasst alles zusammen, was ein Self-Hoster vor dem ersten `docker compose up` wissen sollte.
+The default `docker-compose.yml` brings up a working stack — but for a real deployment behind a public domain there are a few knobs that are guaranteed to hurt at first bring-up if you don't set them correctly from the start. This checklist sums up everything a self-hoster should know before the first `docker compose up`.
 
-### Drei Topologien — welche passt zu dir?
+### Three topologies — which one fits you?
 
-**A) Lumio macht TLS selbst**
-- Eigene IP/VM, Lumio-Caddy bindet 80+443
-- Caddy holt automatisch Let's-Encrypt-Zertifikate
-- Einfachste Variante, wenn der Host exklusiv für Lumio ist
+**A) Lumio does TLS itself**
+- Own IP/VM, Lumio's Caddy binds 80+443
+- Caddy fetches Let's Encrypt certificates automatically
+- The simplest variant if the host is exclusively for Lumio
 
-**B) Hinter externem TLS-Proxy** (z.B. Caddy/Nginx/Traefik im selben Haushalt für mehrere Services)
-- Externer Proxy macht HTTPS-Termination
-- Lumio-Caddy lauscht intern auf HTTP, der externe Proxy reicht durch
-- Was wir hier in diesem Projekt nutzen
+**B) Behind an external TLS proxy** (e.g. Caddy/Nginx/Traefik in the same household for several services)
+- The external proxy does HTTPS termination
+- Lumio's Caddy listens internally on HTTP, the external proxy passes through
+- What we use here in this project
 
-**C) Lokales Setup / Tests**
-- Alles auf `localhost`, keine echten Hostnames
-- Default-`.env.example` ist darauf ausgerichtet
+**C) Local setup / tests**
+- Everything on `localhost`, no real hostnames
+- The default `.env.example` is geared toward this
 
-### DNS-Setup
+### DNS setup
 
-Lumio braucht **zwei** Hostnames:
+Lumio needs **two** hostnames:
 
-1. **App-Domain** (z.B. `galerien.example.com`) — Frontend + API
-2. **S3-Subdomain** (z.B. `s3.galerien.example.com`) — MinIO/Object-Storage
+1. **App domain** (e.g. `galleries.example.com`) — frontend + API
+2. **S3 subdomain** (e.g. `s3.galleries.example.com`) — MinIO/object storage
 
-Die S3-Subdomain ist nicht optional. Wir haben es probiert über einen Path-Präfix der Hauptdomain (`/s3/...`) laufen zu lassen, aber MinIO unterstützt das nicht — die V4-Signatur deckt den vollen Path ab, ein Reverse-Proxy-Rewrite produziert immer `SignatureDoesNotMatch`. Eine separate Subdomain ist der Standardweg, auch in MinIO's eigener Doku.
+The S3 subdomain is not optional. We tried running it via a path prefix of the main domain (`/s3/...`), but MinIO doesn't support that — the V4 signature covers the full path, a reverse-proxy rewrite always produces `SignatureDoesNotMatch`. A separate subdomain is the standard way, also in MinIO's own docs.
 
-Beide A-Records zeigen auf dieselbe IP.
+Both A records point to the same IP.
 
-### `.env` für jede Topologie
+### `.env` for each topology
 
-**A) Lumio macht TLS selbst:**
+**A) Lumio does TLS itself:**
 ```env
-LUMIO_HOST=galerien.example.com
-LUMIO_S3_HOST=s3.galerien.example.com
-PUBLIC_URL=https://galerien.example.com
-S3_PUBLIC_URL=https://s3.galerien.example.com
+LUMIO_HOST=galleries.example.com
+LUMIO_S3_HOST=s3.galleries.example.com
+PUBLIC_URL=https://galleries.example.com
+S3_PUBLIC_URL=https://s3.galleries.example.com
 CADDY_HTTP_PORT=80
 CADDY_HTTPS_PORT=443
 ```
 
-Wichtig: KEIN `http://`-Präfix bei `LUMIO_HOST`/`LUMIO_S3_HOST` — sonst denkt Caddy, du willst nur HTTP, und holt kein Zertifikat.
+Important: NO `http://` prefix on `LUMIO_HOST`/`LUMIO_S3_HOST` — otherwise Caddy thinks you only want HTTP and fetches no certificate.
 
-**B) Hinter externem TLS-Proxy:**
+**B) Behind an external TLS proxy:**
 ```env
-LUMIO_HOST=http://galerien.example.com
-LUMIO_S3_HOST=http://s3.galerien.example.com
-PUBLIC_URL=https://galerien.example.com
-S3_PUBLIC_URL=https://s3.galerien.example.com
+LUMIO_HOST=http://galleries.example.com
+LUMIO_S3_HOST=http://s3.galleries.example.com
+PUBLIC_URL=https://galleries.example.com
+S3_PUBLIC_URL=https://s3.galleries.example.com
 CADDY_HTTP_PORT=32080
 CADDY_HTTPS_PORT=32443
 FRONTEND_PORT=33030
@@ -116,85 +118,85 @@ MINIO_API_PORT=32091
 MINIO_CONSOLE_PORT=32092
 ```
 
-Hier MIT `http://`-Präfix — sonst versucht Lumios Caddy selbst Let's-Encrypt für die Hostnames und scheitert.
+Here WITH the `http://` prefix — otherwise Lumio's Caddy tries Let's Encrypt for the hostnames itself and fails.
 
-Im externen Proxy muss dann:
+In the external proxy you then need:
 
 ```caddyfile
-galerien.example.com {
+galleries.example.com {
     reverse_proxy <docker-host>:32080
 }
-s3.galerien.example.com {
+s3.galleries.example.com {
     reverse_proxy <docker-host>:32080
 }
 ```
 
-Wichtig: **Host-Header nicht überschreiben** im externen Proxy. Default-Verhalten bei Caddy/Nginx ist korrekt, aber falls jemand `proxy_set_header Host $proxy_host` oder Caddy's `header_up Host {upstream_hostport}` hineingeschrieben hat — raus damit. MinIO verifiziert die V4-Signatur über den Host-Header der Anfrage, der muss zu dem passen, mit dem die API die URL signiert hat (`S3_PUBLIC_URL`).
+Important: **don't overwrite the Host header** in the external proxy. The default behavior in Caddy/Nginx is correct, but if someone wrote `proxy_set_header Host $proxy_host` or Caddy's `header_up Host {upstream_hostport}` in there — remove it. MinIO verifies the V4 signature via the request's Host header, which must match the one the API signed the URL with (`S3_PUBLIC_URL`).
 
-**C) Lokales Setup:** die `.env.example`-Defaults passen, nichts ändern.
+**C) Local setup:** the `.env.example` defaults fit, change nothing.
 
-### Port-Konflikte vor dem Start prüfen
+### Check for port conflicts before the start
 
-Bevor du `docker compose up` startest, sicherheitshalber checken ob die Ports frei sind:
+Before you run `docker compose up`, check that the ports are free just in case:
 
 ```bash
 ss -tlnp | grep -E ':(32080|32443|33030|33031|32091|32092)\s'
 ```
 
-Keine Ausgabe = alle frei. Wichtig: `127.0.0.1:3000`-Mappings (Loopback-Bindung) **schützen nicht** vor Konflikten mit `0.0.0.0:3000`-Listenern — der Kernel reserviert den Port adressunabhängig.
+No output = all free. Important: `127.0.0.1:3000` mappings (loopback binding) do **not protect** against conflicts with `0.0.0.0:3000` listeners — the kernel reserves the port regardless of address.
 
-### Secrets generieren
+### Generate secrets
 
 ```bash
 openssl rand -base64 32   # JWT_SECRET
 openssl rand -base64 32   # SESSION_SECRET
 openssl rand -base64 24   # POSTGRES_PASSWORD
-openssl rand -base64 24   # S3_ACCESS_KEY (kürzer wirkt eher wie ein echter Access-Key)
+openssl rand -base64 24   # S3_ACCESS_KEY (shorter looks more like a real access key)
 openssl rand -base64 32   # S3_SECRET_KEY
 ```
 
-Die in die `.env` einsetzen.
+Put those into the `.env`.
 
 ### Bring-up
 
 ```bash
 docker compose up -d --build
-docker compose ps                    # alle "Up" / "healthy"?
-docker compose logs --tail=30 api    # "Lumio API ready" sichtbar?
+docker compose ps                    # all "Up" / "healthy"?
+docker compose logs --tail=30 api    # "Lumio API ready" visible?
 ```
 
-Falls Container hochkommen aber dann wieder restarten: jeweils `docker compose logs --tail=50 <service>` zeigt warum.
+If containers come up but then restart again: `docker compose logs --tail=50 <service>` shows why for each.
 
-### Admin-User anlegen
+### Create an admin user
 
 ```bash
 docker compose exec api npm run create-admin -- \
-    --email=du@example.com --password=langes_passwort --name="Dein Studio"
+    --email=you@example.com --password=long_password --name="Your Studio"
 ```
 
-Im Multi-Tenant-Mode zusätzlich `--tenant=<slug> --tenant-name="..."`.
+In multi-tenant mode additionally `--tenant=<slug> --tenant-name="..."`.
 
-### Smoke-Test
+### Smoke test
 
-Nach dem Start systematisch durchklicken, in dieser Reihenfolge:
+After the start, click through systematically, in this order:
 
-1. **Login** auf `https://galerien.example.com/login` → Studio
-2. **Branding anlegen** → ein Logo (PNG ~200 KB) hochladen → Logo wird im Editor angezeigt
-3. **Galerie anlegen** → Branding verknüpfen → Status auf `live`
-4. **Test-Bild hochladen** im Studio-Galerie-Detail → Status durchläuft `uploading → processing → ready`, Thumbnail erscheint
-5. **Optional: Test-Video** (~30 s, MP4 H.264) → derselbe Flow, Worker macht zusätzlich HLS-Transcoding
-6. **Share-Link kopieren** → in Inkognito-Tab öffnen → Bilder sind sichtbar
+1. **Login** at `https://galleries.example.com/login` → studio
+2. **Create branding** → upload a logo (PNG ~200 KB) → the logo shows in the editor
+3. **Create a gallery** → link the branding → status to `live`
+4. **Upload a test image** in the studio gallery detail → status runs through `uploading → processing → ready`, a thumbnail appears
+5. **Optional: test video** (~30 s, MP4 H.264) → the same flow, the worker additionally does HLS transcoding
+6. **Copy the share link** → open it in an incognito tab → the images are visible
 
-Wenn einer dieser Schritte schiefgeht, `docker compose logs --tail=80 api worker` zeigt die Ursache. Die häufigsten First-Deploy-Fehler stehen unten unter "Häufige Stolperfallen".
+If one of these steps goes wrong, `docker compose logs --tail=80 api worker` shows the cause. The most common first-deploy errors are below under "Common pitfalls".
 
 ### Backups
 
-Mindestens diese beiden Volumes sichern:
+Back up at least these two volumes:
 
-- `postgres_data` — Metadaten (User, Galerien, File-Records, Sessions)
-- `minio_data` — alle Bild-/Video-Dateien
+- `postgres_data` — metadata (users, galleries, file records, sessions)
+- `minio_data` — all image/video files
 
-Beispiel mit `restic` für ein Daily-Backup von beiden:
+Example with `restic` for a daily backup of both:
 
 ```bash
 docker run --rm \
@@ -204,62 +206,49 @@ docker run --rm \
     restic/restic backup /var/lib/postgresql/data /data
 ```
 
-(Anpassen an deinen Backup-Stack.)
+(Adapt to your backup stack.)
 
-### Hardware-Video-Encoding (optional)
+### Hardware video encoding (optional)
 
-HLS-Transkoding dominiert die Worker-Last bei großen Galerien. Per
-Default nutzt Lumio `libx264` (CPU) — portabel, läuft überall ohne
-Konfiguration. Wer eine GPU hat, kann den Worker auf Hardware-Encoding
-umstellen und je nach Quelle 5–10× schneller transkodieren.
+HLS transcoding dominates the worker load on large galleries. By default Lumio uses `libx264` (CPU) — portable, runs everywhere without configuration. If you have a GPU, you can switch the worker to hardware encoding and transcode 5–10× faster depending on the source.
 
-Steuerung über die Env-Variable `LUMIO_HW_ENCODER` im Worker-Container:
+Controlled via the env variable `LUMIO_HW_ENCODER` in the worker container:
 
-| Wert | Bedeutung |
+| Value | Meaning |
 |---|---|
-| `auto` (default) | Probiert NVENC → QSV → VAAPI, fällt auf Software zurück |
+| `auto` (default) | Tries NVENC → QSV → VAAPI, falls back to software |
 | `nvenc` | NVIDIA GPU (RTX/Quadro/etc.) |
 | `qsv` | Intel QuickSync |
-| `vaapi` | VA-API (Intel/AMD auf Linux) |
-| `software` | Erzwingt `libx264`, keine Hardware-Probes |
+| `vaapi` | VA-API (Intel/AMD on Linux) |
+| `software` | Forces `libx264`, no hardware probes |
 
-Bei `auto` wird der Worker beim ersten Video probieren, welche Encoder
-das ffmpeg-Binary überhaupt mitbringt (`ffmpeg -encoders`), und das
-Ergebnis cachen.
+With `auto` the worker will probe on the first video which encoders the ffmpeg binary actually ships (`ffmpeg -encoders`), and cache the result.
 
-**Container-seitige Voraussetzungen:**
+**Container-side prerequisites:**
 
-- **VAAPI** (am einfachsten — Intel-GPU oder AMD-GPU auf Linux-Host):
+- **VAAPI** (easiest — Intel GPU or AMD GPU on a Linux host):
   ```yaml
   worker:
     devices:
       - /dev/dri/renderD128:/dev/dri/renderD128
     group_add:
-      - "render"   # GID der render-Gruppe auf dem Host (cat /etc/group | grep render)
+      - "render"   # GID of the render group on the host (cat /etc/group | grep render)
     environment:
       LUMIO_HW_ENCODER: "vaapi"
   ```
-  Das Debian-ffmpeg-Paket im Standard-Worker-Image hat VAAPI bereits drin.
+  The Debian ffmpeg package in the standard worker image already has VAAPI in it.
 
-- **NVENC** (NVIDIA-GPU): NVIDIA Container Toolkit installiert + Worker
-  mit `--gpus all` starten. Das Standard-ffmpeg aus Debian-Repos hat
-  **kein** NVENC einkompiliert — du brauchst ein Image mit
-  `jellyfin/ffmpeg` oder selbst gebautes ffmpeg mit `--enable-nvenc`.
+- **NVENC** (NVIDIA GPU): NVIDIA Container Toolkit installed + start the worker with `--gpus all`. The standard ffmpeg from the Debian repos has **no** NVENC compiled in — you need an image with `jellyfin/ffmpeg` or a self-built ffmpeg with `--enable-nvenc`.
 
-- **QSV** (Intel): wie VAAPI, plus zusätzlich `intel-media-va-driver`.
+- **QSV** (Intel): like VAAPI, plus additionally `intel-media-va-driver`.
 
-Ohne diese Setup-Schritte funktioniert nur `software`; `auto` erkennt
-das und fällt entsprechend zurück, eine Warnung landet im Worker-Log
-(`encoder.requested_unavailable`).
+Without these setup steps only `software` works; `auto` detects that and falls back accordingly, a warning lands in the worker log (`encoder.requested_unavailable`).
 
-### Deployment aus der Container-Registry
+### Deployment from the container registry
 
-> **Hinweis:** Dieser Weg ist maintainer-intern (private Registry). Self-Hoster
-> und externe Mitwirkende bauen die Images aus dem Quellcode
-> (`docker compose up -d --build`) und brauchen keinen Registry-Zugang.
+> **Note:** this path is maintainer-internal (private registry). Self-hosters and external contributors build the images from source (`docker compose up -d --build`) and need no registry access.
 
-Die CI baut bei jedem Push auf `main` drei Container-Images und schiebt
-sie in die Forgejo Container Registry:
+The CI builds three container images on every push to `main` and pushes them to the Forgejo container registry:
 
 ```
 forgejo.thiel.tools/thiel/lumio-api:<tag>
@@ -267,18 +256,17 @@ forgejo.thiel.tools/thiel/lumio-frontend:<tag>
 forgejo.thiel.tools/thiel/lumio-worker:<tag>
 ```
 
-Tag-Schema:
+Tag scheme:
 
-- `:latest` und `:main` — der letzte erfolgreiche `main`-Build
-- `:v0.2.0` — Git-Tags (`v*`) werden 1:1 als Image-Tag übernommen
-- `:<short-sha>` — jeder Build bekommt zusätzlich seinen Commit-SHA als Tag, sodass man auf exakt eine Code-Version pinnen kann
+- `:latest` and `:main` — the last successful `main` build
+- `:v0.2.0` — Git tags (`v*`) are taken over 1:1 as the image tag
+- `:<short-sha>` — every build additionally gets its commit SHA as a tag, so you can pin to exactly one code version
 
-Auf dem Production-Host verwendet man die `docker-compose.prod.yml` als
-Override, das die `build:`-Blöcke durch `image:`-Verweise ersetzt:
+On the production host you use the `docker-compose.prod.yml` as an override, which replaces the `build:` blocks with `image:` references:
 
 ```bash
 cd /opt/docker/lumio/lumio
-git pull   # nur, um docker-compose.* aktuell zu halten
+git pull   # only to keep docker-compose.* up to date
 
 docker compose \
     -f docker-compose.yml \
@@ -291,7 +279,7 @@ docker compose \
     up -d
 ```
 
-Tag-Auswahl über die Env-Variable `LUMIO_TAG`:
+Tag selection via the env variable `LUMIO_TAG`:
 
 ```bash
 LUMIO_TAG=v0.2.0 docker compose \
@@ -300,56 +288,47 @@ LUMIO_TAG=v0.2.0 docker compose \
     up -d
 ```
 
-Wenn deine Forgejo-Registry private ist (Default für nicht-public Repos),
-brauchst du einen Pull-Login auf dem Server:
+If your Forgejo registry is private (the default for non-public repos), you need a pull login on the server:
 
 ```bash
 docker login forgejo.thiel.tools
-# Username: dein Forgejo-Name
-# Password: Forgejo Personal Access Token mit Scope `read:package`
+# Username: your Forgejo name
+# Password: Forgejo personal access token with scope `read:package`
 ```
 
-Der Login wird in `~/.docker/config.json` (bzw. `/root/.docker/config.json`
-beim Root-Compose) persistiert und reicht für alle nachfolgenden Pulls.
+The login is persisted in `~/.docker/config.json` (or `/root/.docker/config.json` for the root Compose) and is enough for all subsequent pulls.
 
-**Setup der CI:** Die Registry-Push-Workflow braucht zwei Secrets in
-Forgejo unter `Settings → Actions → Secrets`:
+**CI setup:** the registry push workflow needs two secrets in Forgejo under `Settings → Actions → Secrets`:
 
-| Name | Wert |
+| Name | Value |
 |---|---|
-| `REGISTRY_USER` | Dein Forgejo-Username |
-| `REGISTRY_TOKEN` | Personal Access Token mit Scope `write:package` |
+| `REGISTRY_USER` | Your Forgejo username |
+| `REGISTRY_TOKEN` | Personal access token with scope `write:package` |
 
-**Registry-Cleanup:** Forgejo hat eingebaute Cleanup-Rules unter
-`User-Settings → Packages → Cleanup Rules`. Sinnvolle Defaults für Lumio:
+**Registry cleanup:** Forgejo has built-in cleanup rules under `User settings → Packages → Cleanup Rules`. Sensible defaults for Lumio:
 
 - Match: `lumio-*`
 - Keep the most recent: `5`
-- Keep versions matching: `^(latest|main|v.*)$` (Branch- und Release-Tags
-  behalten)
+- Keep versions matching: `^(latest|main|v.*)$` (keep branch and release tags)
 - Remove versions older than: `30 days`
 
-Damit bleiben die letzten 5 SHA-Builds plus alle Release-Tags und der
-Branch-Pointer; ältere SHA-Tags werden automatisch entfernt.
+This keeps the last 5 SHA builds plus all release tags and the branch pointer; older SHA tags are removed automatically.
 
-### Outbound-Webhooks (Studio → externe Tools)
+### Outbound webhooks (studio → external tools)
 
-Pro Tenant lassen sich HTTPS-Endpoints hinterlegen, die bei bestimmten
-Ereignissen mit signiertem POST aufgerufen werden. Konfiguration im
-Studio unter `/studio/webhooks`. Aktuelle Event-Whitelist (kommt aus
-`apps/api/src/services/webhooks.ts`):
+Per tenant you can configure HTTPS endpoints that are called with a signed POST on certain events. Configuration in the studio under `/studio/webhooks`. The current event whitelist (comes from `apps/api/src/services/webhooks.ts`):
 
-| Event | Wann |
+| Event | When |
 |---|---|
-| `gallery.created` | Neue Galerie angelegt |
-| `gallery.live` | Galerie-Status wechselt zu `live` |
-| `gallery.deleted` | Galerie endgültig gelöscht |
-| `selection.finalized` | Kunde hat seine Auswahl finalisiert |
-| `comment.posted` | Kommentar auf einem File |
-| `file.uploaded` / `file.failed` | reserviert, derzeit nicht gefeuert |
+| `gallery.created` | A new gallery created |
+| `gallery.live` | Gallery status changes to `live` |
+| `gallery.deleted` | Gallery permanently deleted |
+| `selection.finalized` | The customer finalized their selection |
+| `comment.posted` | A comment on a file |
+| `file.uploaded` / `file.failed` | reserved, not currently fired |
 
-**Request-Format:** JSON-Body
-`{ "event": "<typ>", "timestamp": "<iso>", "data": { ... } }`
+**Request format:** JSON body
+`{ "event": "<type>", "timestamp": "<iso>", "data": { ... } }`
 Headers:
 
 ```
@@ -360,9 +339,7 @@ X-Lumio-Signature: sha256=<hex>
 User-Agent:        Lumio-Webhook/1.0
 ```
 
-**Signatur:** HMAC-SHA256 über `<timestamp>.<body>` mit dem
-Webhook-Secret. Identisches Schema zu GitHub/Stripe. Beispiel-
-Verifikation auf Empfänger-Seite:
+**Signature:** HMAC-SHA256 over `<timestamp>.<body>` with the webhook secret. Identical scheme to GitHub/Stripe. Example verification on the receiver side:
 
 **Node/Express:**
 
@@ -381,7 +358,7 @@ app.post("/lumio-hook",
     if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {
       return res.status(401).end();
     }
-    // Replay-Schutz: timestamp prüfen (z.B. max 5 min alt)
+    // Replay protection: check the timestamp (e.g. max 5 min old)
     const age = Math.abs(Date.now() / 1000 - Number(ts));
     if (age > 300) return res.status(401).end();
 
@@ -416,47 +393,32 @@ def hook():
     return "", 204
 ```
 
-**Retry-Verhalten:** Bei 2xx ist die Auslieferung abgeschlossen. Bei
-4xx (außer 408/429) gibt der Worker direkt auf — der Empfänger hat
-signalisiert, dass die Anfrage so nicht passt. Bei 5xx, Timeout
-oder Netzwerk-Fehler retry'd der Worker mit Exponential-Backoff
-(5s, 25s, 2min, 10min, 1h, danach final dead). Empfänger müssen
-also nicht 100 %-uptime liefern, aber die Behandlung sollte
-idempotent sein — derselbe Event kann mehrfach ankommen, wenn der
-erste Versuch ein 5xx war und der Retry trotzdem durchkam.
+**Retry behavior:** on 2xx the delivery is complete. On 4xx (except 408/429) the worker gives up directly — the receiver signaled that the request isn't right as is. On 5xx, a timeout or a network error, the worker retries with exponential backoff (5s, 25s, 2min, 10min, 1h, then finally dead). Receivers therefore don't have to deliver 100% uptime, but the handling should be idempotent — the same event can arrive multiple times if the first attempt was a 5xx and the retry still got through.
 
-**Audit:** im Studio unter `/studio/webhooks` → Webhook auswählen →
-"Letzte Auslieferungen" listet die letzten 50 Versuche mit
-HTTP-Status und Fehlertext. Erfolgreich = grün, dead = rot,
-pending = gelb. Per `POST /webhooks/:id/test` (im UI als
-"Testen"-Button) lässt sich ein `test.ping`-Event sofort senden,
-um die Empfänger-Verifikation zu prüfen, ohne auf einen echten
-Trigger warten zu müssen.
+**Audit:** in the studio under `/studio/webhooks` → select a webhook → "Last deliveries" lists the last 50 attempts with HTTP status and error text. Successful = green, dead = red, pending = yellow. Via `POST /webhooks/:id/test` (the "Test" button in the UI) you can send a `test.ping` event immediately to check the receiver verification, without having to wait for a real trigger.
 
-**Secret-Lifecycle:** Beim Anlegen wird einmalig generiert und im
-Create-Response zurückgegeben. Spätere GETs liefern das Secret
-nicht mehr. Bei Verlust: Webhook löschen, neu anlegen.
+**Secret lifecycle:** on creation it's generated once and returned in the create response. Later GETs no longer return the secret. If lost: delete the webhook, create a new one.
 
-## Hybrid: Infra in Docker, Apps lokal
+## Hybrid: infra in Docker, apps local
 
-Für schnellen Hot-Reload:
+For fast hot reload:
 
 ```bash
-# 1. Nur Infrastruktur in Docker
+# 1. Only the infrastructure in Docker
 docker compose up -d postgres redis minio minio_init
 
-# 2. API lokal
+# 2. API locally
 cd apps/api
 npm install
 npx prisma migrate deploy
-npm run dev          # Port 3001, watch mode
+npm run dev          # port 3001, watch mode
 
-# 3. Frontend lokal
+# 3. Frontend locally
 cd apps/frontend
 npm install
-npm run dev          # Port 3000, fast refresh
+npm run dev          # port 3000, fast refresh
 
-# 4. Worker lokal (in venv)
+# 4. Worker locally (in a venv)
 cd apps/worker
 python -m venv .venv
 source .venv/bin/activate
@@ -464,32 +426,32 @@ pip install -r requirements.txt
 celery -A app worker -l info -c 2
 ```
 
-`.env` wird in allen drei Apps gelesen (dotenv). Für lokales Setup `DATABASE_URL` so anpassen, dass `localhost:5432` statt `postgres:5432` steht — dazu in der Compose-Datei den Postgres-Port freigeben (siehe Kommentar in `docker-compose.yml`).
+`.env` is read in all three apps (dotenv). For a local setup adjust `DATABASE_URL` so it reads `localhost:5432` instead of `postgres:5432` — for that, expose the Postgres port in the Compose file (see the comment in `docker-compose.yml`).
 
-## Admin-User anlegen (Dev)
+## Create an admin user (dev)
 
-Im Development-Setup (Apps lokal, keine Production-Domain):
+In the development setup (apps local, no production domain):
 
 ```bash
-# Über Docker
-docker compose exec api npm run create-admin -- --email=du@example.com --password=geheim --name="Dein Studio"
+# Via Docker
+docker compose exec api npm run create-admin -- --email=you@example.com --password=secret --name="Your Studio"
 
-# Lokal (vom Source, ohne Build)
-cd apps/api && npm run create-admin:dev -- --email=du@example.com --password=geheim
+# Locally (from source, without a build)
+cd apps/api && npm run create-admin:dev -- --email=you@example.com --password=secret
 ```
 
-Im Production-Container nutze stattdessen `create-admin` (ohne `:dev`-Suffix), siehe die "Production Deployment"-Section weiter oben.
+In the production container use `create-admin` instead (without the `:dev` suffix), see the "Production deployment" section further up.
 
-## Datenbank-Migrationen
+## Database migrations
 
-Wir nutzen Prisma:
+We use Prisma:
 
 ```bash
-# Schema ändern in apps/api/prisma/schema.prisma, dann:
+# Change the schema in apps/api/prisma/schema.prisma, then:
 cd apps/api
-npx prisma migrate dev --name beschreibung_der_aenderung
+npx prisma migrate dev --name description_of_the_change
 
-# Im Container ausrollen:
+# Roll out in the container:
 docker compose exec api npx prisma migrate deploy
 ```
 
@@ -497,97 +459,97 @@ docker compose exec api npx prisma migrate deploy
 
 ```bash
 cd apps/api && npm test         # Vitest
-cd apps/frontend && npm test    # noch nicht eingerichtet
-cd apps/worker && pytest        # noch nicht eingerichtet
+cd apps/frontend && npm test    # not set up yet
+cd apps/worker && pytest        # not set up yet
 ```
 
-## Code Style
+## Code style
 
-- **TypeScript** strict mode, kein `any`
-- **Python** PEP 8 + type hints, `ruff` als Linter (kommt noch)
-- **Commits** nach Conventional Commits: `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`
-- **PRs** beschreiben das Was und Warum, nicht das Wie (das steht im Code)
+- **TypeScript** strict mode, no `any`
+- **Python** PEP 8 + type hints, `ruff` as the linter (still coming)
+- **Commits** per Conventional Commits: `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`
+- **PRs** describe the what and why, not the how (that's in the code)
 
-## Häufige Stolperfallen
+## Common pitfalls
 
-### Allgemein
+### General
 
-- **`pyvips` braucht libvips42 im System.** Im Docker-Image ist es da; lokal `apt install libvips42` (Linux) oder `brew install vips` (macOS).
-- **`rawpy` braucht libraw.** Im Docker-Image: `libraw-bin`. Lokal: `apt install libraw-dev` und neu installieren.
-- **MinIO mit `S3_FORCE_PATH_STYLE=true`** — AWS S3 selbst will `false`.
-- **CORS bei lokalem Frontend ohne Caddy:** API muss `PUBLIC_URL=http://localhost:3000` kennen und CORS entsprechend setzen. MinIO erlaubt Browser-Uploads via `MINIO_API_CORS_ALLOW_ORIGIN=*` (in `docker-compose.yml` schon gesetzt).
-- **Prisma generate vergessen:** nach Schema-Änderung `npx prisma generate` ausführen, sonst sind die Types veraltet.
-- **Multipart-Upload braucht ETag-Header.** S3/MinIO müssen den `ETag`-Response-Header bei `UploadPart`-Requests **exposen** (CORS `ExposeHeaders`). MinIO macht das mit `MINIO_API_CORS_ALLOW_ORIGIN=*` automatisch; bei AWS S3 muss die Bucket-CORS explizit `<ExposeHeader>ETag</ExposeHeader>` setzen.
+- **`pyvips` needs libvips42 on the system.** In the Docker image it's there; locally `apt install libvips42` (Linux) or `brew install vips` (macOS).
+- **`rawpy` needs libraw.** In the Docker image: `libraw-bin`. Locally: `apt install libraw-dev` and reinstall.
+- **MinIO with `S3_FORCE_PATH_STYLE=true`** — AWS S3 itself wants `false`.
+- **CORS with a local frontend without Caddy:** the API has to know `PUBLIC_URL=http://localhost:3000` and set CORS accordingly. MinIO allows browser uploads via `MINIO_API_CORS_ALLOW_ORIGIN=*` (already set in `docker-compose.yml`).
+- **Forgot prisma generate:** after a schema change run `npx prisma generate`, otherwise the types are stale.
+- **Multipart upload needs the ETag header.** S3/MinIO must **expose** the `ETag` response header on `UploadPart` requests (CORS `ExposeHeaders`). MinIO does that automatically with `MINIO_API_CORS_ALLOW_ORIGIN=*`; with AWS S3 the bucket CORS must explicitly set `<ExposeHeader>ETag</ExposeHeader>`.
 
 ### Deployment
 
-Stolperfallen, die typischerweise beim ERSTEN echten Deploy zuschlagen:
+Pitfalls that typically strike on the FIRST real deploy:
 
-- **`ambiguous site definition: :80`** in Caddy-Log → beide `LUMIO_HOST` und `LUMIO_S3_HOST` evaluieren zur gleichen Adresse. Lösung: echte Hostnames verwenden, dann macht Caddy Host-basiertes Routing am selben Port.
-- **`Bind for 0.0.0.0:3000 failed: port is already allocated`** trotz `127.0.0.1:`-Bindung → ein anderer Service auf dem Host hört schon auf `0.0.0.0:3000`. Loopback und 0.0.0.0 teilen sich dieselbe Port-Reservierung im Kernel. Lösung: einen freien Port in der `.env` wählen (`FRONTEND_PORT=33030` o.ä.).
-- **Browser-Upload schlägt fehl mit "DNS error: minio"** → `S3_PUBLIC_URL` ist nicht gesetzt oder zeigt auf den internen Container-Hostname. Setze es auf die öffentliche S3-Subdomain (`https://s3.galerien.example.com`).
-- **Browser-Upload bekommt 403 `SignatureDoesNotMatch`** → ein Proxy zwischen Browser und MinIO ändert den Host-Header. MinIO verifiziert V4 über den Host. Lösung: `header_up Host {host}` in Lumio's Caddy, und im externen Proxy den Host-Header **unverändert** durchreichen (Default bei Caddy, bei Nginx `proxy_set_header Host $host;`).
-- **Studio Branding-Logo zeigt 404 in Console** → API wurde nicht neu gebaut nach dem `serializeBranding`-Fix. `docker compose up -d --build api`.
-- **API restartet endlos mit `Could not parse schema engine response`** → Prisma findet libssl im Alpine-Image nicht. Sollte mit dem Default-`Dockerfile` nicht passieren (wir installieren `openssl3` und setzen `binaryTargets`), aber falls doch: prüfe ob das aktuelle Image gebaut wurde.
-- **Worker restartet endlos mit `wait: Illegal option -n`** → `entrypoint.sh` läuft im falschen Shell. Shebang ist `#!/bin/bash`, das sollte mit dem Default-Image passen.
-- **`create-admin` meldet `tsx: not found`** → das Production-Image bringt nur `node` + kompiliertes JS mit. `npm run create-admin` ruft jetzt `node dist/scripts/create-admin.js` auf; im Dev-Mode `npm run create-admin:dev`.
-- **Galerie zeigt im Studio Files mit Thumbnails, aber Customer-Seite ist leer** → die Files stehen wahrscheinlich auf `status='failed'`. Customer-Seite blendet `failed` aus, Studio zeigt alles. Im API/Worker-Log nachschauen, was schiefging. Files löschen und neu hochladen — `failed` retryt nicht automatisch.
+- **`ambiguous site definition: :80`** in the Caddy log → both `LUMIO_HOST` and `LUMIO_S3_HOST` evaluate to the same address. Fix: use real hostnames, then Caddy does host-based routing on the same port.
+- **`Bind for 0.0.0.0:3000 failed: port is already allocated`** despite a `127.0.0.1:` binding → another service on the host is already listening on `0.0.0.0:3000`. Loopback and 0.0.0.0 share the same port reservation in the kernel. Fix: pick a free port in the `.env` (`FRONTEND_PORT=33030` or similar).
+- **Browser upload fails with "DNS error: minio"** → `S3_PUBLIC_URL` isn't set or points to the internal container hostname. Set it to the public S3 subdomain (`https://s3.galleries.example.com`).
+- **Browser upload gets a 403 `SignatureDoesNotMatch`** → a proxy between the browser and MinIO changes the Host header. MinIO verifies V4 via the Host. Fix: `header_up Host {host}` in Lumio's Caddy, and in the external proxy pass the Host header through **unchanged** (the default in Caddy, in Nginx `proxy_set_header Host $host;`).
+- **The studio branding logo shows a 404 in the console** → the API wasn't rebuilt after the `serializeBranding` fix. `docker compose up -d --build api`.
+- **The API restarts endlessly with `Could not parse schema engine response`** → Prisma doesn't find libssl in the Alpine image. Shouldn't happen with the default `Dockerfile` (we install `openssl3` and set `binaryTargets`), but if it does: check whether the current image was built.
+- **The worker restarts endlessly with `wait: Illegal option -n`** → `entrypoint.sh` runs in the wrong shell. The shebang is `#!/bin/bash`, that should fit with the default image.
+- **`create-admin` reports `tsx: not found`** → the production image ships only `node` + compiled JS. `npm run create-admin` now calls `node dist/scripts/create-admin.js`; in dev mode `npm run create-admin:dev`.
+- **The gallery shows files with thumbnails in the studio, but the customer page is empty** → the files are probably on `status='failed'`. The customer page hides `failed`, the studio shows everything. Check the API/worker log for what went wrong. Delete the files and re-upload — `failed` doesn't retry automatically.
 
-## Upload-Pipeline (Datenfluss)
+## Upload pipeline (data flow)
 
-So fließt eine Datei beim Upload durch das System:
+This is how a file flows through the system on upload:
 
 ```
 Browser (uploadFiles)
    │
-   │ 1) POST /api/v1/uploads/init  (Filenames + Größen)
+   │ 1) POST /api/v1/uploads/init  (filenames + sizes)
    ▼
 API
-   │ 1a) Gallery-Ownership prüfen, Größenlimit checken
-   │ 1b) Pro File: file-Record (status=uploading) + Storage-Key generieren
-   │ 1c) Presigned PUT-URLs (single oder multipart parts) zurückgeben
+   │ 1a) Check gallery ownership, check the size limit
+   │ 1b) Per file: file record (status=uploading) + generate a storage key
+   │ 1c) Return presigned PUT URLs (single or multipart parts)
    ▼
 Browser
-   │ 2) PUT direkt zu S3/MinIO mit Progress
-   │ 3) POST /api/v1/uploads/complete  (mit ETag-Liste bei multipart)
+   │ 2) PUT directly to S3/MinIO with progress
+   │ 3) POST /api/v1/uploads/complete  (with the ETag list for multipart)
    ▼
 API
-   │ 3a) Multipart-Complete bei S3 (falls multipart)
+   │ 3a) Multipart complete at S3 (if multipart)
    │ 3b) files.status = "processing"
-   │ 3c) Job in Redis-Stream "lumio:jobs:file_processing" pushen
+   │ 3c) Push a job into the Redis stream "lumio:jobs:file_processing"
    ▼
-Worker (Stream-Consumer)
-   │ 4) xreadgroup → empfängt Job
+Worker (stream consumer)
+   │ 4) xreadgroup → receives the job
    │ 5) Celery send_task → process_file.generate_renditions
    ▼
-Celery Worker
-   │ 6) S3 → /tmp/source laden
+Celery worker
+   │ 6) Load S3 → /tmp/source
    │ 7) pyvips: autorotate → resize → WebP (thumb/preview/web)
-   │ 8) Renditions nach S3 hochladen, DB-Records anlegen
+   │ 8) Upload renditions to S3, create DB records
    │ 9) files.status = "ready"
    ▼
-Frontend pollt /api/v1/galleries/:id alle 2s
-   → sobald ready, Thumb-URL im Grid sichtbar
+The frontend polls /api/v1/galleries/:id every 2s
+   → once ready, the thumb URL is visible in the grid
 ```
 
-In Phase 2 ersetzen wir das Polling durch WebSocket-Push.
+In phase 2 we replace the polling with WebSocket push.
 
-## Architektur-Entscheidungen (ADRs)
+## Architecture decisions (ADRs)
 
-Größere Architektur-Entscheidungen werden in `docs/adr/` als kurze Records dokumentiert. Format:
+Larger architecture decisions are documented in `docs/adr/` as short records. Format:
 
 ```
-# ADR-NNNN: Titel
+# ADR-NNNN: Title
 
 ## Status
 accepted / proposed / superseded
 
 ## Context
-Warum stand die Entscheidung an?
+Why was the decision due?
 
 ## Decision
-Was wurde entschieden?
+What was decided?
 
 ## Consequences
-Was bedeutet das positiv/negativ?
+What does that mean positively/negatively?
 ```
