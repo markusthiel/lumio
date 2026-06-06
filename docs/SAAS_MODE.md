@@ -1,100 +1,102 @@
-# SaaS-Mode
+**English** · [Deutsch](SAAS_MODE.de.md)
 
-Lumio kann nicht nur als Single-Studio-Tool, sondern auch als komplette SaaS-Plattform laufen: mehrere Tenants, Stripe-Abrechnung, Trials, Self-Signup. Dieser Guide beschreibt das Setup.
+# SaaS mode
 
-**Voraussetzung:** [Production-Setup](SELFHOSTING.md) ist erfolgreich abgeschlossen, Lumio läuft hinter eigener Domain mit HTTPS.
+Lumio can run not only as a single-studio tool but also as a complete SaaS platform: multiple tenants, Stripe billing, trials, self-signup. This guide describes the setup.
+
+**Prerequisite:** the [production setup](SELFHOSTING.md) is successfully completed, Lumio runs behind your own domain with HTTPS.
 
 ---
 
-## Konzept
+## Concept
 
-Im SaaS-Mode:
+In SaaS mode:
 
-- **DEPLOYMENT_MODE=multi** – ein Lumio-Stack, viele Tenants
-- Jeder Tenant ist ein eigenständiges Studio mit eigenen Galerien, Usern, Branding
-- Trial-Period beim Sign-Up (14 Tage Vollzugriff)
-- Stripe macht Subscription-Management und Payment
-- Super-Admin verwaltet die ganze Plattform über `/super`
+- **DEPLOYMENT_MODE=multi** – one Lumio stack, many tenants
+- Each tenant is a standalone studio with its own galleries, users, branding
+- Trial period on sign-up (14 days full access)
+- Stripe handles subscription management and payment
+- The super admin manages the whole platform via `/super`
 
-Pläne (Stand: aktuelle Definitionen in `apps/api/src/services/plans.ts`):
+Plans (current definitions in `apps/api/src/services/plans.ts`):
 
-| Plan | Storage | Preis/Monat | Preis/Jahr |
+| Plan | Storage | Price/month | Price/year |
 |---|---|---|---|
-| Trial | 50 GB | 0 € (14 Tage) | – |
-| Solo | 50 GB | 19 € | 190 € (2 Monate gratis) |
-| Studio | 250 GB | 39 € | 390 € |
-| Pro | 1 TB | (siehe plans.ts) | (siehe plans.ts) |
+| Trial | 50 GB | €0 (14 days) | – |
+| Solo | 50 GB | €19 | €190 (2 months free) |
+| Studio | 250 GB | €39 | €390 |
+| Pro | 1 TB | (see plans.ts) | (see plans.ts) |
 
-Plus optionaler **Storage Pack** als Add-On für jeden Plan.
+Plus an optional **storage pack** as an add-on for every plan.
 
 ---
 
 ## Setup
 
-### 1. Multi-Mode aktivieren
+### 1. Enable multi mode
 
-In der `.env`:
+In `.env`:
 
 ```bash
 DEPLOYMENT_MODE=multi
-LUMIO_HOST=studio.deine-saas-domain.de       # Login-Domain für alle Tenants
+LUMIO_HOST=studio.your-saas-domain.com       # login domain for all tenants
 BILLING_ENABLED=true
 ```
 
-Dann:
+Then:
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build api worker
 ```
 
-### 2. Stripe-Account vorbereiten
+### 2. Prepare the Stripe account
 
-- Stripe-Account anlegen (oder bestehenden nutzen)
-- **Test-Modus** verwenden bis alles läuft – API-Keys oben im Dashboard zwischen Test/Live togglen
-- Secret-Key kopieren: Developers → API Keys → Secret key (`sk_test_...` für Test, `sk_live_...` für Production)
+- Create a Stripe account (or use an existing one)
+- Use **test mode** until everything works – toggle the API keys at the top of the dashboard between test/live
+- Copy the secret key: Developers → API Keys → Secret key (`sk_test_...` for test, `sk_live_...` for production)
 
 ### 3. Stripe in `.env`
 
 ```bash
 STRIPE_SECRET_KEY=sk_test_...
 STRIPE_PUBLISHABLE_KEY=pk_test_...
-STRIPE_WEBHOOK_SECRET=                # bleibt erstmal leer, kommt in Schritt 5
+STRIPE_WEBHOOK_SECRET=                # stays empty for now, comes in step 5
 BILLING_CURRENCY=EUR
 ```
 
-API neu starten:
+Restart the API:
 
 ```bash
 docker compose restart api
 ```
 
-### 4. Pläne in Stripe anlegen
+### 4. Create the plans in Stripe
 
-Lumio liefert ein Bootstrap-Script, das alle Products und Prices in Stripe anlegt und die IDs in die Lumio-DB schreibt:
+Lumio ships a bootstrap script that creates all products and prices in Stripe and writes the IDs into the Lumio DB:
 
 ```bash
 docker compose exec api npm run stripe-bootstrap
 ```
 
-Output sollte sein:
+Output should be:
 ```
 [stripe-bootstrap] ✓ Product 'Lumio Solo' synced
 [stripe-bootstrap] ✓ Price 'plan_solo_monthly' created (price_xxx)
 [stripe-bootstrap] ✓ Price 'plan_solo_yearly' created (price_xxx)
-... (für Studio, Pro, Storage Pack)
+... (for Studio, Pro, storage pack)
 ```
 
-Im Stripe Dashboard → Products solltest du jetzt drei Lumio-Produkte sehen.
+In the Stripe Dashboard → Products you should now see three Lumio products.
 
-Das Script ist **idempotent** – mehrfaches Ausführen ist sicher und aktualisiert nur was sich geändert hat.
+The script is **idempotent** – running it multiple times is safe and only updates what has changed.
 
-### 5. Webhook einrichten
+### 5. Set up the webhook
 
-Stripe muss Lumio informieren wenn ein Payment durchläuft oder eine Subscription gekündigt wird.
+Stripe must inform Lumio when a payment goes through or a subscription is cancelled.
 
-Im Stripe Dashboard → Developers → Webhooks → Add endpoint:
+In the Stripe Dashboard → Developers → Webhooks → Add endpoint:
 
-- **Endpoint URL:** `https://studio.deine-saas-domain.de/api/billing/webhook`
+- **Endpoint URL:** `https://studio.your-saas-domain.com/api/billing/webhook`
 - **Events:**
   - `customer.subscription.created`
   - `customer.subscription.updated`
@@ -104,109 +106,109 @@ Im Stripe Dashboard → Developers → Webhooks → Add endpoint:
   - `invoice.payment_failed`
   - `checkout.session.completed`
 
-Nach dem Anlegen "Signing secret" kopieren (`whsec_...`) → in `.env`:
+After creating it, copy the "Signing secret" (`whsec_...`) → into `.env`:
 
 ```bash
 STRIPE_WEBHOOK_SECRET=whsec_...
 ```
 
-API neu starten:
+Restart the API:
 
 ```bash
 docker compose restart api
 ```
 
-Test: im Webhook-Detail in Stripe auf "Send test webhook" → in den API-Logs sollte das Event auftauchen.
+Test: in the webhook detail in Stripe click "Send test webhook" → the event should appear in the API logs.
 
-### 6. Super-Admin anlegen
+### 6. Create a super admin
 
 ```bash
 docker compose exec api npm run create-super-admin -- \
-  --email=ops@deine-saas-domain.de \
-  --password=mindestens12zeichen \
+  --email=ops@your-saas-domain.com \
+  --password=atleast12chars \
   --name="Ops"
 ```
 
-Passwort: mindestens 12 Zeichen.
+Password: at least 12 characters.
 
-### 7. Sign-Up testen
+### 7. Test sign-up
 
-Auf der Marketing-Site (falls deployed) den Sign-Up-Flow durchlaufen. Oder direkt:
+On the marketing site (if deployed) go through the sign-up flow. Or directly:
 
-→ `https://studio.deine-saas-domain.de/signup`
+→ `https://studio.your-saas-domain.com/signup`
 
-Trial sollte sofort starten, kein Stripe-Payment beim Trial-Start nötig.
+The trial should start immediately, no Stripe payment needed at trial start.
 
-Super-Admin-Bereich:
+Super admin area:
 
-→ `https://studio.deine-saas-domain.de/super`
+→ `https://studio.your-saas-domain.com/super`
 
-Hier siehst du alle Tenants, Subscriptions, MRR.
-
----
-
-## Live-Switch
-
-Wenn Test-Mode-Setup stabil läuft:
-
-1. In Stripe oben links auf "View test data" toggeln (zurück zu Live)
-2. Live-Secret und Publishable-Key kopieren
-3. In `.env` `sk_test_...` → `sk_live_...` und `pk_test_...` → `pk_live_...`
-4. **Webhook neu anlegen** im Live-Modus (Live + Test haben getrennte Webhooks)
-5. `STRIPE_WEBHOOK_SECRET` mit dem neuen Signing-Secret aktualisieren
-6. **`stripe-bootstrap` nochmal laufen lassen** – legt Products in Live-Stripe an (Test-Products bleiben im Test-Mode)
-7. API neu starten
+Here you see all tenants, subscriptions, MRR.
 
 ---
 
-## Tenant-Routing
+## Going live
 
-Im Multi-Mode kommt eine wichtige Frage: woher weiß Lumio, welcher Request zu welchem Tenant gehört?
+Once the test-mode setup runs stably:
 
-Die Auflösung passiert in der API in dieser Reihenfolge:
-
-1. **Eingeloggter User** – Session-Cookie verweist auf Tenant
-2. **`X-Lumio-Tenant`-Header** – für Mobile-App und API-Clients
-3. **Custom-Domain** – `kunden-fotos.de` matched gegen `tenants.customDomain`
-4. **Subdomain** – `studio-mueller.deine-domain.de` (braucht Wildcard-Cert, siehe [WILDCARD.md](WILDCARD.md))
-
-**Empfehlung für den Start:** alle Tenants login per `studio.deine-saas-domain.de`. Die Tenant-Auflösung läuft dann über den eingeloggten User. Custom-Domains und Subdomains kannst du später aktivieren – siehe MULTI_TENANT.md.
-
----
-
-## Trial- und Subscription-Lifecycle
-
-- **Sign-Up** → Tenant + User wird angelegt, Trial startet (14 Tage), keine Zahlung
-- **Trial läuft ab** → User bekommt UI-Banner, Webhook `trial_will_end` (3 Tage vorher) löst E-Mail aus
-- **Plan-Wahl** → Stripe Checkout, anschließend `checkout.session.completed`-Webhook setzt Plan
-- **Payment fehlgeschlagen** → `invoice.payment_failed` → Tenant geht in `past_due`, nach Stripe-Retry-Logik in `suspended`
-- **Suspended** → Tenant-Login funktioniert noch (zum Plan-Update), aber Galerien sind read-only
-- **Cancel** → Tenant wird in `tenants.archived` markiert, nicht sofort gelöscht. Hard-Delete läuft als Sweeper nach Karenzfrist.
-
-Konkrete Implementierung in `apps/api/src/services/billing.ts` und `apps/api/src/routes/billing.ts`.
+1. In Stripe toggle "View test data" at the top left (back to live)
+2. Copy the live secret and publishable key
+3. In `.env` change `sk_test_...` → `sk_live_...` and `pk_test_...` → `pk_live_...`
+4. **Create the webhook again** in live mode (live + test have separate webhooks)
+5. Update `STRIPE_WEBHOOK_SECRET` with the new signing secret
+6. **Run `stripe-bootstrap` again** – creates the products in live Stripe (test products stay in test mode)
+7. Restart the API
 
 ---
 
-## E-Mail-Versand einrichten
+## Tenant routing
 
-Für Trial-Reminder, Payment-Failed-Notifications, Galerie-Einladungen usw. brauchst du SMTP:
+In multi mode an important question arises: how does Lumio know which request belongs to which tenant?
+
+Resolution happens in the API in this order:
+
+1. **Logged-in user** – the session cookie points to the tenant
+2. **`X-Lumio-Tenant` header** – for the mobile app and API clients
+3. **Custom domain** – `client-photos.com` matched against `tenants.customDomain`
+4. **Subdomain** – `studio-mueller.your-domain.com` (needs a wildcard cert, see [WILDCARD.md](WILDCARD.md))
+
+**Recommendation for the start:** all tenants log in via `studio.your-saas-domain.com`. Tenant resolution then runs via the logged-in user. You can enable custom domains and subdomains later – see [MULTI_TENANT.md](MULTI_TENANT.md).
+
+---
+
+## Trial and subscription lifecycle
+
+- **Sign-up** → tenant + user is created, the trial starts (14 days), no payment
+- **Trial expires** → the user gets a UI banner, the `trial_will_end` webhook (3 days prior) triggers an email
+- **Plan choice** → Stripe Checkout, afterwards the `checkout.session.completed` webhook sets the plan
+- **Payment failed** → `invoice.payment_failed` → the tenant goes into `past_due`, after Stripe's retry logic into `suspended`
+- **Suspended** → tenant login still works (to update the plan), but galleries are read-only
+- **Cancel** → the tenant is marked in `tenants.archived`, not deleted immediately. The hard delete runs as a sweeper after a grace period.
+
+Concrete implementation in `apps/api/src/services/billing.ts` and `apps/api/src/routes/billing.ts`.
+
+---
+
+## Setting up email sending
+
+For trial reminders, payment-failed notifications, gallery invitations, etc. you need SMTP:
 
 ```bash
-SMTP_HOST=smtp.deine-mail.de
+SMTP_HOST=smtp.your-mail.com
 SMTP_PORT=587
-SMTP_SECURE=false                    # STARTTLS, true für SMTPS auf Port 465
-SMTP_USER=noreply@deine-saas-domain.de
+SMTP_SECURE=false                    # STARTTLS, true for SMTPS on port 465
+SMTP_USER=noreply@your-saas-domain.com
 SMTP_PASSWORD=...
-SMTP_FROM="Lumio <noreply@deine-saas-domain.de>"
-LEAD_ADMIN_EMAIL=ops@deine-saas-domain.de
+SMTP_FROM="Lumio <noreply@your-saas-domain.com>"
+LEAD_ADMIN_EMAIL=ops@your-saas-domain.com
 ```
 
-Wenn `SMTP_HOST` leer bleibt, läuft alles im No-Op-Modus – Trial-Mails werden nicht versendet, der Rest funktioniert normal.
+If `SMTP_HOST` stays empty, everything runs in no-op mode – trial emails aren't sent, the rest works normally.
 
-Empfohlene Provider: **Postmark** (transactional, hohe Deliverability), **Mailjet** (DE-Server, DSGVO), **SES** (günstig, AWS-Bindung).
+Recommended providers: **Postmark** (transactional, high deliverability), **Mailjet** (EU servers, GDPR), **SES** (cheap, AWS-bound).
 
 ---
 
-## Häufige Fehler
+## Common errors
 
-→ siehe [TROUBLESHOOTING.md – SaaS-Mode-Probleme](TROUBLESHOOTING.md#saas-mode-probleme)
+→ see [TROUBLESHOOTING.md – SaaS mode problems](TROUBLESHOOTING.md#saas-mode-problems)

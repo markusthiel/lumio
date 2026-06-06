@@ -1,104 +1,106 @@
-# Horizontale Skalierung — zusätzliche Worker-Nodes
+**English** · [Deutsch](SCALING.de.md)
 
-Lumio verarbeitet Bilder, RAWs, Videos und ZIP-Exporte in **Celery-Workern**, die Jobs aus einer zentralen Redis-Queue ziehen. Reicht die Rechenleistung eines Servers nicht mehr (große Shootings, viele Videos parallel), kannst du **zusätzliche Server** dranhängen, die nur Worker fahren. Celery verteilt die Jobs automatisch auf alle verbundenen Worker — kein Loadbalancer, keine Job-Zuteilung von Hand.
+# Horizontal scaling — additional worker nodes
 
-> **Single-Node-Self-Hoster?** Dieses Kapitel ist für dich **irrelevant**. Lass alles wie es ist — die hier beschriebenen Variablen (`REDIS_PASSWORD`, `REDIS_BIND_IP`, `POSTGRES_BIND_IP`) sind optional und stehen im Auslieferungszustand auf "nur lokal, kein Passwort". Ein einzelner Server braucht nichts davon. Ändere nichts an Redis/Postgres, wenn du nur einen Server betreibst.
+Lumio processes images, RAWs, videos and ZIP exports in **Celery workers** that pull jobs from a central Redis queue. If one server's compute power is no longer enough (large shoots, many videos in parallel), you can attach **additional servers** that only run workers. Celery distributes the jobs automatically across all connected workers — no load balancer, no manual job assignment.
+
+> **Single-node self-hoster?** This chapter is **irrelevant** for you. Leave everything as is — the variables described here (`REDIS_PASSWORD`, `REDIS_BIND_IP`, `POSTGRES_BIND_IP`) are optional and ship in the "local only, no password" state. A single server needs none of this. Don't change anything about Redis/Postgres if you run only one server.
 
 ---
 
-## Konzept: Was skaliert, was bleibt zentral
+## Concept: what scales, what stays central
 
 ```
-        Privates Netzwerk (z.B. Hetzner Private Network, kostenlos)
+        Private network (e.g. Hetzner Private Network, free)
         ┌──────────────────────────┬──────────────────────────────┐
         │                          │                              │
   ┌─────┴───────────────┐    ┌─────┴────────────────┐
-  │  Haupt-Server       │    │  Worker-Node(s)      │
+  │  Main server        │    │  Worker node(s)      │
   │  10.0.0.2           │    │  10.0.0.3, .4, …     │
   │                     │    │                      │
-  │  API, Frontend      │    │  Worker × N          │
-  │  Caddy, acme-dns    │    │  (nur Celery)        │
-  │  Postgres ◄─────────┼────┤  liest/schreibt DB   │
-  │  Redis (Queue) ◄────┼────┤  zieht Jobs          │
-  │  Worker (auch hier) │    │                      │
+  │  API, frontend      │    │  Worker × N          │
+  │  Caddy, acme-dns    │    │  (Celery only)       │
+  │  Postgres ◄─────────┼────┤  reads/writes the DB │
+  │  Redis (queue) ◄────┼────┤  pulls jobs          │
+  │  Worker (here too)  │    │                      │
   └─────────────────────┘    └──────────────────────┘
             │                          │
             └───────────┬──────────────┘
                         ▼
-          S3 / Object Storage (extern, von allen erreichbar)
+          S3 / object storage (external, reachable by all)
 ```
 
-**Zentral (genau einmal, auf dem Haupt-Server):**
-- **Postgres** — die eine Quelle der Wahrheit für alle Metadaten
-- **Redis** — die Job-Queue (Celery-Broker) und Cache
-- **API, Frontend, Caddy** — Web-Layer, Datenbank-Migrationen
+**Central (exactly once, on the main server):**
+- **Postgres** — the single source of truth for all metadata
+- **Redis** — the job queue (Celery broker) and cache
+- **API, frontend, Caddy** — web layer, database migrations
 
-**Verteilbar (beliebig viele Nodes):**
-- **Worker** — halten keinen eigenen Zustand. Sie holen einen Job aus Redis, verarbeiten ihn (Bild/RAW/Video/ZIP), schreiben das Ergebnis nach S3, fertig.
+**Distributable (any number of nodes):**
+- **Worker** — hold no state of their own. They take a job from Redis, process it (image/RAW/video/ZIP), write the result to S3, done.
 
-**Extern (von überall erreichbar):**
-- **S3 / Object Storage** — z.B. Hetzner Object Storage. Schon extern, also für jeden Node ohne Zusatzkonfiguration erreichbar.
+**External (reachable from anywhere):**
+- **S3 / object storage** — e.g. Hetzner Object Storage. Already external, so reachable by every node without extra configuration.
 
-Worker-Nodes führen **keine** Datenbank-Migrationen aus und brauchen **keinen** offenen Port nach außen. Sie sind reine Konsumenten.
-
----
-
-## Voraussetzungen
-
-- Zwei (oder mehr) Server in einem **gemeinsamen privaten Netzwerk**. Bei Hetzner Cloud: ein "Network", beide Server in **derselben Region** (z.B. Falkenstein/fsn1), kostenlos.
-- Der Haupt-Server läuft bereits (siehe [SELFHOSTING.md](SELFHOSTING.md)).
-- S3-kompatibler externer Storage (kein MinIO-im-Docker, denn das wäre nur auf dem Haupt-Server). Siehe [STORAGE.md](STORAGE.md).
-
-> **Warum externes S3 Pflicht ist:** Ein Worker-Node muss die Original-Dateien lesen und Renditions zurückschreiben können. Läuft der Storage als MinIO-Container nur auf dem Haupt-Server, müsste auch der übers private Netz exponiert werden. Sauberer und robuster ist externes Object Storage (Hetzner/S3/R2/B2/Wasabi), das ohnehin von allen Nodes erreichbar ist.
+Worker nodes run **no** database migrations and need **no** open port to the outside. They are pure consumers.
 
 ---
 
-## Schritt 1 — Privates Netzwerk
+## Requirements
+
+- Two (or more) servers in a **shared private network**. On Hetzner Cloud: one "Network", both servers in the **same region** (e.g. Falkenstein/fsn1), free.
+- The main server is already running (see [SELFHOSTING.md](SELFHOSTING.md)).
+- S3-compatible external storage (not MinIO-in-Docker, since that would only be on the main server). See [STORAGE.md](STORAGE.md).
+
+> **Why external S3 is mandatory:** a worker node must be able to read the original files and write renditions back. If the storage runs as a MinIO container only on the main server, that too would have to be exposed over the private network. External object storage (Hetzner/S3/R2/B2/Wasabi), which is reachable by all nodes anyway, is cleaner and more robust.
+
+---
+
+## Step 1 — Private network
 
 **Hetzner Cloud Console → Networks → Create Network:**
 - Name: `lumio-net`
-- IP-Range: `10.0.0.0/16`
+- IP range: `10.0.0.0/16`
 
-Beide Server zum Netzwerk hinzufügen (Server → Networking → Attach). Sie bekommen private IPs, in dieser Anleitung:
-- Haupt-Server: `10.0.0.2`
-- Worker-Node: `10.0.0.3`
+Add both servers to the network (Server → Networking → Attach). They get private IPs, in this guide:
+- Main server: `10.0.0.2`
+- Worker node: `10.0.0.3`
 
-Verifiziere auf **beiden** Servern, dass das private Interface da ist:
+Verify on **both** servers that the private interface is there:
 
 ```bash
 ip addr | grep 10.0.0
 ```
 
-Zeigt das nichts, hat der Server die private IP noch nicht gezogen — meist hilft ein `reboot` nach dem Attach.
+If that shows nothing, the server hasn't pulled the private IP yet — usually a `reboot` after the attach helps.
 
 ---
 
-## Schritt 2 — Redis absichern + exponieren (Haupt-Server)
+## Step 2 — Secure + expose Redis (main server)
 
-Im privaten Netz ist Redis nur zwischen deinen Servern erreichbar, aber wir setzen trotzdem ein Passwort (Defense-in-Depth) und binden **ausschließlich** auf die private IP — niemals `0.0.0.0`.
+On the private network Redis is only reachable between your servers, but we set a password anyway (defense in depth) and bind it **exclusively** to the private IP — never `0.0.0.0`.
 
 ```bash
 cd /opt/docker/lumio/lumio
 git pull
 
-# Passwort generieren — sicher aufbewahren, der Worker-Node braucht es
+# Generate a password — keep it safe, the worker node needs it
 REDIS_PW=$(openssl rand -hex 24)
-echo "Redis-Passwort: $REDIS_PW"
+echo "Redis password: $REDIS_PW"
 
-# In .env eintragen
+# Add to .env
 echo "REDIS_PASSWORD=$REDIS_PW"  >> .env
 echo "REDIS_BIND_IP=10.0.0.2"    >> .env
 echo "POSTGRES_BIND_IP=10.0.0.2" >> .env
 
-# REDIS_URL aller lokalen Services auf Passwort umstellen
+# Switch the REDIS_URL of all local services to the password
 sed -i 's|^REDIS_URL=.*|REDIS_URL=redis://:'"$REDIS_PW"'@redis:6379|' .env
 ```
 
-Wie das funktioniert: Der Redis-Container fügt `--requirepass` nur hinzu, wenn `REDIS_PASSWORD` gesetzt ist (sh-Expansion im `command`). `REDIS_BIND_IP`/`POSTGRES_BIND_IP` steuern das Host-Port-Mapping — Standard ist `127.0.0.1` (nur lokal), hier setzen wir es auf die private IP.
+How this works: the Redis container only adds `--requirepass` if `REDIS_PASSWORD` is set (sh expansion in the `command`). `REDIS_BIND_IP`/`POSTGRES_BIND_IP` control the host port mapping — the default is `127.0.0.1` (local only), here we set it to the private IP.
 
 ---
 
-## Schritt 3 — Stack neu starten (Haupt-Server)
+## Step 3 — Restart the stack (main server)
 
 ```bash
 docker compose \
@@ -108,50 +110,50 @@ docker compose \
   up -d
 ```
 
-Kurze Unterbrechung (Sekunden), während Redis + die Services mit der neuen URL neu starten.
+A brief interruption (seconds) while Redis + the services restart with the new URL.
 
 ---
 
-## Schritt 4 — Verifizieren (Haupt-Server)
+## Step 4 — Verify (main server)
 
 ```bash
-# Redis verlangt jetzt Auth
+# Redis now requires auth
 docker exec lumio_redis redis-cli ping
 # → (error) NOAUTH Authentication required.     ✓
 
 docker exec lumio_redis redis-cli -a "$REDIS_PW" ping
 # → PONG                                         ✓
 
-# Redis + Postgres hören NUR auf der privaten IP
+# Redis + Postgres listen ONLY on the private IP
 ss -tlnp | grep -E '10.0.0.2:(6379|5432)'
-# → beide gelistet                               ✓
+# → both listed                                  ✓
 
-# ... und NICHT öffentlich
+# ... and NOT publicly
 ss -tlnp | grep -E '0.0.0.0:(6379|5432)'
-# → leer                                         ✓
+# → empty                                        ✓
 ```
 
 ---
 
-## Schritt 5 — Worker-Node aufsetzen (10.0.0.3)
+## Step 5 — Set up the worker node (10.0.0.3)
 
-### 5a. Docker installieren
+### 5a. Install Docker
 
 ```bash
 curl -fsSL https://get.docker.com | sh
 docker compose version
 ```
 
-### 5b. Konnektivität testen (zuerst!)
+### 5b. Test connectivity (first!)
 
 ```bash
 nc -zv 10.0.0.2 6379    # Redis
 nc -zv 10.0.0.2 5432    # Postgres
 ```
 
-Beide "open/succeeded" → weiter. Sonst privates Netz prüfen (`ip addr | grep 10.0.0`).
+Both "open/succeeded" → continue. Otherwise check the private network (`ip addr | grep 10.0.0`).
 
-### 5c. Repo klonen
+### 5c. Clone the repo
 
 ```bash
 mkdir -p /opt/docker/lumio && cd /opt/docker/lumio
@@ -159,18 +161,18 @@ git clone https://github.com/markusthiel/lumio.git lumio
 cd lumio
 ```
 
-### 5d. `.env.worker` anlegen
+### 5d. Create `.env.worker`
 
 ```bash
 cp .env.worker.example .env.worker
 nano .env.worker
 ```
 
-Die Werte: DB-User/Name/Passwort und S3-Credentials **1:1 vom Haupt-Server** (`grep -E "^POSTGRES_|^REDIS_PASSWORD|^S3_" /opt/docker/lumio/lumio/.env` dort ausführen), Hosts auf die **private IP** des Haupt-Servers:
+The values: DB user/name/password and S3 credentials **1:1 from the main server** (run `grep -E "^POSTGRES_|^REDIS_PASSWORD|^S3_" /opt/docker/lumio/lumio/.env` there), hosts to the **private IP** of the main server:
 
 ```
-DATABASE_URL=postgres://lumio:<DB_PASSWORT>@10.0.0.2:5432/lumio
-REDIS_URL=redis://:<REDIS_PASSWORT>@10.0.0.2:6379
+DATABASE_URL=postgres://lumio:<DB_PASSWORD>@10.0.0.2:5432/lumio
+REDIS_URL=redis://:<REDIS_PASSWORD>@10.0.0.2:6379
 STORAGE_PROVIDER=s3
 S3_ENDPOINT=https://fsn1.your-objectstorage.com
 S3_REGION=fsn1
@@ -182,47 +184,47 @@ WORKER_CONCURRENCY=10
 LOG_LEVEL=info
 ```
 
-### 5e. Worker starten
+### 5e. Start the worker
 
 ```bash
 docker compose -f docker-compose.worker.yml --env-file .env.worker up -d --build
 ```
 
-### 5f. Verifizieren
+### 5f. Verify
 
 ```bash
 docker compose -f docker-compose.worker.yml --env-file .env.worker logs -f
 ```
 
-Erfolgs-Indikatoren im Log:
-- `Connected to redis://:**@10.0.0.2:6379//` — Broker-Verbindung steht
-- `mingle: sync with 1 nodes` / `mingle: sync complete` — der neue Worker hat die anderen Worker gefunden (Cluster gebildet)
-- `celery@… ready.` — nimmt Jobs an
+Success indicators in the log:
+- `Connected to redis://:**@10.0.0.2:6379//` — broker connection is up
+- `mingle: sync with 1 nodes` / `mingle: sync complete` — the new worker found the other workers (cluster formed)
+- `celery@… ready.` — accepting jobs
 
-Sobald ein Job reinkommt, siehst du `Task … received` / `… succeeded`.
+As soon as a job comes in, you'll see `Task … received` / `… succeeded`.
 
 ---
 
 ## Tuning
 
-**Parallele Jobs pro Node** = `WORKER_CONCURRENCY` × `replicas`.
+**Parallel jobs per node** = `WORKER_CONCURRENCY` × `replicas`.
 
-- `WORKER_CONCURRENCY` (in `.env.worker`): Faustregel ≈ Anzahl CPU-Kerne. 12-vCPU-Server → 10–12.
-- `replicas` (in `docker-compose.worker.yml`): mehrere Worker-Prozesse pro Node. Meist reicht 1 mit hoher Concurrency.
+- `WORKER_CONCURRENCY` (in `.env.worker`): rule of thumb ≈ number of CPU cores. 12-vCPU server → 10–12.
+- `replicas` (in `docker-compose.worker.yml`): multiple worker processes per node. Usually 1 with high concurrency is enough.
 
-**CPU-Last nach Job-Typ:**
-- **Video-Transcoding** (libx264 ohne GPU) ist der größte CPU-Fresser — hier bringt zusätzliche Hardware am meisten.
-- **Bild/RAW** (libvips/LibRaw) ist relativ leicht — ein Node reicht lange.
+**CPU load by job type:**
+- **Video transcoding** (libx264 without GPU) is the biggest CPU hog — additional hardware helps most here.
+- **Image/RAW** (libvips/LibRaw) is relatively light — one node goes a long way.
 
-Mehr Nodes: Schritt 5 auf weiteren Servern wiederholen (10.0.0.4, .5, …). Nichts am Haupt-Server zu ändern — neue Worker melden sich automatisch über `mingle` an.
+More nodes: repeat step 5 on further servers (10.0.0.4, .5, …). Nothing to change on the main server — new workers register automatically via `mingle`.
 
-**Queues:** Celery nutzt `default`, `heavy` (Video/große Jobs), `io` und `ml` (Auto-Tagging/CLIP). Welche Queues ein Worker bedient, steuert die Env-Variable `WORKER_QUEUES` (Default `default,heavy,io,ml`). Willst du einen Node nur für Video reservieren, kannst du ihn auf `WORKER_QUEUES=heavy` beschränken — bei Bedarf erweitern.
+**Queues:** Celery uses `default`, `heavy` (video/large jobs), `io` and `ml` (auto-tagging/CLIP). Which queues a worker serves is controlled by the env variable `WORKER_QUEUES` (default `default,heavy,io,ml`). If you want to reserve a node only for video, you can restrict it to `WORKER_QUEUES=heavy` — extend as needed.
 
-**Wichtig — CLIP/Auto-Tagging:** Der CLIP-Tagger läuft nur in Workern mit ML-Image (`docker-compose.ml.yml`, meist der Haupt-Server). Reine Celery-Nodes ohne CLIP dürfen die `ml`-Queue daher **nicht** ziehen — sonst bekämen dort verarbeitete Bilder nur die regelbasierten Tags (Format/Helligkeit), aber keine inhaltlichen CLIP-Tags. `docker-compose.worker.yml` setzt deshalb `WORKER_QUEUES=default,heavy,io` (ohne `ml`); Auto-Tagging-Tasks landen so ausschließlich auf dem CLIP-fähigen Haupt-Server. Hat dein Haupt-Server kein ML-Image, läuft Auto-Tagging trotzdem (der Default zieht `ml`), liefert dann aber nur rule-based-Tags.
+**Important — CLIP/auto-tagging:** the CLIP tagger only runs in workers with the ML image (`docker-compose.ml.yml`, usually the main server). Pure Celery nodes without CLIP must therefore **not** pull the `ml` queue — otherwise images processed there would only get the rule-based tags (format/brightness), but no content CLIP tags. `docker-compose.worker.yml` therefore sets `WORKER_QUEUES=default,heavy,io` (without `ml`); auto-tagging tasks thus land exclusively on the CLIP-capable main server. If your main server has no ML image, auto-tagging still runs (the default pulls `ml`), but then only delivers rule-based tags.
 
 ---
 
-## Updates auf dem Worker-Node
+## Updates on the worker node
 
 ```bash
 cd /opt/docker/lumio/lumio
@@ -230,19 +232,19 @@ git pull
 docker compose -f docker-compose.worker.yml --env-file .env.worker up -d --build
 ```
 
-Wichtig: Worker-Nodes nach dem Haupt-Server aktualisieren (erst Migrationen auf dem Haupt-Server via API, dann Worker), damit das DB-Schema passt.
+Important: update worker nodes after the main server (first the migrations on the main server via the API, then the workers), so the DB schema matches.
 
-### Welche Änderung braucht welchen Server?
+### Which change needs which server?
 
-| Geändert | Haupt-Server | Worker-Node(s) |
+| Changed | Main server | Worker node(s) |
 |---|---|---|
-| `apps/frontend` (Studio-/Kunden-UI) | ✅ `up -d --build frontend` | — |
-| `apps/api` (Backend, Endpoints) | ✅ `up -d --build api` | — |
-| `apps/worker` (Bild/Video/RAW/ZIP-Verarbeitung) | ✅ `up -d --build worker` | ✅ `up -d --build` |
-| Compose-/Infra-Dateien | je nach betroffenem Service | nur wenn worker-relevant |
-| Doku, Marketing-Sites | — (bzw. eigener Marketing-Deploy) | — |
+| `apps/frontend` (studio/customer UI) | ✅ `up -d --build frontend` | — |
+| `apps/api` (backend, endpoints) | ✅ `up -d --build api` | — |
+| `apps/worker` (image/video/RAW/ZIP processing) | ✅ `up -d --build worker` | ✅ `up -d --build` |
+| Compose/infra files | depending on the affected service | only if worker-relevant |
+| Docs, marketing sites | — (or their own marketing deploy) | — |
 
-Faustregel: Das Frontend und die API laufen **nur** auf dem Haupt-Server. Nur Änderungen an `apps/worker` (der Konvertierungs-Logik) müssen zusätzlich auf jeden Worker-Node ausgerollt werden. Der Haupt-Server-Standard-Deploy bleibt:
+Rule of thumb: the frontend and the API run **only** on the main server. Only changes to `apps/worker` (the conversion logic) have to additionally be rolled out to every worker node. The main server's standard deploy stays:
 
 ```bash
 cd /opt/docker/lumio/lumio && git pull && docker compose \
@@ -252,28 +254,28 @@ cd /opt/docker/lumio/lumio && git pull && docker compose \
 
 ---
 
-## Sicherheit — Zusammenfassung
+## Security — summary
 
-- Redis + Postgres binden **nur** auf die private IP (`10.0.0.2`), nie `0.0.0.0`. Von außen (öffentliche IP) sind die Ports zu.
-- Redis zusätzlich passwortgeschützt.
-- Worker-Nodes brauchen **keinen** eingehenden Port nach außen.
-- Das private Netz trägt keinen Internet-Traffic — die Verbindung Worker↔DB/Redis verlässt nie das Hetzner-interne Netzwerk.
+- Redis + Postgres bind **only** to the private IP (`10.0.0.2`), never `0.0.0.0`. From outside (the public IP) the ports are closed.
+- Redis is additionally password-protected.
+- Worker nodes need **no** inbound port to the outside.
+- The private network carries no internet traffic — the worker↔DB/Redis connection never leaves the Hetzner-internal network.
 
 ---
 
 ## Troubleshooting
 
-**`Connection refused` zu 10.0.0.2:6379/5432 vom Worker-Node**
-Privates Netz nicht durchgängig. `ip addr | grep 10.0.0` auf beiden Servern; ggf. Server nach Network-Attach rebooten. `nc -zv 10.0.0.2 6379` zum Test.
+**`Connection refused` to 10.0.0.2:6379/5432 from the worker node**
+The private network isn't end-to-end. Run `ip addr | grep 10.0.0` on both servers; reboot the server after the network attach if needed. `nc -zv 10.0.0.2 6379` to test.
 
-**`NOAUTH` / `WRONGPASS` im Worker-Log**
-`REDIS_URL` in `.env.worker` enthält nicht (oder falsches) Passwort. Muss exakt dem `REDIS_PASSWORD` des Haupt-Servers entsprechen: `redis://:<PW>@10.0.0.2:6379`.
+**`NOAUTH` / `WRONGPASS` in the worker log**
+The `REDIS_URL` in `.env.worker` doesn't contain (or contains the wrong) password. It must exactly match the main server's `REDIS_PASSWORD`: `redis://:<PW>@10.0.0.2:6379`.
 
-**Worker startet, zieht aber keine Jobs**
-Prüfen ob `mingle: sync` geklappt hat. Wenn `mingle: all alone`, sieht der Node die Queue nicht — meist falsche/fehlende Redis-Verbindung. Auch prüfen: läuft auf dem Haupt-Server überhaupt Last? Bei leerer Queue ist Stille normal.
+**Worker starts but pulls no jobs**
+Check whether `mingle: sync` worked. If `mingle: all alone`, the node doesn't see the queue — usually a wrong/missing Redis connection. Also check: is there any load on the main server at all? With an empty queue, silence is normal.
 
 **`SecurityWarning: running with superuser privileges`**
-Nur ein Hinweis, kein Fehler. Worker laufen als root im Container (wie auf dem Haupt-Server). Unkritisch.
+Just a notice, not an error. Workers run as root in the container (like on the main server). Not critical.
 
-**Bilder werden verarbeitet, aber Renditions fehlen**
-S3-Credentials auf dem Worker-Node stimmen nicht mit dem Haupt-Server überein, oder falscher Bucket/Endpoint. Der Worker schreibt dann ins Leere. `.env.worker` gegen die Haupt-`.env` abgleichen.
+**Images are processed but renditions are missing**
+The S3 credentials on the worker node don't match the main server, or the wrong bucket/endpoint. The worker then writes into nothing. Compare `.env.worker` against the main `.env`.

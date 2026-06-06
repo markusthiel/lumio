@@ -21,7 +21,7 @@ Drei typische Setups – das Quick-Start unten deckt den ersten ab, alles andere
 
 Im **Single-Mode** wird der Tenant beim ersten Start automatisch angelegt – du brauchst nur `create-admin` für deinen ersten User. Kein Super-Admin, kein Stripe.
 
-> **Lumio als SaaS an zahlende Dritte anbieten?** Das ist *Competing Use* und unter der Lizenz nicht ohne Weiteres erlaubt (es ist das Geschäftsmodell hinter unserem eigenen lumio-cloud.de). Dafür gibt es eine kommerzielle Lizenz auf Anfrage – siehe [Lizenz](#lizenz). Der SaaS-Modus ist unter [docs/SAAS_MODE.md](docs/SAAS_MODE.md) dokumentiert.
+> **Lumio als SaaS an zahlende Dritte anbieten?** Das ist *Competing Use* und unter der Lizenz nicht ohne Weiteres erlaubt (es ist das Geschäftsmodell hinter unserem eigenen lumio-cloud.de). Dafür gibt es eine kommerzielle Lizenz auf Anfrage – siehe [Lizenz](#lizenz). Der SaaS-Modus ist unter [docs/SAAS_MODE.md](docs/SAAS_MODE.de.md) dokumentiert.
 
 ---
 
@@ -187,11 +187,11 @@ Alles optional. Das Quick-Start oben reicht für ein einzelnes Studio.
 |---|---|
 | Production hinter eigener Domain mit HTTPS | [docs/SELFHOSTING.de.md](docs/SELFHOSTING.de.md) |
 | Mehrere Studios auf einer Instanz | [docs/MULTI_TENANT.md](docs/MULTI_TENANT.de.md) |
-| SaaS-Modus mit Stripe-Billing | [docs/SAAS_MODE.md](docs/SAAS_MODE.md) |
+| SaaS-Modus mit Stripe-Billing | [docs/SAAS_MODE.md](docs/SAAS_MODE.de.md) |
 | GPU-Beschleunigung (NVENC + KI-Tags) | [docs/GPU.md](docs/GPU.de.md) |
 | KI-Auto-Tagging (CLIP) | [docs/ML.md](docs/ML.de.md) |
 | Tenant-Subdomains via Wildcard-Cert | [docs/WILDCARD.md](docs/WILDCARD.de.md) |
-| Last auf mehrere Server verteilen | [docs/SCALING.md](docs/SCALING.md) |
+| Last auf mehrere Server verteilen | [docs/SCALING.md](docs/SCALING.de.md) |
 | Externes S3 statt MinIO (R2, B2, Hetzner, Wasabi) | [docs/STORAGE.md](docs/STORAGE.de.md) |
 | Backups, Migrationen, Re-Queue | [docs/OPERATIONS.md](docs/OPERATIONS.md) |
 | Mitwirken / Entwicklung | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) |
