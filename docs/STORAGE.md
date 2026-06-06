@@ -1,93 +1,95 @@
+**English** · [Deutsch](STORAGE.de.md)
+
 # Storage
 
-Lumio nutzt S3-kompatiblen Object-Storage für alle Foto- und Video-Dateien. Standard-Setup ist **MinIO im selben Compose-Stack** – funktioniert sofort, ohne externes Konto.
+Lumio uses S3-compatible object storage for all photo and video files. The default setup is **MinIO in the same Compose stack** – works out of the box, no external account.
 
-Sobald du Skalierungs- oder Backup-Anforderungen hast, lohnt sich der Wechsel zu externem S3.
+As soon as you have scaling or backup requirements, switching to external S3 pays off.
 
-## Wann was nutzen
+## When to use what
 
-| Setup | Wann |
+| Setup | When |
 |---|---|
-| **MinIO (Default)** | Single-Studio, <500 GB Daten, ein Server |
-| **Hetzner Object Storage** | Server auch bei Hetzner, DSGVO wichtig, <10 TB |
-| **Cloudflare R2** | CDN-Setup, viel öffentlicher Traffic, Egress sparen |
-| **Backblaze B2** | Sehr günstig pro TB, große Mengen, Archiv-Charakter |
-| **Wasabi** | Pauschalpreis, vorhersehbare Kosten, keine API-Calls-Limits |
-| **AWS S3** | Multi-Region, Enterprise-Compliance |
+| **MinIO (default)** | Single studio, <500 GB of data, one server |
+| **Hetzner Object Storage** | Server also on Hetzner, GDPR matters, <10 TB |
+| **Cloudflare R2** | CDN setup, lots of public traffic, save on egress |
+| **Backblaze B2** | Very cheap per TB, large volumes, archival character |
+| **Wasabi** | Flat price, predictable costs, no API call limits |
+| **AWS S3** | Multi-region, enterprise compliance |
 
 ---
 
-## Allgemeines Setup
+## General setup
 
-In der `.env`:
+In `.env`:
 
 ```bash
-STORAGE_PROVIDER=custom        # für alles außer MinIO
+STORAGE_PROVIDER=custom        # for everything except MinIO
 S3_ENDPOINT=https://...
 S3_REGION=...
 S3_BUCKET=lumio-prod
 S3_ACCESS_KEY=...
 S3_SECRET_KEY=...
-S3_FORCE_PATH_STYLE=true       # für alle S3-Kompatiblen außer AWS selbst
-S3_PUBLIC_URL=https://...      # gleicher Endpoint, außer du nutzt CDN davor
+S3_FORCE_PATH_STYLE=true       # for all S3-compatibles except AWS itself
+S3_PUBLIC_URL=https://...      # same endpoint, unless you put a CDN in front
 ```
 
-`STORAGE_PROVIDER` kann sein: `minio`, `s3`, `r2`, `b2`, `wasabi`, `custom`. Die Provider-Werte sind nur Hinweise für Logging – die eigentliche Konfiguration kommt aus den `S3_*`-Variablen.
+`STORAGE_PROVIDER` can be: `minio`, `s3`, `r2`, `b2`, `wasabi`, `custom`. The provider values are only hints for logging – the actual configuration comes from the `S3_*` variables.
 
-Nach dem Wechsel: `docker compose restart api worker`.
+After switching: `docker compose restart api worker`.
 
-**Immer auch CORS am Bucket setzen** (siehe unten), sonst scheitern Browser-Uploads.
+**Always set CORS on the bucket too** (see below), otherwise browser uploads fail.
 
 ---
 
 ## Hetzner Object Storage
 
-S3-kompatibler Storage in Falkenstein, Nürnberg oder Helsinki. DSGVO, deutscher Anbieter.
+S3-compatible storage in Falkenstein, Nuremberg or Helsinki. GDPR, German provider.
 
-### Bucket anlegen
+### Create the bucket
 
 Hetzner Cloud Console → Object Storage → "Create Bucket"
-- Location: Falkenstein (oder dort wo dein Server steht – spart Latenz und Traffic-Kosten)
-- Name: `lumio-prod` (oder beliebig)
-- Credentials erzeugen, ACCESS_KEY und SECRET_KEY notieren
+- Location: Falkenstein (or wherever your server is – saves latency and traffic cost)
+- Name: `lumio-prod` (or anything)
+- Generate credentials, note ACCESS_KEY and SECRET_KEY
 
 ### `.env`
 
 ```bash
 STORAGE_PROVIDER=custom
-S3_ENDPOINT=https://fsn1.your-objectstorage.com    # bei NBG1/HEL1 entsprechend anpassen
+S3_ENDPOINT=https://fsn1.your-objectstorage.com    # adjust for NBG1/HEL1 accordingly
 S3_REGION=fsn1
 S3_BUCKET=lumio-prod
-S3_ACCESS_KEY=<aus Console>
-S3_SECRET_KEY=<aus Console>
+S3_ACCESS_KEY=<from console>
+S3_SECRET_KEY=<from console>
 S3_FORCE_PATH_STYLE=true
 S3_PUBLIC_URL=https://fsn1.your-objectstorage.com
 ```
 
 ### CORS
 
-In der Hetzner Cloud Console: Bucket → CORS:
-- Allowed Origins: `https://galerien.dein-studio.de`
+In the Hetzner Cloud Console: Bucket → CORS:
+- Allowed Origins: `https://gallery.your-studio.com`
 - Methods: `GET, PUT, POST, HEAD`
 - Headers: `*`
 - Expose: `ETag`
 
-### Preise
+### Pricing
 
-Ab 6,49 €/Monat netto für 1 TB Storage + 1 TB Egress. Zusätzlich pay-as-you-go. Traffic zwischen Hetzner Cloud Server und Hetzner Object Storage in derselben Region: kostenlos.
+From €6.49/month net for 1 TB storage + 1 TB egress. Additional usage is pay-as-you-go. Traffic between a Hetzner Cloud server and Hetzner Object Storage in the same region: free.
 
 ---
 
 ## Cloudflare R2
 
-Zero-Egress-Fees. Ideal wenn viel öffentlicher Bildtraffic erwartet wird.
+Zero egress fees. Ideal when a lot of public image traffic is expected.
 
-### Bucket anlegen
+### Create the bucket
 
 Cloudflare Dashboard → R2 → "Create Bucket"
-- Bucket-Name: `lumio-prod`
-- Location: Automatic oder EU (für DSGVO)
-- API-Token erstellen: R2 → "Manage R2 API Tokens" → Edit-Rechte für den Bucket
+- Bucket name: `lumio-prod`
+- Location: Automatic or EU (for GDPR)
+- Create an API token: R2 → "Manage R2 API Tokens" → edit rights for the bucket
 
 ### `.env`
 
@@ -96,40 +98,40 @@ STORAGE_PROVIDER=r2
 S3_ENDPOINT=https://<account-id>.r2.cloudflarestorage.com
 S3_REGION=auto
 S3_BUCKET=lumio-prod
-S3_ACCESS_KEY=<R2-Access-Key>
-S3_SECRET_KEY=<R2-Secret-Key>
+S3_ACCESS_KEY=<R2 access key>
+S3_SECRET_KEY=<R2 secret key>
 S3_FORCE_PATH_STYLE=true
 S3_PUBLIC_URL=https://<account-id>.r2.cloudflarestorage.com
 ```
 
-Optional: für direkte Bild-URLs über Cloudflare CDN einen Custom-Domain für R2 anlegen und `S3_PUBLIC_URL` auf diese Domain umstellen.
+Optional: for direct image URLs via the Cloudflare CDN, set up a custom domain for R2 and point `S3_PUBLIC_URL` to that domain.
 
 ### CORS
 
 In R2 → Bucket → Settings → CORS Policy.
 
-### Preise
+### Pricing
 
-$0,015/GB-Monat Storage, **Egress komplett gratis**. Class-A-Operations (Writes) $4,50/Million.
+$0.015/GB-month storage, **egress completely free**. Class A operations (writes) $4.50/million.
 
 ---
 
 ## Backblaze B2
 
-Günstigster Preis pro TB. Kombiniert mit Cloudflare als CDN: kostenloses Egress.
+Cheapest price per TB. Combined with Cloudflare as a CDN: free egress.
 
-### Bucket anlegen
+### Create the bucket
 
 B2 Cloud Storage Dashboard → Create Bucket
-- Bucket-Name: `lumio-prod` (muss global eindeutig sein)
+- Bucket name: `lumio-prod` (must be globally unique)
 - Private
-- Application Key erstellen: "Add a New Application Key", auf den Bucket beschränken
+- Create an application key: "Add a New Application Key", restricted to the bucket
 
 ### `.env`
 
 ```bash
 STORAGE_PROVIDER=b2
-S3_ENDPOINT=https://s3.<region>.backblazeb2.com    # z.B. eu-central-003
+S3_ENDPOINT=https://s3.<region>.backblazeb2.com    # e.g. eu-central-003
 S3_REGION=eu-central-003
 S3_BUCKET=lumio-prod
 S3_ACCESS_KEY=<keyID>
@@ -142,25 +144,25 @@ S3_PUBLIC_URL=https://s3.<region>.backblazeb2.com
 
 B2 Dashboard → Bucket → CORS Rules.
 
-### Preise
+### Pricing
 
-$6/TB Storage. Free Egress bis 3x Storage-Größe, dann $0,01/GB. Mit Cloudflare-CDN davor: unbegrenzt frei.
+$6/TB storage. Free egress up to 3x storage size, then $0.01/GB. With a Cloudflare CDN in front: unlimited free.
 
 ---
 
 ## Wasabi
 
-Pauschal-Preis, keine API-Call-Kosten. Aber: 90-Tage-Mindestspeicherung pro Objekt.
+Flat price, no API call costs. But: 90-day minimum storage per object.
 
 ### `.env`
 
 ```bash
 STORAGE_PROVIDER=wasabi
-S3_ENDPOINT=https://s3.<region>.wasabisys.com   # z.B. eu-central-1
+S3_ENDPOINT=https://s3.<region>.wasabisys.com   # e.g. eu-central-1
 S3_REGION=eu-central-1
 S3_BUCKET=lumio-prod
-S3_ACCESS_KEY=<aus Wasabi-Console>
-S3_SECRET_KEY=<aus Wasabi-Console>
+S3_ACCESS_KEY=<from Wasabi console>
+S3_SECRET_KEY=<from Wasabi console>
 S3_FORCE_PATH_STYLE=true
 S3_PUBLIC_URL=https://s3.<region>.wasabisys.com
 ```
@@ -169,7 +171,7 @@ S3_PUBLIC_URL=https://s3.<region>.wasabisys.com
 
 ## AWS S3
 
-Wenn du eh in AWS bist oder Compliance-Anforderungen hast.
+When you're in AWS anyway or have compliance requirements.
 
 ### `.env`
 
@@ -178,44 +180,44 @@ STORAGE_PROVIDER=s3
 S3_ENDPOINT=https://s3.<region>.amazonaws.com
 S3_REGION=eu-central-1     # Frankfurt
 S3_BUCKET=lumio-prod
-S3_ACCESS_KEY=<IAM Access Key>
-S3_SECRET_KEY=<IAM Secret>
-S3_FORCE_PATH_STYLE=false     # AWS nutzt virtual-hosted-style
+S3_ACCESS_KEY=<IAM access key>
+S3_SECRET_KEY=<IAM secret>
+S3_FORCE_PATH_STYLE=false     # AWS uses virtual-hosted style
 S3_PUBLIC_URL=https://lumio-prod.s3.<region>.amazonaws.com
 ```
 
-IAM-Policy für den User: mindestens `s3:GetObject`, `s3:PutObject`, `s3:DeleteObject`, `s3:ListBucket`, `s3:AbortMultipartUpload` auf den Bucket beschränken.
+IAM policy for the user: at minimum `s3:GetObject`, `s3:PutObject`, `s3:DeleteObject`, `s3:ListBucket`, `s3:AbortMultipartUpload`, restricted to the bucket.
 
 ---
 
-## Migration von MinIO zu externem S3
+## Migrating from MinIO to external S3
 
-Wenn du MinIO im Live-Betrieb hast und umziehen willst:
+If you're running MinIO live and want to move:
 
 ```bash
-# In den MinIO-Container, mc ist schon drin
+# Into the MinIO container, mc is already there
 docker compose exec minio mc alias set src http://localhost:9000 <minio-key> <minio-secret>
 docker compose exec minio mc alias set dst https://<external-endpoint> <ext-key> <ext-secret>
 
 docker compose exec minio mc mirror --overwrite src/lumio dst/lumio-prod
 ```
 
-Während der Migration kann Lumio weiterlaufen. Nach Abschluss `.env` auf den neuen Provider umstellen, `docker compose restart api worker`. MinIO-Container kann dann gestoppt werden.
+Lumio can keep running during the migration. When done, switch `.env` to the new provider, `docker compose restart api worker`. The MinIO container can then be stopped.
 
-Bei großen Datenmengen besser `rclone` auf dem Host: parallelisierbar, resume-fähig.
+For large data volumes, prefer `rclone` on the host: parallelizable, resumable.
 
 ---
 
-## CORS-Konfiguration
+## CORS configuration
 
-Lumio nutzt presigned URLs. Browser uploadet direkt zu S3. Ohne CORS blockt der Browser.
+Lumio uses presigned URLs. The browser uploads directly to S3. Without CORS the browser blocks it.
 
-Standard-CORS-Regel für alle Provider:
+Standard CORS rule for all providers:
 
 ```json
 {
   "CORSRules": [{
-    "AllowedOrigins": ["https://deine-domain.de"],
+    "AllowedOrigins": ["https://your-domain.com"],
     "AllowedMethods": ["GET", "PUT", "POST", "HEAD"],
     "AllowedHeaders": ["*"],
     "ExposeHeaders": ["ETag"],
@@ -224,9 +226,9 @@ Standard-CORS-Regel für alle Provider:
 }
 ```
 
-Mehrere Origins (Production + Staging) als Array. Wildcards (`*`) gehen, sind aber unsicher.
+Multiple origins (production + staging) as an array. Wildcards (`*`) work but are insecure.
 
-Wenn der Provider kein Web-UI dafür hat:
+If the provider has no web UI for it:
 
 ```bash
 docker run --rm \

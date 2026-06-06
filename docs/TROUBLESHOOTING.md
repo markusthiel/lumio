@@ -1,28 +1,30 @@
+**English** · [Deutsch](TROUBLESHOOTING.de.md)
+
 # Troubleshooting
 
-Sammlung häufiger Probleme beim Self-Hosting und ihre Lösungen.
+A collection of common self-hosting problems and their solutions.
 
-## Diagnose-Werkzeuge
+## Diagnostic tools
 
-Vor allem anderen: schau in die Logs.
+Before anything else: look at the logs.
 
 ```bash
-# Status aller Container
+# Status of all containers
 docker compose ps
 
-# Logs eines Service (live mitlesen mit -f)
+# Logs of a service (follow live with -f)
 docker compose logs api --tail=50 -f
 docker compose logs caddy --tail=50 -f
 docker compose logs worker --tail=50 -f
 
-# Alle Services gleichzeitig
+# All services at once
 docker compose logs --tail=20 -f
 
-# Letzte 30 Sekunden aller Container
+# Last 30 seconds of all containers
 docker compose logs --since=30s
 ```
 
-Health-Check der API:
+API health check:
 
 ```bash
 curl -s http://localhost/health
@@ -30,67 +32,67 @@ curl -s http://localhost/health
 
 ---
 
-## Setup-Probleme
+## Setup problems
 
-### Container starten nicht
+### Containers won't start
 
 ```bash
 docker compose ps
 ```
 
-Wenn ein Service `Restarting` oder `Exited` zeigt, dessen Logs anschauen:
+If a service shows `Restarting` or `Exited`, look at its logs:
 
 ```bash
 docker compose logs <service-name> --tail=100
 ```
 
-Häufige Ursachen:
+Common causes:
 
-- **`POSTGRES_PASSWORD` nicht gesetzt** → Postgres-Container exited mit "POSTGRES_PASSWORD not specified". `.env`-Datei prüfen.
-- **Port 80 oder 443 belegt** → ein anderer Webserver läuft schon. Mit `ss -tlnp | grep -E ':80|:443'` finden und stoppen oder die `CADDY_HTTP_PORT`/`CADDY_HTTPS_PORT` in `.env` ändern.
-- **Disk voll** → `df -h` prüfen. Docker-Images + Logs fressen schnell mehrere GB.
+- **`POSTGRES_PASSWORD` not set** → the Postgres container exits with "POSTGRES_PASSWORD not specified". Check the `.env` file.
+- **Port 80 or 443 in use** → another web server is already running. Find it with `ss -tlnp | grep -E ':80|:443'` and stop it, or change `CADDY_HTTP_PORT`/`CADDY_HTTPS_PORT` in `.env`.
+- **Disk full** → check `df -h`. Docker images + logs quickly eat several GB.
 
-### Domain ist nicht erreichbar (Connection Refused / Timeout)
+### Domain unreachable (Connection Refused / Timeout)
 
-Reihenfolge der Checks:
+Order of checks:
 
-1. **DNS zeigt richtige IP?** `dig deine-domain.de +short`
-2. **Firewall offen?** Bei Hetzner Cloud: sowohl OS-Firewall (`ufw`) als auch Cloud-Console-Firewall. Beide!
-3. **Caddy läuft?** `docker compose ps caddy` → muss "running" sein
-4. **Caddy bindet 80/443?** `docker compose ps caddy` zeigt Ports wie `0.0.0.0:80->80/tcp`. Wenn nur `127.0.0.1:...` → Caddy-Service wurde nicht gestartet.
+1. **DNS points to the right IP?** `dig your-domain.com +short`
+2. **Firewall open?** On Hetzner Cloud: both the OS firewall (`ufw`) and the cloud-console firewall. Both!
+3. **Is Caddy running?** `docker compose ps caddy` → must be "running"
+4. **Does Caddy bind 80/443?** `docker compose ps caddy` shows ports like `0.0.0.0:80->80/tcp`. If only `127.0.0.1:...` → the Caddy service wasn't started.
 
-Häufiger Fehler: `docker compose up -d --build api worker frontend` – das startet **nur** die genannten Services, Caddy fehlt. Stattdessen einfach `docker compose up -d` (alle Services).
+Common mistake: `docker compose up -d --build api worker frontend` – this starts **only** the named services, Caddy is missing. Instead just use `docker compose up -d` (all services).
 
-### Caddy bekommt keine Zertifikate
+### Caddy doesn't get certificates
 
 ```bash
 docker compose logs caddy | grep -iE "error|acme"
 ```
 
-Typische Fehler:
+Typical errors:
 
-- **`connection refused` während ACME-Challenge** → Port 80 nicht erreichbar von außen. Firewall, Cloud-Firewall, falsche DNS-IP prüfen.
-- **`no solvers available for remaining challenges (offered=[dns-01])`** → Du versuchst ein Wildcard-Cert (`*.deine-domain.de`). Wildcards brauchen DNS-01-Challenge, nicht HTTP-01. Siehe [MULTI_TENANT.md](MULTI_TENANT.md#wildcard-zertifikate).
-- **`too many requests` (Rate Limit)** → Let's Encrypt erlaubt max. 50 Zertifikate pro Domain pro Woche. Falls du oft testest: Caddy auf Staging-CA umstellen.
+- **`connection refused` during the ACME challenge** → port 80 not reachable from outside. Check firewall, cloud firewall, wrong DNS IP.
+- **`no solvers available for remaining challenges (offered=[dns-01])`** → you're trying to get a wildcard cert (`*.your-domain.com`). Wildcards need the DNS-01 challenge, not HTTP-01. See [MULTI_TENANT.md](MULTI_TENANT.md#wildcard-zertifikate).
+- **`too many requests` (rate limit)** → Let's Encrypt allows max. 50 certificates per domain per week. If you test often: switch Caddy to the staging CA.
 
 ---
 
-## Upload-Probleme
+## Upload problems
 
-### "Failed" beim Bild-Upload
+### "Failed" on image upload
 
-Die API ist sauber, der Browser-zu-S3-Upload schlägt fehl. Klassisches **CORS-Problem**.
+The API is fine, the browser-to-S3 upload fails. The classic **CORS problem**.
 
-Lumio nutzt presigned URLs – der Browser uploadet direkt zum S3-Bucket, nicht über die API. Ohne CORS-Header am Bucket blockt der Browser den PUT-Request.
+Lumio uses presigned URLs – the browser uploads directly to the S3 bucket, not via the API. Without CORS headers on the bucket the browser blocks the PUT request.
 
-**Fix bei externem S3** (Hetzner, R2, B2, Wasabi):
+**Fix for external S3** (Hetzner, R2, B2, Wasabi):
 
-In der Provider-Console des Buckets eine CORS-Regel anlegen:
+In the provider's bucket console create a CORS rule:
 
 ```json
 {
   "CORSRules": [{
-    "AllowedOrigins": ["https://deine-domain.de"],
+    "AllowedOrigins": ["https://your-domain.com"],
     "AllowedMethods": ["GET", "PUT", "POST", "HEAD"],
     "AllowedHeaders": ["*"],
     "ExposeHeaders": ["ETag"],
@@ -99,7 +101,7 @@ In der Provider-Console des Buckets eine CORS-Regel anlegen:
 }
 ```
 
-Wenn dein Storage-Provider kein Web-UI dafür hat, per AWS-CLI:
+If your storage provider has no web UI for it, via the AWS CLI:
 
 ```bash
 docker run --rm \
@@ -107,129 +109,129 @@ docker run --rm \
   -e AWS_SECRET_ACCESS_KEY="<secret>" \
   amazon/aws-cli s3api put-bucket-cors \
   --bucket lumio-prod \
-  --endpoint-url https://<dein-s3-endpoint> \
-  --region <deine-region> \
+  --endpoint-url https://<your-s3-endpoint> \
+  --region <your-region> \
   --cors-configuration file:///path/to/cors.json
 ```
 
-**Bei MinIO** ist CORS standardmäßig permissiv und sollte einfach funktionieren. Wenn nicht, im MinIO Container:
+**With MinIO** CORS is permissive by default and should just work. If not, in the MinIO container:
 
 ```bash
 docker compose exec minio mc anonymous set download local/lumio
 ```
 
-### "S3 connection refused" / Upload-Init schlägt fehl
+### "S3 connection refused" / upload init fails
 
-API-Logs anschauen (`docker compose logs api`). Häufige Ursachen:
+Look at the API logs (`docker compose logs api`). Common causes:
 
-- **`S3_ENDPOINT` falsch** – sollte `http://minio:9000` für MinIO oder `https://<dein-endpoint>` für externes S3 sein. **Nicht** localhost, der Container kommt da nicht ran.
-- **`S3_REGION` falsch** – Default ist `us-east-1`. Bei Hetzner muss es `fsn1` (oder `nbg1`/`hel1`) sein, sonst Signature-Mismatch (403).
-- **`S3_FORCE_PATH_STYLE` fehlt** – bei den meisten S3-Kompatiblen (außer AWS selbst) muss das auf `true`.
-- **Bucket existiert nicht** – manche Provider legen ihn nicht automatisch an. In der Provider-Console manuell erstellen.
+- **`S3_ENDPOINT` wrong** – should be `http://minio:9000` for MinIO or `https://<your-endpoint>` for external S3. **Not** localhost, the container can't reach that.
+- **`S3_REGION` wrong** – default is `us-east-1`. For Hetzner it must be `fsn1` (or `nbg1`/`hel1`), otherwise a signature mismatch (403).
+- **`S3_FORCE_PATH_STYLE` missing** – for most S3-compatibles (except AWS itself) this must be `true`.
+- **Bucket doesn't exist** – some providers don't create it automatically. Create it manually in the provider console.
 
 ---
 
-## Login-Probleme
+## Login problems
 
-### Kein Login-Button, leere Seite
+### No login button, blank page
 
-Frontend-Logs:
+Frontend logs:
 
 ```bash
 docker compose logs frontend --tail=50
 ```
 
-Wenn `ECONNREFUSED` zu Port 3001 → API ist nicht erreichbar. Häufig wegen Migrations-Fehler in Postgres. API-Logs prüfen:
+If `ECONNREFUSED` to port 3001 → the API is unreachable. Often due to a migration error in Postgres. Check the API logs:
 
 ```bash
 docker compose logs api | grep -iE "error|migration"
 ```
 
-### "Invalid credentials" trotz richtigen Daten
+### "Invalid credentials" despite correct details
 
-Häufigste Ursache: User wurde in einem anderen Tenant angelegt, du loggst dich auf der falschen Domain ein.
+Most common cause: the user was created in a different tenant and you're logging in on the wrong domain.
 
-Im Single-Mode unkritisch. Im Multi-Mode: Tenant-Slug in der Login-URL prüfen.
+Not critical in single mode. In multi mode: check the tenant slug in the login URL.
 
-User listen:
+List users:
 
 ```bash
 docker compose exec api npx prisma studio
 ```
 
-(Öffnet Web-UI auf Port 5555, dort User-Tabelle inspizieren.)
+(Opens a web UI on port 5555 where you can inspect the user table.)
 
-### `create-admin` läuft, aber Login geht nicht
+### `create-admin` runs, but login doesn't work
 
-Passwort muss mindestens 12 Zeichen lang sein. Mit kürzeren Passwörtern bricht das Script ab – aber falls du `create-admin` über Custom-Code aufrufst, könnte ein zu kurzes Passwort durchschlüpfen und beim Login fehlschlagen.
+The password must be at least 12 characters long. With shorter passwords the script aborts – but if you call `create-admin` via custom code, a too-short password could slip through and fail at login.
 
-Lösung: Admin neu anlegen, das Script ist idempotent (überschreibt existierende).
+Solution: create the admin again, the script is idempotent (overwrites an existing one).
 
 ---
 
-## SaaS-Mode-Probleme
+## SaaS mode problems
 
-### `price_not_configured` beim Sign-up
+### `price_not_configured` on sign-up
 
-Die Stripe-Pläne wurden noch nicht angelegt. Einmal:
+The Stripe plans haven't been created yet. Once:
 
 ```bash
 docker compose exec api npm run stripe-bootstrap
 ```
 
-Voraussetzung: `STRIPE_SECRET_KEY` muss in `.env` gesetzt sein (mit `sk_test_...` für Test-Modus).
+Prerequisite: `STRIPE_SECRET_KEY` must be set in `.env` (with `sk_test_...` for test mode).
 
-Das Script ist idempotent, kann mehrfach laufen. Legt drei Plans (Solo, Studio, Pro) + Storage-Pack in Stripe an und schreibt die Price-IDs in die Lumio-DB.
+The script is idempotent and can run multiple times. It creates three plans (Solo, Studio, Pro) + a storage pack in Stripe and writes the price IDs into the Lumio DB.
 
-### Stripe-Webhooks kommen nicht an
+### Stripe webhooks don't arrive
 
-Im Stripe Dashboard → Developers → Webhooks prüfen:
+Check in the Stripe Dashboard → Developers → Webhooks:
 
-- Endpoint-URL korrekt: `https://deine-domain.de/api/billing/webhook`
-- Events abonniert: mindestens `customer.subscription.*`, `invoice.payment_*`, `checkout.session.completed`
-- Signing-Secret in `.env` als `STRIPE_WEBHOOK_SECRET`
-- API-Container neu starten nach .env-Änderung: `docker compose restart api`
+- Endpoint URL correct: `https://your-domain.com/api/billing/webhook`
+- Events subscribed: at least `customer.subscription.*`, `invoice.payment_*`, `checkout.session.completed`
+- Signing secret in `.env` as `STRIPE_WEBHOOK_SECRET`
+- Restart the API container after the .env change: `docker compose restart api`
 
-Test: im Stripe Dashboard kann man Test-Events triggern und sieht ob Lumio sie annimmt.
+Test: in the Stripe Dashboard you can trigger test events and see whether Lumio accepts them.
 
 ---
 
-## Performance-Probleme
+## Performance problems
 
-### Upload langsam
+### Upload slow
 
-Vom Frontend zur API → zur S3-Storage zurück zum Browser ist ein Umweg. Lumio nutzt **presigned URLs**: Browser uploadet direkt zu S3, ohne API-Hop.
+From the frontend to the API → to S3 storage and back to the browser is a detour. Lumio uses **presigned URLs**: the browser uploads directly to S3, without an API hop.
 
-Wenn das langsam ist:
+If that's slow:
 
-- **Externes S3 statt MinIO** – MinIO auf einer kleinen VM saturiert die Disk schnell
-- **Storage im gleichen Datacenter** wie der Server (z.B. Hetzner Cloud + Hetzner Object Storage in Falkenstein)
-- **`UPLOAD_CHUNK_SIZE_MIB`** in `.env` von 8 auf 16 hochsetzen für große Files
+- **External S3 instead of MinIO** – MinIO on a small VM saturates the disk quickly
+- **Storage in the same datacenter** as the server (e.g. Hetzner Cloud + Hetzner Object Storage in Falkenstein)
+- **`UPLOAD_CHUNK_SIZE_MIB`** in `.env` raised from 8 to 16 for large files
 
-### Thumbnail-Generierung dauert ewig
+### Thumbnail generation takes forever
 
-Worker-Logs:
+Worker logs:
 
 ```bash
 docker compose logs worker --tail=50
 ```
 
-- **CPU-Auslastung hoch?** Workers skalieren: `docker compose up -d --scale worker=4`
-- **Viele große RAW-Files?** Das ist normal CPU-intensiv. GPU-Beschleunigung siehe [GPU.md](GPU.md).
-- **KI-Auto-Tagging aktiv?** CLIP läuft auf CPU bei 1–3s pro Bild. Auch hier hilft GPU oder mehr Worker.
+- **High CPU usage?** Scale the workers: `docker compose up -d --scale worker=4`
+- **Many large RAW files?** That's inherently CPU-intensive. For GPU acceleration see [GPU.md](GPU.md).
+- **AI auto-tagging active?** CLIP runs on the CPU at 1–3 s per image. Here too GPU or more workers help.
 
 ---
 
-## Last-Resort-Debug
+## Last-resort debugging
 
-Wenn nichts mehr hilft, alles zurücksetzen (⚠️ **alle Daten weg**):
+When nothing else helps, reset everything (⚠️ **all data gone**):
 
 ```bash
-docker compose down -v   # -v löscht auch Volumes!
+docker compose down -v   # -v also deletes volumes!
 docker compose up -d --build
 ```
 
-Oder partiell – nur die DB neu:
+Or partially – just the DB anew:
 
 ```bash
 docker compose down
@@ -237,16 +239,16 @@ docker volume rm lumio_postgres_data
 docker compose up -d
 ```
 
-Und vorher mal in einem **frischen** Verzeichnis Lumio neu clonen, um sicherzugehen dass kein lokaler Drift in den Configs ist.
+And beforehand, clone Lumio anew in a **fresh** directory to be sure there's no local drift in the configs.
 
 ---
 
-## Issue melden
+## Report an issue
 
-Wenn du einen Fehler gefunden hast, der hier nicht steht: Issue auf https://github.com/markusthiel/lumio/issues mit:
+If you've found a bug that isn't listed here: open an issue at https://github.com/markusthiel/lumio/issues with:
 
-1. Was wolltest du tun?
-2. Was ist passiert?
+1. What were you trying to do?
+2. What happened?
 3. Logs (`docker compose logs --tail=200`)
-4. Setup-Mode (single/multi, MinIO oder externes S3, Caddy oder externer Proxy)
-5. Lumio-Version (`git rev-parse HEAD`)
+4. Setup mode (single/multi, MinIO or external S3, Caddy or external proxy)
+5. Lumio version (`git rev-parse HEAD`)
