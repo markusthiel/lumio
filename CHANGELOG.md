@@ -1,23 +1,31 @@
 # Changelog
 
-Alle nennenswerten Änderungen an Lumio werden hier dokumentiert.
+Alle nennenswerten Änderungen an Lumio werden hier dokumentiert. ·
+*All notable changes to Lumio are documented here.*
 
 Das Format orientiert sich an [Keep a Changelog](https://keepachangelog.com/de/1.1.0/),
-die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/).
+die Versionierung folgt [Semantic Versioning](https://semver.org/lang/de/). ·
+*The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows [Semantic Versioning](https://semver.org/).*
 
 > **Für Self-Hoster:** Vor einem Update immer den Abschnitt der Zielversion lesen.
 > Ein Eintrag unter **⚠️ Upgrade-Hinweise** bedeutet, dass nach `git pull` ein
 > manueller Schritt nötig ist (z.B. `.env` anpassen, Compose-Befehl ändern).
 > Ohne solchen Hinweis genügt der reguläre Deploy laut `README` / `docs/OPERATIONS.md`.
+>
+> **For self-hosters:** before an update, always read the target version's section.
+> An entry under **⚠️ Upgrade notes** means a manual step is required after `git pull`
+> (e.g. adjust `.env`, change the Compose command). Without such a note, the regular
+> deploy per `README` / `docs/OPERATIONS.md` is enough.
 
-## Versionsschema kurz
+## Versionsschema kurz · Versioning in brief
 
-- **PATCH** (0.9.0 → 0.9.**1**): Bugfix, abwärtskompatibel, keine Aktion nötig.
-- **MINOR** (0.**9** → 0.**10**.0): neues Feature, abwärtskompatibel. Pull genügt.
-- **MAJOR** (0.x → **1**.0.0): Breaking Change, manueller Eingriff laut Upgrade-Hinweisen.
+- **PATCH** (0.9.0 → 0.9.**1**): Bugfix, abwärtskompatibel, keine Aktion nötig. · *Bugfix, backward compatible, no action needed.*
+- **MINOR** (0.**9** → 0.**10**.0): neues Feature, abwärtskompatibel. Pull genügt. · *New feature, backward compatible. Pull is enough.*
+- **MAJOR** (0.x → **1**.0.0): Breaking Change, manueller Eingriff laut Upgrade-Hinweisen. · *Breaking change, manual intervention per the upgrade notes.*
 
 Solange wir bei `0.x` sind, kann sich strukturell noch etwas bewegen; Breaking
-Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
+Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`. ·
+*While we're at `0.x`, structural things can still move; breaking changes are still clearly marked as such. Details: `docs/VERSIONING.md`.*
 
 ## [Unreleased]
 
@@ -42,6 +50,18 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Changed
 - EXIF-Aufnahmezeit wird jetzt über **exiftool** gelesen statt über pyexiv2. Funktional identisch (gleiche Date-Tags, gleiche Priorität), deckt aber mehr Container ab (u.a. CR3). Hintergrund: pyexiv2 lieferte nur ein x86_64-Wheel und blockierte ARM-Builds; exiftool ist Multi-Arch und war ohnehin im Worker-Image. Das Worker-Image wird dadurch minimal kleiner (libexiv2 entfällt).
 
+**🇬🇧 English**
+
+**Pull is enough** — no `.env`, Compose or DB change needed. On amd64 everything keeps running unchanged.
+
+### Added
+- **ARM64 support (aarch64).** Lumio now builds and runs natively on ARM servers too (e.g. Ampere / Hetzner CAX, AWS Graviton, Apple Silicon via Docker, Raspberry Pi 5). On `--build` the right variant is chosen automatically — nothing to switch. On ARM the ML worker pulls PyTorch automatically from PyPI (aarch64 wheels) instead of the x86-only CPU index. Note: GPU acceleration for auto-tagging stays NVIDIA/CUDA and thus amd64-only; on ARM the tagging runs CPU-based (functionally identical, slower per image).
+- New docs [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md): hardware, architecture and storage requirements incl. a sizing table. Linked from README and SELFHOSTING.
+- Caddy routes `lumio-cloud.com` (the international portal landing page) internally.
+
+### Changed
+- The EXIF capture time is now read via **exiftool** instead of pyexiv2. Functionally identical (same date tags, same priority), but covers more containers (incl. CR3). Background: pyexiv2 only shipped an x86_64 wheel and blocked ARM builds; exiftool is multi-arch and was already in the worker image. This makes the worker image minimally smaller (libexiv2 dropped).
+
 ## [0.42.0] - 2026-06-05
 
 > Pull genügt für Self-Hoster (keine neue ENV, keine Migration). **Betrifft
@@ -57,6 +77,19 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
   Download bereit. Stellt die Galerien NICHT in der App wieder her — liefert
   ausschließlich die Quelldateien.
 
+**🇬🇧 English**
+
+> Pull is enough for self-hosters (no new ENV, no migration). **Affects the
+> worker** — anyone deploying with separate worker nodes must update those too
+> (after the main server). Recovering deleted originals requires bucket versioning.
+
+### Added
+- Super admin → Backup: **emergency recovery of deleted originals**.
+  If a customer deleted galleries/images by accident, the new worker job
+  reconstructs the lost source files from the noncurrent S3 versions (retention
+  window, usually 30 days) and provides them per gallery as a ZIP download. It
+  does NOT restore the galleries in the app — it delivers the source files only.
+
 ## [0.41.0] - 2026-06-05
 
 > Pull genügt. Frontend- und API-only Änderung; keine neue ENV, keine
@@ -69,6 +102,19 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
   metadata.json), mit Download-Links direkt im Portal. Use-Case: ein Kunde
   hat versehentlich Inhalte gelöscht und braucht seine Quelldateien.
   Nutzt die bestehende Export-Engine; Download-Links sind 30 Tage gültig.
+
+**🇬🇧 English**
+
+> Pull is enough. A frontend- and API-only change; no new ENV, no migration,
+> no worker change.
+
+### Added
+- Super admin: new **Backup** area. Bundles the backup monitoring
+  (DB + media) and an **emergency export per tenant**: the original files of
+  all of a studio's galleries as ZIPs (one archive per gallery, incl.
+  metadata.json), with download links directly in the portal. Use case: a
+  customer deleted content by accident and needs their source files.
+  Uses the existing export engine; download links are valid for 30 days.
 
 ## [0.40.0] - 2026-06-05
 
@@ -90,6 +136,25 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
   `BACKUP_MEDIA_STATUS_PATH`; der Media-Sync schreibt dafür eine eigene
   Status-Datei.
 
+**🇬🇧 English**
+
+> Pull is enough. The new backup functions are optional and additive — without
+> a set ENV, behavior stays unchanged. Self-hosters who want to use the
+> monitoring: see `docs/BACKUP.md` (ENV `BACKUP_STATUS_PATH` and optionally
+> `BACKUP_MEDIA_STATUS_PATH`).
+
+### Added
+- A production-grade backup runbook (`docs/BACKUP.md`) following 3-2-1: Postgres
+  via restic into two repos (e.g. Hetzner Object Storage + Backblaze B2),
+  images/videos via rclone cross-provider, versioning/object lock, a dead man's
+  switch and a restore test. Including ready-made scripts `scripts/lumio-backup.sh`
+  and `scripts/lumio-media-sync.sh` plus a config template.
+- Backup monitoring in the super admin (System) now shows multiple backups
+  instead of just the database: DB **and** media sync, each with its own status
+  card. Per type, appropriate age thresholds (DB daily: yellow > 24 h, red > 72 h;
+  media weekly: yellow > 8 days, red > 10 days). Activated via
+  `BACKUP_MEDIA_STATUS_PATH`; the media sync writes its own status file for this.
+
 ## [0.39.2] - 2026-06-04
 
 Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
@@ -99,6 +164,16 @@ Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
 - **Feedback-Sprechblase überlappte das RAW/HEIC-Format-Badge** in der
   Kundengalerie (beide unten rechts). Die Sprechblase sitzt jetzt unten
   links, das Format-Badge bleibt unten rechts.
+
+**🇬🇧 English**
+
+Pull is enough — no manual intervention. Affects only the main server
+(frontend).
+
+### Fixed
+- **The feedback speech bubble overlapped the RAW/HEIC format badge** in the
+  customer gallery (both bottom right). The speech bubble now sits bottom
+  left, the format badge stays bottom right.
 
 ## [0.39.1] - 2026-06-04
 
@@ -117,6 +192,23 @@ des Hauptservers müssen die Worker-Nodes ebenfalls neu deployt werden
   - Neue Uploads erhalten wieder zuverlässig eine web-optimierte
     MP4-Version (Worker-Änderung — daher Worker-Nodes neu deployen).
 
+**🇬🇧 English**
+
+Pull is enough, BUT: this version also changes the worker. After deploying
+the main server, the worker nodes must be redeployed too (see the worker
+deploy command). No env/DB change.
+
+### Fixed
+- **Video preview in the studio works again** (the selection and media views
+  showed "video preview not available / no preview available"). Cause: the
+  studio plays videos via its own MP4 rendition (not via the customer
+  gallery's HLS stream), and this MP4 was skipped for already-compact source
+  videos. Now:
+  - Existing videos play immediately (the API serves the original as a
+    fallback — takes effect right after the main-server deploy).
+  - New uploads reliably get a web-optimized MP4 version again (a worker
+    change — hence redeploy the worker nodes).
+
 ## [0.39.0] - 2026-06-04
 
 Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
@@ -131,6 +223,19 @@ Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
   Laden erhalten. Es zeigt ausschließlich das eigene Feedback des
   Besuchers; Studio-Kommentare bleiben außen vor.
 
+**🇬🇧 English**
+
+Pull is enough — no manual intervention. Affects only the main server
+(frontend + API), no worker.
+
+### Added
+- **Feedback indicator in the customer gallery**: on thumbnails where the
+  visitor left a marking or a comment, a subtle speech bubble now appears
+  (bottom right) — as a reminder of where something was already noted. The
+  icon appears immediately after closing the lightbox (without a reload) and
+  persists after reloading. It shows only the visitor's own feedback; studio
+  comments stay out of it.
+
 ## [0.38.1] - 2026-06-04
 
 Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
@@ -141,6 +246,16 @@ Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
   eine Markierung am aktuellen Zeitpunkt, lag deren Beschriftung
   (Zeit/Notiz) hinter dem „Markieren"-Button und war unlesbar. Die
   Beschriftung sitzt jetzt darunter.
+
+**🇬🇧 English**
+
+Pull is enough — no manual intervention. Affects only the main server
+(frontend).
+
+### Fixed
+- **A marker label on a video overlapped the "Mark" button**: if a marking
+  was at the current time, its label (time/note) sat behind the "Mark"
+  button and was unreadable. The label now sits below it.
 
 ## [0.38.0] - 2026-06-04
 
@@ -156,6 +271,19 @@ Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
   „Auswahl/Markieren"-Umschalter entfällt; Auswählen und Markieren sind
   jetzt gleichzeitig möglich.
 
+**🇬🇧 English**
+
+Pull is enough — no manual intervention. Affects only the main server
+(frontend).
+
+### Changed
+- **Unified marking/selection controls for photos and videos**: for photos,
+  marking is now started — like for video — via a "Mark" button **at the
+  top** of the image (opens the drawing toolbar, "Done" closes it). The
+  selection (colors + star) sits as a bar **at the bottom**. The previous
+  bottom "selection/marking" toggle is gone; selecting and marking are now
+  possible at the same time.
+
 ## [0.37.5] - 2026-06-04
 
 Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
@@ -168,6 +296,18 @@ Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
   Das Anzeige-Overlay ist jetzt vollständig „durchklickbar"; die
   Video-Bedienelemente darunter sind wieder erreichbar. (Zeichnen ist
   unverändert.)
+
+**🇬🇧 English**
+
+Pull is enough — no manual intervention. Affects only the main server
+(frontend).
+
+### Fixed
+- **Play/pause on videos with markings works again**: if a marking was at
+  the current time (e.g. right after setting it), its display overlay caught
+  the clicks and the play button didn't respond. The display overlay is now
+  fully "click-through"; the video controls below it are reachable again.
+  (Drawing is unchanged.)
 
 ## [0.37.4] - 2026-06-04
 
@@ -184,6 +324,20 @@ Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
   und die Bedienelemente sind wieder sichtbar. Die Vorschau-Leiste liegt
   passend unter dem Video.
 
+**🇬🇧 English**
+
+Pull is enough — no manual intervention. Affects only the main server
+(frontend).
+
+### Fixed
+- **Portrait videos are now displayed correctly**: previously the video was
+  stretched to full width, making a portrait video too large and cut off at
+  the bottom — and the play/pause controls ended up outside the visible area
+  (the video couldn't be played). The video now fits to height and width and
+  keeps its aspect ratio; portrait and landscape fit fully into view and the
+  controls are visible again. The preview bar sits appropriately below the
+  video.
+
 ## [0.37.3] - 2026-06-04
 
 Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
@@ -197,6 +351,20 @@ Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
   ohne Typ-Vorgabe; der Studio-Upload gibt jetzt eine Typ-Vorgabe mit, womit
   iOS das Video korrekt übergibt. Drag&Drop und Desktop-Uploads bleiben
   unverändert (auch RAW/HEIC/PDF weiterhin wählbar).
+
+**🇬🇧 English**
+
+Pull is enough — no manual intervention. Affects only the main server
+(frontend).
+
+### Fixed
+- **Video upload from the iPhone/iPad photo library**: when selecting a
+  video in the photo picker and tapping the checkmark, nothing happened —
+  the picker window stayed open and no file was passed (photos worked). The
+  cause was an iOS/WebKit behavior in the file dialog without a type hint;
+  the studio upload now passes a type hint, with which iOS hands over the
+  video correctly. Drag & drop and desktop uploads stay unchanged (RAW/HEIC/
+  PDF still selectable).
 
 ## [0.37.2] - 2026-06-04
 
@@ -212,6 +380,20 @@ greift die Änderung dort nicht.
   damit etwa 80 Vorschaubilder. Gilt für neu hochgeladene/verarbeitete
   Videos; bereits verarbeitete behalten ihr bisheriges Vorschaubild-Set, bis
   sie neu verarbeitet werden.
+
+**🇬🇧 English**
+
+Pull is enough — no manual intervention. **Worker change:** after deploying
+the main server, redeploy all worker nodes too, otherwise the change won't
+take effect there.
+
+### Fixed
+- **Video scrubbing now shows significantly more frames**: previously there
+  was only 1 preview image every 10 seconds (so a 40-second video had only
+  about 4 images). Now as many images are generated as sensibly possible (up
+  to 100), at most one every 0.5 seconds — a 40-second video thus has about
+  80 preview images. Applies to newly uploaded/processed videos; already-
+  processed ones keep their existing preview-image set until reprocessed.
 
 ## [0.37.1] - 2026-06-04
 
@@ -233,6 +415,25 @@ Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
   wurde zusätzlich die Foto-Zeichenleiste eingeblendet und überlappte die
   Scrub-Leiste. Für Videos ist jetzt nur noch die Video-Markierung aktiv.
 
+**🇬🇧 English**
+
+Pull is enough — no manual intervention. Affects only the main server
+(frontend).
+
+### Fixed
+- **Video playable in the studio media tab**: in the large view of the media
+  tab a video couldn't be played before (only a still) — now with a player
+  and a preview bar.
+- **Preview bar on video scrubbing**: the frames in the bar were sometimes
+  not shown at all (only a fallback). They now load reliably.
+- **Video markings now only visible at their exact time**: a marking now
+  appears only at its second, no longer across the whole video. Play/pause
+  also works reliably again (the marking overlay previously blocked the
+  controls).
+- **Duplicate toolbar removed in the customer gallery**: for videos the photo
+  drawing bar was additionally shown and overlapped the scrub bar. For videos
+  only the video marking is active now.
+
 ## [0.37.0] - 2026-06-04
 
 Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
@@ -246,6 +447,19 @@ Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
   dorthin und zeigt die Markierung. Funktioniert für Brautpaare/Kunden in
   der Galerie und fürs Studio im Proofing. (Bestehende Foto-Markierungen
   bleiben unverändert.)
+
+**🇬🇧 English**
+
+Pull is enough — no manual intervention. Affects only the main server
+(frontend), no API/worker deploy needed.
+
+### Added
+- **Markings on videos**: at a specific second in the video you can now place
+  an arrow or a freehand marking on the still — just like for photos, plus an
+  optional note. On the preview bar small markers appear at the marked spots;
+  a click jumps there and shows the marking. Works for couples/customers in
+  the gallery and for the studio in proofing. (Existing photo markings stay
+  unchanged.)
 
 ## [0.36.0] - 2026-06-04
 
@@ -265,6 +479,23 @@ Pull genügt — kein manueller Eingriff. Betrifft nur den Hauptserver
   Vorschaubilder werden vorgeladen und erscheinen ohne Verzögerung, und die
   Leiste lässt sich per Touch (Tablet) bedienen.
 
+**🇬🇧 English**
+
+Pull is enough — no manual intervention. Affects only the main server
+(frontend + API), no worker deploy needed.
+
+### Added
+- **Video playback in studio proofing**: videos can now be played directly in
+  the file detail view (previously only the still was shown). With the same
+  preview bar for seeking as in the customer gallery.
+
+### Fixed
+- **Video scrubbing in the customer gallery**: below the video there is now
+  an always-visible preview bar with frames instead of an invisible hover
+  zone — it's immediately clear where to move to seek. The preview images are
+  preloaded and appear without delay, and the bar can be operated by touch
+  (tablet).
+
 ## [0.35.1] - 2026-06-04
 
 Kleine Verbesserung. `git pull` + regulärer Deploy genügt, nur Frontend.
@@ -274,6 +505,16 @@ Kleine Verbesserung. `git pull` + regulärer Deploy genügt, nur Frontend.
   geladen (zusätzlich zum 5-Minuten-Polling). Ein frisch angelegter Banner
   erscheint damit praktisch sofort, sobald jemand wieder ins Studio schaut —
   ohne Reload.
+
+**🇬🇧 English**
+
+A small improvement. `git pull` + a regular deploy is enough, frontend only.
+
+### Changed
+- Studio banners are now reloaded **immediately when returning to the tab**
+  (in addition to the 5-minute polling). A freshly created banner thus
+  appears practically immediately as soon as someone looks at the studio
+  again — without a reload.
 
 ## [0.35.0] - 2026-06-04
 
@@ -295,6 +536,25 @@ Migration läuft automatisch.
   Unbeteiligte ausgespielt werden). Das Studio nutzt automatisch den neuen
   Endpoint.
 
+**🇬🇧 English**
+
+New feature (super admin). `git pull` + a regular deploy is enough; an additive
+migration runs automatically.
+
+### Added
+- **Studio banners targeted at individual users or tenants** (super admin →
+  Users, "Banner" button per user). Creates an in-studio banner shown either
+  only to that user or to their whole studio — with title, text, level
+  (info/warning/critical), dismissibility and optional expiry (7/30 days or
+  manual). Global banners are still available via the existing announcement
+  management.
+
+### Changed
+- Targeted banners are delivered via a new **authenticated** endpoint
+  (`/announcements/mine`); the public `/announcements/active` now only returns
+  global banners (so targeted banners aren't shown to uninvolved users). The
+  studio uses the new endpoint automatically.
+
 ## [0.34.0] - 2026-06-04
 
 Neues Feature (Super-Admin). `git pull` + regulärer Deploy genügt, keine
@@ -305,6 +565,16 @@ Migration.
   User). Betreff + Markdown-Nachricht, wird als 1:1-Mail gesendet (ohne
   Abmelde-Footer, anders als Broadcasts) und im E-Mail-Log protokolliert.
 
+**🇬🇧 English**
+
+New feature (super admin). `git pull` + a regular deploy is enough, no
+migration.
+
+### Added
+- **Direct email to individual users** (super admin → Users, "Email" button
+  per user). Subject + Markdown message, sent as a 1:1 mail (without an
+  unsubscribe footer, unlike broadcasts) and logged in the email log.
+
 ## [0.33.1] - 2026-06-04
 
 Bugfix. `git pull` + regulärer Deploy genügt, nur Frontend.
@@ -314,6 +584,16 @@ Bugfix. `git pull` + regulärer Deploy genügt, nur Frontend.
   Bestätigung lief über ein Browser-`prompt`, das mobil/in manchen Browsern
   blockiert wird). Läuft jetzt über denselben In-Page-Dialog wie der reguläre
   Hard-Delete (Slug-Eingabefeld) und funktioniert zuverlässig.
+
+**🇬🇧 English**
+
+Bugfix. `git pull` + a regular deploy is enough, frontend only.
+
+### Fixed
+- "Delete immediately (test)" didn't respond on some devices (the confirmation
+  ran via a browser `prompt`, which is blocked on mobile/in some browsers). It
+  now runs via the same in-page dialog as the regular hard delete (slug input
+  field) and works reliably.
 
 ## [0.33.0] - 2026-06-04
 
@@ -330,6 +610,21 @@ Migration.
   löschen, dafür bleibt der reguläre Weg (Archivieren → Karenz → Hard-Delete,
   der die Stripe-Daten behält). Slug-Eingabe zur Bestätigung Pflicht.
 
+**🇬🇧 English**
+
+New feature (super admin). `git pull` + a regular deploy is enough, no
+migration.
+
+### Added
+- **Immediate delete for test/trial tenants** (super admin → tenant detail,
+  "Delete immediately (test)"). Skips archiving + the 30-day grace period,
+  cancels the Stripe subscription, **deletes the Stripe customer** and does a
+  DB cascade + S3 cleanup in one step. Guardrail: only possible if the tenant
+  is **not actively paying** (subscription status not `active`/`past_due`) — so
+  running customers can't be deleted by accident; for those the regular path
+  remains (archive → grace → hard delete, which keeps the Stripe data). A slug
+  entry is required for confirmation.
+
 ## [0.32.1] - 2026-06-04
 
 Bugfix. `git pull` + regulärer Deploy genügt, nur API.
@@ -340,6 +635,17 @@ Bugfix. `git pull` + regulärer Deploy genügt, nur API.
   statt auf einen festen Host. Dort macht `/welcome` das Auto-Login, sodass man
   direkt im richtigen Studio landet. Greift, wenn `LUMIO_DOMAIN_BASE` gesetzt ist
   (Wildcard-SaaS); ohne Wildcard-Domain bleibt es beim bisherigen Verhalten.
+
+**🇬🇧 English**
+
+Bugfix. `git pull` + a regular deploy is enough, API only.
+
+### Fixed
+- After the Stripe payment in self-service signup, the freshly registered owner
+  is now directed to their **own tenant subdomain** (`{slug}.<domain>`) instead
+  of a fixed host. There `/welcome` does the auto-login, so you land directly in
+  the right studio. Takes effect when `LUMIO_DOMAIN_BASE` is set (wildcard SaaS);
+  without a wildcard domain the previous behavior remains.
 
 ## [0.32.0] - 2026-06-04
 
@@ -352,6 +658,18 @@ keine Migration.
   Version veraltet ist (gegen die aktuelle DPA-Version), und den
   Lösch-/Archivierungs-Lifecycle (geplante Löschung, geplante Archivierung,
   bereits archiviert). Mit Übersichtszahlen und Filter „nur auffällige".
+
+**🇬🇧 English**
+
+New feature (super admin), read-only. `git pull` + a regular deploy is enough,
+no migration.
+
+### Added
+- **Super admin → Compliance.** DPA/GDPR status per tenant: shows whether the
+  data processing agreement (DPA) is signed, whether the accepted version is
+  outdated (against the current DPA version), and the deletion/archiving
+  lifecycle (scheduled deletion, scheduled archiving, already archived). With
+  summary figures and a "flagged only" filter.
 
 ## [0.31.0] - 2026-06-04
 
@@ -366,6 +684,18 @@ additive Migration (ein Index) läuft automatisch.
   Nutzt vorhandene Audit-Daten, keine zusätzliche Erfassung nötig. Neuer Index
   `events(action, createdAt)` für die Cross-Tenant-Auswertung.
 
+**🇬🇧 English**
+
+New feature (super admin), read-only. `git pull` + a regular deploy is enough;
+an additive migration (one index) runs automatically.
+
+### Added
+- **Super admin → Security.** Abuse signals from the audit log: failed logins
+  (incl. 2FA, WebAuthn, super admin) and failed gallery unlocks (a brute-force
+  indicator). With 24h/7-day figures, top IPs by failed logins and a list of
+  recent incidents. Uses existing audit data, no additional collection needed.
+  New index `events(action, createdAt)` for the cross-tenant evaluation.
+
 ## [0.30.0] - 2026-06-04
 
 Neues Feature (Super-Admin), read-only + Retry. `git pull` + regulärer Deploy
@@ -378,6 +708,19 @@ genügt, keine Migration.
   Fehlermeldung und erlaubt gezieltes Neu-Anstoßen von Datei-Jobs und Webhooks
   per Knopfdruck. „Hängend" = seit über 2 Stunden in Verarbeitung. ZIP-Builds
   read-only (Kunde fordert bei Bedarf einfach neu an).
+
+**🇬🇧 English**
+
+New feature (super admin), read-only + retry. `git pull` + a regular deploy is
+enough, no migration.
+
+### Added
+- **Super admin → Job errors.** Collects failed and stuck async jobs across all
+  tenants: file processing (thumbnails, transcode, auto-tagging), ZIP builds and
+  outgoing webhooks. Counts them, lists them with the error message and allows
+  targeted re-triggering of file jobs and webhooks at the push of a button.
+  "Stuck" = in processing for over 2 hours. ZIP builds are read-only (the
+  customer simply requests anew if needed).
 
 ## [0.29.0] - 2026-06-04
 
@@ -392,6 +735,18 @@ Migration läuft automatisch.
   dem Notification-Ausbau — man sieht jetzt, ob die Mails ankommen. Log wird
   nach 30 Tagen automatisch aufgeräumt.
 
+**🇬🇧 English**
+
+New feature (super admin). `git pull` + a regular deploy is enough; an additive
+migration runs automatically.
+
+### Added
+- **Super admin → Email log.** Every mail send is logged (sent / failed /
+  skipped). The view shows 24h and 7-day figures, the last 100 mails with status
+  and error message, plus a hint if SMTP is apparently not configured.
+  Especially relevant after the notification expansion — you can now see whether
+  the mails arrive. The log is cleaned up automatically after 30 days.
+
 ## [0.28.0] - 2026-06-04
 
 Neues Feature (Super-Admin), read-only. `git pull` + regulärer Deploy genügt,
@@ -405,6 +760,19 @@ keine Migration.
   bzw. nur im Code existieren. Diagnose-Werkzeug — hätte den Storage-Drift
   (1000 statt 3000 GB) sofort sichtbar gemacht.
 
+**🇬🇧 English**
+
+New feature (super admin), read-only. `git pull` + a regular deploy is enough,
+no migration.
+
+### Added
+- **Super admin → Plan catalog.** Compares the central plan definition in code
+  (limits & prices) against the DB table `billing_plans` and flags deviations
+  per field (name, storage, prices, watermark). Also shows Stripe price IDs
+  (present/missing), `isActive` and plans that exist only in the DB or only in
+  code. A diagnostic tool — it would have made the storage drift (1000 instead
+  of 3000 GB) immediately visible.
+
 ## [0.27.1] - 2026-06-04
 
 Kleiner UI-Fix. `git pull` + regulärer Deploy genügt, nur Frontend.
@@ -412,6 +780,14 @@ Kleiner UI-Fix. `git pull` + regulärer Deploy genügt, nur Frontend.
 ### Fixed
 - Die Schalter unter Einstellungen → „E-Mail-Benachrichtigungen" waren leicht
   verrutscht; der Knopf sitzt jetzt sauber zentriert.
+
+**🇬🇧 English**
+
+A small UI fix. `git pull` + a regular deploy is enough, frontend only.
+
+### Fixed
+- The toggles under Settings → "Email notifications" were slightly misaligned;
+  the switch now sits cleanly centered.
 
 ## [0.27.0] - 2026-06-04
 
@@ -429,6 +805,21 @@ automatisch.
   - **Galerie läuft bald ab**: ab 7 Tagen vor dem Ablaufdatum (einmalig; wird
     zurückgesetzt, falls das Ablaufdatum verlängert/entfernt wird).
 
+**🇬🇧 English**
+
+New feature. `git pull` + a regular deploy is enough; an additive migration runs
+automatically.
+
+### Added
+- Three more **studio notifications** (all switchable under Settings → "Email
+  notifications", on by default):
+  - **Uploads received**: a customer uploaded files via an upload link. Batched
+    — a batch of many files triggers only one mail (window ~15 min per link).
+  - **Team member joined**: an invited member set up their account → mail to the
+    remaining owners/admins.
+  - **Gallery expiring soon**: from 7 days before the expiry date (once; reset
+    if the expiry date is extended/removed).
+
 ## [0.26.0] - 2026-06-04
 
 Neues Feature. `git pull` + regulärer Deploy genügt; additive Migration läuft
@@ -442,6 +833,19 @@ automatisch.
   Tenants nahe am Limit (≥90 %). Läuft über den Sweeper, idempotent (genau
   einmal pro Tag). Beides nur im SaaS-Mode (`BILLING_ENABLED`); ohne Billing
   bleibt alles still.
+
+**🇬🇧 English**
+
+New feature. `git pull` + a regular deploy is enough; an additive migration runs
+automatically.
+
+### Added
+- **Super-admin notifications.** On every new self-service signup a mail goes to
+  all super admins (name, slug, plan, owner). Plus a **daily report** to all
+  super admins: new tenants in the last 24h, platform metrics (active tenants,
+  users, total storage), top storage and tenants near the limit (≥90%). Runs via
+  the sweeper, idempotent (exactly once per day). Both only in SaaS mode
+  (`BILLING_ENABLED`); without billing everything stays quiet.
 
 ## [0.25.0] - 2026-06-04
 
@@ -461,6 +865,24 @@ automatisch.
   über diese Einstellungen abschaltbar. Kunden-Mails (Galerie-Einladung,
   ZIP-Download-fertig) bleiben unberührt.
 
+**🇬🇧 English**
+
+New feature. `git pull` + a regular deploy is enough; an additive migration runs
+automatically.
+
+### Added
+- **Studio email notifications now controllable.** Under Settings → "Email
+  notifications" the studio can toggle per event what arrives by mail: new
+  comment, completed selection, new print order.
+- New notification **"Storage almost full"**: from 90% plan usage the owner gets
+  a mail (throttled, at most once per week, reset once back below the threshold).
+  Runs via the periodic sweeper.
+
+### Changed
+- The existing studio mails (comment, selection, print order) are now switchable
+  via these settings. Customer mails (gallery invitation, ZIP download ready)
+  remain untouched.
+
 ## [0.24.0] - 2026-06-04
 
 Neues optionales Feature. `git pull` + regulärer Deploy genügt; ohne Konfiguration
@@ -477,6 +899,21 @@ Neues optionales Feature. `git pull` + regulärer Deploy genügt; ohne Konfigura
   werden, wird der Signup abgelehnt). Keys gibt es im Cloudflare-Dashboard
   (kostenlos, keine Domain bei Cloudflare nötig).
 
+**🇬🇧 English**
+
+New optional feature. `git pull` + a regular deploy is enough; without
+configuration nothing changes.
+
+### Added
+- **CAPTCHA (Cloudflare Turnstile) on self-service signup.** Protects the public
+  signup endpoint against bots in addition to the existing rate limit. Only
+  active when `TURNSTILE_SECRET_KEY` (API) is set — otherwise signup stays as
+  before, self-hosters/single mode need nothing. On the marketing site
+  (`lumio-cloud.de`) the matching `PUBLIC_TURNSTILE_SITE_KEY` must additionally
+  be set as a build arg for the widget to appear. Verification is fail-closed (if
+  the token can't be verified, the signup is rejected). Keys are available in the
+  Cloudflare dashboard (free, no domain at Cloudflare needed).
+
 ## [0.23.0] - 2026-06-04
 
 Neues Feature. **Wichtig:** nach dem Deploy Caddy einmal reloaden (siehe unten),
@@ -491,6 +928,20 @@ damit der neue CSP-Header aktiv wird.
   vor dem Scharfschalten (enforced) gegen echten Traffic zu tunen — das
   Enforcen selbst folgt später separat.
 
+**🇬🇧 English**
+
+New feature. **Important:** after the deploy, reload Caddy once (see below) so
+the new CSP header becomes active.
+
+### Added
+- **CSP report sink + evaluation.** The Content Security Policy (still
+  Report-Only) now reports violations to `/api/v1/csp-report`. Aggregated by
+  directive + blocked source in the new table `csp_violations` (upsert +
+  counter, bounded volume). A new super-admin page `/super/csp` shows the
+  violations by frequency, with "Clear". A data basis to tune the policy against
+  real traffic before enforcing it — the enforcing itself follows separately
+  later.
+
 ## [0.22.3] - 2026-06-04
 
 Kleine Verbesserung. `git pull` + regulärer Deploy genügt.
@@ -500,6 +951,15 @@ Kleine Verbesserung. `git pull` + regulärer Deploy genügt.
   Tenant (Name, Anzeigename, Slug) — praktisch, wenn es viele Tenants gibt und
   das Dropdown lang wird. Der Tenant-Filter bleibt zusätzlich erhalten.
 
+**🇬🇧 English**
+
+A small improvement. `git pull` + a regular deploy is enough.
+
+### Changed
+- Super-admin user list: the search field now also finds users via their tenant
+  (name, display name, slug) — handy when there are many tenants and the
+  dropdown gets long. The tenant filter is additionally retained.
+
 ## [0.22.2] - 2026-06-04
 
 Kleine UI-Ergänzung. `git pull` + regulärer Deploy genügt, nur Frontend.
@@ -508,6 +968,14 @@ Kleine UI-Ergänzung. `git pull` + regulärer Deploy genügt, nur Frontend.
 - Super-Admin User-Liste: zusätzlicher Filter nach Tenant (neben Rolle und
   Status).
 
+**🇬🇧 English**
+
+A small UI addition. `git pull` + a regular deploy is enough, frontend only.
+
+### Added
+- Super-admin user list: an additional filter by tenant (alongside role and
+  status).
+
 ## [0.22.1] - 2026-06-04
 
 Kleine UI-Ergänzung. `git pull` + regulärer Deploy genügt, nur Frontend.
@@ -515,6 +983,14 @@ Kleine UI-Ergänzung. `git pull` + regulärer Deploy genügt, nur Frontend.
 ### Changed
 - Übersicht: Im Signups-Balkendiagramm steht über jedem Balken mit Signups
   jetzt die Anzahl.
+
+**🇬🇧 English**
+
+A small UI addition. `git pull` + a regular deploy is enough, frontend only.
+
+### Changed
+- Overview: in the signups bar chart the count is now shown above each bar that
+  has signups.
 
 ## [0.22.0] - 2026-06-04
 
@@ -537,6 +1013,28 @@ Neues Feature + Fixes. `git pull` + regulärer Deploy genügt.
 - Übersicht: Der Signups-Trend wurde als einzelnes verzerrtes Quadrat statt als
   Balkendiagramm dargestellt. Jetzt ein sauberes Balkendiagramm über 12 Wochen
   (leere Wochen als Grundlinie sichtbar).
+
+**🇬🇧 English**
+
+New feature + fixes. `git pull` + a regular deploy is enough.
+
+### Added
+- Super admin: a new global **user list** (`/super/users`) across all tenants
+  with search (email/name) and filters (role, status, tenant). Each user shows
+  their tenant — so the same email in multiple tenants is unambiguous. Editing
+  name/role/status (with last-owner protection), a password-reset link and
+  creating new users per tenant (invitation with a setup mail). No hard delete —
+  set "disabled" to block.
+
+### Fixed
+- Update check (System): the configured Forgejo read token
+  (`LUMIO_UPDATE_REPO_TOKEN`) wasn't passed through to the API container, hence
+  still "not reachable (HTTP 404)". The update-check variables are now passed
+  through correctly. An empty `LUMIO_UPDATE_REPO_URL` no longer accidentally
+  overrides the default source.
+- Overview: the signups trend was shown as a single distorted square instead of
+  a bar chart. Now a clean bar chart over 12 weeks (empty weeks visible as a
+  baseline).
 
 ## [0.21.0] - 2026-06-04
 
@@ -561,6 +1059,28 @@ Schritt für den Update-Check siehe Hinweis unten.
 > trotzdem korrekt angezeigt. Alternativ eigene Quelle via
 > `LUMIO_UPDATE_REPO_URL` oder Abschalten mit `DISABLE_UPDATE_CHECK=1`.
 
+**🇬🇧 English**
+
+New feature + fixes. `git pull` + a regular deploy is enough. For the optional
+update-check step see the note below.
+
+### Added
+- The super-admin overview now shows free (comped) studios: a dedicated metric
+  "Free (comped)" and, per plan in the plan distribution, an "of which N free".
+  This separates partner/goodwill accounts from paying ones.
+
+### Fixed
+- Update check (super admin → System): showed the current version as "unknown"
+  and queried a non-existent source (HTTP error). The version now reliably comes
+  from the stamped version file, and the check queries the Lumio repo on Forgejo
+  by default.
+
+> **Note (optional):** since the Forgejo repo is private, the update check needs
+> a read token. Set in `.env`: `LUMIO_UPDATE_REPO_TOKEN=<read-only-token>` (see
+> `.env.example.full`). Without a token the check shows "not reachable" — the
+> current version is still shown correctly. Alternatively a custom source via
+> `LUMIO_UPDATE_REPO_URL`, or disable with `DISABLE_UPDATE_CHECK=1`.
+
 ## [0.20.0] - 2026-06-04
 
 Neues Feature. `git pull` + regulärer Deploy genügt, nur Frontend.
@@ -572,6 +1092,18 @@ Neues Feature. `git pull` + regulärer Deploy genügt, nur Frontend.
   das vorherige Entfernen des Gratis-Abos durch den Super-Admin überflüssig,
   wenn der Kunde beim selben Plan bleiben will. Echte (bereits zahlende)
   Stripe-Abos zeigen weiterhin „Aktueller Plan" ohne Button.
+
+**🇬🇧 English**
+
+New feature. `git pull` + a regular deploy is enough, frontend only.
+
+### Added
+- Studios with a free (or trial) subscription can now book the same plan as a
+  paid one directly in the studio — the current plan shows a "Book paid now"
+  button instead of just "Current plan". This removes the need for the super
+  admin to first remove the free subscription if the customer wants to stay on
+  the same plan. Real (already paying) Stripe subscriptions still show "Current
+  plan" without a button.
 
 ## [0.19.0] - 2026-06-04
 
@@ -589,6 +1121,22 @@ Neues Feature. `git pull` + regulärer Deploy genügt.
   es jetzt korrekt als zahlend geführt (vorher blieb die interne „Gratis"-
   Markierung bestehen und das Studio fehlte in der Umsatz-Auswertung).
 
+**🇬🇧 English**
+
+New feature. `git pull` + a regular deploy is enough.
+
+### Added
+- Super admin: in the studio detail a free subscription can now be reset via a
+  "Remove subscription" button. The studio then has no subscription and the
+  owner can book a plan in the studio quite normally via Stripe — no database
+  intervention needed anymore. Stripe subscriptions are exempt (those are still
+  cancelled via archiving or the Stripe dashboard).
+
+### Fixed
+- If a studio with a free subscription later books a Stripe plan itself, it is
+  now correctly counted as paying (previously the internal "free" marker
+  persisted and the studio was missing from the revenue evaluation).
+
 ## [0.18.1] - 2026-06-04
 
 Bugfix. `git pull` + regulärer Deploy genügt.
@@ -600,6 +1148,17 @@ Bugfix. `git pull` + regulärer Deploy genügt.
   wurde aber fälschlich als zahlend in der Umsatz-Auswertung (MRR) gezählt. Der
   Schalter ist entfernt; zahlende Kunden buchen weiterhin über den regulären
   Stripe-Ablauf im Studio.
+
+**🇬🇧 English**
+
+Bugfix. `git pull` + a regular deploy is enough.
+
+### Fixed
+- Manual plan assignment in the super admin is now always a free subscription.
+  The previous "free" toggle could be unchecked without triggering a payment —
+  the studio got the plan for free anyway, but was wrongly counted as paying in
+  the revenue evaluation (MRR). The toggle is removed; paying customers still
+  book via the regular Stripe flow in the studio.
 
 ## [0.18.0] - 2026-06-04
 
@@ -613,6 +1172,18 @@ Neues Feature. `git pull` + regulärer Deploy genügt, nur Frontend.
   Bei Stripe-Studios ist der manuelle Wechsel ausgeblendet (gehört ins
   Stripe-Dashboard). Kostenlose Abos sind im Detail klar als „Gratis (comped)"
   markiert.
+
+**🇬🇧 English**
+
+New feature. `git pull` + a regular deploy is enough, frontend only.
+
+### Added
+- Super admin: the studio detail now has a "Assign / change plan" button. It
+  lets you give a studio a plan directly — optionally as a free subscription
+  (for partners), incl. optional extra storage. Studios without a subscription
+  show the button too, so they can be enabled. For Stripe studios the manual
+  switch is hidden (belongs in the Stripe dashboard). Free subscriptions are
+  clearly marked as "Free (comped)" in the detail.
 
 ## [0.17.0] - 2026-06-04
 
@@ -635,6 +1206,27 @@ beim Start automatisch (`prisma migrate deploy`), kein manueller Eingriff.
   manuelle Plan-Wechsel ab — solche Änderungen gehören weiterhin ins
   Stripe-Dashboard, damit Datenbank und Stripe nicht auseinanderlaufen.
 
+**🇬🇧 English**
+
+New feature. `git pull` + a regular deploy is enough; the DB migration runs
+automatically at start (`prisma migrate deploy`), no manual intervention.
+
+### Added
+- The super admin can now assign a plan to a studio manually — also as a free
+  subscription (e.g. for partners or goodwill), without Stripe and without a
+  card on file. Such subscriptions run permanently (no trial expiry) and are not
+  automatically archived for missing payment. When creating a new studio the
+  plan can be assigned directly, so a partner is ready to go immediately without
+  the normal payment flow.
+- Optional extra storage (GiB) can be assigned directly at assignment time.
+
+### Changed
+- Manually assigned free subscriptions are excluded from the revenue evaluation
+  (MRR) so partner/goodwill accounts don't distort revenue.
+- Protection: if a studio already has a subscription running via Stripe, the
+  manual plan switch is refused — such changes still belong in the Stripe
+  dashboard so the database and Stripe don't diverge.
+
 ## [0.16.2] - 2026-06-04
 
 Bugfix. `git pull` + regulärer Deploy genügt; die Korrektur greift beim
@@ -649,6 +1241,19 @@ nächsten API-Start automatisch, keine manuelle Aktion nötig.
   abgeglichen. Stripe-Preis-IDs und Sonderkonditionen bleiben dabei
   unangetastet.
 
+**🇬🇧 English**
+
+Bugfix. `git pull` + a regular deploy is enough; the fix takes effect at the
+next API start automatically, no manual action needed.
+
+### Fixed
+- Plan limits (e.g. storage) were sometimes shown with stale values in the
+  super-admin view, because the plan table in the database was only filled at
+  the very first start and never updated afterwards. Later changes to limits or
+  prices thus never reached the DB. The plans are now reconciled with the
+  central plan definition at every start. Stripe price IDs and special
+  conditions remain untouched.
+
 ## [0.16.1] - 2026-06-04
 
 Bugfix. `git pull` + regulärer Deploy genügt. Nur Frontend.
@@ -658,6 +1263,15 @@ Bugfix. `git pull` + regulärer Deploy genügt. Nur Frontend.
   die darunterliegenden Tag-Filter-Chips durchscheinen — es wirkte, als läge
   das Menü hinter den Tags. Schwebende Menüs nutzen jetzt einen deckenden
   Hintergrund.
+
+**🇬🇧 English**
+
+Bugfix. `git pull` + a regular deploy is enough. Frontend only.
+
+### Fixed
+- Customer gallery: the "Download" dropdown was semi-transparent and let the
+  tag-filter chips below show through — it looked as if the menu was behind the
+  tags. Floating menus now use an opaque background.
 
 ## [0.16.0] - 2026-06-04
 
@@ -673,6 +1287,21 @@ Vor dem Deploy den §9-Wortlaut mit dem/der Datenschutzbeauftragten abstimmen.
   spätestens zwölf Monate nach Vertragsende; Reaktivierung bei erneutem Abo.
   Technisch-organisatorische Maßnahmen (Löschkonzept) entsprechend aktualisiert.
   AVV-Version `1.0` → `1.1` (erneute Zustimmung erforderlich).
+
+**🇬🇧 English**
+
+SaaS only. `git pull` + a regular deploy is enough, no `.env` or Compose change.
+**Note:** the deploy bumps the DPA version — all studios must re-accept the data
+processing agreement at the next login. Before the deploy, coordinate the §9
+wording with the data protection officer.
+
+### Changed
+- Data processing agreement (DPA) §9 "Deletion and return after termination"
+  aligned with the archive lifecycle (v0.15.0): after contract end read-only
+  mode for export, then an inactive archive, final deletion at the latest twelve
+  months after contract end; reactivation on a new subscription. The technical/
+  organizational measures (deletion concept) updated accordingly. DPA version
+  `1.0` → `1.1` (re-acceptance required).
 
 ## [0.15.0] - 2026-06-04
 
@@ -696,6 +1325,28 @@ mit Defaults. Nur API. Self-Hoster ohne Billing sind nicht betroffen.
 - Öffentliche Kunden-Galerien eines archivierten Studios antworten jetzt mit
   „vorübergehend nicht verfügbar", bis wieder ein aktives Abo besteht.
 
+**🇬🇧 English**
+
+New feature (SaaS only / `BILLING_ENABLED`). `git pull` + a regular deploy is
+enough — the migration is additive, the new environment variables are optional
+with defaults. API only. Self-hosters without billing are not affected.
+
+### Added
+- **Archive lifecycle for cancelled SaaS studios.** Instead of unlimited
+  read-only after subscription end, a studio now goes through a bounded
+  lifecycle: read-only (customer galleries initially still reachable) → after 30
+  days an archive (galleries offline, previews removed from storage, original
+  files kept) → final deletion 12 months after subscription end. The owners are
+  informed by mail at archiving and again ~30 days before deletion. If the owner
+  takes out a subscription again before then, the studio is reactivated and the
+  previews are regenerated automatically.
+- Two new optional environment variables: `BILLING_ARCHIVE_AFTER_DAYS` (default
+  `30`) and `BILLING_PURGE_AFTER_MONTHS` (default `12`).
+
+### Changed
+- Public customer galleries of an archived studio now respond with "temporarily
+  unavailable" until an active subscription exists again.
+
 ## [0.14.7] - 2026-06-02
 
 Bugfix-Release. `git pull` + regulärer Deploy genügt. Nur API.
@@ -710,6 +1361,20 @@ Bugfix-Release. `git pull` + regulärer Deploy genügt. Nur API.
   der Nutzer kam (Subdomain wie Custom-Domain). Betrifft nur SaaS-/Multi-Mode
   mit aktiviertem Billing; Single-Mode ohne Stripe ist unberührt.
 
+**🇬🇧 English**
+
+Bugfix release. `git pull` + a regular deploy is enough. API only.
+
+### Fixed
+- The Stripe return logged you out: anyone opening the customer portal or
+  checkout via their own studio address (e.g. `name.your-domain.com`) and
+  clicking "Back" in Stripe landed logged out with "authentication required".
+  Reason: Stripe redirected to the central studio host fixedly, not to the
+  address the user was logged in on — where the session cookie was missing.
+  Stripe now always returns to exactly the host the user came from (subdomain as
+  well as custom domain). Affects only SaaS/multi mode with billing enabled;
+  single mode without Stripe is untouched.
+
 ## [0.14.6] - 2026-06-02
 
 Bugfix-Release. `git pull` + regulärer Deploy genügt. Reines Frontend.
@@ -723,6 +1388,18 @@ Bugfix-Release. `git pull` + regulärer Deploy genügt. Reines Frontend.
   definiert; alle betroffenen Flächen sind in hellem wie dunklem Modus wieder
   blickdicht.
 
+**🇬🇧 English**
+
+Bugfix release. `git pull` + a regular deploy is enough. Pure frontend.
+
+### Fixed
+- Modals and some input fields were partly transparent — the content behind
+  shimmered through and was hard to read (e.g. the "Edit member" dialog in the
+  team area). The cause was an undefined design token (`surface-base`) used in
+  many places for the background but producing no color at all. The token is now
+  defined centrally; all affected surfaces are opaque again in both light and
+  dark mode.
+
 ## [0.14.5] - 2026-06-02
 
 Bugfix-Release. `git pull` + regulärer Deploy genügt. Reines Frontend.
@@ -735,6 +1412,17 @@ Bugfix-Release. `git pull` + regulärer Deploy genügt. Reines Frontend.
   blendet das Bild sauber über. (Erst sichtbar geworden, seit das Aufblitzen
   in 0.14.4 behoben war.)
 
+**🇬🇧 English**
+
+Bugfix release. `git pull` + a regular deploy is enough. Pure frontend.
+
+### Fixed
+- Slideshow: the "fade" effect didn't animate at all — the new image appeared
+  hard instead of fading in. Cause: fade used a CSS transition that doesn't fire
+  on the layer remounted on each image change. Switched to a real keyframe
+  animation (like slide/Ken Burns), now the image cross-fades cleanly. (Only
+  became visible once the flash in 0.14.4 was fixed.)
+
 ## [0.14.4] - 2026-06-02
 
 Bugfix-Release. `git pull` + regulärer Deploy genügt. Reines Frontend.
@@ -745,6 +1433,16 @@ Bugfix-Release. `git pull` + regulärer Deploy genügt. Reines Frontend.
   eingestellte Effekt (Fade/Slide/Ken Burns) lief dadurch gegen ein leeres
   Bild. Die kommenden Bilder werden jetzt vorausgeladen und dekodiert, der
   Übergang ist sauber.
+
+**🇬🇧 English**
+
+Bugfix release. `git pull` + a regular deploy is enough. Pure frontend.
+
+### Fixed
+- Slideshow: on image change there was a brief flash, because the next
+  (high-resolution) image only started loading at the moment of the transition —
+  so the configured effect (fade/slide/Ken Burns) ran against an empty image.
+  The upcoming images are now preloaded and decoded, the transition is clean.
 
 ## [0.14.3] - 2026-06-02
 
@@ -761,12 +1459,33 @@ Bugfix-Release. `git pull` + regulärer Deploy genügt. Reines Frontend.
   selbst neu zu laden und zeigen im Fehlerfall einen neutralen Platzhalter
   statt des Broken-Image-Symbols.
 
+**🇬🇧 English**
+
+Bugfix release. `git pull` + a regular deploy is enough. Pure frontend.
+
+### Fixed
+- Customer gallery: the view jumped to the top by itself while scrolling during
+  lazy loading. The cause was a missing "auto" size memory of the image tiles
+  (content-visibility) — the tiles collapsed to a fixed estimate when offloaded
+  and shifted the layout. Fixed.
+- Customer gallery: in Brave (and partly other Chromium browsers) individual
+  thumbnails got stuck as "?" on fast scrolling, because the image load was
+  aborted. Thumbnails now try to reload themselves up to 2× and, on failure,
+  show a neutral placeholder instead of the broken-image symbol.
+
 ## [0.14.2] - 2026-06-02
 
 Tuning-Release. `git pull` + regulärer Deploy genügt. Reines Frontend.
 
 ### Changed
 - Logo-Größe „groß" weiter angehoben: jetzt 160/256 px (mobil/Desktop).
+
+**🇬🇧 English**
+
+Tuning release. `git pull` + a regular deploy is enough. Pure frontend.
+
+### Changed
+- Logo size "large" raised further: now 160/256 px (mobile/desktop).
 
 ## [0.14.1] - 2026-06-02
 
@@ -777,6 +1496,16 @@ Deploy — keine `.env`-, Compose- oder DB-Änderungen nötig. Reines Frontend.
 - Logo-Anzeigegrößen im Kunden-Hero nach oben korrigiert — „groß" war in
   großen Heros noch zu klein. Neue Höhen: klein 56/80 px, mittel 80/128 px,
   groß 128/224 px (mobil/Desktop).
+
+**🇬🇧 English**
+
+Bugfix/tuning release. For self-hosters `git pull` + a regular deploy is enough
+— no `.env`, Compose or DB changes needed. Pure frontend.
+
+### Changed
+- Logo display sizes in the customer hero corrected upward — "large" was still
+  too small in large heros. New heights: small 56/80 px, medium 80/128 px, large
+  128/224 px (mobile/desktop).
 
 ## [0.14.0] - 2026-06-02
 
@@ -792,6 +1521,19 @@ automatisch durch — kein manueller Schritt, kein Breaking Change.
   unterschiedlich groß; die Einstellung gibt dem Studio jetzt Kontrolle.
   Bestehende Galerien stehen auf „mittel".
 
+**🇬🇧 English**
+
+Feature release. For self-hosters `git pull` + a regular deploy is enough. The
+DB migration (a new column with a default) runs automatically at API start — no
+manual step, no breaking change.
+
+### Added
+- Gallery logo: in the gallery header you can now choose the display size of the
+  logo — small / medium / large (selection right next to the logo upload, the
+  preview reflects the size). Background: logos are scaled by height, so
+  landscape and portrait formats appeared different in size; the setting now
+  gives the studio control. Existing galleries are set to "medium".
+
 ## [0.13.0] - 2026-06-02
 
 Feature-/UI-Release. Für Self-Hoster genügt `git pull` + regulärer
@@ -803,6 +1545,18 @@ Deploy — keine `.env`-, Compose- oder DB-Änderungen nötig. Reines Frontend.
   aufklappbaren „Herunterladen"-Menü gebündelt — die Aktionen selbst sind
   unverändert. Das Sortier-Auswahlfeld sitzt jetzt links bei den Filtern
   (statt zwischen den Aktions-Buttons), weil beides die Ansicht steuert.
+
+**🇬🇧 English**
+
+Feature/UI release. For self-hosters `git pull` + a regular deploy is enough —
+no `.env`, Compose or DB changes needed. Pure frontend.
+
+### Changed
+- Customer-gallery bar decluttered: the up to four download buttons
+  (All / Selection × Original / Web version) are now bundled in a collapsible
+  "Download" menu — the actions themselves are unchanged. The sort selector now
+  sits on the left with the filters (instead of between the action buttons),
+  because both control the view.
 
 ## [0.12.2] - 2026-06-02
 
@@ -816,6 +1570,17 @@ keine `.env`-, Compose- oder DB-Änderungen nötig. Reines Frontend.
   Das Raster (inkl. Section-Ansicht) berücksichtigt die gewählte
   Sortierung jetzt korrekt.
 
+**🇬🇧 English**
+
+Bugfix release. For self-hosters `git pull` + a regular deploy is enough — no
+`.env`, Compose or DB changes needed. Pure frontend.
+
+### Fixed
+- The customer-gallery sorting introduced in 0.12.0 (name/capture date) affected
+  the slideshow and lightbox order, but NOT the visible image grid — so the
+  selector seemed to have no effect. The grid (incl. section view) now respects
+  the chosen sorting correctly.
+
 ## [0.12.1] - 2026-06-02
 
 Bugfix-Release. Für Self-Hoster genügt `git pull` + regulärer Deploy —
@@ -828,6 +1593,19 @@ keine `.env`-, Compose- oder DB-Änderungen nötig.
   `takenAt` geschrieben). Task ist jetzt registriert und läuft. Wer auf
   0.12.0 schon vergeblich gestartet hat: nach dem Update einfach erneut
   aufrufen. (Automatische Extraktion bei NEUEN Uploads war nie betroffen.)
+
+**🇬🇧 English**
+
+Bugfix release. For self-hosters `git pull` + a regular deploy is enough — no
+`.env`, Compose or DB changes needed.
+
+### Fixed
+- The capture-date backfill (`tasks.backfill_taken_at`) was not registered with
+  the worker in 0.12.0 — the call ran into nothing (a task ID came back, but no
+  worker executed it, no log output, no `takenAt` written). The task is now
+  registered and runs. Anyone who already started it in vain on 0.12.0: just call
+  it again after the update. (Automatic extraction on NEW uploads was never
+  affected.)
 
 ## [0.12.0] - 2026-06-02
 
@@ -860,6 +1638,35 @@ Backfill nötig (siehe unten) — neue Uploads bekommen das Datum automatisch.
   Mehrfach startbar; verarbeitet bei jedem Aufruf den nächsten Batch.
   Optional — die Galerie funktioniert auch ohne.
 
+**🇬🇧 English**
+
+Feature release. For self-hosters `git pull` + a regular deploy is enough — no
+`.env`, Compose or DB changes needed. For correct sorting by capture date on
+EXISTING files, a one-time optional backfill is needed (see below) — new uploads
+get the date automatically.
+
+### Added
+- Customer gallery: visitors can now sort the display by name or capture date (a
+  small selector in the gallery bar). The sorting is purely visual and temporary
+  — the order set manually in the studio stays the default and is not changed; on
+  reload the gallery order is active again. Files without a capture date land at
+  the end when sorting by date.
+- The worker now reads the capture time from the EXIF data when processing images
+  and RAWs and stores it (`takenAt`). The basis for the date sorting above.
+
+### ⚠️ Note (no breaking change)
+- Existing images/RAWs have no capture date yet and would slide to the end when
+  sorting by capture date. A one-time backfill, across galleries in batches
+  (default 500):
+
+  ```
+  docker compose exec worker celery -A app call \
+      tasks.backfill_taken_at.run_global
+  ```
+
+  Can be started multiple times; processes the next batch on each call. Optional
+  — the gallery works without it too.
+
 ## [0.11.1] - 2026-06-02
 
 Bugfix-Release. Für Self-Hoster genügt `git pull` + regulärer Deploy —
@@ -875,6 +1682,20 @@ keine `.env`-, Compose- oder DB-Änderungen nötig.
   überschreitet (mit Größe und Limit) und der Tipp, Videos als
   H.264/HEVC statt ProRes zu exportieren.
 
+**🇬🇧 English**
+
+Bugfix release. For self-hosters `git pull` + a regular deploy is enough — no
+`.env`, Compose or DB changes needed.
+
+### Fixed
+- Upload: a single oversized file (e.g. a ProRes master from Final Cut)
+  previously blocked the entire upload batch — even the valid files next to it
+  got stuck in "preparing…" with no feedback. Oversized files are now detected in
+  the browser already and skipped, the rest continue uploading normally. Instead
+  of a silent stall, a hint appears showing which file exceeds the per-file limit
+  (with size and limit) and the tip to export videos as H.264/HEVC instead of
+  ProRes.
+
 ## [0.11.0] - 2026-06-02
 
 Kleines Feature-Release. Für Self-Hoster genügt `git pull` + regulärer
@@ -885,6 +1706,16 @@ Deploy — keine `.env`-, Compose- oder DB-Änderungen nötig.
   dezenten Play-Indikator (kleiner Punkt unten links), damit Videos auf
   einen Blick von Fotos zu unterscheiden sind. Rein optisch, keine
   Funktionsänderung.
+
+**🇬🇧 English**
+
+Small feature release. For self-hosters `git pull` + a regular deploy is enough
+— no `.env`, Compose or DB changes needed.
+
+### Added
+- Gallery studio: video files now carry a subtle play indicator in the preview
+  grid (a small dot bottom left), so videos can be told apart from photos at a
+  glance. Purely visual, no functional change.
 
 ## [0.10.3] - 2026-06-02
 
@@ -905,6 +1736,24 @@ deployen, damit das Encoding wieder durchläuft.
   explizit über `LUMIO_HW_ENCODER` gesetzt, das Gerät aber nicht
   durchgereicht ist: statt hartem Fehler nun Fallback auf Software.
 
+**🇬🇧 English**
+
+Bugfix release. For self-hosters `git pull` + a regular deploy is enough — no
+`.env`, Compose or DB changes needed. Anyone processing videos on a server
+without a GPU should redeploy the worker after the update so encoding runs
+through again.
+
+### Fixed
+- Video processing failed permanently on servers without a GPU ("Video
+  processing failed"). The automatic encoder choice (`auto`, default) chose
+  NVENC or QSV as soon as ffmpeg had the encoder in the build — which is ALWAYS
+  the case with the standard ffmpeg packages, even with no graphics card at all.
+  ffmpeg then failed at runtime on the missing GPU device. `auto` now
+  additionally checks whether a matching device really exists, and otherwise
+  falls back cleanly to software encoding (libx264). The same applies if
+  `nvenc`/`qsv` is set explicitly via `LUMIO_HW_ENCODER` but the device isn't
+  passed through: instead of a hard error, now a fallback to software.
+
 ## [0.10.2] - 2026-06-02
 
 Bugfix-Release. Für Self-Hoster genügt `git pull` + regulärer Deploy —
@@ -916,6 +1765,17 @@ keine `.env`-, Compose- oder DB-Änderungen nötig.
   Rückkehr-Pfad richtet sich jetzt nach der Ausgangsseite (z.B. zurück
   auf `/studio/billing`); validiert gegen Open-Redirect, Fallback bleibt
   `/studio/billing`.
+
+**🇬🇧 English**
+
+Bugfix release. For self-hosters `git pull` + a regular deploy is enough — no
+`.env`, Compose or DB changes needed.
+
+### Fixed
+- Stripe customer portal: after "Back" you always landed on `/studio/settings`
+  instead of where you opened the portal. The return path now follows the origin
+  page (e.g. back to `/studio/billing`); validated against open redirects, the
+  fallback stays `/studio/billing`.
 
 ## [0.10.1] - 2026-06-02
 
@@ -929,6 +1789,18 @@ keine `.env`-, Compose- oder DB-Änderungen nötig.
   Routen existieren nicht. Geht jetzt korrekt zurück auf `/studio/billing`.
   Die Subscription selbst war nie betroffen (wird über den Webhook
   angelegt), nur die Landeseite nach dem Checkout.
+
+**🇬🇧 English**
+
+Bugfix release. For self-hosters `git pull` + a regular deploy is enough — no
+`.env`, Compose or DB changes needed.
+
+### Fixed
+- Stripe checkout from the studio (`/studio/billing`): after a successful
+  payment or on cancellation you landed on a 404 page, because the redirect
+  pointed to `/billing/success` or `/billing` — those routes don't exist. It now
+  correctly goes back to `/studio/billing`. The subscription itself was never
+  affected (it's created via the webhook), only the landing page after checkout.
 
 ## [0.10.0] - 2026-06-01
 
@@ -944,6 +1816,21 @@ regulärer Deploy — keine `.env`-, Compose- oder DB-Änderungen nötig.
 ### Changed
 - Doku: `docs/OPERATIONS.md` um den Abschnitt „Secrets & Passwörter
   rotieren" ergänzt.
+
+**🇬🇧 English**
+
+Backward-compatible feature release. For self-hosters `git pull` + a regular
+deploy is enough — no `.env`, Compose or DB changes needed.
+
+### Added
+- Customer gallery: single-image download on iOS saves directly into the Photos
+  app via the native share sheet ("Save to Photos") instead of into the "Files"
+  app. Same download buttons, desktop/Android unchanged. For this a new stream
+  endpoint `GET /g/:slug/files/:fileId/blob`.
+
+### Changed
+- Docs: `docs/OPERATIONS.md` extended with the section "Rotating secrets &
+  passwords".
 
 ## [0.9.0] - 2026-06-01
 
@@ -961,6 +1848,23 @@ Multi-Mode); diese Version macht den Stand offiziell nachvollziehbar.
 
 ### Notes
 - Frühere Stände waren nicht getaggt. `0.9.0` ist der erste Git-Tag (`v0.9.0`).
+
+**🇬🇧 English**
+
+First officially versioned release. At this point Lumio is already running in
+production (SaaS on lumio-cloud.de as well as self-hosting in single and multi
+mode); this version makes the state officially traceable.
+
+### Added
+- Unified product versioning across all components (API, frontend, worker).
+- A single source of truth in `/VERSION`, kept by `scripts/bump-version.sh`.
+- The version is served on the public `/meta` endpoint and shown in the studio
+  footer (`Lumio vX.Y.Z`).
+- `/health` returns the real version instead of a hardcoded value.
+- The worker logs the version at start (`lumio.worker.boot`).
+
+### Notes
+- Earlier states were not tagged. `0.9.0` is the first Git tag (`v0.9.0`).
 
 [Unreleased]: https://forgejo.thiel.tools/thiel/lumio/compare/v0.9.0...HEAD
 [0.9.0]: https://forgejo.thiel.tools/thiel/lumio/releases/tag/v0.9.0
