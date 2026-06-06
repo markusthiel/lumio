@@ -1,51 +1,53 @@
+**English** · [Deutsch](SELFHOSTING.de.md)
+
 # Production Self-Hosting
 
-Du hast den Quick-Start durch und willst Lumio jetzt sauber unter deiner eigenen Domain laufen lassen, mit HTTPS und Backups. Dieser Guide nimmt **15 Minuten** und setzt voraus:
+You've finished the Quick Start and now want to run Lumio cleanly under your own domain, with HTTPS and backups. This guide takes **15 minutes** and assumes:
 
-- Linux-Server mit öffentlicher IP (Hetzner, Netcup, eigenes Blech – egal),
-  **amd64 oder arm64** — beide werden unterstützt
-- Eine Domain (z.B. `galerien.dein-studio.de`)
+- A Linux server with a public IP (Hetzner, Netcup, your own metal – doesn't matter),
+  **amd64 or arm64** — both are supported
+- A domain (e.g. `gallery.your-studio.com`)
 - Docker + Docker Compose v2
 
-Detaillierte Hardware-/Architektur-Voraussetzungen: [REQUIREMENTS.md](REQUIREMENTS.md).
+Detailed hardware/architecture requirements: [REQUIREMENTS.md](REQUIREMENTS.md).
 
-Dieser Guide deckt **Single-Studio** ab. Für Multi-Tenant siehe [MULTI_TENANT.md](MULTI_TENANT.md).
+This guide covers **single studio**. For multi-tenant see [MULTI_TENANT.md](MULTI_TENANT.md).
 
 ---
 
-## 1. DNS einrichten
+## 1. Set up DNS
 
-Beim DNS-Anbieter einen A-Record (und ggf. AAAA für IPv6) anlegen:
+At your DNS provider, create an A record (and optionally AAAA for IPv6):
 
 ```
-galerien.dein-studio.de.   A     <server-ip>
+gallery.your-studio.com.   A     <server-ip>
 ```
 
-TTL erstmal niedrig (300s), kannst du später hochsetzen.
+Keep the TTL low for now (300s); you can raise it later.
 
-Prüfen:
+Check:
 
 ```bash
-dig galerien.dein-studio.de +short
+dig gallery.your-studio.com +short
 ```
 
-Sollte deine Server-IP zurückgeben.
+Should return your server IP.
 
-## 2. Firewall öffnen
+## 2. Open the firewall
 
-Auf dem Server (oder per Cloud-Console):
+On the server (or via the cloud console):
 
 ```bash
-# UFW als Beispiel
+# UFW as an example
 ufw allow 22/tcp
 ufw allow 80/tcp
 ufw allow 443/tcp
 ufw enable
 ```
 
-**Wichtig bei Hetzner Cloud**: zusätzlich zur OS-Firewall gibt es noch die Cloud Firewall in der Hetzner Console – auch dort 80 und 443 freischalten, sonst kommt nichts durch.
+**Important on Hetzner Cloud**: in addition to the OS firewall there's also the Cloud Firewall in the Hetzner console – open 80 and 443 there too, otherwise nothing gets through.
 
-## 3. Lumio installieren
+## 3. Install Lumio
 
 ```bash
 mkdir -p /opt/docker && cd /opt/docker
@@ -54,7 +56,7 @@ cd lumio
 cp .env.example .env
 ```
 
-Sichere Secrets generieren:
+Generate secure secrets:
 
 ```bash
 sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(openssl rand -base64 24 | tr -d '/+=')|" .env
@@ -64,80 +66,80 @@ sed -i "s|^S3_ACCESS_KEY=.*|S3_ACCESS_KEY=$(openssl rand -hex 12)|" .env
 sed -i "s|^S3_SECRET_KEY=.*|S3_SECRET_KEY=$(openssl rand -base64 32 | tr -d '/+=')|" .env
 ```
 
-## 4. Domain in .env eintragen
+## 4. Set the domain in .env
 
 ```bash
 nano .env
 ```
 
-Diese Werte setzen:
+Set these values:
 
 ```bash
-LUMIO_HOST=galerien.dein-studio.de
-PUBLIC_URL=https://galerien.dein-studio.de
+LUMIO_HOST=gallery.your-studio.com
+PUBLIC_URL=https://gallery.your-studio.com
 
-# S3-Public-URL für Browser-Uploads — gleiche Domain mit /s3-Pfad,
-# oder eine eigene Subdomain (siehe unten)
-S3_PUBLIC_URL=https://galerien.dein-studio.de/s3
+# S3 public URL for browser uploads — same domain with the /s3 path,
+# or a dedicated subdomain (see below)
+S3_PUBLIC_URL=https://gallery.your-studio.com/s3
 ```
 
-## 5. Starten
+## 5. Start
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
 
-Caddy holt sich automatisch ein Let's-Encrypt-Zertifikat (dauert ca. 30 Sekunden). Beobachten:
+Caddy automatically obtains a Let's Encrypt certificate (takes about 30 seconds). Watch it:
 
 ```bash
 docker compose logs -f caddy
 ```
 
-Erfolg sieht so aus: `certificate obtained successfully ... galerien.dein-studio.de`.
+Success looks like this: `certificate obtained successfully ... gallery.your-studio.com`.
 
-## 6. Admin-User anlegen
+## 6. Create an admin user
 
-Im Single-Mode legt Lumio beim ersten Start automatisch einen Tenant namens "My Studio" an – du brauchst keinen Super-Admin, keinen Tenant manuell erstellen. Nur den ersten User:
+In single mode Lumio automatically creates a tenant named "My Studio" on first start – you don't need a super admin and don't create a tenant manually. Just the first user:
 
 ```bash
 docker compose exec api npm run create-admin -- \
-  --email=du@dein-studio.de \
-  --password=mindestens12zeichen \
-  --name="Dein Studio"
+  --email=you@your-studio.com \
+  --password=atleast12chars \
+  --name="Your Studio"
 ```
 
-## 7. Einloggen
+## 7. Log in
 
-→ `https://galerien.dein-studio.de`
+→ `https://gallery.your-studio.com`
 
-Beim ersten Login Test-Galerie anlegen, ein Bild hochladen, Galerie-Link teilen, von einem anderen Gerät öffnen. Wenn alles funktioniert: läuft.
+On first login create a test gallery, upload an image, share the gallery link, open it from another device. If everything works: you're live.
 
 ---
 
 ## Backups
 
-Mindestens zwei Sachen sichern:
+Back up at least two things:
 
-1. **Postgres** – die ganze Anwendungsdatenbank (User, Galerien, Permissions)
-2. **S3-Bucket** – die eigentlichen Bilder/Videos
+1. **Postgres** – the whole application database (users, galleries, permissions)
+2. **S3 bucket** – the actual images/videos
 
-### Postgres-Dump nightly
+### Nightly Postgres dump
 
-In Crontab (`crontab -e`) eintragen:
+Add to crontab (`crontab -e`):
 
 ```cron
 0 3 * * * cd /opt/docker/lumio && docker compose exec -T postgres pg_dump -U lumio lumio | gzip > /backup/lumio-$(date +\%Y\%m\%d).sql.gz && find /backup -name "lumio-*.sql.gz" -mtime +14 -delete
 ```
 
-Speichert 14 Tage. Anschließend nach extern syncen (z.B. mit `rclone` zu einem Backup-Provider).
+Keeps 14 days. Then sync off-site (e.g. with `rclone` to a backup provider).
 
-### S3-Bucket-Backup
+### S3 bucket backup
 
-Bei MinIO einfach das `minio_data`-Volume rsyncen. Bei externem S3 (Hetzner, R2, B2) Versioning + Lifecycle aktivieren – machen die Provider in der Console.
+With MinIO simply rsync the `minio_data` volume. With external S3 (Hetzner, R2, B2) enable versioning + lifecycle – the providers do this in their console.
 
-### Restore-Test
+### Restore test
 
-**Mache regelmäßig einen Restore-Test auf einer Test-VM.** Ein nicht-getestetes Backup ist kein Backup.
+**Run a restore test on a test VM regularly.** An untested backup is not a backup.
 
 ---
 
@@ -149,28 +151,28 @@ git pull
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 ```
 
-Prisma-Migrationen laufen automatisch beim API-Start. **Vor jedem Update Postgres-Dump anlegen** – Migrations sind selten reversibel.
+Prisma migrations run automatically on API start. **Take a Postgres dump before every update** – migrations are rarely reversible.
 
-Aktuell laufende Version siehst du in `docker compose logs api | grep "Lumio API ready"`.
+You can see the currently running version with `docker compose logs api | grep "Lumio API ready"`.
 
 ---
 
-## Eigenes externes S3 statt MinIO
+## Your own external S3 instead of MinIO
 
-MinIO funktioniert für kleinere Setups (bis ~500 GB) gut. Für mehr Volumen lohnt sich externes S3:
+MinIO works well for smaller setups (up to ~500 GB). For more volume external S3 pays off:
 
-- **Hetzner Object Storage** – günstig, DSGVO, gleicher Datacenter wie der Server möglich
-- **Cloudflare R2** – kostenloser Egress, gut für CDN-Setups
-- **Backblaze B2** – günstigster Storage-Preis, etwas höhere Latenz
+- **Hetzner Object Storage** – cheap, GDPR, can be in the same datacenter as the server
+- **Cloudflare R2** – free egress, good for CDN setups
+- **Backblaze B2** – cheapest storage price, slightly higher latency
 
-Setup-Schritte: siehe [STORAGE.md](STORAGE.md).
+Setup steps: see [STORAGE.md](STORAGE.md).
 
-**Wichtig bei externem S3**: CORS am Bucket setzen! Lumio uploadet Bilder direkt vom Browser zu S3 (presigned URLs). Ohne CORS scheitert das. Konkret:
+**Important with external S3**: set CORS on the bucket! Lumio uploads images directly from the browser to S3 (presigned URLs). Without CORS that fails. Specifically:
 
 ```json
 {
   "CORSRules": [{
-    "AllowedOrigins": ["https://galerien.dein-studio.de"],
+    "AllowedOrigins": ["https://gallery.your-studio.com"],
     "AllowedMethods": ["GET", "PUT", "POST", "HEAD"],
     "AllowedHeaders": ["*"],
     "ExposeHeaders": ["ETag"],
@@ -179,21 +181,21 @@ Setup-Schritte: siehe [STORAGE.md](STORAGE.md).
 }
 ```
 
-Bei Hetzner Object Storage zusätzlich `S3_FORCE_PATH_STYLE=true` und `S3_REGION=fsn1` (oder dein Bucket-Standort).
+For Hetzner Object Storage additionally set `S3_FORCE_PATH_STYLE=true` and `S3_REGION=fsn1` (or your bucket location).
 
 ---
 
-## Sicherheit
+## Security
 
-- **`.env` niemals committen** – steht in `.gitignore`, aber check trotzdem
-- **Postgres-Port nicht nach außen exponieren** – Default schon korrekt, nur intern erreichbar
-- **MinIO-Console (Port 9001) absichern** – im Production-Compose ist sie standardmäßig nicht von außen erreichbar, nur über `docker exec`
-- **Backups verschlüsseln** wenn auf fremdem Storage gelagert (`gpg`, `restic`, `borg`)
-- **SSH-Key-only Login** auf dem Server, keine Passwort-Auth
-- **Unattended-Upgrades** für OS-Patches aktivieren
+- **Never commit `.env`** – it's in `.gitignore`, but check anyway
+- **Don't expose the Postgres port externally** – the default is already correct, only reachable internally
+- **Secure the MinIO console (port 9001)** – in the production compose it isn't reachable from outside by default, only via `docker exec`
+- **Encrypt backups** when stored on third-party storage (`gpg`, `restic`, `borg`)
+- **SSH key-only login** on the server, no password auth
+- **Enable unattended upgrades** for OS patches
 
 ---
 
-## Häufige Stolperfallen
+## Common pitfalls
 
-→ siehe [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+→ see [TROUBLESHOOTING.md](TROUBLESHOOTING.md)

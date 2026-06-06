@@ -1,106 +1,108 @@
+**English** · [Deutsch](README.de.md)
+
 # Lumio
 
-**Self-hosted Foto- und Video-Galerie für Fotograf:innen und Studios.**
-Self-hostbare Alternative zu Picdrop, Pixieset und Pic-Time — Daten bleiben bei dir.
+**Self-hosted photo and video gallery for photographers and studios.**
+A self-hostable alternative to Picdrop, Pixieset and Pic-Time — your data stays with you.
 
-![Lumio Galerie aus Kundensicht](docs/images/01-gallery.jpg)
+![Lumio gallery from the client's perspective](docs/images/01-gallery.jpg)
 
 ---
 
-## Für wen ist Lumio?
+## Who is Lumio for?
 
-Drei typische Setups – das Quick-Start unten deckt den ersten ab, alles andere ist optional.
+Three typical setups — the Quick Start below covers the first; everything else is optional.
 
-| Du bist… | Setup | Doku |
+| You are… | Setup | Docs |
 |---|---|---|
-| **Fotograf:in oder Studio** | Single-Mode, MinIO, eine Domain | [Quick Start](#quick-start) — 5 Minuten |
-| **Agentur mit mehreren Fotograf-Kunden** (selbst hostend, für die eigene Geschäftstätigkeit) | Multi-Mode ohne Billing, Tenants manuell per Super-Admin | [docs/MULTI_TENANT.md](docs/MULTI_TENANT.md) |
+| **Photographer or studio** | Single mode, MinIO, one domain | [Quick Start](#quick-start) — 5 minutes |
+| **Agency with several photographer clients** (self-hosted, for your own business) | Multi mode without billing, tenants created manually via super admin | [docs/MULTI_TENANT.md](docs/MULTI_TENANT.md) |
 
-Im **Single-Mode** wird der Tenant beim ersten Start automatisch angelegt – du brauchst nur `create-admin` für deinen ersten User. Kein Super-Admin, kein Stripe.
+In **single mode** the tenant is created automatically on first start — you only need `create-admin` for your first user. No super admin, no Stripe.
 
-> **Lumio als SaaS an zahlende Dritte anbieten?** Das ist *Competing Use* und unter der Lizenz nicht ohne Weiteres erlaubt (es ist das Geschäftsmodell hinter unserem eigenen lumio-cloud.de). Dafür gibt es eine kommerzielle Lizenz auf Anfrage – siehe [Lizenz](#lizenz). Der SaaS-Modus ist unter [docs/SAAS_MODE.md](docs/SAAS_MODE.md) dokumentiert.
+> **Want to offer Lumio as a SaaS to paying third parties?** That's *Competing Use* and not freely permitted under the license (it's the business model behind our own lumio-cloud.de). A commercial license is available on request — see [License](#license). The SaaS mode is documented in [docs/SAAS_MODE.md](docs/SAAS_MODE.md).
 
 ---
 
 ## Features
 
-- 🚀 **Schnell** — Direkt-zu-S3-Uploads, virtualisierte Galerien, libvips-Thumbnails
-- 📷 **RAW-Support** — CR2, CR3, NEF, ARW, RAF, DNG, ORF, PEF, RW2, X3F via LibRaw
-- 🎬 **Video-Streaming** — HLS Adaptive Bitrate, Scrubbing-Previews, Poster-Frames
-- 💬 **Proofing** — Likes, Color-Tags, Star-Ratings, Kommentare, Zeichen-Markierungen auf Foto **und Video** (zeitgebunden), Team-Voting
-- 🎨 **Whitelabel** — Logo, Farben, Custom Domains pro Studio oder Galerie
-- 🔐 **Sicher** — Signed URLs, Argon2-Passwörter, Audit-Log
-- ☁️ **Storage-flexibel** — MinIO, S3, R2, B2, Wasabi, Hetzner Object Storage
-- 🐳 **Docker-First** — `docker compose up` und es läuft
+- 🚀 **Fast** — Direct-to-S3 uploads, virtualized galleries, libvips thumbnails
+- 📷 **RAW support** — CR2, CR3, NEF, ARW, RAF, DNG, ORF, PEF, RW2, X3F via LibRaw
+- 🎬 **Video streaming** — HLS adaptive bitrate, scrubbing previews, poster frames
+- 💬 **Proofing** — Likes, color tags, star ratings, comments, drawn annotations on photo **and video** (time-anchored), team voting
+- 🎨 **Whitelabel** — Logo, colors, custom domains per studio or gallery
+- 🔐 **Secure** — Signed URLs, Argon2 passwords, audit log
+- ☁️ **Storage-flexible** — MinIO, S3, R2, B2, Wasabi, Hetzner Object Storage
+- 🐳 **Docker-first** — `docker compose up` and it runs
 
-Das Studio — Galerien verwalten, Smart Collections, Tag-Filter, Team-Proofing:
+The studio — manage galleries, smart collections, tag filters, team proofing:
 
-![Lumio Studio-Dashboard](docs/images/02-studio-dashboard.png)
+![Lumio studio dashboard](docs/images/02-studio-dashboard.png)
 
 ---
 
-## Einblicke
+## A closer look
 
-**Proofing & Annotation** — Kunden liken, vergeben Color-Tags und zeichnen Markierungen direkt aufs Bild, mit Kommentaren pro Foto.
+**Proofing & annotation** — Clients like images, assign color tags and draw annotations directly on the photo, with per-photo comments.
 
-![Proofing mit Markierungen und Color-Tags](docs/images/03-proofing.jpg)
+![Proofing with annotations and color tags](docs/images/03-proofing.jpg)
 
-![Markieren direkt am Bild](docs/images/feat-annotation.jpg)
+![Annotating directly on the image](docs/images/feat-annotation.jpg)
 
-**Video-Proofing** — Auch Bewegtbild wird abgenommen wie ein Foto: Kunden scrubben per Filmstrip durch das Video, setzen Markierungen an einem bestimmten Zeitpunkt und zeichnen direkt aufs Standbild — mit optionaler Notiz pro Markierung.
+**Video proofing** — Moving images get reviewed just like a photo: clients scrub through the video via filmstrip, place annotations at a specific point in time and draw directly on the still frame — with an optional note per annotation.
 
-![Video-Markierung an einem Zeitpunkt](docs/images/feat-video-annotation.jpg)
+![Video annotation at a point in time](docs/images/feat-video-annotation.jpg)
 
-Scrubbing per Filmstrip — beim Ziehen über die Leiste zeigt eine Vorschau den jeweiligen Frame samt Zeitstempel:
+Filmstrip scrubbing — dragging across the bar shows a preview of the respective frame with its timestamp:
 
-![Scrubbing-Vorschau mit Frame und Zeitstempel](docs/images/feat-video-scrubbing.jpg)
+![Scrubbing preview with frame and timestamp](docs/images/feat-video-scrubbing.jpg)
 
-**Upload & Formate** — Drag & Drop mit parallelen Uploads, Duplikat-Erkennung und Smart-Sections. JPEG, PNG, WebP, RAW, HEIC/HEIF, Video und PDF — bis zum konfigurierbaren Datei-Limit.
+**Upload & formats** — Drag & drop with parallel uploads, duplicate detection and smart sections. JPEG, PNG, WebP, RAW, HEIC/HEIF, video and PDF — up to the configurable file limit.
 
-![Upload mit unterstützten Formaten](docs/images/feat-upload.png)
+![Upload with supported formats](docs/images/feat-upload.png)
 
-**KI-Auto-Tagging** — Bilder werden automatisch verschlagwortet (CLIP-Modell), Vorschläge lassen sich per Confidence-Schwelle filtern und übernehmen. Kunden können optional nach Tags filtern.
+**AI auto-tagging** — Images are tagged automatically (CLIP model); suggestions can be filtered by a confidence threshold and applied. Clients can optionally filter by tags.
 
-![KI-Auto-Tagging mit Bilder-Grid](docs/images/04-ai-tagging.jpg)
+![AI auto-tagging with image grid](docs/images/04-ai-tagging.jpg)
 
-**Galerie-Gestaltung** — Pro Galerie: Layout, Bilder-Anordnung, Slideshow-Übergänge, Hero-Bild, Event-Logo, Farben. Whitelabel bis ins Detail.
+**Gallery design** — Per gallery: layout, image arrangement, slideshow transitions, hero image, event logo, colors. Whitelabel down to the detail.
 
-![Galerie-Gestaltung und Layouts](docs/images/05-gallery-design.png)
+![Gallery design and layouts](docs/images/05-gallery-design.png)
 
-**Analytics** — Aufrufe, beliebteste Bilder, Downloads und ein Engagement-Funnel von Besuch bis Bestellung.
+**Analytics** — Views, most popular images, downloads and an engagement funnel from visit to order.
 
-![Statistiken und Engagement-Funnel](docs/images/06-analytics.png)
+![Statistics and engagement funnel](docs/images/06-analytics.png)
 
-**Print-Shop** — Verkaufe Prints, Leinwände und Fotobücher direkt aus der Galerie. Eigene Anbieter, Produkte, Versand, optional mit Stripe-Bezahlung.
+**Print shop** — Sell prints, canvases and photo books straight from the gallery. Your own providers, products, shipping, optionally with Stripe payment.
 
-![Print-Shop Setup](docs/images/07-print-shop.png)
+![Print shop setup](docs/images/07-print-shop.png)
 
-**Sicherheit & DSGVO** — Auftragsverarbeitungsvertrag nach Art. 28 DSGVO elektronisch abschließbar, Share-Links mit Ablauf und Passwort, Audit-Log und Zwei-Faktor-Authentifizierung.
+**Security & GDPR** — Data processing agreement under Art. 28 GDPR signable electronically, share links with expiry and password, audit log and two-factor authentication.
 
-![Auftragsverarbeitungsvertrag (AVV) nach Art. 28 DSGVO](docs/images/feat-dsgvo.jpg)
+![Data processing agreement (DPA) under Art. 28 GDPR](docs/images/feat-dsgvo.jpg)
 
-**Webhooks & Integrationen** — Externe Tools per HTTP-POST über Galerie-Ereignisse informieren. Jeder Request wird mit deinem Webhook-Secret signiert.
+**Webhooks & integrations** — Notify external tools via HTTP POST about gallery events. Every request is signed with your webhook secret.
 
-![Webhooks-Konfiguration](docs/images/feat-webhooks.jpg)
+![Webhooks configuration](docs/images/feat-webhooks.jpg)
 
-**Hell- oder Dunkel-Modus** — Das Studio-Backend in Hell oder Dunkel, mit eigener Akzentfarbe und Logo-Varianten für beide Modi. (Die übrigen Screenshots hier zeigen den Dunkel-Modus.)
+**Light or dark mode** — The studio backend in light or dark, with its own accent color and logo variants for both modes. (The other screenshots here show dark mode.)
 
-![Studio-Backend im Hell-Modus mit Grundton-Umschalter](docs/images/feat-theme.jpg)
+![Studio backend in light mode with base-tone switcher](docs/images/feat-theme.jpg)
 
 ---
 
 ## Quick Start
 
-**5 Minuten von Null zu erster Galerie.** Voraussetzungen: Docker + Docker Compose v2 (amd64 oder arm64). Details: [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md).
+**5 minutes from zero to your first gallery.** Requirements: Docker + Docker Compose v2 (amd64 or arm64). Details: [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md).
 
-### 1. Repo holen und Secrets setzen
+### 1. Get the repo and set secrets
 
 ```bash
 git clone https://github.com/markusthiel/lumio.git
 cd lumio
 cp .env.example .env
 
-# Sichere Passwörter generieren und einsetzen
+# Generate and insert secure passwords
 sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(openssl rand -base64 24 | tr -d '/+=')|" .env
 sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$(openssl rand -base64 32 | tr -d '/+=')|" .env
 sed -i "s|^SESSION_SECRET=.*|SESSION_SECRET=$(openssl rand -base64 32 | tr -d '/+=')|" .env
@@ -108,51 +110,51 @@ sed -i "s|^S3_ACCESS_KEY=.*|S3_ACCESS_KEY=$(openssl rand -hex 12)|" .env
 sed -i "s|^S3_SECRET_KEY=.*|S3_SECRET_KEY=$(openssl rand -base64 32 | tr -d '/+=')|" .env
 ```
 
-### 2. Starten
+### 2. Start
 
 ```bash
 docker compose up -d
 ```
 
-Das baut die Container und startet Postgres, Redis, MinIO, API, Frontend, Worker und Caddy. Der erste Start dauert 3–5 Min (Build + DB-Migration).
+This builds the containers and starts Postgres, Redis, MinIO, API, frontend, worker and Caddy. The first start takes 3–5 min (build + DB migration).
 
-Status prüfen:
+Check status:
 
 ```bash
 docker compose ps
 ```
 
-Alle Services sollten `running` (healthy) sein.
+All services should be `running` (healthy).
 
-### 3. Admin-User anlegen
+### 3. Create an admin user
 
 ```bash
 docker compose exec api npm run create-admin -- \
-  --email=du@example.com \
-  --password=mindestens12zeichen \
-  --name="Dein Studio"
+  --email=you@example.com \
+  --password=atleast12chars \
+  --name="Your Studio"
 ```
 
-### 4. Einloggen
+### 4. Log in
 
-Im Browser:
+In your browser:
 
-→ **http://localhost** (Studio-Login)
+→ **http://localhost** (studio login)
 
-Nach dem Login findest du oben links die Galerie-Erstellung. Lade ein Foto hoch, teile den Galerie-Link — fertig.
-
----
-
-## Es läuft. Was jetzt?
-
-- **Eigene Domain dranhängen** → [docs/SELFHOSTING.md](docs/SELFHOSTING.md) (15-Min-Setup mit HTTPS)
-- **Bilder gehen verloren beim Container-Restart?** → MinIO speichert im `minio_data`-Volume, das persistiert. Sicher dass du das Volume nicht versehentlich `docker volume rm`'st.
-- **Backups einrichten** → [docs/BACKUP.md](docs/BACKUP.md)
-- **Was läuft schief?** → [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
+After logging in you'll find gallery creation in the top left. Upload a photo, share the gallery link — done.
 
 ---
 
-## Architektur
+## It's running. What now?
+
+- **Attach your own domain** → [docs/SELFHOSTING.md](docs/SELFHOSTING.md) (15-min setup with HTTPS)
+- **Images disappear on container restart?** → MinIO stores data in the `minio_data` volume, which persists. Just make sure you don't accidentally `docker volume rm` it.
+- **Set up backups** → [docs/BACKUP.md](docs/BACKUP.md)
+- **Something going wrong?** → [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
+
+---
+
+## Architecture
 
 ```
 ┌──────────┐    ┌──────────┐    ┌────────────────┐
@@ -162,8 +164,8 @@ Nach dem Login findest du oben links die Galerie-Erstellung. Lade ein Foto hoch,
                      │
                      ▼
                 ┌─────────┐
-                │ Worker  │  RAW decode, Thumbnails,
-                │ Python  │  Video transcode, ZIP build
+                │ Worker  │  RAW decode, thumbnails,
+                │ Python  │  video transcode, ZIP build
                 │ Celery  │
                 └─────────┘
 ```
@@ -171,49 +173,49 @@ Nach dem Login findest du oben links die Galerie-Erstellung. Lade ein Foto hoch,
 - **`apps/frontend`** — Next.js 16 (App Router) + Tailwind
 - **`apps/api`** — Fastify + Prisma (Postgres) + BullMQ (Redis)
 - **`apps/worker`** — Python + Celery + rawpy/pyvips/ffmpeg
-- **`packages/shared`** — Geteilte TypeScript-Typen + Zod-Schemas
-- **`infra/`** — Caddy-Config, Postgres-Init
+- **`packages/shared`** — Shared TypeScript types + Zod schemas
+- **`infra/`** — Caddy config, Postgres init
 
 ---
 
-## Erweiterte Setups
+## Advanced setups
 
-Alles optional. Das Quick-Start oben reicht für ein einzelnes Studio.
+All optional. The Quick Start above is enough for a single studio.
 
-| Szenario | Doku |
+| Scenario | Docs |
 |---|---|
-| Production hinter eigener Domain mit HTTPS | [docs/SELFHOSTING.md](docs/SELFHOSTING.md) |
-| Mehrere Studios auf einer Instanz | [docs/MULTI_TENANT.md](docs/MULTI_TENANT.md) |
-| SaaS-Modus mit Stripe-Billing | [docs/SAAS_MODE.md](docs/SAAS_MODE.md) |
-| GPU-Beschleunigung (NVENC + KI-Tags) | [docs/GPU.md](docs/GPU.md) |
-| KI-Auto-Tagging (CLIP) | [docs/ML.md](docs/ML.md) |
-| Tenant-Subdomains via Wildcard-Cert | [docs/WILDCARD.md](docs/WILDCARD.md) |
-| Last auf mehrere Server verteilen | [docs/SCALING.md](docs/SCALING.md) |
-| Externes S3 statt MinIO (R2, B2, Hetzner, Wasabi) | [docs/STORAGE.md](docs/STORAGE.md) |
-| Backups, Migrationen, Re-Queue | [docs/OPERATIONS.md](docs/OPERATIONS.md) |
-| Mitwirken / Entwicklung | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) |
+| Production behind your own domain with HTTPS | [docs/SELFHOSTING.md](docs/SELFHOSTING.md) |
+| Multiple studios on one instance | [docs/MULTI_TENANT.md](docs/MULTI_TENANT.md) |
+| SaaS mode with Stripe billing | [docs/SAAS_MODE.md](docs/SAAS_MODE.md) |
+| GPU acceleration (NVENC + AI tags) | [docs/GPU.md](docs/GPU.md) |
+| AI auto-tagging (CLIP) | [docs/ML.md](docs/ML.md) |
+| Tenant subdomains via wildcard cert | [docs/WILDCARD.md](docs/WILDCARD.md) |
+| Distribute load across multiple servers | [docs/SCALING.md](docs/SCALING.md) |
+| External S3 instead of MinIO (R2, B2, Hetzner, Wasabi) | [docs/STORAGE.md](docs/STORAGE.md) |
+| Backups, migrations, re-queue | [docs/OPERATIONS.md](docs/OPERATIONS.md) |
+| Contributing / development | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) |
 
 ---
 
-## Lizenz
+## License
 
-[Functional Source License 1.1 (FSL-1.1-ALv2)](LICENSE) — eine *source-available* Lizenz (nicht OSI-Open-Source).
+[Functional Source License 1.1 (FSL-1.1-ALv2)](LICENSE) — a *source-available* license (not OSI open source).
 
-**Erlaubt für jeden:**
-- Privatpersonen, Profi-Fotograf:innen und Studios: nutzen, self-hosten, anpassen — auch kommerziell für die eigene Geschäftstätigkeit
-- Agenturen: Lumio im Rahmen von Dienstleistungen für die eigenen Kund:innen betreiben
+**Permitted for everyone:**
+- Individuals, professional photographers and studios: use, self-host, modify — including commercially for your own business
+- Agencies: run Lumio as part of services for your own clients
 
-**Nicht erlaubt:**
-- Ein konkurrierendes, gehostetes SaaS-/Cloud-Angebot aufbauen, das dieselbe oder eine im Wesentlichen ähnliche Funktionalität wie Lumio Dritten als Produkt anbietet (*Competing Use*)
+**Not permitted:**
+- Building a competing, hosted SaaS/cloud offering that provides the same or substantially similar functionality as Lumio to third parties as a product (*Competing Use*)
 
-**Zeitlich begrenzt:** Jede Version wird zwei Jahre nach ihrer Veröffentlichung automatisch unter der [Apache License 2.0](http://www.apache.org/licenses/LICENSE-2.0) verfügbar — dann ohne Einschränkung.
+**Time-limited:** Each version automatically becomes available under the [Apache License 2.0](http://www.apache.org/licenses/LICENSE-2.0) two years after its release — then without restriction.
 
-Für ein gehostetes/konkurrierendes Angebot ist eine kommerzielle Lizenz auf Anfrage möglich.
+For a hosted/competing offering, a commercial license is available on request.
 
 ---
 
-## Mitwirken
+## Contributing
 
-Pull Requests willkommen. Siehe [CONTRIBUTING.md](CONTRIBUTING.md).
+Pull requests welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Issues & Diskussionen: https://github.com/markusthiel/lumio/issues
+Issues & discussions: https://github.com/markusthiel/lumio/issues
