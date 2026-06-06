@@ -351,6 +351,8 @@ Picdrop is intentionally AI-free. Lumio offers automatic tagging as a **switchab
 
 ## 7. Multi-tenancy — one instance for one or many studios
 
+> ⚠️ **License note:** Internal/agency multi-tenant use is unrestricted; offering it as a commercial SaaS to third parties is *Competing Use* under the FSL-1.1-ALv2 and needs a commercial license. See [LICENSE](../LICENSE).
+
 Lumio can do both: **a single studio installation** (classic self-hosting) **or a multi-tenant instance** for SaaS providers, agencies with multiple brands, or hosted providers. The mode is chosen via a single environment variable:
 
 ```
@@ -394,6 +396,8 @@ Each tenant has its own `branding` profile (logo, colors, font, footer text, opt
 ---
 
 ## 8. Hosted mode — offering Lumio as a service
+
+> ⚠️ **License note:** Offering Lumio as a commercial SaaS to third parties is *Competing Use* under the FSL-1.1-ALv2 and requires a commercial license — running it for your own organization/agency does not. See [LICENSE](../LICENSE).
 
 Hosted mode combines `DEPLOYMENT_MODE=multi` with `BILLING_ENABLED=true`. With it you can run Lumio as a standalone SaaS service and offer your customers a paid cloud variant — they book a plan, you manage the infrastructure, they pay monthly or yearly.
 

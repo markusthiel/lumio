@@ -2,6 +2,8 @@
 
 # SaaS-Mode
 
+> ⚠️ **Lizenzhinweis:** Multi-Tenant-Nutzung für die **eigene Organisation oder Agentur** ist uneingeschränkt erlaubt. Lumio aber als **kommerziellen SaaS für zahlende Dritte** zu betreiben — genau das, was dieser Guide ermöglicht — ist *Competing Use* und unter der FSL-1.1-ALv2 **nicht** ohne Weiteres gestattet. Dafür ist eine kommerzielle Lizenz nötig (es ist das Geschäftsmodell hinter dem eigenen lumio-cloud.de des Herstellers). Siehe [LICENSE](../LICENSE).
+
 Lumio kann nicht nur als Single-Studio-Tool, sondern auch als komplette SaaS-Plattform laufen: mehrere Tenants, Stripe-Abrechnung, Trials, Self-Signup. Dieser Guide beschreibt das Setup.
 
 **Voraussetzung:** [Production-Setup](SELFHOSTING.de.md) ist erfolgreich abgeschlossen, Lumio läuft hinter eigener Domain mit HTTPS.

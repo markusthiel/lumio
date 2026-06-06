@@ -2,6 +2,8 @@
 
 # Multi-Tenant-Setup
 
+> ⚠️ **Lizenzhinweis:** Lumio multi-tenant für die **eigene Organisation oder eine Agentur** zu betreiben (mehrere selbst betriebene Marken/Kunden) ist uneingeschränkt erlaubt. Lumio als **kommerziellen SaaS-Dienst für Dritte** anzubieten, der mit dem gehosteten Angebot des Herstellers konkurriert, ist *Competing Use* und unter der FSL-1.1-ALv2 **nicht** ohne Weiteres gestattet — dafür ist eine kommerzielle Lizenz nötig. Siehe [LICENSE](../LICENSE).
+
 Lumio kann mehrere Tenants (Studios/Foto-Kunden) auf derselben
 Installation betreiben. Dieses Dokument beschreibt, wie ein neuer
 Tenant erreichbar wird — DB + UI legen ihn an, aber damit die richtige

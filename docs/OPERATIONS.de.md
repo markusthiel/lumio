@@ -4,7 +4,7 @@
 
 Alltagsaufgaben für den Betrieb einer produktiven Lumio-Instanz. Gedacht
 für Self-Hoster die schon ein laufendes Setup haben (siehe
-[DEVELOPMENT.md](./DEVELOPMENT.md) für die Erstinstallation).
+[DEVELOPMENT.md](./DEVELOPMENT.de.md) für die Erstinstallation).
 
 Alle Befehle in diesem Dokument gehen davon aus, dass das aktuelle
 Verzeichnis das Lumio-Repo-Root ist:

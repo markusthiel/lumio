@@ -2,6 +2,8 @@
 
 # Multi-tenant setup
 
+> ⚠️ **License note:** Running Lumio multi-tenant for **your own organization or an agency** (several brands/clients you operate yourself) is unrestricted. Offering Lumio as a **commercial SaaS to third parties** that competes with the maintainer's hosted service is *Competing Use* and is **not** permitted out of the box under the FSL-1.1-ALv2 — that requires a commercial license. See [LICENSE](../LICENSE).
+
 Lumio can run multiple tenants (studios/photographer clients) on the same installation. This document describes how a new tenant becomes reachable — the DB + UI create it, but for the right URL to land on the right tenant you need one of the three routing methods below.
 
 If you're building SaaS and have fewer than 20 clients, **method B (custom domains per client)** is the recommended path. Wildcards only pay off once editing the Caddyfile manually per client becomes tedious.
