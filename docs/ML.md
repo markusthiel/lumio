@@ -27,7 +27,7 @@ Die Tag-Kandidaten sind in einer Wörterliste konfigurierbar (`apps/worker/lumio
 |---|---|---|
 | **Pro Bild** | 1–3 Sekunden | 50–200 ms |
 | **RAM-Bedarf** | ~3 GB | ~3 GB + ~2 GB VRAM |
-| **Hardware** | jeder x86-Server | NVIDIA-GPU mit Compute Capability 5.0+ |
+| **Hardware** | jeder amd64- oder arm64-Server | NVIDIA-GPU mit Compute Capability 5.0+ (nur amd64) |
 | **Setup** | nur `docker-compose.ml.yml` | zusätzlich `docker-compose.gpu.yml` + NVIDIA Container Toolkit |
 | **Wann sinnvoll** | wenige Uploads, Background-Verarbeitung | hoher Durchsatz, mehrere User parallel |
 

@@ -44,8 +44,9 @@ Dieses Repo liefert die fertigen Skripte mit:
 ```bash
 apt update && apt install -y restic rclone
 
-# mc (MinIO-Client) — nur nötig, um Bucket-Versioning zu schalten
-curl -sSL https://dl.min.io/client/mc/release/linux-amd64/mc -o /usr/local/bin/mc
+# mc (MinIO-Client) — nur nötig, um Bucket-Versioning zu schalten.
+# Architektur automatisch (amd64 oder arm64):
+curl -sSL https://dl.min.io/client/mc/release/linux-$(dpkg --print-architecture)/mc -o /usr/local/bin/mc
 chmod +x /usr/local/bin/mc
 ```
 
