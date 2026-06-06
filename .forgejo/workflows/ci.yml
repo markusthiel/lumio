@@ -96,11 +96,9 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
-            libvips42 libraw-bin libheif1 ffmpeg libmagic1 \
+            libvips42 libraw-bin libheif1 ffmpeg libmagic1 exiftool \
             libpq5 build-essential \
-            libvips-dev libraw-dev libheif-dev libexiv2-dev libpq-dev
-          apt-get install -y --no-install-recommends libexiv2-27 \
-            || apt-get install -y --no-install-recommends libexiv2-28
+            libvips-dev libraw-dev libheif-dev libpq-dev
           rm -rf /var/lib/apt/lists/*
 
       - name: Install Python dependencies
@@ -158,11 +156,9 @@ jobs:
         run: |
           apt-get update
           apt-get install -y --no-install-recommends \
-            libvips42 libraw-bin libheif1 ffmpeg libmagic1 \
+            libvips42 libraw-bin libheif1 ffmpeg libmagic1 exiftool \
             libpq5 build-essential \
-            libvips-dev libraw-dev libheif-dev libexiv2-dev libpq-dev
-          apt-get install -y --no-install-recommends libexiv2-27 \
-            || apt-get install -y --no-install-recommends libexiv2-28
+            libvips-dev libraw-dev libheif-dev libpq-dev
           rm -rf /var/lib/apt/lists/*
 
       - name: Install Python dependencies

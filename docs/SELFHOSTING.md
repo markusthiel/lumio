@@ -2,9 +2,12 @@
 
 Du hast den Quick-Start durch und willst Lumio jetzt sauber unter deiner eigenen Domain laufen lassen, mit HTTPS und Backups. Dieser Guide nimmt **15 Minuten** und setzt voraus:
 
-- Linux-Server mit öffentlicher IP (Hetzner, Netcup, eigenes Blech – egal)
+- Linux-Server mit öffentlicher IP (Hetzner, Netcup, eigenes Blech – egal),
+  **amd64 oder arm64** — beide werden unterstützt
 - Eine Domain (z.B. `galerien.dein-studio.de`)
 - Docker + Docker Compose v2
+
+Detaillierte Hardware-/Architektur-Voraussetzungen: [REQUIREMENTS.md](REQUIREMENTS.md).
 
 Dieser Guide deckt **Single-Studio** ab. Für Multi-Tenant siehe [MULTI_TENANT.md](MULTI_TENANT.md).
 

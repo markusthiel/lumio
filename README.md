@@ -91,7 +91,7 @@ Scrubbing per Filmstrip — beim Ziehen über die Leiste zeigt eine Vorschau den
 
 ## Quick Start
 
-**5 Minuten von Null zu erster Galerie.** Voraussetzungen: Docker + Docker Compose v2.
+**5 Minuten von Null zu erster Galerie.** Voraussetzungen: Docker + Docker Compose v2 (amd64 oder arm64). Details: [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md).
 
 ### 1. Repo holen und Secrets setzen
 

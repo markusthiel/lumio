@@ -26,7 +26,9 @@ sqlalchemy==2.0.36
 # Hilfsfunktionen
 python-magic==0.4.27     # Mime-Type-Detection
 zipstream-ng==1.8.0      # Streaming-ZIP-Builder
-pyexiv2==2.15.3          # EXIF-Reading + XMP-Sidecar-Erzeugung
+# EXIF-Reading läuft über exiftool (im Image installiert) statt pyexiv2 —
+# exiftool ist Multi-Arch (amd64 + arm64), pyexiv2 lieferte nur ein
+# x86_64-Wheel und blockierte damit ARM-Builds. Siehe exif_meta.py.
 structlog==24.4.0
 python-dotenv==1.0.1
 

@@ -30,6 +30,18 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.43.0] - 2026-06-06
+
+**Pull genügt** — keine `.env`-, Compose- oder DB-Änderung nötig. Auf amd64 läuft alles unverändert weiter.
+
+### Added
+- **ARM64-Unterstützung (aarch64).** Lumio baut und läuft jetzt nativ auch auf ARM-Servern (z.B. Ampere / Hetzner CAX, AWS Graviton, Apple Silicon via Docker, Raspberry Pi 5). Beim `--build` wird die passende Variante automatisch gewählt — nichts umzustellen. Der ML-Worker zieht PyTorch auf ARM automatisch von PyPI (aarch64-Wheels) statt vom x86-only CPU-Index. Hinweis: GPU-Beschleunigung fürs Auto-Tagging bleibt NVIDIA/CUDA und damit amd64-only; auf ARM läuft das Tagging CPU-basiert (funktional identisch, langsamer pro Bild).
+- Neue Doku [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md): Hardware-, Architektur- und Storage-Voraussetzungen inkl. Sizing-Tabelle. Aus README und SELFHOSTING verlinkt.
+- Caddy routet `lumio-cloud.com` (internationale Portal-Einstiegsseite) intern.
+
+### Changed
+- EXIF-Aufnahmezeit wird jetzt über **exiftool** gelesen statt über pyexiv2. Funktional identisch (gleiche Date-Tags, gleiche Priorität), deckt aber mehr Container ab (u.a. CR3). Hintergrund: pyexiv2 lieferte nur ein x86_64-Wheel und blockierte ARM-Builds; exiftool ist Multi-Arch und war ohnehin im Worker-Image. Das Worker-Image wird dadurch minimal kleiner (libexiv2 entfällt).
+
 ## [0.42.0] - 2026-06-05
 
 > Pull genügt für Self-Hoster (keine neue ENV, keine Migration). **Betrifft
