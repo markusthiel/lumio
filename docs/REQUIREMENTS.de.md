@@ -26,7 +26,7 @@ automatisch gewählt, du musst nichts umstellen.
 | **arm64** (aarch64) | Ampere (Hetzner CAX), AWS Graviton, Apple Silicon via Docker, Raspberry Pi 5 | Voll unterstützt |
 
 **Eine Einschränkung auf ARM:** Die GPU-Beschleunigung fürs KI-Auto-Tagging
-([GPU.md](GPU.md)) setzt **NVIDIA/CUDA** voraus und gibt es daher nur auf
+([GPU.md](GPU.de.md)) setzt **NVIDIA/CUDA** voraus und gibt es daher nur auf
 amd64. Auf ARM läuft das Tagging CPU-basiert — funktional identisch, nur
 langsamer pro Bild. Alle anderen Features (Galerien, Upload, RAW/HEIC,
 Video-Transcoding, Proofing, ZIP, Print-Shop) sind auf beiden
