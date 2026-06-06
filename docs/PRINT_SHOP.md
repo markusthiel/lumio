@@ -1,85 +1,51 @@
-# Print-Shop — Provider & Adapter
+**English** · [Deutsch](PRINT_SHOP.de.md)
 
-Stand: 2026-06-04
+# Print shop — providers & adapters
 
-Dieses Dokument hält den realen Stand des Print-Shops fest sowie die bewusst
-zurückgestellten Punkte. Es ersetzt die früher pauschale (und irreführende)
-Notiz „12 Print-Provider sind NotImplemented".
+As of: 2026-06-04
 
-## Architektur
+This document records the real state of the print shop as well as the deliberately deferred points. It replaces the earlier blanket (and misleading) note "12 print providers are NotImplemented".
 
-Der Print-Shop trennt sauber zwischen Lumio-Logik und Lab-spezifischer
-Anbindung:
+## Architecture
 
-- **Adapter-Interface** (`apps/api/src/services/print/adapters/base.ts`):
-  Jeder Provider implementiert `validateCredentials`, `fetchCatalog`,
-  `submitOrder`, `getOrderStatus`. Adapter sind **stateless** — sie bekommen
-  Credentials + Order-Objekt übergeben und haben keinen eigenen DB-Zugriff.
-  Der Service-Layer prüft Zugriff/Tenant, bevor ein Adapter aufgerufen wird.
-- **Provider-Registry** (`apps/api/src/services/print/providers.ts`): zentrale
-  Code-Definition aller Provider (Label, Markt, Credential-Felder, Stage,
-  Adapter-Instanz). Ein Registry-Eintrag heißt **nicht**, dass der Provider
-  aktiv ist — das entscheidet der Super-Admin.
-- **Stages**: `production` (live), `beta` (API funktioniert, noch nicht für
-  alle freigegeben), `planned` (Stub via `NotImplementedAdapter`),
-  `self_print` (Sonderfall).
-- **Service-/Order-Layer**: `shop.ts`, `orders.ts`, `payment.ts`,
-  `stripe-connect.ts`, `credentials.ts`. Routen: `routes/print-shop.ts`
-  (Studio) und `routes/print-shop-public.ts` (Kunde).
+The print shop cleanly separates Lumio logic from lab-specific integration:
 
-## Aktueller Stand der Provider
+- **Adapter interface** (`apps/api/src/services/print/adapters/base.ts`): every provider implements `validateCredentials`, `fetchCatalog`, `submitOrder`, `getOrderStatus`. Adapters are **stateless** — they get credentials + an order object passed in and have no DB access of their own. The service layer checks access/tenant before an adapter is called.
+- **Provider registry** (`apps/api/src/services/print/providers.ts`): the central code definition of all providers (label, market, credential fields, stage, adapter instance). A registry entry does **not** mean the provider is active — that's decided by the super admin.
+- **Stages**: `production` (live), `beta` (the API works, not yet released to everyone), `planned` (stub via `NotImplementedAdapter`), `self_print` (special case).
+- **Service/order layer**: `shop.ts`, `orders.ts`, `payment.ts`, `stripe-connect.ts`, `credentials.ts`. Routes: `routes/print-shop.ts` (studio) and `routes/print-shop-public.ts` (customer).
+
+## Current provider status
 
 | Provider | Stage | Adapter | Status |
 |---|---|---|---|
-| Selbst drucken (`manual_self_print`) | self_print | `ManualSelfPrintAdapter` | **Voll funktional.** Bestellungen werden mit Lieferadresse an das Studio weitergeleitet. Immer verfügbar, keine Super-Admin-Aktivierung nötig. |
-| Prodigi (`prodigi`) | beta | `ProdigiAdapter` | **Vollständig implementiert** gegen Print API v4.0 (Order anlegen, Status/Tracking, Sandbox-Toggle). Produktionsreif, aber noch nicht auf `production` geschaltet. |
-| Gelato (`gelato`) | beta | `GelatoAdapter` | **Vollständig implementiert** gegen Order Flow API v4 (Order anlegen, Status/Tracking; keine separate Sandbox-URL). Produktionsreif, aber `beta`. |
-| WhiteWall, Saal Digital, CEWE Pro, ProfiLab, myposter, Pixum, Posterlounge, Albelli, Lalalab, MPIX, Bonusprint | planned | `NotImplementedAdapter` | Stub. Siehe „Warum die planned-Labs blockiert sind". |
+| Self print (`manual_self_print`) | self_print | `ManualSelfPrintAdapter` | **Fully functional.** Orders are forwarded to the studio with the delivery address. Always available, no super-admin activation needed. |
+| Prodigi (`prodigi`) | beta | `ProdigiAdapter` | **Fully implemented** against Print API v4.0 (create order, status/tracking, sandbox toggle). Production-ready, but not yet switched to `production`. |
+| Gelato (`gelato`) | beta | `GelatoAdapter` | **Fully implemented** against Order Flow API v4 (create order, status/tracking; no separate sandbox URL). Production-ready, but `beta`. |
+| WhiteWall, Saal Digital, CEWE Pro, ProfiLab, myposter, Pixum, Posterlounge, Albelli, Lalalab, MPIX, Bonusprint | planned | `NotImplementedAdapter` | Stub. See "Why the planned labs are blocked". |
 
-Gelato und Prodigi decken zusammen das relevante Sortiment ab (Prints, Poster,
-Leinwand, Rahmen, Fotobücher) mit dichter EU-/DE-Produktion. Für ein
-funktionierendes Print-Angebot reichen diese zwei plus Self-Print.
+Together, Gelato and Prodigi cover the relevant range (prints, posters, canvas, frames, photo books) with dense EU/DE production. For a working print offering these two plus self print are enough.
 
-## Warum die `planned`-Labs blockiert sind
+## Why the `planned` labs are blocked
 
-Die deutschen/EU-/US-Consumer-Labs (WhiteWall, Saal, CEWE, Pixum, myposter
-usw.) haben fast alle **keine offene Self-Service-Bestell-API**. Eine echte
-Anbindung erfordert:
+The German/EU/US consumer labs (WhiteWall, Saal, CEWE, Pixum, myposter, etc.) almost all have **no open self-service ordering API**. A real integration requires:
 
-1. Einen Partner-/B2B-Account beim jeweiligen Lab (Freischaltung, teils NDA).
-2. Deren tatsächliche API-Doku (meist hinter Partner-Login/NDA).
-3. Sandbox-Credentials zum Testen.
+1. A partner/B2B account at the respective lab (activation, sometimes an NDA).
+2. Their actual API docs (usually behind a partner login/NDA).
+3. Sandbox credentials for testing.
 
-Das ist ein **Business-Onboarding-Schritt, kein reines Coding-Thema**. Ein
-Adapter gegen geratene Endpoints zu bauen wäre wertloser Code, der in
-Produktion bricht. Deshalb bleiben diese Provider bewusst als Stub, bis ein
-konkreter Partner-Zugang inkl. Doku vorliegt.
+That's a **business onboarding step, not a pure coding matter**. Building an adapter against guessed endpoints would be worthless code that breaks in production. These providers therefore deliberately stay as stubs until concrete partner access incl. docs is available.
 
-## Einen neuen Provider hinzufügen
+## Adding a new provider
 
-1. Eintrag in der Registry (`providers.ts`): `key`, `label`, `market`,
-   `credentialFields`, `categories`, zunächst `stage: "planned"` mit
-   `new NotImplementedAdapter("<key>")`.
-2. Adapter unter `services/print/adapters/<key>.ts` implementieren (Vorlage:
-   `prodigi.ts` / `gelato.ts`).
-3. In der Registry den `NotImplementedAdapter` durch den echten Adapter
-   ersetzen und Stage auf `beta` setzen.
-4. Aktivierung erfolgt pro Plattform durch den Super-Admin
-   (`/super/print-providers`); der Tenant hinterlegt seine Credentials im
-   Studio.
+1. An entry in the registry (`providers.ts`): `key`, `label`, `market`, `credentialFields`, `categories`, initially `stage: "planned"` with `new NotImplementedAdapter("<key>")`.
+2. Implement the adapter under `services/print/adapters/<key>.ts` (template: `prodigi.ts` / `gelato.ts`).
+3. In the registry, replace the `NotImplementedAdapter` with the real adapter and set the stage to `beta`.
+4. Activation happens per platform via the super admin (`/super/print-providers`); the tenant enters its credentials in the studio.
 
-## Zurückgestellt (TODO, bewusst nicht jetzt)
+## Deferred (TODO, deliberately not now)
 
-- **Gelato/Prodigi `beta` → `production`**: nach einem Test mit echten
-  Sandbox-/Live-Keys die Stage hochsetzen. Reiner Registry-Edit.
-- **Crop-Vorab-Rendering**: ein vom Kunden gesetzter freier Crop
-  (`order.items[].crop`) wird derzeit nicht ans Lab übergeben (Gelato/Prodigi
-  bekommen die volle Datei, Prodigi nutzt `sizing: "fillPrintArea"`). Sauberer
-  wäre: Worker erzeugt aus dem Crop eine zugeschnittene High-Res-Rendition und
-  der Adapter schickt deren signierte URL. Größter Qualitäts-Hebel.
-- **Dynamischer Katalog-Import** (`fetchCatalog`): Gelato/Prodigi adressieren
-  Produkte über SKUs/productUids, die der Fotograf aktuell manuell als
-  `providerVariantRef` einträgt. Ein automatischer Import ist optional.
-- **Weitere konkrete Labs**: erst wenn Partner-API-Zugang (Account + Doku +
-  Sandbox-Key) für ein bestimmtes Lab vorliegt — dann gezielt diesen einen
-  Adapter bauen.
+- **Gelato/Prodigi `beta` → `production`**: after a test with real sandbox/live keys, bump the stage. A pure registry edit.
+- **Crop pre-rendering**: a free crop set by the customer (`order.items[].crop`) is currently not passed to the lab (Gelato/Prodigi get the full file, Prodigi uses `sizing: "fillPrintArea"`). Cleaner would be: the worker creates a cropped high-res rendition from the crop and the adapter sends its signed URL. The biggest quality lever.
+- **Dynamic catalog import** (`fetchCatalog`): Gelato/Prodigi address products via SKUs/productUids that the photographer currently enters manually as `providerVariantRef`. An automatic import is optional.
+- **Further concrete labs**: only once partner API access (account + docs + sandbox key) for a specific lab is available — then build that one adapter specifically.

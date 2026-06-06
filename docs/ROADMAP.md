@@ -1,259 +1,255 @@
+**English** · [Deutsch](ROADMAP.de.md)
+
 # Lumio — Roadmap
 
-Stand: Juni 2026. Lebendiges Dokument — Priorisierung kann sich verschieben. Der App-Kern ist gebaut und in Produktion; die SaaS-Variante läuft live unter lumio-cloud.de.
+As of: June 2026. A living document — prioritization can shift. The app core is built and in production; the SaaS variant runs live at lumio-cloud.de.
 
 ---
 
-## Phase 0 — Skeleton & Infrastruktur ✅
+## Phase 0 — Skeleton & infrastructure ✅
 
-- [x] Monorepo-Struktur (apps/api, apps/frontend, apps/worker, packages/shared)
-- [x] Docker-Compose-Stack mit Postgres, Redis, MinIO, Caddy
-- [x] Prisma-Schema (vollständiges Datenmodell inkl. Multi-Tenancy + Billing)
-- [x] API-Skeleton mit Fastify + Health-Endpoint
-- [x] Worker-Skeleton mit Celery + Storage-Helper
-- [x] Frontend-Skeleton mit Next.js + Tailwind
-- [x] Konzept-Dokument
-- [x] CI-Pipeline (Forgejo Actions) — Lint, Build, Test
-- [x] Container-Images automatisch nach Container-Registry (Forgejo, mit `docker-compose.prod.yml`-Override und `LUMIO_TAG`-Pin)
-- [x] Wildcard-TLS für Tenant-Subdomains via acme-dns (Compose-Profil `wildcard`; siehe docs/WILDCARD.md)
-- [x] Horizontale Worker-Skalierung über mehrere Nodes (Hetzner Private Network, passwortgeschütztes Redis; siehe docs/SCALING.md)
+- [x] Monorepo structure (apps/api, apps/frontend, apps/worker, packages/shared)
+- [x] Docker Compose stack with Postgres, Redis, MinIO, Caddy
+- [x] Prisma schema (full data model incl. multi-tenancy + billing)
+- [x] API skeleton with Fastify + health endpoint
+- [x] Worker skeleton with Celery + storage helper
+- [x] Frontend skeleton with Next.js + Tailwind
+- [x] Concept document
+- [x] CI pipeline (Forgejo Actions) — lint, build, test
+- [x] Container images automatically to the container registry (Forgejo, with `docker-compose.prod.yml` override and `LUMIO_TAG` pin)
+- [x] Wildcard TLS for tenant subdomains via acme-dns (Compose profile `wildcard`; see docs/WILDCARD.md)
+- [x] Horizontal worker scaling across multiple nodes (Hetzner Private Network, password-protected Redis; see docs/SCALING.md)
 
 ---
 
-## Phase 1 — MVP (Sprint 1–4)
+## Phase 1 — MVP (sprints 1–4)
 
-**Ziel:** Eine lauffähige Galerie-Anwendung mit Upload, Anzeigen, Likes, Download.
+**Goal:** a working gallery application with upload, display, likes, download.
 
-### Sprint 1 — Auth & Tenancy
+### Sprint 1 — Auth & tenancy
 
-- [x] Tenant-Auto-Bootstrap im single-Mode (erster Start legt Default-Tenant an)
-- [x] User-Registrierung + Login (E-Mail + Passwort, Argon2)
-- [x] Session-Management mit HTTPOnly-Cookies
+- [x] Tenant auto-bootstrap in single mode (first start creates a default tenant)
+- [x] User registration + login (email + password, Argon2)
+- [x] Session management with HTTPOnly cookies
 - [x] CLI: `npm run create-admin`
-- [x] Tenant-Resolver-Middleware (Domain/Subdomain/Slug)
+- [x] Tenant resolver middleware (domain/subdomain/slug)
 
-### Sprint 2 — Upload-Pipeline ✅ (großteils)
+### Sprint 2 — Upload pipeline ✅ (mostly)
 
-- [x] Galerie erstellen über die API
-- [x] Browser → S3-Presigned-PUT mit Multipart-Support
-- [x] Worker: process_file für JPEG/PNG/WebP/TIFF/HEIC (Renditions thumb/preview/web mit libvips)
-- [x] Studio-UI: Galerie-Liste, Create-Dialog, Detail-Seite mit Drag&Drop-Upload
-- [x] Stream-basierte Job-Queue (Redis Streams) zwischen API und Worker
-- [x] Polling-basiertes Status-Update im Frontend (alle 2s während processing)
-- [x] WebSocket-Push für File-Status (ersetzt 2s-Polling im Studio durch /ws/galleries/:id; Polling bleibt als 10s-Fallback drin)
-- [x] Worker-Test: tatsächlich ein Bild end-to-end durchlassen
-      (Integration-Test mit testcontainers, läuft in CI mit Postgres+MinIO-Services)
+- [x] Create a gallery via the API
+- [x] Browser → S3 presigned PUT with multipart support
+- [x] Worker: process_file for JPEG/PNG/WebP/TIFF/HEIC (renditions thumb/preview/web with libvips)
+- [x] Studio UI: gallery list, create dialog, detail page with drag & drop upload
+- [x] Stream-based job queue (Redis streams) between API and worker
+- [x] Polling-based status update in the frontend (every 2s during processing)
+- [x] WebSocket push for file status (replaces 2s polling in the studio with /ws/galleries/:id; polling stays as a 10s fallback)
+- [x] Worker test: actually pass an image through end-to-end
+      (integration test with testcontainers, runs in CI with Postgres+MinIO services)
 
-### Sprint 3 — Kunden-Galerie ✅ (großteils)
+### Sprint 3 — Customer gallery ✅ (mostly)
 
-- [x] Galerie-Slug-Route `/g/[slug]` mit Branding
-- [x] Passwort-Gate
-- [x] Grid-Ansicht (Standard-Grid, virtualisiertes Masonry kommt Phase 2)
-- [x] Lightbox mit Tastatur-Navigation + Touch + Filtern
-- [x] Like / Color-Tag (Sterne-Rating-UI kommt Phase 2)
-- [x] Mobile-Touch-Optimierung (alle Tap-Targets ≥36px)
-- [x] Share-Link-Verwaltung im Studio inkl. Tokens und Berechtigungen
-- [x] Visitor-Session via HMAC-Cookie statt Token-in-jeder-URL
+- [x] Gallery slug route `/g/[slug]` with branding
+- [x] Password gate
+- [x] Grid view (standard grid, virtualized masonry comes in phase 2)
+- [x] Lightbox with keyboard navigation + touch + filtering
+- [x] Like / color tag (star rating UI comes in phase 2)
+- [x] Mobile touch optimization (all tap targets ≥36px)
+- [x] Share link management in the studio incl. tokens and permissions
+- [x] Visitor session via an HMAC cookie instead of a token in every URL
 
-### Sprint 4 — Download & Proofing ✅
+### Sprint 4 — Download & proofing ✅
 
-- [x] Single-File-Download via Presigned URL
-- [x] Kommentare pro Bild
-- [x] Studio-Übersicht: welche Files wurden ausgewählt? (`/galleries/:id/proofing/summary`)
-- [x] Streaming-ZIP-Builder (Worker-Task build_zip mit S3-Multipart)
-- [x] Watermark-Rendition (wenn Download deaktiviert)
-- [x] CSV-Export der Auswahl
-- [x] **XMP-Sidecar-Export für Lightroom Classic / Capture One**
-- [x] Studio-UI für Proofing-Summary mit Stats + per-Access-Tabelle + File-Liste
-- [x] Email-Notifications (neuer Kommentar)
-- [x] Selection-Abschluss-Button für Kunde mit Email-Notification
-- [x] Auswahl-ZIP-Notification an Kunde (lazy notify beim ersten ready-Poll)
-- [x] Watermark-Image-Upload-UI im Studio (Presigned PUT direkt zu S3)
+- [x] Single-file download via presigned URL
+- [x] Per-image comments
+- [x] Studio overview: which files were selected? (`/galleries/:id/proofing/summary`)
+- [x] Streaming ZIP builder (worker task build_zip with S3 multipart)
+- [x] Watermark rendition (when download is disabled)
+- [x] CSV export of the selection
+- [x] **XMP sidecar export for Lightroom Classic / Capture One**
+- [x] Studio UI for the proofing summary with stats + per-access table + file list
+- [x] Email notifications (new comment)
+- [x] Selection-complete button for the customer with email notification
+- [x] Selection ZIP notification to the customer (lazy notify on the first ready poll)
+- [x] Watermark image upload UI in the studio (presigned PUT directly to S3)
 
 ---
 
-## Phase 2 — Pro Features (Sprint 5–8)
+## Phase 2 — Pro features (sprints 5–8)
 
-### RAW & Video ✅ (großteils)
+### RAW & video ✅ (mostly)
 
-- [x] Worker: process_raw mit rawpy — embedded JPEG-Preview als Fast-Path,
-      Fallback auf vollständiges Demosaicing (use_camera_wb=True),
-      anschließend gleiche libvips-Pipeline wie für Standardbilder
-- [x] Worker: process_video mit ffmpeg → Poster + HLS-Adaptive-Bitrate
-      (480p/720p/1080p, kein Upscaling) + Scrubbing-Sprite-Sheet
-- [x] API: HLS-Proxy-Route (`/g/:slug/files/:id/hls/...`) damit Playlists
-      mit relativen Segment-Pfaden funktionieren ohne Bucket public zu machen
-- [x] Frontend: hls.js Video-Player mit Safari-nativem HLS-Fallback
-- [x] Frontend: Video- und RAW-Indikatoren im Grid (Play-Icon, RAW-Badge)
-- [x] Worker-Tests (pytest, 6 grün) für HLS-Variant-Auswahl und kbps-Parsing
-- [x] Video-Scrubbing-Vorschau im Player nutzen (Sprite-Sheet ist da; Hover über Progress-Bar zeigt Frame-Thumbnail mit Zeit-Tooltip)
-- [x] HW-Beschleunigung optional (NVENC/QSV/VAAPI via LUMIO_HW_ENCODER, fällt auf libx264 zurück; siehe DEVELOPMENT.md)
-- [x] HEIC/HEIF in der API als eigene Kind detection (eigene `"heic"`-Variante, Format-Badge im Studio + Customer-Tile, Windows-Hinweis am Lightbox-Download)
-- [x] Video-Web-Download als standalone-MP4 (neue `video_mp4`-Rendition: 1080p oder Quellauflösung, +faststart, encoder via select_encoder()/profile_for(); Customer-Single-Download und ZIP-Builder beide angepasst; Backfill-Task `backfill_video_mp4` für Altbestand pro Galerie oder global)
-- [x] PSD-Preview-Extraktion (Composite via Pillow, `apps/worker/psd.py`; libvips kann PSD nicht direkt lesen)
+- [x] Worker: process_raw with rawpy — embedded JPEG preview as a fast path,
+      fallback to full demosaicing (use_camera_wb=True),
+      then the same libvips pipeline as for standard images
+- [x] Worker: process_video with ffmpeg → poster + HLS adaptive bitrate
+      (480p/720p/1080p, no upscaling) + scrubbing sprite sheet
+- [x] API: HLS proxy route (`/g/:slug/files/:id/hls/...`) so playlists
+      with relative segment paths work without making the bucket public
+- [x] Frontend: hls.js video player with Safari-native HLS fallback
+- [x] Frontend: video and RAW indicators in the grid (play icon, RAW badge)
+- [x] Worker tests (pytest, 6 green) for HLS variant selection and kbps parsing
+- [x] Use the video scrubbing preview in the player (the sprite sheet is there; hovering over the progress bar shows a frame thumbnail with a time tooltip)
+- [x] HW acceleration optional (NVENC/QSV/VAAPI via LUMIO_HW_ENCODER, falls back to libx264; see DEVELOPMENT.md)
+- [x] HEIC/HEIF in the API as its own kind detection (its own `"heic"` variant, format badge in the studio + customer tile, Windows hint at the lightbox download)
+- [x] Video web download as a standalone MP4 (new `video_mp4` rendition: 1080p or source resolution, +faststart, encoder via select_encoder()/profile_for(); customer single download and ZIP builder both adapted; backfill task `backfill_video_mp4` for the existing stock per gallery or globally)
+- [x] PSD preview extraction (composite via Pillow, `apps/worker/psd.py`; libvips can't read PSD directly)
 
-### Branding & Whitelabel ✅ (Phase 1)
+### Branding & whitelabel ✅ (phase 1)
 
-- [x] Branding-Editor im Studio (Logo, Favicon, Farben, Schrift, Texte, Custom-CSS)
-- [x] Pro-Galerie-Branding-Overrides (mit Tenant-Default-Fallback)
-- [x] Custom-Domain-Eintrag in den Tenant-Settings
-- [x] Branding-Resolver mit Presigned-GET-URLs für Assets (24h Cache)
-- [ ] Automatisches TLS für Custom Domains (aktuell: Caddy muss manuell konfiguriert sein)
-- [ ] DNS-Verifizierung (TXT-Record-Challenge)
+- [x] Branding editor in the studio (logo, favicon, colors, font, texts, custom CSS)
+- [x] Per-gallery branding overrides (with a tenant-default fallback)
+- [x] Custom domain entry in the tenant settings
+- [x] Branding resolver with presigned GET URLs for assets (24h cache)
+- [ ] Automatic TLS for custom domains (currently: Caddy has to be configured manually)
+- [ ] DNS verification (TXT record challenge)
 
-### Multi-Tenancy & Billing (Hosted Mode) ✅
+### Multi-tenancy & billing (hosted mode) ✅
 
-Vollständig gebaut — ausführliche Details in Phase 5.
+Fully built — detailed in phase 5.
 
-- [x] Plan-Definitionen (`services/plans.ts`) + Seed-Migration
-- [x] Stripe-Integration: Checkout, Webhooks, Customer Portal (`routes/billing.ts`)
-- [x] Usage-Tracking-Cronjob (`worker/tasks/billing.py`, Storage + Bandwidth)
-- [x] Limit-Enforcement bei Upload + Galerie/Custom-Domain/Branding
-- [x] Self-Service-Tenant-Registrierung (`routes/signup.ts`)
+- [x] Plan definitions (`services/plans.ts`) + seed migration
+- [x] Stripe integration: checkout, webhooks, customer portal (`routes/billing.ts`)
+- [x] Usage tracking cronjob (`worker/tasks/billing.py`, storage + bandwidth)
+- [x] Limit enforcement on upload + gallery/custom-domain/branding
+- [x] Self-service tenant registration (`routes/signup.ts`)
 
 ### Collaboration
 
-- [ ] Team-Voting (mehrere Personen pro Access-Token)
-- [ ] Live-Cursor in der Lightbox (WebSocket-Fanout)
-- [x] Scribbles/Annotationen auf Bild (`AnnotationOverlay.tsx` + Schema-Feld `annotation`, in Customer-Galerie und Studio-Proofing)
-- [x] Selection-Limit ("Kunde darf max. N wählen") — Galerie-Setting im Studio, Counter "X von Y" in der Customer-Hero, Optimistic-Update-Rollback bei Limit-Verletzung mit Toast
-- [x] Real-time Sync der Auswahl zwischen Studio und Kunde (Studio bekommt live Toasts bei Selection-Changes, Comments und Finalize via WebSocket; Customer-Side bleibt single-user wie Picdrop)
+- [ ] Team voting (multiple people per access token)
+- [ ] Live cursor in the lightbox (WebSocket fanout)
+- [x] Scribbles/annotations on the image (`AnnotationOverlay.tsx` + schema field `annotation`, in the customer gallery and studio proofing)
+- [x] Selection limit ("the customer may choose at most N") — gallery setting in the studio, counter "X of Y" in the customer hero, optimistic-update rollback on limit violation with a toast
+- [x] Real-time sync of the selection between studio and customer (the studio gets live toasts on selection changes, comments and finalize via WebSocket; the customer side stays single-user like Picdrop)
 
 ### Workflow
 
-- [x] XMP-Sidecar-Export (Lightroom/Capture One kompatibel)
-- [x] Bulk-Aktionen im Studio: Multi-Select + delete + hide/show + Drag&Drop-Sortierung (Touch + Keyboard via @dnd-kit)
-- [x] Galerie-Templates / Presets (Mode/Toggles/Branding/Expiry/Default-Description)
-- [x] Email-Notifications (Auswahl fertig, neuer Kommentar)
-- [x] Presentation Mode (Vollbild-Slideshow mit Auto-Advance, Cross-Fade, einstellbarem Intervall)
+- [x] XMP sidecar export (Lightroom/Capture One compatible)
+- [x] Bulk actions in the studio: multi-select + delete + hide/show + drag & drop sorting (touch + keyboard via @dnd-kit)
+- [x] Gallery templates / presets (mode/toggles/branding/expiry/default description)
+- [x] Email notifications (selection done, new comment)
+- [x] Presentation mode (fullscreen slideshow with auto-advance, cross-fade, adjustable interval)
 
 ---
 
-## Phase 3 — Polish & Wachstum
+## Phase 3 — Polish & growth
 
-- [x] Lightroom Classic Plugin (Lua) — pullt Auswahl direkt in den Katalog (`apps/lightroom-plugin/`)
-- [x] Capture One Plugin (AppleScript + Python-CLI für macOS, spiegelt Auswahl in den aktiven Katalog/Session; pflegt dieselbe `/api/v1/plugin/*` API wie das Lightroom-Plugin)
-- [x] Mehrsprachigkeit Studio + Customer-Seite (DE, EN — weitere folgen via i18n-Dictionary-System; in-Gallery-Locale-Picker für Visitor steht noch aus)
-- [ ] Mobile App (React Native) für iOS/Android — Upload aus der Kamera-Rolle
-- [ ] Public API mit OAuth2
-- [x] Webhooks für Studio-Events (HMAC-SHA256-signiert, async-Delivery mit Exponential-Backoff-Retry, /studio/webhooks-UI mit Test-Button und Delivery-Log)
-- [x] Detaillierte Galerie-Statistiken (Aufrufe über 30 Tage, Pro-Access-Aufschlüsselung mit Visits/Likes/Kommentare/Finalized-Status, Top-Files nach Likes, Downloads nach Typ; `/studio/[id]/stats` mit SVG-Sparklines)
-- [x] Optionales KI-Tagging — **CLIP** lokal auf dem Server (kein externer API-Call), opt-in über das ML-Worker-Image (`docker-compose.ml.yml`, CPU/GPU), Schwelle via `LUMIO_CLIP_THRESHOLD`; siehe docs/ML.md
-- [ ] E-Signatures für Modelverträge / Rechte-Freigaben
-- [x] Print-Shop / Bilderverkauf — Produkte/Varianten/Versand/Anbieter, Crop, Warenkorb, Stripe-Checkout (Stripe Connect), Bestellbestätigung + Mail (`services/print/*`, `routes/print-shop-public.ts`)
-- [x] 2FA für Studio-Logins: TOTP (otplib + 8 Backup-Codes) + WebAuthn/Passkeys (@simplewebauthn, Touch-ID/Windows-Hello/Security-Keys, mehrere Credentials pro User)
-- [x] Audit-Log-Viewer im Studio (instrumented: login/logout, gallery CRUD, file delete/bulk, share create/delete/unlock, selection.finalize, branding CRUD; /studio/audit mit Galerie/Action/Zeit-Filter + Client-CSV-Export; Server-CSV-Export für große Logs steht noch aus)
+- [x] Lightroom Classic plugin (Lua) — pulls the selection directly into the catalog (`apps/lightroom-plugin/`)
+- [x] Capture One plugin (AppleScript + Python CLI for macOS, mirrors the selection into the active catalog/session; maintains the same `/api/v1/plugin/*` API as the Lightroom plugin)
+- [x] Multilingual studio + customer page (DE, EN — more to follow via the i18n dictionary system; an in-gallery locale picker for visitors is still pending)
+- [ ] Mobile app (React Native) for iOS/Android — upload from the camera roll
+- [ ] Public API with OAuth2
+- [x] Webhooks for studio events (HMAC-SHA256 signed, async delivery with exponential-backoff retry, /studio/webhooks UI with a test button and delivery log)
+- [x] Detailed gallery statistics (views over 30 days, per-access breakdown with visits/likes/comments/finalized status, top files by likes, downloads by type; `/studio/[id]/stats` with SVG sparklines)
+- [x] Optional AI tagging — **CLIP** locally on the server (no external API call), opt-in via the ML worker image (`docker-compose.ml.yml`, CPU/GPU), threshold via `LUMIO_CLIP_THRESHOLD`; see docs/ML.md
+- [ ] E-signatures for model contracts / rights releases
+- [x] Print shop / image sales — products/variants/shipping/providers, crop, cart, Stripe checkout (Stripe Connect), order confirmation + email (`services/print/*`, `routes/print-shop-public.ts`)
+- [x] 2FA for studio logins: TOTP (otplib + 8 backup codes) + WebAuthn/passkeys (@simplewebauthn, Touch ID/Windows Hello/security keys, multiple credentials per user)
+- [x] Audit log viewer in the studio (instrumented: login/logout, gallery CRUD, file delete/bulk, share create/delete/unlock, selection.finalize, branding CRUD; /studio/audit with gallery/action/time filters + client CSV export; server CSV export for large logs still pending)
 
 ---
 
-## Phase 4 — Enterprise / DAM-Light
+## Phase 4 — Enterprise / DAM-light
 
-- [x] Globale Suche über alle Galerien eines Tenants (Cmd/Ctrl+K Command-Palette mit Live-Suche über Galerien, Files, Brandings, Templates; ILIKE-Backend, 4 parallele Queries in einem Roundtrip)
-- [x] Tagging-System mit Hierarchie (tenant-weite Tags mit Parent-Beziehung, Farbe, Galerie-Zuordnung mit AND-Filter in der Liste, TagPicker-Komponente mit Inline-Chips; File-Tag-API bereit, UI dafür folgt mit File-Bulk-Actions)
-- [x] Super-Admin & Multi-Tenant-Management (`/super` Login-bereich, eigene super_admins-Tabelle + Sessions, Tenant-CRUD mit initialem Owner + Setup-Mail, Suspend/Reactivate/Archive-Lifecycle, Tenant-Status-Guards in Login + Customer-Pfaden, Setup-Password-Flow für eingeladene Owner)
-- [x] Galerie-Header-Gestaltung (Hero-Bild aus Galerie oder Upload, Overlay-Farbe, Hintergrundfarbe als Fallback, Event-Logo pro Galerie, Welcome-Markdown mit react-markdown, OG-Meta-Tags für Share-Previews in WhatsApp/iMessage/Slack, Web-Share-API-Button mit Clipboard-Fallback)
-- [x] Galerie-Footer + Galerie-Farben (footerMarkdown pro Galerie, colorBackground und colorAccent als Overrides des Tenant-Brandings, automatische Textfarben-Berechnung via WCAG-Luminanz)
-- [x] Hero-Layout-Varianten (vier Varianten: Minimal, Splash mit Vollbild + Scroll-Hint, Side-by-Side editorial, Centered magazinmäßig — gemeinsame Felder, nur Render-Anordnung unterscheidet sich)
-- [x] Galerie-Schriftarten (Heading + Body separat aus kuratierter Liste von 8 Fonts wählbar — 4 sans + 4 serif, DSGVO-konform via Bunny Fonts CDN, Live-Preview im Studio)
-- [x] Grid-Layout-Varianten (Masonry/Justified/Equal — CSS-only, kein JS-Layout)
-- [x] Slideshow-Ausbau (drei Übergangseffekte: Fade/Slide/Ken-Burns mit 4 Pan-Richtungen, prefers-reduced-motion respektiert)
-- [x] Slideshow-Hintergrundmusik (Audio-Upload pro Galerie MP3/AAC/OGG max 30 MB, Auto-Play in Slideshow weil User-Geste, Loop, Volume-Slider mit localStorage-Persistierung)
-- [x] Galerie-Kapitel/Sections (optionales Gruppierungs-Layer, Files behalten Default-Bucket-Verhalten wenn keine Section, Customer-View bekommt Sticky-Anker-Navi + Trennbänder mit optionalem Cover-Bild, Studio-Editor mit Reorder + Bulk-File-Picker)
-- [x] Smart Collections / gespeicherte Filter (Studio-interne Filter-Macros analog Lightroom: Mode + Status + Tags AND-verknüpft, gespeichert pro User pro Tenant, Sidebar-Quickaccess + eigene Edit-Seite, ad-hoc-Filter über Query-Params an /galleries, persistierte Filter über /collections-CRUD; Datums-Range im Backend vorbereitet, Frontend-Datepicker folgt)
-- [ ] Approval-Workflows (mehrere Reviewer in Sequenz)
+- [x] Global search across all of a tenant's galleries (Cmd/Ctrl+K command palette with live search over galleries, files, brandings, templates; ILIKE backend, 4 parallel queries in one roundtrip)
+- [x] Tagging system with hierarchy (tenant-wide tags with a parent relationship, color, gallery assignment with AND filter in the list, TagPicker component with inline chips; file-tag API ready, the UI for it follows with file bulk actions)
+- [x] Super admin & multi-tenant management (`/super` login area, its own super_admins table + sessions, tenant CRUD with an initial owner + setup mail, suspend/reactivate/archive lifecycle, tenant-status guards in login + customer paths, setup-password flow for invited owners)
+- [x] Gallery header design (hero image from the gallery or upload, overlay color, background color as a fallback, per-gallery event logo, welcome markdown with react-markdown, OG meta tags for share previews in WhatsApp/iMessage/Slack, Web Share API button with clipboard fallback)
+- [x] Gallery footer + gallery colors (footerMarkdown per gallery, colorBackground and colorAccent as overrides of the tenant branding, automatic text-color calculation via WCAG luminance)
+- [x] Hero layout variants (four variants: Minimal, Splash with fullscreen + scroll hint, Side-by-side editorial, Centered magazine-style — shared fields, only the render arrangement differs)
+- [x] Gallery fonts (heading + body selectable separately from a curated list of 8 fonts — 4 sans + 4 serif, GDPR-compliant via Bunny Fonts CDN, live preview in the studio)
+- [x] Grid layout variants (masonry/justified/equal — CSS-only, no JS layout)
+- [x] Slideshow expansion (three transition effects: fade/slide/Ken Burns with 4 pan directions, respects prefers-reduced-motion)
+- [x] Slideshow background music (audio upload per gallery MP3/AAC/OGG max 30 MB, auto-play in the slideshow because of the user gesture, loop, volume slider with localStorage persistence)
+- [x] Gallery chapters/sections (optional grouping layer, files keep the default bucket behavior when there's no section, the customer view gets sticky anchor navigation + divider bands with an optional cover image, studio editor with reorder + bulk file picker)
+- [x] Smart collections / saved filters (studio-internal filter macros analogous to Lightroom: mode + status + tags AND-linked, saved per user per tenant, sidebar quick access + its own edit page, ad-hoc filters via query params to /galleries, persisted filters via /collections CRUD; date range prepared in the backend, the frontend datepicker follows)
+- [ ] Approval workflows (multiple reviewers in sequence)
 - [ ] SSO (SAML, OIDC)
-- [ ] Activity Log mit Compliance-Export
-- [ ] Per-Folder-Permissions
+- [ ] Activity log with compliance export
+- [ ] Per-folder permissions
 
 ---
 
-## Phase 5 — Cloud-Variante (SaaS-Erweiterung)
+## Phase 5 — Cloud variant (SaaS extension)
 
-**Ziel:** Lumio als Managed Service unter `lumio-cloud.de` mit Self-
-Service-Sign-Up und automatischer Abrechnung. Der App-Kern bleibt
-weiter source-available (FSL) und self-hostbar — diese Phase betrifft nur den
-Hosted-Service-Layer obendrauf. **Status: live unter lumio-cloud.de.**
+**Goal:** Lumio as a managed service at `lumio-cloud.de` with self-service sign-up and automatic billing. The app core stays source-available (FSL) and self-hostable — this phase only concerns the hosted service layer on top. **Status: live at lumio-cloud.de.**
 
-### Plan-Modell & Limits ✅ (Commit `e15c5bc`)
+### Plan model & limits ✅ (commit `e15c5bc`)
 
-- [x] Plan-Definitionen (Start €9, Solo €19, Studio €39, Pro €89; + 14-Tage-Trial)
-      als zentrales Modul in `services/plans.ts`
-- [x] Live-Aggregation des Storage-Verbrauchs ohne Counter-Drift
-- [x] Limit-Enforcement in den existierenden Routes:
-      Upload-Init, Galerie-Create, Custom-Domain, Branding
-- [x] BillingSubscription-Tabelle mit storageAddonGib + readOnlySince
-- [x] Migration mit Seed der 3 Pläne + Auto-Pro-Subscription für
-      existierende Tenants
-- [x] Studio-Seite `/studio/billing` mit Plan + Storage-Bar +
-      Galerien-Bar + Feature-Übersicht + Plan-Vergleich
-- [x] Storage-Banner oben in jeder Studio-Page bei >80% Storage,
-      Trial-Ende <3 Tage oder Read-only-Modus
-- [x] 402-Dialog beim Upload mit Link zur Plan-Seite
-- [x] Feature-Gates: Custom-Domain + Branding-Settings disabled
-      und mit Plan-Hinweis wenn nicht abgedeckt
-- [x] Gated über `BILLING_ENABLED` env — Self-Hosted ohne Billing
-      läuft komplett unverändert
+- [x] Plan definitions (Start €9, Solo €19, Studio €39, Pro €89; + 14-day trial)
+      as a central module in `services/plans.ts`
+- [x] Live aggregation of storage usage without counter drift
+- [x] Limit enforcement in the existing routes:
+      upload init, gallery create, custom domain, branding
+- [x] BillingSubscription table with storageAddonGib + readOnlySince
+- [x] Migration seeding the 3 plans + an auto-Pro subscription for
+      existing tenants
+- [x] Studio page `/studio/billing` with plan + storage bar +
+      galleries bar + feature overview + plan comparison
+- [x] Storage banner at the top of every studio page at >80% storage,
+      trial end <3 days or read-only mode
+- [x] 402 dialog on upload with a link to the plan page
+- [x] Feature gates: custom domain + branding settings disabled
+      and with a plan hint when not covered
+- [x] Gated via `BILLING_ENABLED` env — self-hosted without billing
+      runs completely unchanged
 
-### Domain-Trennung App ↔ Marketing
+### Domain separation app ↔ marketing
 
-- [x] App-Code-Stellen mit hardcoded `lumio-cloud.de` auf
-      `studio.lumio-cloud.de` umgestellt (Plugin-Defaults Lightroom
-      und Capture-One, README-Beispiele, Code-Kommentare)
-- [x] Caddy-Doku auf neue Domain. Plus Notiz dass die Marketing-
-      Seiten in eigenen Repos leben.
-- [x] MULTI_TENANT.md: App-Referenzen auf studio.lumio-cloud.de,
-      Tenant-Subdomains bleiben bewusst auf `*.lumio-cloud.de`
-      (DNS-Wildcard ist getrennt von Marketing-Site-Root)
-- [x] DNS: `studio.lumio-cloud.de` zeigt auf den App-Server
-- [x] Caddy serviert App-Domain + Wildcard `*.lumio-cloud.de`
-- [x] Tenant-Subdomain-Frage entschieden: `<slug>.lumio-cloud.de`
-      via acme-dns-Wildcard
+- [x] App code spots with hardcoded `lumio-cloud.de` switched to
+      `studio.lumio-cloud.de` (plugin defaults Lightroom and
+      Capture One, README examples, code comments)
+- [x] Caddy docs on the new domain. Plus a note that the marketing
+      sites live in their own repos.
+- [x] MULTI_TENANT.md: app references to studio.lumio-cloud.de,
+      tenant subdomains deliberately stay on `*.lumio-cloud.de`
+      (the DNS wildcard is separate from the marketing site root)
+- [x] DNS: `studio.lumio-cloud.de` points to the app server
+- [x] Caddy serves the app domain + wildcard `*.lumio-cloud.de`
+- [x] Tenant subdomain question decided: `<slug>.lumio-cloud.de`
+      via the acme-dns wildcard
 
-### Stripe-Integration ✅
+### Stripe integration ✅
 
-Gebaut in `routes/billing.ts` + `services/stripe-service.ts`/`stripe-client.ts`:
+Built in `routes/billing.ts` + `services/stripe-service.ts`/`stripe-client.ts`:
 
-- [x] `POST /billing/subscription` — Checkout-Session mit 14-Tage-Trial
-- [x] `POST /billing/portal` — Customer-Portal (Karte/Plan/Kündigung)
-- [x] `POST /billing/webhook` — signature-verified; verarbeitet
+- [x] `POST /billing/subscription` — checkout session with a 14-day trial
+- [x] `POST /billing/portal` — customer portal (card/plan/cancellation)
+- [x] `POST /billing/webhook` — signature-verified; processes
       `checkout.session.completed`, `customer.subscription.updated/deleted`,
       `invoice.payment_succeeded/failed`
-- [x] `/billing/plans`, `/billing/usage`, Reactivate-Route
-- [x] Storage-Add-on + Zahlungsmethoden (über Stripe)
-- [ ] Operativ je Deployment: Stripe-Produkte/Prices bootstrappen
+- [x] `/billing/plans`, `/billing/usage`, reactivate route
+- [x] Storage add-on + payment methods (via Stripe)
+- [ ] Operationally per deployment: bootstrap Stripe products/prices
       (`docker compose exec api npm run stripe-bootstrap`)
 
-### Karenz-Logik ✅
+### Grace logic ✅
 
-State-Machine für `past_due`-Tenants gebaut (`worker/tasks/billing.py`,
-`plugins/read-only.ts`, Feld `readOnlySince`): Stripe-Retry + Mahnungen →
-Login-Block → Read-only → Lösch-Ankündigung → Hard-Delete mit DSGVO-konformem
-Daten-Export-Angebot vor der Löschung.
+A state machine for `past_due` tenants built (`worker/tasks/billing.py`, `plugins/read-only.ts`, field `readOnlySince`): Stripe retry + dunning → login block → read-only → deletion announcement → hard delete with a GDPR-compliant data-export offer before deletion.
 
-### Sign-Up-Flow ✅
+### Sign-up flow ✅
 
-- [x] Selbstregistrierung (`routes/signup.ts`: `/signup`,
+- [x] Self-registration (`routes/signup.ts`: `/signup`,
       `/signup/check-email`, `/signup/check-slug`)
-- [x] Tenant + Owner-User + Trial-Subscription + Stripe-Customer in einer Transaktion
-- [x] Onboarding-/Setup-Mail
-- [x] Trial-Ende → Auto-Charge bzw. Read-only
+- [x] Tenant + owner user + trial subscription + Stripe customer in one transaction
+- [x] Onboarding/setup mail
+- [x] Trial end → auto-charge or read-only
 
-### Zukünftige Erweiterungen (offen, kein Sprint geplant)
+### Future extensions (open, no sprint planned)
 
-- [x] Jahresrabatt (~17 %: Jahrespreis = 10 Monatspreise, `priceYearlyCents` in `plans.ts`; Jahres-Toggle in der Billing-UI)
-- [ ] Einmalkauf-Variante für Hochzeitspaare („€49 einmalig,
-      Galerie 12 Monate aktiv") als separater Use-Case
-- [ ] Affiliate-/Partner-Programm
-- [ ] Open Core: Pro-Features aus dem FSL-Repo ausgliedern
-      (z.B. SSO, Team-Accounts) wenn Markt-Druck besteht
-- [ ] Dual-Licensing-Option (kommerzielle Lizenz auf Anfrage)
-      wenn ein konkreter Use-Case kommt
+- [x] Annual discount (~17%: yearly price = 10 monthly prices, `priceYearlyCents` in `plans.ts`; yearly toggle in the billing UI)
+- [ ] One-time purchase variant for wedding couples ("€49 one-off,
+      gallery active for 12 months") as a separate use case
+- [ ] Affiliate/partner program
+- [ ] Open core: split Pro features out of the FSL repo
+      (e.g. SSO, team accounts) if there's market pressure
+- [ ] Dual-licensing option (commercial license on request)
+      if a concrete use case comes up
 
 ---
 
-## Nicht geplant
+## Not planned
 
-Bewusst weggelassen — soweit nicht zwingend nachgefragt:
+Deliberately left out — unless strongly requested:
 
-- ❌ Eigener Editor für Bilder (Cropping, Filter) — bleibt im Workflow von Lightroom/Capture One.
-- ❌ Komplexes Rechtemanagement mit dutzenden Rollen — Lumio bleibt schlank.
+- ❌ A built-in image editor (cropping, filters) — stays in the Lightroom/Capture One workflow.
+- ❌ Complex permission management with dozens of roles — Lumio stays lean.

@@ -1,42 +1,44 @@
+**English** · [Deutsch](CONTRIBUTING.de.md)
+
 # Contributing to Lumio
 
-Danke, dass du beitragen möchtest!
+Thanks for wanting to contribute!
 
-## Schnellstart
+## Quick start
 
-1. Issue lesen oder neues Issue eröffnen, bevor du an größeren Änderungen arbeitest.
-2. Fork des Repos, neuer Branch (`feat/dein-feature` oder `fix/dein-fix`).
-3. `cp .env.example .env`, `docker compose up -d` — siehe [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
-4. Code schreiben, Tests dazu wenn sinnvoll.
-5. Pull Request mit klarer Beschreibung.
+1. Read an issue or open a new one before working on larger changes.
+2. Fork the repo, new branch (`feat/your-feature` or `fix/your-fix`).
+3. `cp .env.example .env`, `docker compose up -d` — see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+4. Write code, add tests where it makes sense.
+5. Pull request with a clear description.
 
-## Was wir gerne sehen
+## What we like to see
 
-- **Bug-Fixes** mit reproduzierbarem Testfall
-- **Performance-Verbesserungen** mit Vorher/Nachher-Messung
-- **Übersetzungen** (sobald i18n drin ist)
-- **Dokumentation** — auch kleine Tippfehler-Fixes
-- **RAW-Format-Tests** — wenn du eine ungewöhnliche Kamera hast, sind Beispieldateien Gold wert
+- **Bug fixes** with a reproducible test case
+- **Performance improvements** with before/after measurements
+- **Translations** (once i18n is in)
+- **Documentation** — even small typo fixes
+- **RAW format tests** — if you have an unusual camera, sample files are worth gold
 
-## Code-Konventionen
+## Code conventions
 
-- **TypeScript**: strict mode, kein `any` ohne Begründung
-- **Python**: PEP 8, type hints, ruff für Linting
+- **TypeScript**: strict mode, no `any` without justification
+- **Python**: PEP 8, type hints, ruff for linting
 - **Commits**: Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`)
-- **PR-Titel**: gleiche Konvention wie Commits
+- **PR titles**: same convention as commits
 
-## Lizenz-Hinweis
+## License note
 
-Lumio steht unter der **Functional Source License 1.1 (FSL-1.1-ALv2)** — einer *source-available* Lizenz (nicht OSI-Open-Source). Mit deinem Beitrag stimmst du zu, dass dein Code unter dieser Lizenz veröffentlicht wird.
+Lumio is under the **Functional Source License 1.1 (FSL-1.1-ALv2)** — a *source-available* license (not OSI open source). By contributing, you agree that your code is published under this license.
 
-Falls eine kommerzielle Dual-Lizenz für proprietäre Forks angeboten werden soll, behalten wir uns ein DCO oder CLA für signifikante Beiträge vor — wird diskutiert, sobald das praxisrelevant wird.
+If a commercial dual license for proprietary forks is to be offered, we reserve the right to a DCO or CLA for significant contributions — to be discussed once it becomes practically relevant.
 
-## Code of Conduct
+## Code of conduct
 
-Sei freundlich. Sei konkret. Sei geduldig. Wir bauen das hier in unserer Freizeit oder zwischendurch — gegenseitiger Respekt macht das viel angenehmer.
+Be kind. Be specific. Be patient. We're building this in our spare time or on the side — mutual respect makes it much more pleasant.
 
-Persönliche Angriffe, Diskriminierung oder Spam führen zum Ausschluss.
+Personal attacks, discrimination or spam lead to exclusion.
 
-## Fragen?
+## Questions?
 
-Issue eröffnen oder im Forgejo-Repo unter Discussions schreiben.
+Open an issue or post under Discussions on the GitHub repo.

@@ -217,6 +217,6 @@ Für ein gehostetes/konkurrierendes Angebot ist eine kommerzielle Lizenz auf Anf
 
 ## Mitwirken
 
-Pull Requests willkommen. Siehe [CONTRIBUTING.md](CONTRIBUTING.md).
+Pull Requests willkommen. Siehe [CONTRIBUTING.md](CONTRIBUTING.de.md).
 
 Issues & Diskussionen: https://github.com/markusthiel/lumio/issues

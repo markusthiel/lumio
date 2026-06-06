@@ -1,68 +1,59 @@
-# Versionierung
+**English** · [Deutsch](VERSIONING.de.md)
 
-Lumio folgt [Semantic Versioning](https://semver.org/lang/de/):
-`MAJOR.MINOR.PATCH`.
+# Versioning
 
-Die Version ist vor allem ein **Signal an Self-Hoster**, wie riskant ein Update
-ist – denn die updaten manuell per `git pull` + `docker compose up`.
+Lumio follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`.
 
-## Die drei Stellen
+The version is above all a **signal to self-hosters** about how risky an update is – because they update manually via `git pull` + `docker compose up`.
 
-| Stelle | Beispiel | Bedeutung | Aktion des Self-Hosters |
+## The three positions
+
+| Position | Example | Meaning | Self-hoster action |
 |--------|----------|-----------|--------------------------|
-| **PATCH** | 0.9.0 → 0.9.**1** | Bugfix, abwärtskompatibel | nur Pull + Deploy |
-| **MINOR** | 0.**9** → 0.**10**.0 | neues Feature, abwärtskompatibel (z.B. neue *optionale* Env mit Default) | nur Pull + Deploy |
-| **MAJOR** | 0.x → **1**.0.0 | Breaking Change | manueller Eingriff laut Upgrade-Hinweisen |
+| **PATCH** | 0.9.0 → 0.9.**1** | bugfix, backward compatible | just pull + deploy |
+| **MINOR** | 0.**9** → 0.**10**.0 | new feature, backward compatible (e.g. a new *optional* env with a default) | just pull + deploy |
+| **MAJOR** | 0.x → **1**.0.0 | breaking change | manual intervention per the upgrade notes |
 
-### Die eine Faustregel
+### The one rule of thumb
 
-> Muss der Self-Hoster nach dem `git pull` irgendetwas an `.env`, am
-> Compose-Befehl oder an der DB anfassen, sonst bricht es?
-> **Ja → MAJOR.** Sonst MINOR (Feature) bzw. PATCH (Fix).
+> After the `git pull`, does the self-hoster have to touch anything in `.env`, the Compose command or the DB, or it breaks?
+> **Yes → MAJOR.** Otherwise MINOR (feature) or PATCH (fix).
 
-Beispiele für Breaking Changes (MAJOR):
-- umbenannte oder neue **pflichtige** Env-Variablen
-- geänderter Compose-Aufruf (z.B. das `--profile wildcard`-Refactor)
-- entfernte Features oder Endpoints
-- DB-Migration, die nicht automatisch sauber durchläuft
+Examples of breaking changes (MAJOR):
+- renamed or new **mandatory** env variables
+- a changed Compose invocation (e.g. the `--profile wildcard` refactor)
+- removed features or endpoints
+- a DB migration that doesn't run through cleanly automatically
 
 ## Pre-1.0
 
-Wir stehen bei `0.x`. Das signalisiert bewusst: strukturell kann sich noch
-etwas bewegen. Breaking Changes werden trotzdem klar im `CHANGELOG.md` unter
-**⚠️ Upgrade-Hinweise** markiert. `1.0.0` setzen wir, wenn wir Stabilität
-zusagen wollen.
+We're at `0.x`. This deliberately signals: structurally things can still move. Breaking changes are still clearly marked in `CHANGELOG.md` under **⚠️ Upgrade notes**. We'll set `1.0.0` when we want to promise stability.
 
-## Single Source of Truth
+## Single source of truth
 
-Die kanonische Version steht in **`/VERSION`** (Repo-Root). Daraus abgeleitet:
+The canonical version lives in **`/VERSION`** (repo root). Derived from it:
 
-- `apps/api/src/version.ts` → `LUMIO_VERSION` (in `/health` und `/meta`)
-- `apps/worker/version.py` → `__version__` (Startup-Log)
-- `version` in den `package.json` der Workspaces
+- `apps/api/src/version.ts` → `LUMIO_VERSION` (in `/health` and `/meta`)
+- `apps/worker/version.py` → `__version__` (startup log)
+- `version` in the workspaces' `package.json`
 
-Diese Dateien werden **nicht von Hand** editiert, sondern durch den Bump-Script
-synchron gehalten. Eine gesetzte `LUMIO_VERSION`-Env übersteuert zur Laufzeit
-den eingebauten Wert (z.B. für CI-gestempelte Images).
+These files are **not edited by hand** but kept in sync by the bump script. A set `LUMIO_VERSION` env overrides the built-in value at runtime (e.g. for CI-stamped images).
 
-## Release-Ablauf
+## Release flow
 
 ```bash
-# 1. Version anheben (synchronisiert alle Dateien + legt Git-Tag an)
+# 1. Bump the version (syncs all files + creates a Git tag)
 ./scripts/bump-version.sh 0.10.0
 
-# 2. CHANGELOG.md: Einträge aus [Unreleased] in den neuen Abschnitt ziehen,
-#    bei Breaking Changes einen "⚠️ Upgrade-Hinweise"-Block ergänzen.
+# 2. CHANGELOG.md: move entries from [Unreleased] into the new section,
+#    for breaking changes add a "⚠️ Upgrade notes" block.
 
-# 3. Commit + Tag pushen
+# 3. Push commit + tag
 git push && git push --tags
 ```
 
-Anschließend in Forgejo aus dem Tag ein Release erstellen (Changelog-Abschnitt
-als Release-Notes). Self-Hoster sehen die laufende Version im Studio-Footer und
-unter `GET /health`.
+Afterwards create a release from the tag in Forgejo (the changelog section as release notes). Self-hosters see the running version in the studio footer and under `GET /health`.
 
-## Marketing-Sites
+## Marketing sites
 
-`lumio-app-de` und `lumio-cloud-de` sind rollend deployter Content und brauchen
-**kein** SemVer. Versionierung betrifft nur die App (`lumio`).
+`lumio-app-de` and `lumio-cloud-de` are rolling-deployed content and need **no** SemVer. Versioning concerns only the app (`lumio`).
