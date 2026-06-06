@@ -72,7 +72,7 @@ docker compose logs caddy | grep -iE "error|acme"
 Typische Fehler:
 
 - **`connection refused` während ACME-Challenge** → Port 80 nicht erreichbar von außen. Firewall, Cloud-Firewall, falsche DNS-IP prüfen.
-- **`no solvers available for remaining challenges (offered=[dns-01])`** → Du versuchst ein Wildcard-Cert (`*.deine-domain.de`). Wildcards brauchen DNS-01-Challenge, nicht HTTP-01. Siehe [MULTI_TENANT.md](MULTI_TENANT.md#wildcard-zertifikate).
+- **`no solvers available for remaining challenges (offered=[dns-01])`** → Du versuchst ein Wildcard-Cert (`*.deine-domain.de`). Wildcards brauchen DNS-01-Challenge, nicht HTTP-01. Siehe [MULTI_TENANT.md](MULTI_TENANT.de.md#wildcard-zertifikate).
 - **`too many requests` (Rate Limit)** → Let's Encrypt erlaubt max. 50 Zertifikate pro Domain pro Woche. Falls du oft testest: Caddy auf Staging-CA umstellen.
 
 ---

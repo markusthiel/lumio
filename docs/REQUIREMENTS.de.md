@@ -69,7 +69,7 @@ ein Server nicht mehr reicht (siehe [SCALING.md](SCALING.md)).
   (Caddy holt darüber das Let's-Encrypt-Zertifikat).
 - Eine **Domain**, die auf die Server-IP zeigt.
 - Bei Multi-Tenant mit Wildcard-Subdomains zusätzlich
-  [WILDCARD.md](WILDCARD.md) beachten.
+  [WILDCARD.md](WILDCARD.de.md) beachten.
 
 ## Kurz-Checkliste
 

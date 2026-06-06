@@ -11,7 +11,7 @@ Du hast den Quick-Start durch und willst Lumio jetzt sauber unter deiner eigenen
 
 Detaillierte Hardware-/Architektur-Voraussetzungen: [REQUIREMENTS.md](REQUIREMENTS.de.md).
 
-Dieser Guide deckt **Single-Studio** ab. Für Multi-Tenant siehe [MULTI_TENANT.md](MULTI_TENANT.md).
+Dieser Guide deckt **Single-Studio** ab. Für Multi-Tenant siehe [MULTI_TENANT.md](MULTI_TENANT.de.md).
 
 ---
 

@@ -1,128 +1,86 @@
-# Multi-Tenant-Setup
+**English** · [Deutsch](MULTI_TENANT.de.md)
 
-Lumio kann mehrere Tenants (Studios/Foto-Kunden) auf derselben
-Installation betreiben. Dieses Dokument beschreibt, wie ein neuer
-Tenant erreichbar wird — DB + UI legen ihn an, aber damit die richtige
-URL auch beim richtigen Tenant landet, brauchst du eines der drei
-Routing-Verfahren unten.
+# Multi-tenant setup
 
-Wenn du gerade SaaS aufbaust und unter 20 Kunden hast, ist **Verfahren B
-(Custom-Domains pro Kunde)** der empfohlene Weg. Wildcards lohnen sich
-erst, wenn manuelles Caddyfile-Editieren pro Kunde lästig wird.
+Lumio can run multiple tenants (studios/photographer clients) on the same installation. This document describes how a new tenant becomes reachable — the DB + UI create it, but for the right URL to land on the right tenant you need one of the three routing methods below.
 
-## Wie die Tenant-Auflösung funktioniert
+If you're building SaaS and have fewer than 20 clients, **method B (custom domains per client)** is the recommended path. Wildcards only pay off once editing the Caddyfile manually per client becomes tedious.
 
-Wenn ein API-Request reinkommt, läuft die Tenant-Auflösung in dieser
-Reihenfolge ab (siehe `apps/api/src/plugins/auth.ts:resolveTenant`):
+## How tenant resolution works
 
-1. **Eingeloggter User** (Cookie) — die Session weiß welcher Tenant
-2. **`X-Lumio-Tenant`-Header** — für die Mobile-App und API-Clients
-3. **Custom-Domain** — `studio-mueller.de` matched gegen
-   `tenants.customDomain`
-4. **Subdomain** — `studio-mueller.lumio-cloud.de` matched gegen
-   `tenants.slug`, vorausgesetzt `LUMIO_DOMAIN_BASE` ist gesetzt
-5. **Single-Mode-Fallback** — wenn nur ein Tenant existiert, wird der
-   genommen
+When an API request comes in, tenant resolution runs in this order (see `apps/api/src/plugins/auth.ts:resolveTenant`):
 
-Sobald du den zweiten Tenant anlegst, fällt Schritt 5 weg — du musst
-2, 3 oder 4 nutzen.
+1. **Logged-in user** (cookie) — the session knows which tenant
+2. **`X-Lumio-Tenant` header** — for the mobile app and API clients
+3. **Custom domain** — `studio-mueller.de` matched against `tenants.customDomain`
+4. **Subdomain** — `studio-mueller.lumio-cloud.de` matched against `tenants.slug`, provided `LUMIO_DOMAIN_BASE` is set
+5. **Single-mode fallback** — if only one tenant exists, it's used
+
+As soon as you create the second tenant, step 5 drops out — you have to use 2, 3 or 4.
 
 ---
 
-## Verfahren B: Custom-Domains pro Kunde (empfohlen für die ersten Kunden)
+## Method B: Custom domains per client (recommended for the first clients)
 
-Jeder Kunde bekommt seine eigene Domain wie `studio-mueller.de` oder
-eine schöne Subdomain wie `mueller.lumio.app`. Pro Domain ein
-Caddyfile-Block (am externen Caddy), Cert wird per HTTP-Challenge
-automatisch geholt — kein DNS-Plugin nötig, läuft mit dem Stock-Caddy.
+Each client gets their own domain like `studio-mueller.de` or a nice subdomain like `mueller.lumio.app`. One Caddyfile block per domain (on the external Caddy), the cert is obtained automatically via the HTTP challenge — no DNS plugin needed, works with stock Caddy.
 
-### Schritte für einen neuen Kunden
+### Steps for a new client
 
-1. **DNS-Eintrag** — Kunde (oder du) zeigt seine Domain auf deine IP:
+1. **DNS record** — the client (or you) points their domain at your IP:
    ```
-   studio-mueller.de    A    <IP des externen Caddy-Hosts>
+   studio-mueller.de    A    <IP of the external Caddy host>
    ```
 
-2. **Externer Caddy** — Block ergänzen:
+2. **External Caddy** — add a block:
    ```caddyfile
    studio-mueller.de {
        reverse_proxy 192.168.178.90:32080
    }
    ```
-   Dann `caddy reload` (oder Caddy-Container neu starten). Cert wird
-   per HTTP-Challenge automatisch geholt sobald die Domain auflöst.
+   Then `caddy reload` (or restart the Caddy container). The cert is obtained automatically via the HTTP challenge as soon as the domain resolves.
 
-3. **Im Super-Admin** auf `https://studio.lumio-cloud.de/super/login`:
-   - „+ Neuer Tenant"
-   - Slug, Name, **Custom-Domain `studio-mueller.de`** eintragen
-   - Owner-Name + Owner-E-Mail
-   - „Anlegen + Einladen"
+3. **In the super admin** at `https://studio.lumio-cloud.de/super/login`:
+   - "+ New tenant"
+   - Enter slug, name, **custom domain `studio-mueller.de`**
+   - Owner name + owner email
+   - "Create + invite"
 
-4. **Owner** klickt den Setup-Link in der Mail, setzt sein Passwort,
-   ist eingeloggt. Ab dem Moment ist `https://studio-mueller.de` sein
-   Studio.
+4. **The owner** clicks the setup link in the email, sets their password, is logged in. From that moment `https://studio-mueller.de` is their studio.
 
-Galerie-Links sind unabhängig davon — die nutzen den Galerie-Slug,
-nicht den Tenant-Slug, und funktionieren auf der jeweiligen
-Tenant-Domain (`studio-mueller.de/g/<gallery-slug>`).
+Gallery links are independent of this — they use the gallery slug, not the tenant slug, and work on the respective tenant domain (`studio-mueller.de/g/<gallery-slug>`).
 
-### Wichtig: Interner Caddy hat einen Catch-All
+### Important: the internal Caddy has a catch-all
 
-Der interne Caddy (`infra/caddy/Caddyfile`) ist so konfiguriert dass
-er einen `http://`-Catch-All-Block enthält, der für **jeden Host**
-gilt der nicht spezifischer gematcht wird. Das ist genau das was
-Custom-Domains brauchen — sonst würde Caddy für unbekannte Hosts
-einen 308 nach `https://` schicken und damit (in Verbindung mit dem
-externen Caddy) einen `ERR_TOO_MANY_REDIRECTS` produzieren.
+The internal Caddy (`infra/caddy/Caddyfile`) is configured to contain an `http://` catch-all block that applies to **any host** not matched more specifically. That's exactly what custom domains need — otherwise Caddy would send a 308 to `https://` for unknown hosts and thereby (in combination with the external Caddy) produce an `ERR_TOO_MANY_REDIRECTS`.
 
-**Du musst am internen Caddy NICHTS pro Kunde anpassen.** Der
-Tenant-Auflösungs-Code in `apps/api/src/plugins/auth.ts` matcht
-über den Host-Header gegen `tenants.customDomain`. Wenn die Domain
-dort eingetragen ist, läuft alles automatisch.
+**You don't need to change anything per client on the internal Caddy.** The tenant resolution code in `apps/api/src/plugins/auth.ts` matches against `tenants.customDomain` via the Host header. If the domain is entered there, everything runs automatically.
 
-### Wenn du noch keine Custom-Domain hast
+### If you don't have a custom domain yet
 
-Pro Kunde eine schöne Subdomain unter deiner eigenen Marke ist auch
-OK — z.B. `mueller.lumio-cloud.de` als „interim" bis der Kunde sich
-für eine Custom-Domain entscheidet. Jede solche Subdomain ist ein
-eigener Caddyfile-Block mit eigenem Cert. Bei 5-10 Kunden völlig
-problemlos.
+A nice subdomain under your own brand per client is also fine — e.g. `mueller.lumio-cloud.de` as an "interim" until the client decides on a custom domain. Each such subdomain is its own Caddyfile block with its own cert. With 5-10 clients completely fine.
 
 ---
 
-## Verfahren A: Wildcard-Subdomain (`*.lumio-cloud.de`)
+## Method A: Wildcard subdomain (`*.lumio-cloud.de`)
 
-Sobald du SaaS-mäßig viele Kunden hast und das manuelle Caddyfile-
-Editieren pro Kunde nervt, lohnt sich der Sprung auf Wildcards. Dann
-ist `<slug>.lumio-cloud.de` automatisch der Studio-URL für jeden
-Tenant, ohne Caddy-Reload pro neuem Kunde.
+Once you have many SaaS-style clients and editing the Caddyfile manually per client gets annoying, the jump to wildcards pays off. Then `<slug>.lumio-cloud.de` is automatically the studio URL for every tenant, without a Caddy reload per new client.
 
-**Aber**: Wildcard-Zertifikate brauchen DNS-Challenge, weil
-HTTP-Challenge `*.domain` nicht validieren kann. Du brauchst entweder
-ein DNS-Plugin (für United Domains Reselling gibt's
-[`KlettIT/caddy-autodns`](https://github.com/KlettIT/caddy-autodns) als
-Drittanbieter-Plugin, müsste in den Caddy via xcaddy gebaut werden),
-oder du nutzt acme-dns CNAME-Delegation.
+**But**: wildcard certificates need the DNS challenge, because the HTTP challenge can't validate `*.domain`. You need either a DNS plugin (for United Domains Reselling there's [`KlettIT/caddy-autodns`](https://github.com/KlettIT/caddy-autodns) as a third-party plugin, which would have to be built into Caddy via xcaddy), or you use acme-dns CNAME delegation.
 
-Wenn du diesen Weg gehst, sind die Schritte:
+If you go this route, the steps are:
 
-1. **DNS** — Wildcard-A-Record `*.lumio-cloud.de` → IP
-2. **Vorgeschalteter Caddy** — Wildcard-Block mit DNS-Challenge
-3. **Interner Lumio-Caddy** — `LUMIO_WILDCARD_HOST=*.lumio-cloud.de:80`
-   in `.env` setzen (Caddyfile-Block ist schon vorbereitet, siehe
-   `infra/caddy/Caddyfile`)
-4. **API-Env** — `LUMIO_DOMAIN_BASE=lumio-cloud.de`
+1. **DNS** — wildcard A record `*.lumio-cloud.de` → IP
+2. **Upstream Caddy** — wildcard block with the DNS challenge
+3. **Internal Lumio Caddy** — set `LUMIO_WILDCARD_HOST=*.lumio-cloud.de:80` in `.env` (the Caddyfile block is already prepared, see `infra/caddy/Caddyfile`)
+4. **API env** — `LUMIO_DOMAIN_BASE=lumio-cloud.de`
 
-Heute (Stand des ersten Onboardings) macht das keinen Aufwand-Sinn.
-Wenn du soweit bist, schau dir diesen Abschnitt nochmal an oder frag
-nach.
+The full walkthrough is in [WILDCARD.md](WILDCARD.md). For the very first onboarding this isn't worth the effort yet — come back to this section when you're ready, or ask.
 
 ---
 
-## Verfahren C: `X-Lumio-Tenant`-Header (für API-Clients)
+## Method C: `X-Lumio-Tenant` header (for API clients)
 
-Wird vor allem von der Mobile-App genutzt. Statt über Domain/Subdomain
-spricht der Client direkt mit der API-URL und schickt einen Header mit:
+Used mainly by the mobile app. Instead of going via domain/subdomain, the client talks directly to the API URL and sends a header:
 
 ```
 GET /api/v1/galleries HTTP/1.1
@@ -130,43 +88,32 @@ Host: studio.lumio-cloud.de
 X-Lumio-Tenant: studio-mueller
 ```
 
-Wichtige Sicherheits-Eigenschaft: wenn ein Session-Cookie vorhanden
-ist, **gewinnt der Tenant aus der Session**, nicht der Header. Sonst
-könnte ein User mit Cookie für Tenant A einfach durch
-Header-Manipulation auf Tenant B zugreifen.
+Important security property: if a session cookie is present, **the tenant from the session wins**, not the header. Otherwise a user with a cookie for tenant A could simply access tenant B through header manipulation.
 
-Der Header wirkt also nur bei nicht-eingeloggten Requests (Login der
-Mobile-App, API-Token-Auth).
+So the header only takes effect on non-logged-in requests (mobile app login, API token auth).
 
 ---
 
-## Default-Tenant umbenennen
+## Renaming the default tenant
 
-Der erste Tenant, der per `npm run create-admin` angelegt wurde, heißt
-slug=`default`. Wenn du eine echte Multi-Tenant-Plattform betreibst,
-willst du das umbenennen:
+The first tenant, created via `npm run create-admin`, has slug=`default`. If you run a real multi-tenant platform, you'll want to rename it:
 
-- Super-Admin → Tenants → klick auf den Default-Tenant → Bearbeiten
-- Slug ändern (Warnung wird angezeigt)
-- Speichern
+- Super admin → Tenants → click the default tenant → Edit
+- Change the slug (a warning is shown)
+- Save
 
-⚠ Bestehende Subdomain-URLs unter `default.lumio-cloud.de` brechen
-sofort (falls Verfahren A aktiv). Galerie-Share-Links sind **nicht**
-betroffen — die nutzen den Galerie-Slug, nicht den Tenant-Slug.
-Eingeloggte Studio-Sessions des Tenants bleiben bestehen (Cookie
-trägt tenantId, nicht slug).
+⚠ Existing subdomain URLs under `default.lumio-cloud.de` break immediately (if method A is active). Gallery share links are **not** affected — they use the gallery slug, not the tenant slug. Logged-in studio sessions of the tenant remain valid (the cookie carries tenantId, not slug).
 
 ---
 
-## Welches Verfahren wofür
+## Which method for what
 
-| Wofür                            | Verfahren                            |
+| For what                            | Method                            |
 |----------------------------------|--------------------------------------|
-| Erste 1-20 Kunden, jeder mit eigener Brand-Domain | B (Custom-Domain) |
-| 20+ Kunden, willst nicht mehr pro Kunde Caddy editieren | A (Wildcard) |
-| Mobile-App                       | C (Header)                           |
-| Browser-Studio                   | wird automatisch resolved via Cookie nach erstem Login |
-| Customer-Galerie-Links           | funktioniert auf jeder Tenant-Domain |
+| First 1-20 clients, each with their own brand domain | B (custom domain) |
+| 20+ clients, no longer want to edit Caddy per client | A (wildcard) |
+| Mobile app                       | C (header)                           |
+| Browser studio                   | resolved automatically via cookie after first login |
+| Customer gallery links           | works on any tenant domain |
 
-Verfahren sind kombinierbar — ein Tenant kann gleichzeitig eine
-Custom-Domain UND eine Wildcard-Subdomain UND Mobile-Header haben.
+The methods are combinable — one tenant can have a custom domain AND a wildcard subdomain AND a mobile header at the same time.
