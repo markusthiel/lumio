@@ -1,4 +1,4 @@
-<!-- Sprache: [English](README.md) · **Deutsch** -->
+[English](README.md) · **Deutsch**
 [English](README.md) · **Deutsch**
 
 # Lumio
@@ -150,8 +150,8 @@ Nach dem Login findest du oben links die Galerie-Erstellung. Lade ein Foto hoch,
 
 - **Eigene Domain dranhängen** → [docs/SELFHOSTING.de.md](docs/SELFHOSTING.de.md) (15-Min-Setup mit HTTPS)
 - **Bilder gehen verloren beim Container-Restart?** → MinIO speichert im `minio_data`-Volume, das persistiert. Sicher dass du das Volume nicht versehentlich `docker volume rm`'st.
-- **Backups einrichten** → [docs/BACKUP.md](docs/BACKUP.md)
-- **Was läuft schief?** → [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
+- **Backups einrichten** → [docs/BACKUP.md](docs/BACKUP.de.md)
+- **Was läuft schief?** → [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.de.md)
 
 ---
 
@@ -192,7 +192,7 @@ Alles optional. Das Quick-Start oben reicht für ein einzelnes Studio.
 | KI-Auto-Tagging (CLIP) | [docs/ML.md](docs/ML.md) |
 | Tenant-Subdomains via Wildcard-Cert | [docs/WILDCARD.md](docs/WILDCARD.md) |
 | Last auf mehrere Server verteilen | [docs/SCALING.md](docs/SCALING.md) |
-| Externes S3 statt MinIO (R2, B2, Hetzner, Wasabi) | [docs/STORAGE.md](docs/STORAGE.md) |
+| Externes S3 statt MinIO (R2, B2, Hetzner, Wasabi) | [docs/STORAGE.md](docs/STORAGE.de.md) |
 | Backups, Migrationen, Re-Queue | [docs/OPERATIONS.md](docs/OPERATIONS.md) |
 | Mitwirken / Entwicklung | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) |
 

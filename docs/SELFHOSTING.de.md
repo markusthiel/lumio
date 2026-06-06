@@ -165,7 +165,7 @@ MinIO funktioniert für kleinere Setups (bis ~500 GB) gut. Für mehr Volumen loh
 - **Cloudflare R2** – kostenloser Egress, gut für CDN-Setups
 - **Backblaze B2** – günstigster Storage-Preis, etwas höhere Latenz
 
-Setup-Schritte: siehe [STORAGE.md](STORAGE.md).
+Setup-Schritte: siehe [STORAGE.md](STORAGE.de.md).
 
 **Wichtig bei externem S3**: CORS am Bucket setzen! Lumio uploadet Bilder direkt vom Browser zu S3 (presigned URLs). Ohne CORS scheitert das. Konkret:
 
@@ -198,4 +198,4 @@ Bei Hetzner Object Storage zusätzlich `S3_FORCE_PATH_STYLE=true` und `S3_REGION
 
 ## Häufige Stolperfallen
 
-→ siehe [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
+→ siehe [TROUBLESHOOTING.md](TROUBLESHOOTING.de.md)

@@ -61,7 +61,7 @@ ein Server nicht mehr reicht (siehe [SCALING.md](SCALING.md)).
     entsprechend dem erwarteten Foto-/Video-Volumen dimensionieren. Faustregel
     bis ~500 GB sinnvoll, darüber externes S3.
   - Mit **externem S3** (Hetzner Object Storage, R2, B2, Wasabi) braucht der
-    Server selbst kaum Storage. Setup: [STORAGE.md](STORAGE.md).
+    Server selbst kaum Storage. Setup: [STORAGE.md](STORAGE.de.md).
 
 ## Netzwerk
 
