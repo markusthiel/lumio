@@ -4,7 +4,7 @@
 
 Was dein Server mitbringen muss, bevor du Lumio installierst. Für den
 eigentlichen Installations-Ablauf siehe [SELFHOSTING.md](SELFHOSTING.de.md),
-fürs Hochskalieren [SCALING.md](SCALING.md).
+fürs Hochskalieren [SCALING.md](SCALING.de.md).
 
 ## Betriebssystem & Docker
 
@@ -46,11 +46,11 @@ reiner Foto-/RAW-Betrieb ist deutlich leichter.
 | **Single-Studio, nur Fotos** | 2 vCPU | 4 GB | Einstieg, kleine Galerien |
 | **Single-Studio mit Video** | 4 vCPU | 8 GB | Transcoding braucht Luft |
 | **+ KI-Auto-Tagging (ML-Worker)** | +2 vCPU | **+4 GB** | CLIP-Inferenz; Image ~2,5 GB statt ~1 GB |
-| **Multi-Tenant / SaaS** | 8 vCPU | 16 GB | + ggf. separate [Worker-Nodes](SCALING.md) |
+| **Multi-Tenant / SaaS** | 8 vCPU | 16 GB | + ggf. separate [Worker-Nodes](SCALING.de.md) |
 
 Den ML-Worker brauchst du nur, wenn du Auto-Tagging willst — ohne ihn fällt
 der RAM-Aufschlag weg. Worker lassen sich auf eigene Nodes auslagern, sobald
-ein Server nicht mehr reicht (siehe [SCALING.md](SCALING.md)).
+ein Server nicht mehr reicht (siehe [SCALING.md](SCALING.de.md)).
 
 ## Festplatte
 
