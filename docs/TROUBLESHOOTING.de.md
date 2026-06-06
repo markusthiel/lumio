@@ -217,7 +217,7 @@ docker compose logs worker --tail=50
 ```
 
 - **CPU-Auslastung hoch?** Workers skalieren: `docker compose up -d --scale worker=4`
-- **Viele große RAW-Files?** Das ist normal CPU-intensiv. GPU-Beschleunigung siehe [GPU.md](GPU.md).
+- **Viele große RAW-Files?** Das ist normal CPU-intensiv. GPU-Beschleunigung siehe [GPU.md](GPU.de.md).
 - **KI-Auto-Tagging aktiv?** CLIP läuft auf CPU bei 1–3s pro Bild. Auch hier hilft GPU oder mehr Worker.
 
 ---

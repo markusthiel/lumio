@@ -188,8 +188,8 @@ Alles optional. Das Quick-Start oben reicht für ein einzelnes Studio.
 | Production hinter eigener Domain mit HTTPS | [docs/SELFHOSTING.de.md](docs/SELFHOSTING.de.md) |
 | Mehrere Studios auf einer Instanz | [docs/MULTI_TENANT.md](docs/MULTI_TENANT.md) |
 | SaaS-Modus mit Stripe-Billing | [docs/SAAS_MODE.md](docs/SAAS_MODE.md) |
-| GPU-Beschleunigung (NVENC + KI-Tags) | [docs/GPU.md](docs/GPU.md) |
-| KI-Auto-Tagging (CLIP) | [docs/ML.md](docs/ML.md) |
+| GPU-Beschleunigung (NVENC + KI-Tags) | [docs/GPU.md](docs/GPU.de.md) |
+| KI-Auto-Tagging (CLIP) | [docs/ML.md](docs/ML.de.md) |
 | Tenant-Subdomains via Wildcard-Cert | [docs/WILDCARD.md](docs/WILDCARD.md) |
 | Last auf mehrere Server verteilen | [docs/SCALING.md](docs/SCALING.md) |
 | Externes S3 statt MinIO (R2, B2, Hetzner, Wasabi) | [docs/STORAGE.md](docs/STORAGE.de.md) |

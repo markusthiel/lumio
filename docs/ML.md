@@ -1,23 +1,25 @@
-# KI-Auto-Tagging (CLIP)
+**English** · [Deutsch](ML.de.md)
 
-Lumio kann Bilder beim Upload automatisch verschlagworten – z.B. erkennt es Strand, Hochzeit, Portrait, Studio-Setup, Sonnenuntergang. Die Tags werden den Foto-Records hinzugefügt und sind durchsuchbar.
+# AI auto-tagging (CLIP)
 
-Das ist **optional**. Wenn du Auto-Tagging nicht brauchst, ist nichts zu tun – der Standard-Worker hat die Funktion deaktiviert.
+Lumio can tag images automatically on upload – e.g. it recognizes beach, wedding, portrait, studio setup, sunset. The tags are added to the photo records and are searchable.
+
+This is **optional**. If you don't need auto-tagging, there's nothing to do – the standard worker has the feature disabled.
 
 ---
 
-## Was es macht
+## What it does
 
-Lumio nutzt **OpenAI CLIP** (Contrastive Language-Image Pretraining) lokal auf deinem Server. Kein externer API-Call, alles auf deiner Hardware. Modell ist offen, läuft offline, kostet keine API-Gebühren.
+Lumio uses **OpenAI CLIP** (Contrastive Language-Image Pretraining) locally on your server. No external API call, everything on your hardware. The model is open, runs offline, costs no API fees.
 
-Bei jedem Bild-Upload:
+On every image upload:
 
-1. Worker holt das Bild aus S3
-2. CLIP rechnet ein Embedding (Vektor)
-3. Embedding wird gegen eine Liste von Tag-Kandidaten verglichen
-4. Tags mit Konfidenz über `LUMIO_CLIP_THRESHOLD` werden gespeichert
+1. The worker fetches the image from S3
+2. CLIP computes an embedding (vector)
+3. The embedding is compared against a list of tag candidates
+4. Tags with a confidence above `LUMIO_CLIP_THRESHOLD` are stored
 
-Die Tag-Kandidaten sind in einer Wörterliste konfigurierbar (`apps/worker/lumio/clip_labels.py` falls vorhanden – sonst hardcodiert).
+The tag candidates are configurable in a word list (`apps/worker/lumio/clip_labels.py` if present – otherwise hardcoded).
 
 ---
 
@@ -25,19 +27,19 @@ Die Tag-Kandidaten sind in einer Wörterliste konfigurierbar (`apps/worker/lumio
 
 | | CPU | GPU |
 |---|---|---|
-| **Pro Bild** | 1–3 Sekunden | 50–200 ms |
-| **RAM-Bedarf** | ~3 GB | ~3 GB + ~2 GB VRAM |
-| **Hardware** | jeder amd64- oder arm64-Server | NVIDIA-GPU mit Compute Capability 5.0+ (nur amd64) |
-| **Setup** | nur `docker-compose.ml.yml` | zusätzlich `docker-compose.gpu.yml` + NVIDIA Container Toolkit |
-| **Wann sinnvoll** | wenige Uploads, Background-Verarbeitung | hoher Durchsatz, mehrere User parallel |
+| **Per image** | 1–3 seconds | 50–200 ms |
+| **RAM requirement** | ~3 GB | ~3 GB + ~2 GB VRAM |
+| **Hardware** | any amd64 or arm64 server | NVIDIA GPU with Compute Capability 5.0+ (amd64 only) |
+| **Setup** | only `docker-compose.ml.yml` | additionally `docker-compose.gpu.yml` + NVIDIA Container Toolkit |
+| **When it makes sense** | few uploads, background processing | high throughput, several users in parallel |
 
-Für ein Solo-Studio mit 100 Bildern pro Tag: CPU reicht locker. Für SaaS mit 1000+ Uploads pro Stunde: GPU sinnvoll.
+For a solo studio with 100 images a day: CPU is plenty. For SaaS with 1000+ uploads per hour: GPU makes sense.
 
 ---
 
-## CPU-Setup (einfach)
+## CPU setup (simple)
 
-Genügt `docker-compose.ml.yml` zum Stack hinzuzufügen:
+It's enough to add `docker-compose.ml.yml` to the stack:
 
 ```bash
 cd /opt/docker/lumio/lumio
@@ -48,39 +50,39 @@ docker compose \
   up -d --build worker
 ```
 
-Das tauscht den Standard-Worker gegen einen mit PyTorch + open_clip_torch. Beim ersten Start lädt der Worker das CLIP-Modell von HuggingFace (~150 MB), das wird in `lumio_model_cache` gecached.
+This swaps the standard worker for one with PyTorch + open_clip_torch. On first start the worker downloads the CLIP model from HuggingFace (~150 MB), which is cached in `lumio_model_cache`.
 
-Status prüfen:
+Check status:
 
 ```bash
 docker compose logs worker --tail=30 | grep -i clip
 ```
 
-Sollte etwas zeigen wie `CLIP model loaded: ViT-B-32 (openai)` und bei Bildern `tagged image with N labels`.
+Should show something like `CLIP model loaded: ViT-B-32 (openai)` and, for images, `tagged image with N labels`.
 
-### CPU-Performance optimieren
+### Optimizing CPU performance
 
-- **Worker-Skalierung:** mehrere parallele Worker erlauben mehrere gleichzeitige Inferences. Aber jeder Worker hält das CLIP-Modell im RAM (~2 GB), also nicht maßlos hochschrauben.
+- **Worker scaling:** several parallel workers allow several concurrent inferences. But each worker holds the CLIP model in RAM (~2 GB), so don't scale it up endlessly.
   ```bash
   docker compose up -d --scale worker=2
   ```
-- **Threshold anpassen:** in `.env` `LUMIO_CLIP_THRESHOLD=0.15` (Default 0.08). Höher = weniger aber sicherere Tags.
+- **Adjust the threshold:** in `.env` `LUMIO_CLIP_THRESHOLD=0.15` (default 0.08). Higher = fewer but more confident tags.
 
 ---
 
-## GPU-Setup (für hohen Durchsatz)
+## GPU setup (for high throughput)
 
-### Voraussetzungen
+### Requirements
 
-1. NVIDIA-GPU im Server (RTX 20/30/40-Serie oder Tesla/A-Serie)
-2. NVIDIA-Treiber installiert (`nvidia-smi` muss funktionieren)
-3. NVIDIA Container Toolkit installiert ([Installation Guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html))
-4. Docker mit nvidia-Runtime konfiguriert (`docker info | grep -i nvidia`)
+1. NVIDIA GPU in the server (RTX 20/30/40 series or Tesla/A series)
+2. NVIDIA driver installed (`nvidia-smi` must work)
+3. NVIDIA Container Toolkit installed ([Installation Guide](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html))
+4. Docker configured with the nvidia runtime (`docker info | grep -i nvidia`)
 
-### Quick-Install Container Toolkit
+### Quick install of the Container Toolkit
 
 ```bash
-# NVIDIA-Repo
+# NVIDIA repo
 curl -s -L https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
 curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
   sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
@@ -95,9 +97,9 @@ systemctl restart docker
 docker run --rm --gpus all nvidia/cuda:12.2-base-ubuntu22.04 nvidia-smi
 ```
 
-Wenn der Test `nvidia-smi`-Output zeigt: Toolkit ist gut.
+If the test shows `nvidia-smi` output: the toolkit is good.
 
-### Lumio mit GPU starten
+### Starting Lumio with GPU
 
 ```bash
 cd /opt/docker/lumio/lumio
@@ -109,47 +111,47 @@ docker compose \
   up -d --build worker
 ```
 
-In den Worker-Logs:
+In the worker logs:
 
 ```bash
 docker compose logs worker | grep -i -E "cuda|gpu"
 ```
 
-Sollte `CUDA available: True, device=cuda:0` zeigen. Wenn `CUDA available: False`: Container kommt nicht an die GPU, Toolkit-Setup oder Compose-Flag prüfen.
+Should show `CUDA available: True, device=cuda:0`. If `CUDA available: False`: the container can't reach the GPU, check the toolkit setup or the compose flag.
 
-### GPU für mehr als nur CLIP
+### GPU for more than just CLIP
 
-Die `docker-compose.gpu.yml` aktiviert auch **NVENC** im Worker – ffmpeg nutzt dann die GPU für Video-Transcoding statt CPU. Das ist riesig bei Video-Galerien:
+`docker-compose.gpu.yml` also enables **NVENC** in the worker – ffmpeg then uses the GPU for video transcoding instead of the CPU. That's huge for video galleries:
 
-- CPU (libx264): 1080p ~1x Echtzeit, 4K ~0.1x Echtzeit
-- GPU (NVENC): 1080p ~8x Echtzeit, 4K ~2x Echtzeit
+- CPU (libx264): 1080p ~1x real time, 4K ~0.1x real time
+- GPU (NVENC): 1080p ~8x real time, 4K ~2x real time
 
-Wenn du also viele Hochzeits-Videos hast, lohnt sich GPU sogar ohne KI-Tagging.
+So if you have lots of wedding videos, a GPU pays off even without AI tagging.
 
 ---
 
-## Konfiguration
+## Configuration
 
-In `.env` (alle optional):
+In `.env` (all optional):
 
 ```bash
-# CLIP komplett an/aus (überschreibt was docker-compose.ml.yml setzt)
+# CLIP fully on/off (overrides what docker-compose.ml.yml sets)
 LUMIO_CLIP_ENABLED=1
 
-# Modell-Wahl. Default: ViT-B-32 (klein, schnell, OK-Qualität).
-# Alternativen: ViT-L-14 (besser, deutlich langsamer), ViT-B-16
+# Model choice. Default: ViT-B-32 (small, fast, OK quality).
+# Alternatives: ViT-L-14 (better, much slower), ViT-B-16
 LUMIO_CLIP_MODEL=ViT-B-32
 
-# Pretrain-Datensatz. Default: openai. Alternative: laion2b_s34b_b79k
-# (oft besser für Foto-Inhalte)
+# Pretraining dataset. Default: openai. Alternative: laion2b_s34b_b79k
+# (often better for photo content)
 LUMIO_CLIP_PRETRAINED=openai
 
-# Threshold für Tag-Vorschläge (0..1). Default: 0.08.
-# Höher = weniger aber sicherere Tags. 0.15 ist konservativ, 0.05 großzügig.
+# Threshold for tag suggestions (0..1). Default: 0.08.
+# Higher = fewer but more confident tags. 0.15 is conservative, 0.05 generous.
 LUMIO_CLIP_THRESHOLD=0.08
 ```
 
-Nach Änderung Worker neu starten:
+After a change, restart the worker:
 
 ```bash
 docker compose restart worker
@@ -157,34 +159,34 @@ docker compose restart worker
 
 ---
 
-## Tag-Wörterliste anpassen
+## Customizing the tag word list
 
-Die Standard-Wörterliste deckt typische Foto-Szenarien ab (Hochzeit, Portrait, Landschaft, Studio, ...). Falls du domain-spezifische Tags brauchst (z.B. "Sportveranstaltung", "Industrie-Shoot"):
+The default word list covers typical photo scenarios (wedding, portrait, landscape, studio, ...). If you need domain-specific tags (e.g. "sports event", "industrial shoot"):
 
-Wörterliste in `apps/worker/lumio/clip_labels.py` (oder analog) anpassen, Worker rebuilden.
+Adjust the word list in `apps/worker/lumio/clip_labels.py` (or equivalent), rebuild the worker.
 
-CLIP versteht **Beschreibungen**, nicht nur Stichworte. "Ein Foto einer Hochzeitsfeier am Strand" funktioniert besser als nur "Hochzeit".
-
----
-
-## Wann Auto-Tagging NICHT lohnt
-
-- Du hast eh ein eigenes Workflow-System mit Lightroom-Keywords
-- Datenschutz-sensible Inhalte (Akt, vertraulich) – auch wenn CLIP lokal läuft, ist eine ML-Klassifikation ein zusätzlicher Datenfluss
-- Worker-Hardware ist eh am Limit
+CLIP understands **descriptions**, not just keywords. "A photo of a wedding celebration on the beach" works better than just "wedding".
 
 ---
 
-## Häufige Fehler
+## When auto-tagging is NOT worth it
 
-**Worker hängt beim ersten Start:** das CLIP-Modell wird gerade gedownloadet (~150 MB). Logs zeigen `Downloading ...`. Beim ersten Bild kann es weitere Modell-Komponenten ziehen. Geduld, beim zweiten Start ist es im Cache.
+- You already have your own workflow system with Lightroom keywords
+- Privacy-sensitive content (nudity, confidential) – even though CLIP runs locally, an ML classification is an additional data flow
+- The worker hardware is already at its limit
 
-**`CUDA available: False` trotz GPU:** Container hat keinen GPU-Zugriff. Checks:
-1. `nvidia-smi` auf dem Host funktioniert?
-2. `docker info | grep -i nvidia` zeigt `Runtimes: ... nvidia ...`?
-3. `docker-compose.gpu.yml` mit drin im `up`-Befehl?
-4. Worker neu gebaut (`--build`)?
+---
 
-**Tags werden nicht angezeigt:** Frontend-Cache. `Strg+Shift+R` im Browser, oder Galerie neu öffnen. Falls weiterhin nicht: in Worker-Logs prüfen ob `tagged image` Zeilen kommen.
+## Common errors
 
-**Hohe CPU/RAM-Last:** normal bei CPU-Inferenz. Wenn der Server stark belastet wird, Worker-Concurrency in `.env` runtersetzen (`WORKER_CONCURRENCY=2`) oder GPU einsetzen.
+**Worker hangs on first start:** the CLIP model is being downloaded (~150 MB). Logs show `Downloading ...`. On the first image it may pull further model components. Be patient; on the second start it's in the cache.
+
+**`CUDA available: False` despite a GPU:** the container has no GPU access. Checks:
+1. Does `nvidia-smi` work on the host?
+2. Does `docker info | grep -i nvidia` show `Runtimes: ... nvidia ...`?
+3. Is `docker-compose.gpu.yml` included in the `up` command?
+4. Was the worker rebuilt (`--build`)?
+
+**Tags aren't shown:** frontend cache. `Ctrl+Shift+R` in the browser, or reopen the gallery. If it still doesn't appear: check the worker logs for `tagged image` lines.
+
+**High CPU/RAM load:** normal for CPU inference. If the server is heavily loaded, lower the worker concurrency in `.env` (`WORKER_CONCURRENCY=2`) or use a GPU.
