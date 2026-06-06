@@ -42,6 +42,18 @@ Nach dem Wechsel: `docker compose restart api worker`.
 
 ---
 
+## Zugriffsschutz (Bucket privat halten)
+
+Lumios Zugriffsmodell setzt voraus, dass der **Bucket privat bleibt**. Aktiviere keinen öffentlichen Lesezugriff — er wird nicht gebraucht und würde den Schutz aushebeln:
+
+- **Keine Public-ACL.** Lumio markiert hochgeladene Objekte nie öffentlich; sie erben die Bucket-Vorgabe, und die muss privat bleiben. Eine rohe Objekt-URL ohne Signatur muss `AccessDenied` liefern.
+- **Signierter, zeitlich begrenzter Zugriff.** Die gesamte Auslieferung (Thumbnails, Vorschauen, Downloads, Branding-Assets) läuft über **presigned URLs**, die die API nur in autorisierten Handlern ausstellt; sie laufen nach ~1 Stunde ab. Video (HLS) und ZIP-Downloads werden durch die API selbst gestreamt — der Browser liest den Bucket nie direkt.
+- **Nicht erratbare Keys.** Storage-Keys sind UUID-basiert (`t/<tenant-uuid>/g/<gallery-uuid>/r/<file-uuid>/…`) — nicht durchzählbar, nicht erratbar.
+
+Systembedingte Grenze, die man kennen sollte: Eine presigned URL funktioniert für jeden, der sie hat, bis sie abläuft (so arbeitet Presigning). Sie gibt ein einzelnes Objekt für dieses Zeitfenster frei, nicht die Galerie — behandle einen presigned Link aber nicht als etwas, das man veröffentlicht.
+
+Schnelltest, dass dein Bucket privat ist: Ein unsignierter Abruf einer beliebigen Objekt-URL (auch eines nicht existierenden Keys) sollte HTTP `403 AccessDenied` liefern. Kommt `200` oder eine XML-Dateiliste, ist der Bucket öffentlich — vor dem Livegang korrigieren.
+
 ## Hetzner Object Storage
 
 S3-kompatibler Storage in Falkenstein, Nürnberg oder Helsinki. DSGVO, deutscher Anbieter.

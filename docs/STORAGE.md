@@ -42,6 +42,18 @@ After switching: `docker compose restart api worker`.
 
 ---
 
+## Access security (keep the bucket private)
+
+Lumio's access model relies on the **bucket staying private**. Don't enable public read access — it isn't needed and would undermine the protection:
+
+- **No public ACL.** Lumio never marks uploaded objects public; they inherit the bucket default, which must stay private. A raw object URL without a signature must return `AccessDenied`.
+- **Signed, time-limited access.** All delivery (thumbnails, previews, downloads, branding assets) happens via **presigned URLs** that the API issues only inside authorized request handlers; they expire after ~1 hour. Video (HLS) and ZIP downloads are streamed through the API itself, so the browser never reads the bucket directly.
+- **Unguessable keys.** Storage keys are UUID-based (`t/<tenant-uuid>/g/<gallery-uuid>/r/<file-uuid>/…`) — they can't be enumerated or guessed.
+
+Inherent limit to be aware of: a presigned URL works for anyone who has it until it expires (that's how presigning works). It exposes a single object for that window, not the gallery — but don't treat a presigned link as something to publish.
+
+Quick check that your bucket is private: an unsigned request to any object URL (even a non-existent key) should return HTTP `403 AccessDenied`. If you get `200` or an XML file listing, the bucket is public — fix that before going live.
+
 ## Hetzner Object Storage
 
 S3-compatible storage in Falkenstein, Nuremberg or Helsinki. GDPR, German provider.
