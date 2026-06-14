@@ -16,11 +16,11 @@
  */
 
 /** Aktuelle Vertragsversion. Bei materiellen Aenderungen erhoehen. */
-export const DPA_VERSION = "1.1";
+export const DPA_VERSION = "1.2";
 
 /** Angaben zum Auftragsverarbeiter (Lumio). Bei Bedarf hier pflegen. */
 export const PROCESSOR = {
-  name: "Thiel Media, Inhaber Markus Thiel",
+  name: "STRUEX UG (haftungsbeschränkt), vertreten durch die Geschäftsführerin Julia Thiel",
   address: "Hohenstaufenstraße 24a, 69412 Eberbach",
   platform: "lumio-cloud.de",
 };

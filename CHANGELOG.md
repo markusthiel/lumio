@@ -38,6 +38,20 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.43.1] - 2026-06-14
+
+**Pull genügt** — keine `.env`-, Compose- oder DB-Änderung nötig. Hinweis: Der AVV-Auftragsverarbeiter wurde umfirmiert und `DPA_VERSION` erhöht (1.1 → 1.2). Beim SaaS-Betrieb fordert das Studio dadurch eine erneute AVV-Bestätigung an; für reine Self-Hoster ohne fremde Studio-Kunden ohne praktische Folge.
+
+### Changed
+- AVV-Auftragsverarbeiter (`PROCESSOR` in `apps/api`) auf die neue Anbieterfirmierung **STRUEX UG (haftungsbeschränkt), vertreten durch die Geschäftsführerin Julia Thiel** umgestellt. `DPA_VERSION` von 1.1 auf 1.2 erhöht, da sich die Vertragspartei materiell ändert → Studios werden zur erneuten AVV-Bestätigung aufgefordert.
+
+**🇬🇧 English**
+
+**Pull is enough** — no `.env`, Compose or DB change required. Note: the DPA processor was renamed and `DPA_VERSION` was bumped (1.1 → 1.2). In SaaS operation each studio is therefore asked to re-confirm the DPA; for pure self-hosters without external studio customers there is no practical effect.
+
+### Changed
+- DPA processor (`PROCESSOR` in `apps/api`) updated to the new provider entity **STRUEX UG (haftungsbeschränkt), represented by managing director Julia Thiel**. Bumped `DPA_VERSION` from 1.1 to 1.2 because the contracting party materially changes → studios are prompted to re-confirm the DPA.
+
 ## [0.43.0] - 2026-06-06
 
 **Pull genügt** — keine `.env`-, Compose- oder DB-Änderung nötig. Auf amd64 läuft alles unverändert weiter.
