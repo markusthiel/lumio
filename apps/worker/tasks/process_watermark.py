@@ -121,6 +121,13 @@ def _apply_watermark(*, img, text: str, image_path: Path | None):
     Pattern."""
     import pyvips  # type: ignore
 
+    # Composite verlangt einen gemeinsamen Farbraum. Die web-Rendition ist
+    # i.d.R. srgb, aber Graustufen-/CMYK-Quellen koennen abweichen → hart
+    # auf srgb ziehen, sonst scheitert das spaetere composite() mit
+    # "no known route from '<x>' to 'srgb'".
+    if img.interpretation != "srgb":
+        img = img.colourspace("srgb")
+
     if image_path is not None:
         overlay = pyvips.Image.new_from_file(str(image_path), access="sequential")
         # Auf ~40 % der Bildbreite skalieren
@@ -130,11 +137,7 @@ def _apply_watermark(*, img, text: str, image_path: Path | None):
         # 35 % Opazität (overlay muss Alpha haben — falls nicht, ergänzen)
         if not overlay.hasalpha():
             overlay = overlay.bandjoin(255)
-        # Alpha runterskalieren
-        bands = overlay.bandsplit()
-        a = bands[-1] * 0.35
-        rgb = pyvips.Image.bandjoin(bands[:-1])
-        overlay = rgb.bandjoin(a)
+        overlay = _reduce_alpha(overlay, 0.35)
 
         x = (img.width - overlay.width) // 2
         y = (img.height - overlay.height) // 2
@@ -160,8 +163,11 @@ def _apply_watermark(*, img, text: str, image_path: Path | None):
     # Pattern: ein Tile bestehend aus [text + Lücke] horizontal und vertikal
     tile_w = text_img.width + font_size * 6
     tile_h = text_img.height + font_size * 4
-    tile = pyvips.Image.black(tile_w, tile_h, bands=4)
-    tile = tile.cast("uchar")
+    # WICHTIG: black() liefert Interpretation "multiband"; composite() mit dem
+    # srgb-Text-Bild scheitert dann ("no known route from 'multiband' to
+    # 'srgb'"). Daher explizit als srgb (RGB+Alpha) deklarieren.
+    tile = pyvips.Image.black(tile_w, tile_h, bands=4).cast("uchar")
+    tile = tile.copy(interpretation="srgb")
     # Text in das Tile mittig einbetten
     tile = tile.composite(
         [text_img],
@@ -186,12 +192,19 @@ def _apply_watermark(*, img, text: str, image_path: Path | None):
         min(img.height, pattern.height),
     )
     # Alpha auf ~25 % reduzieren
-    bands = pattern.bandsplit()
-    a = bands[-1] * 0.25
-    rgb = pyvips.Image.bandjoin(bands[:-1])
-    pattern = rgb.bandjoin(a)
+    pattern = _reduce_alpha(pattern, 0.25)
 
     return img.composite([pattern], "over")
+
+
+def _reduce_alpha(im, factor: float):
+    """Multipliziert den Alpha-Kanal eines RGBA-Bildes mit `factor` und
+    behaelt die srgb-Interpretation. Nutzt Band-Slicing + Instanz-bandjoin —
+    der statische `pyvips.Image.bandjoin([...])`-Aufruf wirft in neueren
+    pyvips-Versionen TypeError ("missing argument 'other'")."""
+    rgb = im[0:3]
+    alpha = im[3] * factor
+    return rgb.bandjoin(alpha).copy(interpretation="srgb")
 
 
 def _escape_pango(s: str) -> str:

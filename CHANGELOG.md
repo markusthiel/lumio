@@ -38,6 +38,13 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.43.2] - 2026-06-26
+
+_Pull genügt — kein manueller Eingriff. · Pull is enough — no manual steps._
+
+### Fixed
+- **Wasserzeichen wurden nie erzeugt.** Die Generierung der `watermarked`-Rendition schlug für jedes Bild fehl (`composite: no known route from 'multiband' to 'srgb'`), sodass Galerien mit aktiviertem Wasserzeichen trotzdem das unbearbeitete Bild auslieferten. Der Farbraum des intern aufgebauten Pattern-/Tile-Bildes wird jetzt korrekt als sRGB deklariert; zusätzlich wurde ein latenter Fehler bei der Alpha-Reduktion behoben. Text- und Grafik-Wasserzeichen funktionieren wieder. · *Watermarks were never produced — generating the `watermarked` rendition failed for every image, so galleries with watermarking enabled still served the unmodified image. The internal pattern/tile colourspace is now correctly tagged as sRGB, and a latent alpha-reduction bug was fixed. Text and image watermarks work again.*
+
 ## [0.43.1] - 2026-06-14
 
 **Pull genügt** — keine `.env`-, Compose- oder DB-Änderung nötig. Hinweis: Der AVV-Auftragsverarbeiter wurde umfirmiert und `DPA_VERSION` erhöht (1.1 → 1.2). Beim SaaS-Betrieb fordert das Studio dadurch eine erneute AVV-Bestätigung an; für reine Self-Hoster ohne fremde Studio-Kunden ohne praktische Folge.
