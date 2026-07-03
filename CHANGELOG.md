@@ -38,6 +38,13 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.43.3] - 2026-07-03
+
+_Pull genügt — kein manueller Eingriff. · Pull is enough — no manual steps._
+
+### Fixed
+- **Datenexport schlug immer fehl.** Der Super-Admin-Notfall-Export und der Studio-„Datenexport" bauen pro Galerie ein ZIP der Originale samt `metadata.json` — dieser Job brach jedoch ausnahmslos ab (`relation "gallery_accesses" does not exist`), weil die Kunden-Auswahl-Abfrage die Zugriffs-Tabelle unter falschem Namen (Plural statt Singular) ansprach. Betroffen war ausschließlich der Datenexport-Pfad; der normale Kunden-ZIP-Download über den Galerie-Link nutzt einen anderen Task und war nie betroffen. Der Tabellenname ist korrigiert, Exporte laufen wieder durch. · *Data export always failed — the super-admin emergency export and the studio "data export" build a per-gallery ZIP of the originals plus `metadata.json`, but the job aborted every time (`relation "gallery_accesses" does not exist`) because the customer-selection query referenced the access table under the wrong name (plural instead of singular). Only the data-export path was affected; the regular customer ZIP download via the gallery link uses a different task and was never affected. The table name is fixed and exports complete again.*
+
 ## [0.43.2] - 2026-06-26
 
 _Pull genügt — kein manueller Eingriff. · Pull is enough — no manual steps._
