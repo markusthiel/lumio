@@ -352,7 +352,7 @@ def _fetch_selections(gallery_id: str) -> list[dict]:
             '  s."createdAt" AS created_at, ga.label AS access_label '
             'FROM selections s '
             'JOIN files f ON f.id = s."fileId" '
-            'LEFT JOIN gallery_accesses ga ON ga.id = s."accessId" '
+            'LEFT JOIN gallery_access ga ON ga.id = s."accessId" '
             'WHERE f."galleryId" = %s '
             'ORDER BY s."accessId", s."createdAt"',
             (gallery_id,),
