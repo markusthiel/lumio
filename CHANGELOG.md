@@ -38,6 +38,38 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.43.4] - 2026-07-07
+
+Pull genügt — keine `.env`-, Compose- oder DB-Änderung nötig. Zwei
+Sicherheits-Fixes; nach dem Deploy meldet `GET /health` die neue Version.
+
+### Security
+- **Stored XSS über den Branding-Font verhindert.** Der eingestellte
+  Schriftname wird jetzt strikt auf Font-Name-Zeichen beschränkt, bevor er
+  im Kunden-View angewendet wird. Zuvor konnte ein präparierter Wert aus dem
+  Style-Block ausbrechen und im Browser der Galerie-Besucher Code ausführen.
+  Bestehende Brandings werden zusätzlich beim Anzeigen abgesichert.
+- **Speicher-Verbrauch wird serverseitig verifiziert.** Nach dem Upload
+  trägt der Worker die tatsächliche Dateigröße des Originals nach. Vorher
+  wurde die vom Browser gemeldete Größe übernommen — bei großen Uploads ließ
+  sich damit die Speicher-/Kontingent-Abrechnung unterlaufen.
+
+**🇬🇧 English**
+
+Pull is enough — no `.env`, Compose or DB change required. Two security
+fixes; after deploy `GET /health` reports the new version.
+
+### Security
+- **Prevented stored XSS via the branding font.** The configured font name
+  is now strictly limited to font-name characters before it is applied in the
+  customer view. Previously a crafted value could break out of the style block
+  and execute code in gallery visitors' browsers. Existing brandings are also
+  hardened at render time.
+- **Storage usage is now verified server-side.** After upload the worker
+  writes back the original file's actual size. Previously the size reported by
+  the browser was trusted — with large uploads this allowed circumventing the
+  storage/quota accounting.
+
 ## [0.43.3] - 2026-07-03
 
 _Pull genügt — kein manueller Eingriff. · Pull is enough — no manual steps._
