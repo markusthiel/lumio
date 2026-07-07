@@ -40,7 +40,7 @@ from pathlib import Path
 import structlog
 
 from app import app
-from db import fetch_file, mark_file_ready, mark_file_failed, upsert_rendition
+from db import fetch_file, mark_file_ready, mark_file_failed, upsert_rendition, reconcile_original_size
 from hashing import sha256_file
 from encoder_profile import profile_for
 from rt import file_status as _publish_status
@@ -149,6 +149,7 @@ def _process(file_row: dict) -> None:
         tmpdir = Path(tmp)
         src_path = tmpdir / "source"
         download_to_file(storage_key, str(src_path))
+        reconcile_original_size(file_id, src_path.stat().st_size)
         log.info("process_video.downloaded",
                  file_id=file_id, size=src_path.stat().st_size)
 

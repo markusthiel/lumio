@@ -34,6 +34,7 @@ from db import (
     mark_file_failed,
     upsert_rendition,
     set_page_count,
+    reconcile_original_size,
 )
 from hashing import sha256_file
 from imaging import render_image_sizes
@@ -123,6 +124,7 @@ def _process(file_row: dict) -> int:
     with tempfile.TemporaryDirectory(prefix="lumio_pdf_") as tmp:
         src_path = os.path.join(tmp, "source.pdf")
         download_to_file(storage_key, src_path)
+        reconcile_original_size(file_id, os.path.getsize(src_path))
         log.info("process_pdf.downloaded", file_id=file_id,
                  size=os.path.getsize(src_path))
 

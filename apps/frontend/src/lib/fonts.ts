@@ -176,7 +176,18 @@ export function resolveFontStack(
   const fromGallery = lookupFont(galleryFontId);
   if (fromGallery) return fromGallery.stack;
   if (brandingFontFamily) {
-    return `"${brandingFontFamily}", system-ui, sans-serif`;
+    // Defense-in-depth: Der Stack wird in GalleryShell roh in einen
+    // <style>-Block interpoliert. Das Backend sanitisiert fontFamily
+    // bereits beim Speichern (brandings-Route), aber ein älterer/
+    // ungefilterter Wert darf im Besucher-Browser keinen CSS-/Tag-
+    // Breakout auslösen. Wir lassen nur Font-Name-Zeichen durch.
+    const safe = brandingFontFamily
+      .replace(/[^A-Za-z0-9 _-]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (safe.length > 0) {
+      return `"${safe}", system-ui, sans-serif`;
+    }
   }
   return 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
 }

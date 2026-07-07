@@ -23,7 +23,7 @@ import tempfile
 import structlog
 
 from app import app
-from db import fetch_file, mark_file_ready, mark_file_failed, upsert_rendition, set_taken_at
+from db import fetch_file, mark_file_ready, mark_file_failed, upsert_rendition, set_taken_at, reconcile_original_size
 from exif_meta import extract_taken_at
 from hashing import sha256_file
 from rt import file_status as _publish_status
@@ -85,6 +85,7 @@ def _process(file_row: dict) -> None:
     with tempfile.TemporaryDirectory(prefix="lumio_raw_") as tmp:
         src_path = os.path.join(tmp, "source.raw")
         download_to_file(storage_key, src_path)
+        reconcile_original_size(file_id, os.path.getsize(src_path))
         log.info("process_raw.downloaded",
                  file_id=file_id, size=os.path.getsize(src_path))
 

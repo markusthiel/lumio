@@ -42,6 +42,32 @@ function sanitizeCustomCss(input: string): string {
   return input.replace(/<\/(style)/gi, "<\\/$1");
 }
 
+/**
+ * fontFamily wird im Customer-View NICHT über React (escaped), sondern
+ * roh in einen <style>-Block interpoliert (GalleryShell setzt
+ * `font-family: <fontFamily>` in ein dangerouslySetInnerHTML-<style>).
+ * Ein Wert wie `x</style><script>…</script>` oder `x;}…{` würde damit aus
+ * der CSS-Deklaration UND aus dem <style>-Element ausbrechen → Stored XSS
+ * im Browser der Galerie-Besucher (= Kunden des Studios).
+ *
+ * Ein echter Font-Familienname besteht nur aus Buchstaben, Ziffern,
+ * Leerzeichen, Bindestrich und Unterstrich ("Playfair Display",
+ * "IBM Plex Sans", "Source Sans 3"). Wir erzwingen genau diese Whitelist
+ * und entfernen alles andere — damit ist ein Breakout strukturell
+ * unmöglich, ohne legitime Namen kaputtzumachen. Bleibt nach dem Filtern
+ * nichts übrig, fällt der Default "Inter" ein.
+ */
+function sanitizeFontFamily(input: string): string {
+  const cleaned = input.replace(/[^A-Za-z0-9 _-]/g, "").replace(/\s+/g, " ").trim();
+  return cleaned.length > 0 ? cleaned : "Inter";
+}
+
+const fontFamilyField = z
+  .string()
+  .min(1)
+  .max(100)
+  .transform(sanitizeFontFamily);
+
 const customCssField = z
   .string()
   .max(20_000)
@@ -53,7 +79,7 @@ const createBrandingSchema = z.object({
   name: z.string().min(1).max(100),
   primaryColor: z.string().regex(colorRegex).default("#0f172a"),
   accentColor: z.string().regex(colorRegex).default("#f59e0b"),
-  fontFamily: z.string().min(1).max(100).default("Inter"),
+  fontFamily: fontFamilyField.default("Inter"),
   introText: z.string().max(2000).nullable().optional(),
   footerText: z.string().max(500).nullable().optional(),
   customCss: customCssField,

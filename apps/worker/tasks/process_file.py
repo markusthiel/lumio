@@ -24,7 +24,7 @@ import tempfile
 import structlog
 
 from app import app
-from db import fetch_file, mark_file_ready, mark_file_failed, upsert_rendition, set_taken_at
+from db import fetch_file, mark_file_ready, mark_file_failed, upsert_rendition, set_taken_at, reconcile_original_size
 from exif_meta import extract_taken_at
 from hashing import sha256_file
 from imaging import render_image_sizes
@@ -101,6 +101,9 @@ def _process(file_row: dict) -> None:
     with tempfile.TemporaryDirectory(prefix="lumio_") as tmp:
         src_path = os.path.join(tmp, "source")
         download_to_file(storage_key, src_path)
+        # Echte Original-Groesse zurueckschreiben (Client-Wert war
+        # ungeprueft; schuetzt Quota/Abrechnung vor Unterlaufen).
+        reconcile_original_size(file_id, os.path.getsize(src_path))
         log.info("process_file.downloaded", file_id=file_id,
                  size=os.path.getsize(src_path))
 

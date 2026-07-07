@@ -83,6 +83,31 @@ def mark_file_ready(
             )
 
 
+def reconcile_original_size(file_id: str, size_bytes: int) -> None:
+    """Schreibt die TATSAECHLICHE Groesse des hochgeladenen Originals in
+    files.sizeBytes zurueck.
+
+    Hintergrund: Beim /uploads/init meldet der Client die Groesse selbst;
+    dieser Wert landet ungeprueft in files.sizeBytes. Fuer Single-Part-
+    Uploads pinnt die Presigned-URL zwar die Content-Length, aber bei
+    Multipart-Uploads sind die Part-URLs nicht groessengebunden — ein
+    Client koennte also eine kleine Groesse melden und real mehr hochladen.
+    Da die Storage-/Quota-Abrechnung (computeStorageBytes) files.sizeBytes
+    aufsummiert, waere das ein Weg, das Speicherlimit zu unterlaufen.
+
+    Der Worker kennt nach dem Download die echte Groesse (os.path.getsize)
+    und korrigiert den Wert hier — die einzige Quelle der Wahrheit ist das
+    tatsaechlich in S3 liegende Objekt. Idempotent; ueberschreibt immer mit
+    dem gemessenen Wert."""
+    if size_bytes is None or size_bytes < 0:
+        return
+    with get_conn() as conn:
+        conn.execute(
+            'UPDATE files SET "sizeBytes" = %s, "updatedAt" = NOW() WHERE id = %s',
+            (size_bytes, file_id),
+        )
+
+
 def update_file_sha256(file_id: str, sha256: str) -> None:
     """Setzt nur den sha256 (für Backfill bestehender Files)."""
     with get_conn() as conn:
