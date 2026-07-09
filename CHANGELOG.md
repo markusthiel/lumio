@@ -38,6 +38,13 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.45.0] - 2026-07-09
+
+_Pull genügt — kein manueller Eingriff. Die additive DB-Migration läuft beim Deploy automatisch mit. Optional kann `ZIP_PART_MAX_BYTES` in der `.env` gesetzt werden. · Pull is enough — no manual steps. The additive DB migration runs automatically on deploy. Optionally set `ZIP_PART_MAX_BYTES` in `.env`._
+
+### Added
+- **Große Galerie-Downloads werden in mehrere Teil-ZIPs aufgeteilt.** Überschreitet ein Download die Obergrenze `ZIP_PART_MAX_BYTES` (optionale Env, Default 8 GiB, gemessen an der Summe der Dateigrößen), baut Lumio mehrere Teil-Archive statt eines einzigen Riesen-ZIPs. Jeder Teil lässt sich einzeln herunterladen und bei Abbruch einzeln neu holen — das vermeidet fehlgeschlagene Downloads sehr großer Galerien über langsame Leitungen. Hat die Galerie Sektionen, werden die Teile entlang der Sektionsgrenzen geschnitten und danach benannt; ansonsten „Teil i/N". **Galerien unterhalb der Obergrenze ergeben unverändert genau ein ZIP** — für normale/kleine Galerien ändert sich nichts. · *Large gallery downloads are split into multiple part ZIPs. When a download exceeds the `ZIP_PART_MAX_BYTES` limit (optional env, default 8 GiB, measured by summed file sizes), Lumio builds several part archives instead of one giant ZIP. Each part can be downloaded — and, if interrupted, re-downloaded — individually, which avoids failed downloads of very large galleries over slow connections. If the gallery has sections, part boundaries follow the sections and are named after them; otherwise "Part i/N". **Galleries below the limit still produce exactly one ZIP** — nothing changes for normal/small galleries.*
+
 ## [0.44.0] - 2026-07-09
 
 _Pull genügt — kein manueller Eingriff. Optional kann `ZIP_DOWNLOAD_TTL_SECONDS` in der `.env` gesetzt werden. · Pull is enough — no manual steps. Optionally set `ZIP_DOWNLOAD_TTL_SECONDS` in `.env`._
