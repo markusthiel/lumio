@@ -115,6 +115,11 @@ model Tenant {
   // sowohl für Studio-Uploads als auch für Uploads via UploadLink
   // (Upload-Link kann nur darunter sein, nie darüber).
   maxUploadMib Int?
+  // Max. Größe pro Download-Paket (Teil-ZIP) in MiB. Wird ein
+  // Galerie-Download größer, teilt Lumio in mehrere Teil-ZIPs. Null =
+  // ENV-Default (ZIP_PART_MAX_MIB, Default 8 GiB); nie höher als
+  // ZIP_PART_MAX_HARD_CAP_MIB (ENV-Schutz gegen SaaS-Missbrauch).
+  zipPartMaxMib Int?
   // Allowlist erlaubter Datei-Arten beim Upload (kommagetrennt:
   // image,heic,raw,video,pdf,other). Null = ENV-Default
   // (UPLOAD_ALLOWED_KINDS). Gilt fuer Studio- und Upload-Link-Uploads.

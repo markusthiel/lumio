@@ -1903,6 +1903,7 @@ export const api = {
     request<{
       tenant: TenantSettings;
       uploadLimits: UploadLimits;
+      zipPartLimits: UploadLimits;
       allowedKinds: { default: string[]; all: string[] };
       deployment: {
         mode: "single" | "multi";
@@ -1961,6 +1962,7 @@ export const api = {
     watermarkText?: string | null;
     customDomain?: string | null;
     maxUploadMib?: number | null;
+    zipPartMaxMib?: number | null;
     uploadAllowedKinds?: string[] | null;
   }) =>
     request<{ tenant: TenantSettings }>(`/settings`, {
@@ -4036,6 +4038,8 @@ export interface TenantSettings {
   customDomain?: string | null;
   /** Pro-File Upload-Limit-Override in MiB. Null = ENV-Default. */
   maxUploadMib: number | null;
+  /** Max. Größe pro Download-Paket (Teil-ZIP) in MiB. Null = ENV-Default. */
+  zipPartMaxMib: number | null;
   /** Erlaubte Datei-Arten (kommagetrennt). Null = ENV-Default erben. */
   uploadAllowedKinds: string | null;
 }

@@ -78,6 +78,11 @@ export default function StudioSettingsPage() {
   const [domainChecking, setDomainChecking] = useState(false);
   const [imageSaving, setImageSaving] = useState(false);
   const [maxUploadSaving, setMaxUploadSaving] = useState(false);
+  const [zipPartLimits, setZipPartLimits] = useState<UploadLimits | null>(
+    null
+  );
+  const [zipPart, setZipPart] = useState("");
+  const [zipPartSaving, setZipPartSaving] = useState(false);
   const [kinds, setKinds] = useState<string[]>([]);
   const [kindsDefault, setKindsDefault] = useState<string[]>([]);
   const [allKinds, setAllKinds] = useState<string[]>([]);
@@ -90,6 +95,12 @@ export default function StudioSettingsPage() {
       const res = await api.getTenantSettings();
       setSettings(res.tenant);
       setUploadLimits(res.uploadLimits);
+      setZipPartLimits(res.zipPartLimits);
+      setZipPart(
+        res.tenant.zipPartMaxMib !== null
+          ? String(res.tenant.zipPartMaxMib)
+          : ""
+      );
       setKindsDefault(res.allowedKinds.default);
       setAllKinds(res.allowedKinds.all);
       setKinds(
@@ -310,6 +321,36 @@ export default function StudioSettingsPage() {
       );
     } finally {
       setMaxUploadSaving(false);
+    }
+  }
+
+  async function saveZipPart() {
+    setZipPartSaving(true);
+    setError(null);
+    try {
+      // Leer = null (zurück auf ENV-Default 8 GiB)
+      const value =
+        zipPart.trim() === "" || isNaN(Number(zipPart))
+          ? null
+          : Math.floor(Number(zipPart));
+      const res = await api.updateTenantSettings({ zipPartMaxMib: value });
+      setSettings(res.tenant);
+      setZipPart(
+        res.tenant.zipPartMaxMib !== null
+          ? String(res.tenant.zipPartMaxMib)
+          : ""
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : t("common.error");
+      setError(
+        msg.includes("exceeds_hard_cap")
+          ? t("studio.zipPart.errorHardCap", {
+              cap: zipPartLimits?.hardCapMib ?? "?",
+            })
+          : msg
+      );
+    } finally {
+      setZipPartSaving(false);
     }
   }
 
@@ -798,6 +839,58 @@ export default function StudioSettingsPage() {
               {settings.maxUploadMib === null && (
                 <span className="ml-1 italic">
                   ({t("studio.uploadLimit.usingDefault")})
+                </span>
+              )}
+            </div>
+          )}
+        </section>
+
+        {/* Max. Größe pro Download-Paket (Teil-ZIP) */}
+        <section className="rounded-lg border border-line-subtle bg-surface-raised p-5 space-y-3">
+          <h2 className="text-sm font-medium">
+            {t("studio.zipPart.heading")}
+          </h2>
+          <p className="text-xs text-ink-tertiary">
+            {t("studio.zipPart.description", {
+              default: zipPartLimits ? Math.round(zipPartLimits.defaultMib / 1024) : "?",
+              cap: zipPartLimits ? Math.round(zipPartLimits.hardCapMib / 1024) : "?",
+            })}
+          </p>
+          <div className="flex items-end gap-2">
+            <label className="flex-1">
+              <span className="text-xs text-ink-secondary">
+                {t("studio.zipPart.field")}
+              </span>
+              <input
+                type="number"
+                min="1"
+                max={zipPartLimits?.hardCapMib ?? undefined}
+                value={zipPart}
+                onChange={(e) => setZipPart(e.target.value)}
+                placeholder={
+                  zipPartLimits
+                    ? `${t("studio.zipPart.defaultPlaceholder", { default: zipPartLimits.defaultMib })}`
+                    : ""
+                }
+                className="w-full mt-1 bg-surface-canvas border border-line-subtle rounded px-3 py-2 text-ink-primary focus:outline-none focus:border-accent transition-colors duration-motion"
+              />
+            </label>
+            <button
+              onClick={saveZipPart}
+              disabled={zipPartSaving}
+              className="h-10 px-4 rounded bg-accent text-accent-contrast text-ui-sm font-medium disabled:opacity-50 hover:bg-accent-hover transition-colors duration-motion"
+            >
+              {zipPartSaving ? t("common.saving") : t("common.save")}
+            </button>
+          </div>
+          {settings && zipPartLimits && (
+            <div className="text-xs text-ink-tertiary">
+              {t("studio.zipPart.effective", {
+                value: settings.zipPartMaxMib ?? zipPartLimits.defaultMib,
+              })}
+              {settings.zipPartMaxMib === null && (
+                <span className="ml-1 italic">
+                  ({t("studio.zipPart.usingDefault")})
                 </span>
               )}
             </div>

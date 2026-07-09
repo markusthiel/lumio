@@ -57,13 +57,19 @@ log = structlog.get_logger(__name__)
 UPLOAD_PART_BYTES = 8 * 1024 * 1024
 
 
-# Obergrenze für ein einzelnes Teil-ZIP, gemessen an der Summe der
-# enthaltenen (unkomprimierten) Dateigrößen. Wird ein Galerie-Download
-# größer, teilt der Worker in mehrere ZIPs auf — so bricht ein einzelner
-# Riesen-Download nicht ab und ein fehlgeschlagener Teil muss nur einzeln
-# neu geladen werden. Über die Env ZIP_PART_MAX_BYTES konfigurierbar;
-# Default 8 GiB. Galerien unter dem Cap ergeben weiterhin genau EIN ZIP.
+# ENV-Fallback für die Teil-ZIP-Obergrenze, falls die API im Job keinen
+# Cap mitgibt (Alt-Job / Mixed-Deploy). Regulär kommt der Wert aus dem
+# Tenant-Setting bzw. dem globalen Default und wird von der API resolved.
+# Bevorzugt ZIP_PART_MAX_MIB, dann das alte ZIP_PART_MAX_BYTES; Default 8 GiB.
 def _part_max_bytes() -> int:
+    mib = os.environ.get("ZIP_PART_MAX_MIB", "").strip()
+    if mib:
+        try:
+            v = int(mib)
+            if v > 0:
+                return v * 1024 * 1024
+        except ValueError:
+            pass
     raw = os.environ.get("ZIP_PART_MAX_BYTES", "").strip()
     if raw:
         try:
@@ -89,6 +95,7 @@ def build_zip(
     file_ids: list[str] | None,
     label: str,
     variant: str = "original",
+    part_max_bytes: int | None = None,
 ) -> dict:
     log.info("build_zip.start",
              zip_id=zip_download_id, gallery=gallery_id,
@@ -105,6 +112,7 @@ def build_zip(
             file_ids=file_ids,
             label=label,
             variant=variant,
+            part_max_bytes=part_max_bytes,
         )
         return {"zip_id": zip_download_id, "status": "ready", **result}
     except Exception as err:
@@ -118,7 +126,8 @@ def build_zip(
 # ---------------------------------------------------------------------------
 def _build(*, zip_download_id: str, tenant_id: str, gallery_id: str,
            file_ids: list[str] | None, label: str,
-           variant: str = "original") -> dict:
+           variant: str = "original",
+           part_max_bytes: int | None = None) -> dict:
     s3 = get_s3_client()
     bucket = get_bucket()
 
@@ -128,7 +137,9 @@ def _build(*, zip_download_id: str, tenant_id: str, gallery_id: str,
         raise ValueError("no files to zip")
 
     ts = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
-    cap = _part_max_bytes()
+    # Cap kommt normalerweise aus dem Tenant-Setting (von der API im Job
+    # mitgegeben). Fehlt er (Alt-Job / Mixed-Deploy), ENV-Fallback.
+    cap = part_max_bytes if (part_max_bytes and part_max_bytes > 0) else _part_max_bytes()
     section_map = _fetch_section_map(gallery_id)
     plan = _plan_parts(files, section_map, cap)
 

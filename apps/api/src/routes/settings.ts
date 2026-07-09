@@ -13,6 +13,10 @@ import { promises as dns } from "node:dns";
 
 import { prisma } from "../db.js";
 import { config } from "../config.js";
+import {
+  zipPartDefaultMib,
+  zipPartHardCapMib,
+} from "../services/zip-part-limit.js";
 import { checkFeatureAvailable } from "../services/usage.js";
 import { validateSlugFormat } from "../services/slugs.js";
 import {
@@ -62,6 +66,9 @@ const updateSettingsSchema = z.object({
    * API-Validation greift nicht hier (Schema kennt kein Hard-Cap),
    * sondern in der PATCH-Route. */
   maxUploadMib: z.number().int().positive().nullable().optional(),
+  /** Max. Größe pro Download-Paket (Teil-ZIP) in MiB. Null = ENV-Default.
+   * Hard-Cap-Prüfung greift in der PATCH-Route. */
+  zipPartMaxMib: z.number().int().positive().nullable().optional(),
   /** Erlaubte Datei-Arten beim Upload. Null/leer = ENV-Default erben. */
   uploadAllowedKinds: z
     .array(z.enum(["image", "heic", "raw", "video", "pdf", "other"]))
@@ -94,6 +101,7 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
         watermarkImageKey: true,
         customDomain: true,
         maxUploadMib: true,
+        zipPartMaxMib: true,
         uploadAllowedKinds: true,
       },
     });
@@ -105,6 +113,10 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
       uploadLimits: {
         defaultMib: config.MAX_FILE_SIZE_MIB,
         hardCapMib: config.MAX_UPLOAD_HARD_CAP_MIB,
+      },
+      zipPartLimits: {
+        defaultMib: zipPartDefaultMib(),
+        hardCapMib: zipPartHardCapMib(),
       },
       allowedKinds: {
         // ENV-Default + alle waehlbaren Arten fuer die UI.
@@ -219,6 +231,19 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
       });
     }
 
+    // zipPartMaxMib gegen Hard-Cap prüfen. null = zurück auf ENV-Default.
+    if (
+      body.zipPartMaxMib !== undefined &&
+      body.zipPartMaxMib !== null &&
+      body.zipPartMaxMib > zipPartHardCapMib()
+    ) {
+      return reply.status(400).send({
+        error: "exceeds_hard_cap",
+        message: `Download part size cannot exceed ${zipPartHardCapMib()} MiB (hard cap).`,
+        hardCapMib: zipPartHardCapMib(),
+      });
+    }
+
     // Slug-Änderung: nur Owner, Format + Reserviert + Verfügbarkeit prüfen.
     // Unkritisch für bestehende Galerie-/Mail-Links (die laufen über
     // PUBLIC_URL, nicht über die Tenant-Subdomain) — betrifft nur die
@@ -270,6 +295,9 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
         ...(body.maxUploadMib !== undefined
           ? { maxUploadMib: body.maxUploadMib }
           : {}),
+        ...(body.zipPartMaxMib !== undefined
+          ? { zipPartMaxMib: body.zipPartMaxMib }
+          : {}),
         ...(body.uploadAllowedKinds !== undefined
           ? {
               uploadAllowedKinds:
@@ -288,6 +316,7 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
         watermarkImageKey: true,
         customDomain: true,
         maxUploadMib: true,
+        zipPartMaxMib: true,
         uploadAllowedKinds: true,
       },
     });

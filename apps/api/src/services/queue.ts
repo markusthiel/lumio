@@ -99,6 +99,9 @@ export interface ZipBuildJob {
   accessId?: string;
   zipDownloadId: string;
   variant?: "original" | "web";
+  /** Effektive Teil-ZIP-Obergrenze in Bytes (aus Tenant-Setting resolved).
+   *  Fehlt sie (Alt-Job), nutzt der Worker seinen ENV-Fallback. */
+  partMaxBytes?: number;
 }
 
 export interface WebhookDeliveryJob {

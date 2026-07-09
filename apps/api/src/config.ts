@@ -77,6 +77,19 @@ const envSchema = z.object({
    * brauch. Tenant-Settings dürfen nicht über diesen Wert. */
   MAX_UPLOAD_HARD_CAP_MIB: z.coerce.number().int().default(10240),
 
+  /** Default für die max. Größe eines Download-Pakets (Teil-ZIP) in MiB.
+   * Tenants können das in ihren Settings überschreiben
+   * (tenants.zipPartMaxMib), aber NIE über ZIP_PART_MAX_HARD_CAP_MIB.
+   * Nicht gesetzt → 8192 (8 GiB). */
+  ZIP_PART_MAX_MIB: z.coerce.number().int().positive().optional(),
+  /** @deprecated Alt-ENV aus v0.45.0 in Bytes. Wird nur noch als Fallback
+   * gelesen, wenn ZIP_PART_MAX_MIB nicht gesetzt ist. Bitte auf
+   * ZIP_PART_MAX_MIB umstellen. */
+  ZIP_PART_MAX_BYTES: z.coerce.number().int().positive().optional(),
+  /** Hard-Cap für pro-Tenant-Paketgrößen in MiB. Letzte Schutzlinie
+   * gegen Misskonfiguration/SaaS-Missbrauch. Default 50 GiB. */
+  ZIP_PART_MAX_HARD_CAP_MIB: z.coerce.number().int().default(51200),
+
   BILLING_ENABLED: z
     .string()
     .default("false")

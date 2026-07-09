@@ -7,6 +7,7 @@
 import { createHash } from "node:crypto";
 import { prisma } from "../db.js";
 import { enqueue, Queues } from "./queue.js";
+import { effectiveZipPartBytes } from "./zip-part-limit.js";
 
 const EXPIRES_IN_DAYS = 7;
 
@@ -115,6 +116,13 @@ export async function requestZipDownload(opts: RequestZipOptions) {
         },
       });
 
+  // Effektive Teil-ZIP-Obergrenze aus dem Tenant-Setting (Fallback: ENV).
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: opts.tenantId },
+    select: { zipPartMaxMib: true },
+  });
+  const partMaxBytes = effectiveZipPartBytes(tenant?.zipPartMaxMib ?? null);
+
   await enqueue(Queues.ZIP_BUILD, {
     type: "build_zip",
     tenantId: opts.tenantId,
@@ -124,6 +132,7 @@ export async function requestZipDownload(opts: RequestZipOptions) {
     accessId: opts.accessId ?? undefined,
     zipDownloadId: record.id,
     variant,
+    partMaxBytes,
   });
 
   return record;

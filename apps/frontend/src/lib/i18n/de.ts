@@ -459,6 +459,17 @@ export const de: Dict = {
       errorHardCap:
         "Wert überschreitet das Hard-Cap dieser Instanz ({cap} MiB).",
     },
+    zipPart: {
+      heading: "Maximale Größe pro Download-Paket",
+      description:
+        "Große Galerie-Downloads werden in mehrere ZIP-Pakete dieser Größe zerlegt (jedes einzeln ladbar). Default: {default} GB. Hard-Cap dieser Instanz: {cap} GB.",
+      field: "Größe in MiB (leer = Default verwenden)",
+      defaultPlaceholder: "Default: {default}",
+      effective: "Aktuell aktiv: {value} MiB",
+      usingDefault: "Default verwendet",
+      errorHardCap:
+        "Wert überschreitet das Hard-Cap dieser Instanz ({cap} MiB).",
+    },
     uploadAllow: {
       heading: "Erlaubte Dateitypen",
       description:
