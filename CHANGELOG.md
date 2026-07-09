@@ -38,6 +38,13 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.44.0] - 2026-07-09
+
+_Pull genügt — kein manueller Eingriff. Optional kann `ZIP_DOWNLOAD_TTL_SECONDS` in der `.env` gesetzt werden. · Pull is enough — no manual steps. Optionally set `ZIP_DOWNLOAD_TTL_SECONDS` in `.env`._
+
+### Changed
+- **Galerie-ZIP-Download-Links sind jetzt 24 Stunden gültig** (vorher 1 Stunde). Große ZIPs über langsame Leitungen liefen mitunter in den Ablauf der signierten URL — besonders wenn der Browser einen abgebrochenen Download wieder aufnehmen wollte. Die Dauer ist über die neue optionale Env `ZIP_DOWNLOAD_TTL_SECONDS` (Sekunden, Default `86400`) einstellbar. Betrifft nur den ZIP-Download; andere signierte URLs (Vorschaubilder etc.) bleiben unverändert. · *Gallery ZIP download links are now valid for 24 hours (previously 1 hour). Large ZIPs over slow connections sometimes outlived the signed URL — especially when the browser tried to resume an interrupted download. The lifetime is configurable via the new optional env `ZIP_DOWNLOAD_TTL_SECONDS` (seconds, default `86400`). Affects the ZIP download only; other signed URLs (thumbnails etc.) are unchanged.*
+
 ## [0.43.4] - 2026-07-07
 
 Pull genügt — keine `.env`-, Compose- oder DB-Änderung nötig. Zwei
