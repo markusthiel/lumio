@@ -38,6 +38,13 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.46.0] - 2026-07-09
+
+_Pull genügt — kein manueller Eingriff. Die additive DB-Migration läuft beim Deploy automatisch mit. Optional können `ZIP_PART_MAX_MIB` / `ZIP_PART_MAX_HARD_CAP_MIB` in der `.env` gesetzt werden. · Pull is enough — no manual steps. The additive DB migration runs automatically on deploy. Optionally set `ZIP_PART_MAX_MIB` / `ZIP_PART_MAX_HARD_CAP_MIB` in `.env`._
+
+### Added
+- **Maximale Größe pro Download-Paket ist jetzt pro Studio einstellbar.** In den Studio-Einstellungen lässt sich festlegen, ab welcher Größe große Galerie-Downloads in mehrere Teil-ZIPs aufgeteilt werden (Feld „Maximale Größe pro Download-Paket"). Leer = globaler Default (8 GiB). Der Wert ist durch einen Instanz-Hard-Cap (`ZIP_PART_MAX_HARD_CAP_MIB`, Default 50 GiB) nach oben begrenzt, damit in SaaS-Setups niemand die Worker-Platte sprengt. Der globale Default heißt jetzt `ZIP_PART_MAX_MIB` (in MiB); das alte `ZIP_PART_MAX_BYTES` aus v0.45.0 wird weiterhin als Fallback gelesen. · *The maximum download package size is now configurable per studio. The studio settings let you set the size at which large gallery downloads are split into multiple part ZIPs ("Maximum download package size" field). Empty = global default (8 GiB). The value is capped by an instance hard cap (`ZIP_PART_MAX_HARD_CAP_MIB`, default 50 GiB) so nobody can blow the worker disk in SaaS setups. The global default is now `ZIP_PART_MAX_MIB` (in MiB); the old `ZIP_PART_MAX_BYTES` from v0.45.0 is still read as a fallback.*
+
 ## [0.45.0] - 2026-07-09
 
 _Pull genügt — kein manueller Eingriff. Die additive DB-Migration läuft beim Deploy automatisch mit. Optional kann `ZIP_PART_MAX_BYTES` in der `.env` gesetzt werden. · Pull is enough — no manual steps. The additive DB migration runs automatically on deploy. Optionally set `ZIP_PART_MAX_BYTES` in `.env`._

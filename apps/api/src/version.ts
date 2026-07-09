@@ -8,7 +8,7 @@
  * Eine gesetzte ENV LUMIO_VERSION übersteuert den eingebauten Wert
  * (z.B. wenn ein CI-Build das Image mit einem anderen Tag stempeln will).
  */
-const BUILTIN_VERSION = "0.45.0";
+const BUILTIN_VERSION = "0.46.0";
 
 export const LUMIO_VERSION =
   process.env.LUMIO_VERSION?.trim() || BUILTIN_VERSION;
