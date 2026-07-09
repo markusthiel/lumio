@@ -25,6 +25,16 @@ import { notifyZipReadyOnce } from "../services/notifier.js";
 import { loadVisitor } from "./galleries.js";
 import { galleryAccessWhere } from "../lib/gallery-access.js";
 
+// ZIP-Downloads sind potenziell riesig und laufen bei Kunden auch über
+// langsame Leitungen. Die presigned Download-URL muss lange genug gültig
+// sein, damit ein unterbrochener Download vom Browser (Range-Request)
+// wieder aufgenommen werden kann — der globale 1h-Default reicht dafür
+// nicht. Optional per Env überschreibbar; Default 24h.
+const ZIP_DOWNLOAD_TTL_SECONDS = (() => {
+  const raw = Number(process.env.ZIP_DOWNLOAD_TTL_SECONDS);
+  return Number.isFinite(raw) && raw > 0 ? raw : 24 * 60 * 60;
+})();
+
 export async function registerZipRoutes(app: FastifyInstance) {
   // -------------------------------------------------------------------------
   // POST /g/:slug/download/zip?variant=original|web  — ganze Galerie
@@ -450,6 +460,7 @@ export async function registerZipRoutes(app: FastifyInstance) {
             0,
             8
           )}.zip"`,
+          ttlSeconds: ZIP_DOWNLOAD_TTL_SECONDS,
         });
         // Audit
         await prisma.downloadLog
@@ -598,6 +609,7 @@ export async function registerZipRoutes(app: FastifyInstance) {
             0,
             8
           )}.zip"`,
+          ttlSeconds: ZIP_DOWNLOAD_TTL_SECONDS,
         });
         return reply.redirect(url);
       }
