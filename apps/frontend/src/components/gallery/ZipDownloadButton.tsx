@@ -27,6 +27,18 @@ import { useT } from "@/lib/i18n";
 type Kind = "all" | "selection" | "picked";
 type Variant = "original" | "web";
 
+/** Kompakte, menschenlesbare Größe (z.B. "6,4 GB"). Basis 1024. */
+function formatBytes(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const i = Math.min(
+    units.length - 1,
+    Math.floor(Math.log(bytes) / Math.log(1024))
+  );
+  const val = bytes / Math.pow(1024, i);
+  return `${val.toFixed(i >= 3 ? 1 : 0)} ${units[i]}`;
+}
+
 interface Props {
   slug: string;
   kind: Kind;
@@ -55,11 +67,15 @@ export function ZipDownloadButton({
   const [status, setStatus] = useState<ZipStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [building, setBuilding] = useState(false);
+  const [parts, setParts] = useState<
+    { index: number; label: string | null; sizeBytes: number | null }[] | null
+  >(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const start = useCallback(async () => {
     setError(null);
     setBuilding(true);
+    setParts(null);
     try {
       const res =
         kind === "all"
@@ -83,41 +99,60 @@ export function ZipDownloadButton({
       );
       setBuilding(false);
     }
-  }, [kind, variant, slug, t]);
+  }, [kind, variant, slug, t, fileIds]);
 
-  // Polling für Status
+  // Polling für Status. Holt bei jedem Tick den Detail-Status (inkl. der
+  // Teil-Liste bei mehrteiligen Downloads) — auch der erste Tick läuft
+  // sofort, damit ein bereits fertiger (gecachter) Download samt Teilen
+  // ohne Verzögerung angezeigt wird.
   useEffect(() => {
-    if (!zipId || status === "ready" || status === "failed") {
-      if (pollRef.current) {
-        clearInterval(pollRef.current);
-        pollRef.current = null;
-      }
-      return;
-    }
-    if (pollRef.current) return;
-    pollRef.current = setInterval(async () => {
+    if (!zipId) return;
+
+    let cancelled = false;
+    const tick = async () => {
       try {
         const res = await api.getZipStatus(slug, zipId);
+        if (cancelled) return;
         setStatus(res.status);
         if (res.errorMessage) setError(res.errorMessage);
+        setParts(
+          res.parts && (res.partCount ?? 0) >= 2
+            ? res.parts.map((p) => ({
+                index: p.index,
+                label: p.label,
+                sizeBytes: p.sizeBytes,
+              }))
+            : null
+        );
         if (res.status === "ready" || res.status === "failed") {
           setBuilding(false);
+          if (pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+          }
         }
       } catch {
         // ignore — nächster Tick versucht's wieder
       }
-    }, 2_000);
+    };
+
+    void tick(); // sofort einmal
+    if (!pollRef.current) {
+      pollRef.current = setInterval(tick, 2_000);
+    }
 
     return () => {
+      cancelled = true;
       if (pollRef.current) {
         clearInterval(pollRef.current);
         pollRef.current = null;
       }
     };
-  }, [zipId, status, slug]);
+  }, [zipId, slug]);
 
   function reset() {
     setZipId(null);
+    setParts(null);
     setStatus(null);
     setError(null);
     setBuilding(false);
@@ -147,6 +182,34 @@ export function ZipDownloadButton({
       : "bg-white/5 border border-white/15 hover:bg-white/15 hover:border-white/30";
 
   if (status === "ready" && zipId) {
+    // Mehrteilig: eine Liste mit einem Download-Button pro Teil. Jeder Teil
+    // ist einzeln (neu-)ladbar — bricht ein Download ab, muss nur dieser
+    // Teil erneut geholt werden.
+    if (parts && parts.length > 1) {
+      return (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-xs text-white/60">
+            {t("gallery.zipParts", { total: parts.length })}
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {parts.map((p) => (
+              <a
+                key={p.index}
+                href={api.zipDownloadUrl(slug, zipId, p.index)}
+                className="text-ui-sm h-8 px-3 inline-flex items-center gap-1.5 rounded bg-green-600/80 text-white hover:bg-green-600 transition-colors duration-motion"
+              >
+                ↓ {p.label ?? t("gallery.zipPart", { index: p.index, total: parts.length })}
+                {p.sizeBytes != null && (
+                  <span className="text-white/70">
+                    ({formatBytes(p.sizeBytes)})
+                  </span>
+                )}
+              </a>
+            ))}
+          </div>
+        </div>
+      );
+    }
     return (
       <a
         href={api.zipDownloadUrl(slug, zipId)}

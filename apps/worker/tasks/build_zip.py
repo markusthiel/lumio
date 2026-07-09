@@ -36,6 +36,7 @@ Aufgerufen über den Job-Stream lumio:jobs:zip_build:
 from __future__ import annotations
 
 import os
+import re
 import tempfile
 import zipfile
 from datetime import datetime
@@ -54,6 +55,24 @@ log = structlog.get_logger(__name__)
 # Chunk-Größe fürs Multipart-Upload zum S3. 8 MiB ist S3-Minimum für alle
 # außer dem letzten Part.
 UPLOAD_PART_BYTES = 8 * 1024 * 1024
+
+
+# Obergrenze für ein einzelnes Teil-ZIP, gemessen an der Summe der
+# enthaltenen (unkomprimierten) Dateigrößen. Wird ein Galerie-Download
+# größer, teilt der Worker in mehrere ZIPs auf — so bricht ein einzelner
+# Riesen-Download nicht ab und ein fehlgeschlagener Teil muss nur einzeln
+# neu geladen werden. Über die Env ZIP_PART_MAX_BYTES konfigurierbar;
+# Default 8 GiB. Galerien unter dem Cap ergeben weiterhin genau EIN ZIP.
+def _part_max_bytes() -> int:
+    raw = os.environ.get("ZIP_PART_MAX_BYTES", "").strip()
+    if raw:
+        try:
+            v = int(raw)
+            if v > 0:
+                return v
+        except ValueError:
+            pass
+    return 8 * 1024 * 1024 * 1024
 
 
 @app.task(
@@ -79,15 +98,15 @@ def build_zip(
     _set_status(zip_download_id, "building")
 
     try:
-        storage_key = _build(
+        result = _build(
+            zip_download_id=zip_download_id,
             tenant_id=tenant_id,
             gallery_id=gallery_id,
             file_ids=file_ids,
             label=label,
             variant=variant,
         )
-        _set_ready(zip_download_id, storage_key)
-        return {"zip_id": zip_download_id, "status": "ready", "key": storage_key}
+        return {"zip_id": zip_download_id, "status": "ready", **result}
     except Exception as err:
         log.exception("build_zip.failed", zip_id=zip_download_id)
         _set_failed(zip_download_id, str(err))
@@ -97,31 +116,134 @@ def build_zip(
 # ---------------------------------------------------------------------------
 # Kernlogik
 # ---------------------------------------------------------------------------
-def _build(*, tenant_id: str, gallery_id: str,
+def _build(*, zip_download_id: str, tenant_id: str, gallery_id: str,
            file_ids: list[str] | None, label: str,
-           variant: str = "original") -> str:
+           variant: str = "original") -> dict:
     s3 = get_s3_client()
     bucket = get_bucket()
 
-    # Files aus der DB ziehen — original_filename + storage_key. Bei
-    # variant="web" joinen wir auf renditions(kind='web') und nutzen
-    # deren storageKey + bauen "_web.webp"-Dateinamen.
+    # Files aus der DB ziehen — original_filename + storage_key + size_bytes.
     files = _fetch_files(gallery_id, file_ids, variant)
     if not files:
         raise ValueError("no files to zip")
 
     ts = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
-    out_key = f"t/{tenant_id}/downloads/{gallery_id}/{label}_{ts}.zip"
+    cap = _part_max_bytes()
+    section_map = _fetch_section_map(gallery_id)
+    plan = _plan_parts(files, section_map, cap)
 
-    # Tempdatei auf Disk. delete=False, damit wir explizit close()-en
-    # können bevor wir lesen — sonst hat NamedTemporaryFile auf manchen
-    # Plattformen Probleme. Wir räumen am Ende selbst auf.
+    if len(plan) <= 1:
+        # Einzel-ZIP — exakt das bisherige Verhalten (rückwärtskompatibel):
+        # ein Objekt, in zip_downloads.storageKey, partCount bleibt 0.
+        out_key = f"t/{tenant_id}/downloads/{gallery_id}/{label}_{ts}.zip"
+        _pack_and_upload(s3, bucket, files, out_key)
+        _set_ready(zip_download_id, out_key)
+        log.info("build_zip.single_ready", zip_id=zip_download_id, key=out_key)
+        return {"key": out_key, "parts": 1}
+
+    # Mehrteilig: pro Teil ein ZIP + eine zip_download_parts-Zeile.
+    log.info("build_zip.multipart_plan",
+             zip_id=zip_download_id, parts=len(plan), cap=cap)
+    parts_meta: list[dict] = []
+    for i, part in enumerate(plan, start=1):
+        slug = _slugify(part["label"]) if part.get("label") else f"teil-{i}"
+        out_key = (
+            f"t/{tenant_id}/downloads/{gallery_id}/"
+            f"{label}_{ts}_p{i}_{slug}.zip"
+        )
+        zip_size, packed = _pack_and_upload(s3, bucket, part["files"], out_key)
+        parts_meta.append({
+            "index": i,
+            "label": part.get("label"),
+            "storage_key": out_key,
+            "size_bytes": zip_size,
+            "file_count": packed,
+        })
+    _set_ready_multipart(zip_download_id, parts_meta)
+    log.info("build_zip.multipart_ready",
+             zip_id=zip_download_id, parts=len(parts_meta))
+    return {"parts": len(parts_meta)}
+
+
+def _plan_parts(files: list[dict], section_map: dict, cap: int) -> list[dict]:
+    """Teilt die Dateiliste in Teile <= cap (Summe size_bytes) auf.
+
+    Sortiert nach (Sektion-sortIndex, Sektionsname, Dateiname), packt dann
+    greedy. Ein Teil, der genau EINER Sektion entspricht, bekommt deren Titel
+    als Label; erstreckt sich eine Sektion über mehrere Teile, wird "Titel (k)"
+    angehängt. Gemischte Teile / Dateien ohne Sektion → label = None
+    (Frontend zeigt dann "Teil i/N"). Ergibt genau 1 Teil, wenn alles unter
+    den Cap passt.
+    """
+    INF = float("inf")
+
+    def sort_key(f):
+        sm = section_map.get(str(f["id"]))
+        return (sm[0] if sm else INF, sm[1] if sm else "",
+                f.get("original_filename") or "")
+
+    ordered = sorted(files, key=sort_key)
+
+    parts: list[dict] = []
+    cur: dict | None = None
+    for f in ordered:
+        sz = int(f.get("size_bytes") or 0)
+        if cur is not None and cur["bytes"] > 0 and cur["bytes"] + sz > cap:
+            parts.append(cur)
+            cur = None
+        if cur is None:
+            cur = {"files": [], "bytes": 0, "sections": set()}
+        cur["files"].append(f)
+        cur["bytes"] += sz
+        sm = section_map.get(str(f["id"]))
+        cur["sections"].add(sm[1] if sm else None)
+    if cur is not None:
+        parts.append(cur)
+
+    if len(parts) <= 1:
+        return parts
+
+    # Labels bestimmen
+    from collections import Counter
+    for p in parts:
+        titles = {t for t in p["sections"] if t}
+        p["_single"] = (
+            next(iter(titles))
+            if (len(titles) == 1 and None not in p["sections"])
+            else None
+        )
+    counts = Counter(p["_single"] for p in parts if p["_single"])
+    seen: dict[str, int] = {}
+    for p in parts:
+        t = p["_single"]
+        if t and counts[t] == 1:
+            p["label"] = t
+        elif t:
+            seen[t] = seen.get(t, 0) + 1
+            p["label"] = f"{t} ({seen[t]})"
+        else:
+            p["label"] = None
+    return parts
+
+
+def _slugify(s: str) -> str:
+    s = re.sub(r"[^\w.-]+", "-", s, flags=re.UNICODE).strip("-.")
+    return s[:60] or "teil"
+
+
+def _pack_and_upload(s3, bucket: str, files: list[dict],
+                     out_key: str) -> tuple[int, int]:
+    """Packt `files` in ein ZIP auf Disk und lädt es nach out_key.
+
+    Rückgabe: (zip_size_bytes, packed_count). Fehlende S3-Objekte werden
+    übersprungen (nicht fatal), packed_count zählt die tatsächlich
+    eingepackten Dateien.
+    """
     tmp = tempfile.NamedTemporaryFile(
         prefix="lumio-zip-", suffix=".zip", delete=False
     )
     tmp_path = tmp.name
     try:
-        # Phase 1: ZIP auf Disk bauen
         with zipfile.ZipFile(
             tmp, mode="w",
             compression=zipfile.ZIP_STORED,
@@ -135,22 +257,6 @@ def _build(*, tenant_id: str, gallery_id: str,
                 zinfo.compress_type = zipfile.ZIP_STORED
                 zinfo.date_time = datetime.utcnow().timetuple()[:6]
 
-                # Defensives Skipping: wenn das S3-Objekt fehlt (z.B.
-                # weil ein reject-Cleanup die Rendition-Datei gelöscht
-                # hat, oder weil jemand direkt im Bucket manipuliert
-                # hat), wollen wir nicht den ganzen ZIP-Build sprengen.
-                # Wir loggen das File und gehen weiter. Der Customer
-                # bekommt ein ZIP mit den anderen Files; die fehlenden
-                # erscheinen in den Worker-Logs für Debugging.
-                #
-                # Wir catchen sowohl s3.exceptions.NoSuchKey (boto3
-                # >=1.20) als auch ClientError mit verschiedenen
-                # Codes (MinIO meldet manchmal NoSuchKey, manchmal
-                # '404', manchmal 'NoSuchBucket' wenn die Tenant-
-                # Bucket-Konvention durcheinander geraten ist).
-                # Default: alles was 404-artig aussieht skippen,
-                # andere ClientErrors (Auth-Probleme, 5xx) bubbeln
-                # weiter und brechen den Build ab.
                 try:
                     obj = s3.get_object(Bucket=bucket, Key=f["storage_key"])
                 except s3.exceptions.NoSuchKey:
@@ -175,9 +281,6 @@ def _build(*, tenant_id: str, gallery_id: str,
                             "HTTPStatusCode"
                         )
                     )
-                    # Skip auf alles was nach "Objekt nicht da" aussieht
-                    # — egal welcher Code-String, solange HTTP 404 oder
-                    # einer der bekannten S3/MinIO-Codes.
                     is_not_found = (
                         status == 404
                         or code
@@ -204,8 +307,6 @@ def _build(*, tenant_id: str, gallery_id: str,
                             status=status,
                         )
                         continue
-                    # Andere S3-Fehler: loggen und re-raisen — die
-                    # darf der Worker nicht stillschweigend schlucken.
                     log.error(
                         "build_zip.s3_error_unrecoverable",
                         file_id=str(f.get("id")),
@@ -233,18 +334,16 @@ def _build(*, tenant_id: str, gallery_id: str,
 
         tmp.close()
         zip_size = os.path.getsize(tmp_path)
-        log.info("build_zip.local_complete", path=tmp_path, size=zip_size)
+        packed = len(files) - len(skipped)
+        log.info("build_zip.local_complete",
+                 path=tmp_path, size=zip_size, packed=packed)
 
-        # Phase 2: Hochladen. Bei kleinen ZIPs (< 8 MiB) ein
-        # einfaches put_object — Multipart hat S3-seits einen
-        # 5-MiB-Mindest-Part (außer letztem) und der Setup-Overhead
-        # lohnt da nicht.
         if zip_size < UPLOAD_PART_BYTES:
-            with open(tmp_path, "rb") as f:
+            with open(tmp_path, "rb") as fh:
                 s3.put_object(
                     Bucket=bucket,
                     Key=out_key,
-                    Body=f,
+                    Body=fh,
                     ContentType="application/zip",
                     ContentLength=zip_size,
                 )
@@ -252,7 +351,7 @@ def _build(*, tenant_id: str, gallery_id: str,
         else:
             _multipart_upload_file(s3, bucket, out_key, tmp_path)
 
-        return out_key
+        return zip_size, packed
 
     finally:
         try:
@@ -469,12 +568,66 @@ def _set_ready(zip_id: str, storage_key: str) -> None:
         s3 = get_s3_client()
         head = s3.head_object(Bucket=get_bucket(), Key=storage_key)
         size = head.get("ContentLength", 0)
+        # Etwaige Teile aus einem früheren (mehrteiligen) Build entfernen —
+        # dieser Build ist einteilig.
+        conn.execute(
+            'DELETE FROM zip_download_parts WHERE "zipDownloadId" = %s',
+            (zip_id,),
+        )
         conn.execute(
             'UPDATE zip_downloads '
             'SET status = %s, "storageKey" = %s, "sizeBytes" = %s, '
-            '    "updatedAt" = NOW() '
+            '    "partCount" = 0, "updatedAt" = NOW() '
             'WHERE id = %s',
             ("ready", storage_key, size, zip_id),
+        )
+
+
+def _fetch_section_map(gallery_id: str) -> dict:
+    """file_id -> (section_sortIndex, section_title) für Files mit Sektion.
+
+    Files ohne Sektion tauchen nicht auf (werden beim Split ans Ende
+    gruppiert und generisch benannt).
+    """
+    with get_conn() as conn:
+        rows = conn.execute(
+            'SELECT f.id AS file_id, gs."sortIndex" AS sort_index, '
+            '       gs.title AS title '
+            'FROM files f '
+            'JOIN gallery_sections gs ON gs.id = f."sectionId" '
+            'WHERE f."galleryId" = %s AND f."sectionId" IS NOT NULL',
+            (gallery_id,),
+        ).fetchall()
+    return {str(r["file_id"]): (r["sort_index"], r["title"]) for r in rows}
+
+
+def _set_ready_multipart(zip_id: str, parts: list[dict]) -> None:
+    """Schreibt die Teil-Zeilen und markiert den Parent als ready (mehrteilig).
+
+    Läuft als eine Transaktion (get_conn committet beim Verlassen).
+    """
+    total = sum(int(p["size_bytes"]) for p in parts)
+    count = sum(int(p["file_count"]) for p in parts)
+    with get_conn() as conn:
+        conn.execute(
+            'DELETE FROM zip_download_parts WHERE "zipDownloadId" = %s',
+            (zip_id,),
+        )
+        for p in parts:
+            conn.execute(
+                'INSERT INTO zip_download_parts '
+                '(id, "zipDownloadId", "partIndex", label, "storageKey", '
+                ' "sizeBytes", "fileCount", "createdAt") '
+                'VALUES (gen_random_uuid(), %s, %s, %s, %s, %s, %s, NOW())',
+                (zip_id, p["index"], p["label"], p["storage_key"],
+                 int(p["size_bytes"]), int(p["file_count"])),
+            )
+        conn.execute(
+            'UPDATE zip_downloads '
+            'SET status = %s, "storageKey" = NULL, "sizeBytes" = %s, '
+            '    "partCount" = %s, "fileCount" = %s, "updatedAt" = NOW() '
+            'WHERE id = %s',
+            ("ready", total, len(parts), count, zip_id),
         )
 
 

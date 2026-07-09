@@ -678,6 +678,8 @@ export const en: Dict = {
     zipBuilding: "Building ZIP…",
     zipDownload: "Download ZIP",
     zipRetry: "Try again",
+    zipParts: "Split into {total} parts — please download all:",
+    zipPart: "Part {index}/{total}",
     previewMissing: "Preview not available yet.",
     // Proofing buttons
     markRed: "Mark red",

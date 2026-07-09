@@ -679,6 +679,8 @@ export const de: Dict = {
     zipBuilding: "ZIP wird erstellt…",
     zipDownload: "ZIP herunterladen",
     zipRetry: "Erneut versuchen",
+    zipParts: "In {total} Teile aufgeteilt — bitte alle laden:",
+    zipPart: "Teil {index}/{total}",
     previewMissing: "Vorschau noch nicht verfügbar.",
     // Proofing-Buttons
     markRed: "Rot markieren",

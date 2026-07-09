@@ -75,7 +75,7 @@ export async function requestZipDownload(opts: RequestZipOptions) {
     existing &&
     existing.status === "ready" &&
     existing.expiresAt > now &&
-    existing.storageKey
+    (existing.storageKey !== null || existing.partCount >= 2)
   ) {
     return existing;
   }
@@ -97,6 +97,7 @@ export async function requestZipDownload(opts: RequestZipOptions) {
           status: "pending",
           storageKey: null,
           sizeBytes: null,
+          partCount: 0,
           errorMessage: null,
           fileCount,
           expiresAt,

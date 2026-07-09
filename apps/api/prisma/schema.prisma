@@ -674,8 +674,13 @@ model ZipDownload {
   variant     String   @default("original")
   
   status      String   @default("pending") // pending | building | ready | failed
-  storageKey  String?  // wenn ready
+  // Einzel-ZIP: storageKey/sizeBytes gesetzt, partCount = 0 (Normalfall,
+  // rückwärtskompatibel). Mehrteilig: partCount >= 2, storageKey = NULL,
+  // sizeBytes = Gesamtgröße, die einzelnen ZIPs hängen in zip_download_parts.
+  storageKey  String?  // wenn ready (nur Einzel-ZIP)
   sizeBytes   BigInt?
+  partCount   Int      @default(0)
+  parts       ZipDownloadPart[]
   errorMessage String?
   
   // Wann der Kunde benachrichtigt wurde (Mail). Null = noch nicht.
@@ -689,6 +694,27 @@ model ZipDownload {
   @@index([galleryId, expiresAt])
   @@unique([galleryId, accessId, fileIdsHash, variant])
   @@map("zip_downloads")
+}
+
+// Ein Teil-ZIP eines mehrteiligen Downloads. Nur befüllt, wenn ein
+// Galerie-Download die konfigurierte Teil-Obergrenze (ZIP_PART_MAX_BYTES,
+// Default 8 GiB) überschreitet und der Worker in mehrere ZIPs aufteilt.
+// label = Sektionsname wenn der Teil genau einer Sektion entspricht, sonst
+// NULL (Frontend zeigt dann "Teil i/N").
+model ZipDownloadPart {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  zipDownloadId String      @db.Uuid
+  zipDownload   ZipDownload @relation(fields: [zipDownloadId], references: [id], onDelete: Cascade)
+  partIndex     Int         // 1-basiert
+  label         String?     // Sektionsname oder NULL (generisch)
+  storageKey    String
+  sizeBytes     BigInt
+  fileCount     Int
+  createdAt     DateTime    @default(now())
+
+  @@unique([zipDownloadId, partIndex])
+  @@index([zipDownloadId])
+  @@map("zip_download_parts")
 }
 
 // -----------------------------------------------------------------------------

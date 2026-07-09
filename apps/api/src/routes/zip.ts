@@ -35,6 +35,22 @@ const ZIP_DOWNLOAD_TTL_SECONDS = (() => {
   return Number.isFinite(raw) && raw > 0 ? raw : 24 * 60 * 60;
 })();
 
+/** Dateiname für ein Teil-ZIP im Content-Disposition-Header. Nutzt den
+ *  Sektions-Namen (label) wenn vorhanden, sonst "teil-N". Auf unkritische
+ *  Zeichen reduziert, damit der Header nicht bricht. */
+function zipPartFilename(
+  zipId: string,
+  partIndex: number,
+  label: string | null
+): string {
+  const base =
+    (label ?? `teil-${partIndex}`)
+      .replace(/["\\\r\n]/g, "")
+      .replace(/[/]/g, "-")
+      .trim() || `teil-${partIndex}`;
+  return `lumio-${zipId.slice(0, 8)}-${base}.zip`;
+}
+
 export async function registerZipRoutes(app: FastifyInstance) {
   // -------------------------------------------------------------------------
   // POST /g/:slug/download/zip?variant=original|web  — ganze Galerie
@@ -438,6 +454,17 @@ export async function registerZipRoutes(app: FastifyInstance) {
           accessId: true,
           errorMessage: true,
           expiresAt: true,
+          partCount: true,
+          parts: {
+            select: {
+              partIndex: true,
+              label: true,
+              storageKey: true,
+              sizeBytes: true,
+              fileCount: true,
+            },
+            orderBy: { partIndex: "asc" },
+          },
         },
       });
       if (!zip) return reply.status(404).send({ error: "not_found" });
@@ -450,31 +477,74 @@ export async function registerZipRoutes(app: FastifyInstance) {
 
       // Wenn fertig und Download via Query-Param ?download=1: zum
       // Presigned URL umleiten. Sonst nur Status zurückgeben.
-      const wantsDownload =
-        (req.query as { download?: string } | undefined)?.download === "1";
+      const query = req.query as
+        | { download?: string; part?: string }
+        | undefined;
+      const wantsDownload = query?.download === "1";
+      const isMulti = zip.partCount >= 2;
 
-      if (zip.status === "ready" && zip.storageKey && wantsDownload) {
-        const url = await presignGet({
-          key: zip.storageKey,
-          responseContentDisposition: `attachment; filename="lumio-${zip.id.slice(
-            0,
-            8
-          )}.zip"`,
-          ttlSeconds: ZIP_DOWNLOAD_TTL_SECONDS,
-        });
-        // Audit
-        await prisma.downloadLog
-          .create({
-            data: {
-              galleryId: visitor.galleryId,
-              kind: "zip",
-              ipAddress: req.ip,
-              userAgent: req.headers["user-agent"]?.slice(0, 500) ?? null,
-              bytes: zip.sizeBytes,
-            },
-          })
-          .catch(() => {});
-        return reply.redirect(url);
+      if (zip.status === "ready" && wantsDownload) {
+        if (isMulti) {
+          // Mehrteilig: konkreter Teil über ?part=N nötig.
+          const partNum = Number(query?.part);
+          const part = zip.parts.find((p) => p.partIndex === partNum);
+          if (!part) {
+            return reply.status(400).send({
+              error: "part_required",
+              parts: zip.parts.map((p) => ({
+                index: p.partIndex,
+                label: p.label,
+                sizeBytes: p.sizeBytes ? Number(p.sizeBytes) : null,
+                fileCount: p.fileCount,
+              })),
+            });
+          }
+          const url = await presignGet({
+            key: part.storageKey,
+            responseContentDisposition: `attachment; filename="${zipPartFilename(
+              zip.id,
+              part.partIndex,
+              part.label
+            )}"`,
+            ttlSeconds: ZIP_DOWNLOAD_TTL_SECONDS,
+          });
+          await prisma.downloadLog
+            .create({
+              data: {
+                galleryId: visitor.galleryId,
+                kind: "zip",
+                ipAddress: req.ip,
+                userAgent: req.headers["user-agent"]?.slice(0, 500) ?? null,
+                bytes: part.sizeBytes,
+              },
+            })
+            .catch(() => {});
+          return reply.redirect(url);
+        }
+
+        if (zip.storageKey) {
+          const url = await presignGet({
+            key: zip.storageKey,
+            responseContentDisposition: `attachment; filename="lumio-${zip.id.slice(
+              0,
+              8
+            )}.zip"`,
+            ttlSeconds: ZIP_DOWNLOAD_TTL_SECONDS,
+          });
+          // Audit
+          await prisma.downloadLog
+            .create({
+              data: {
+                galleryId: visitor.galleryId,
+                kind: "zip",
+                ipAddress: req.ip,
+                userAgent: req.headers["user-agent"]?.slice(0, 500) ?? null,
+                bytes: zip.sizeBytes,
+              },
+            })
+            .catch(() => {});
+          return reply.redirect(url);
+        }
       }
 
       // Lazy notify: erster Poll, der "ready" sieht und noch nicht
@@ -490,6 +560,15 @@ export async function registerZipRoutes(app: FastifyInstance) {
         sizeBytes: zip.sizeBytes ? Number(zip.sizeBytes) : null,
         errorMessage: zip.errorMessage,
         expiresAt: zip.expiresAt,
+        partCount: zip.partCount,
+        parts: isMulti
+          ? zip.parts.map((p) => ({
+              index: p.partIndex,
+              label: p.label,
+              sizeBytes: p.sizeBytes ? Number(p.sizeBytes) : null,
+              fileCount: p.fileCount,
+            }))
+          : undefined,
       };
     }
   );
@@ -597,21 +676,64 @@ export async function registerZipRoutes(app: FastifyInstance) {
 
       const zip = await prisma.zipDownload.findFirst({
         where: { id: req.params.zipId, galleryId: gallery.id },
+        include: {
+          parts: {
+            select: {
+              partIndex: true,
+              label: true,
+              storageKey: true,
+              sizeBytes: true,
+              fileCount: true,
+            },
+            orderBy: { partIndex: "asc" },
+          },
+        },
       });
       if (!zip) return reply.status(404).send({ error: "not_found" });
 
-      const wantsDownload =
-        (req.query as { download?: string } | undefined)?.download === "1";
-      if (zip.status === "ready" && zip.storageKey && wantsDownload) {
-        const url = await presignGet({
-          key: zip.storageKey,
-          responseContentDisposition: `attachment; filename="lumio-${zip.id.slice(
-            0,
-            8
-          )}.zip"`,
-          ttlSeconds: ZIP_DOWNLOAD_TTL_SECONDS,
-        });
-        return reply.redirect(url);
+      const query = req.query as
+        | { download?: string; part?: string }
+        | undefined;
+      const wantsDownload = query?.download === "1";
+      const isMulti = zip.partCount >= 2;
+
+      if (zip.status === "ready" && wantsDownload) {
+        if (isMulti) {
+          const partNum = Number(query?.part);
+          const part = zip.parts.find((p) => p.partIndex === partNum);
+          if (!part) {
+            return reply.status(400).send({
+              error: "part_required",
+              parts: zip.parts.map((p) => ({
+                index: p.partIndex,
+                label: p.label,
+                sizeBytes: p.sizeBytes ? Number(p.sizeBytes) : null,
+                fileCount: p.fileCount,
+              })),
+            });
+          }
+          const url = await presignGet({
+            key: part.storageKey,
+            responseContentDisposition: `attachment; filename="${zipPartFilename(
+              zip.id,
+              part.partIndex,
+              part.label
+            )}"`,
+            ttlSeconds: ZIP_DOWNLOAD_TTL_SECONDS,
+          });
+          return reply.redirect(url);
+        }
+        if (zip.storageKey) {
+          const url = await presignGet({
+            key: zip.storageKey,
+            responseContentDisposition: `attachment; filename="lumio-${zip.id.slice(
+              0,
+              8
+            )}.zip"`,
+            ttlSeconds: ZIP_DOWNLOAD_TTL_SECONDS,
+          });
+          return reply.redirect(url);
+        }
       }
       return {
         id: zip.id,
@@ -620,6 +742,15 @@ export async function registerZipRoutes(app: FastifyInstance) {
         sizeBytes: zip.sizeBytes ? Number(zip.sizeBytes) : null,
         errorMessage: zip.errorMessage,
         expiresAt: zip.expiresAt,
+        partCount: zip.partCount,
+        parts: isMulti
+          ? zip.parts.map((p) => ({
+              index: p.partIndex,
+              label: p.label,
+              sizeBytes: p.sizeBytes ? Number(p.sizeBytes) : null,
+              fileCount: p.fileCount,
+            }))
+          : undefined,
       };
     }
   );
@@ -650,17 +781,62 @@ export async function registerZipRoutes(app: FastifyInstance) {
 
       const zip = await prisma.zipDownload.findFirst({
         where: { id: req.params.zipId, galleryId: gallery.id },
+        include: {
+          parts: {
+            select: {
+              partIndex: true,
+              label: true,
+              storageKey: true,
+              sizeBytes: true,
+              fileCount: true,
+            },
+            orderBy: { partIndex: "asc" },
+          },
+        },
       });
       if (!zip) return reply.status(404).send({ error: "not_found" });
-      if (zip.status !== "ready" || !zip.storageKey) {
+      const isMulti = zip.partCount >= 2;
+      if (zip.status !== "ready" || (!zip.storageKey && !isMulti)) {
         return reply
           .status(409)
           .send({ error: "not_ready", status: zip.status });
       }
 
       const SHARE_TTL_SECONDS = 24 * 60 * 60;
+      const expiresAt = new Date(
+        Date.now() + SHARE_TTL_SECONDS * 1000
+      ).toISOString();
+
+      if (isMulti) {
+        // Mehrteilig: pro Teil eine eigene signierte URL.
+        const parts = await Promise.all(
+          zip.parts.map(async (p) => ({
+            index: p.partIndex,
+            label: p.label,
+            sizeBytes: p.sizeBytes ? Number(p.sizeBytes) : null,
+            fileCount: p.fileCount,
+            url: await presignGet({
+              key: p.storageKey,
+              responseContentDisposition: `attachment; filename="${zipPartFilename(
+                zip.id,
+                p.partIndex,
+                p.label
+              )}"`,
+              ttlSeconds: SHARE_TTL_SECONDS,
+            }),
+          }))
+        );
+        return {
+          expiresAt,
+          fileCount: zip.fileCount,
+          sizeBytes: zip.sizeBytes ? Number(zip.sizeBytes) : null,
+          partCount: zip.partCount,
+          parts,
+        };
+      }
+
       const url = await presignGet({
-        key: zip.storageKey,
+        key: zip.storageKey!,
         responseContentDisposition: `attachment; filename="lumio-${zip.id.slice(
           0,
           8
@@ -669,9 +845,7 @@ export async function registerZipRoutes(app: FastifyInstance) {
       });
       return {
         url,
-        expiresAt: new Date(
-          Date.now() + SHARE_TTL_SECONDS * 1000
-        ).toISOString(),
+        expiresAt,
         fileCount: zip.fileCount,
         sizeBytes: zip.sizeBytes ? Number(zip.sizeBytes) : null,
       };

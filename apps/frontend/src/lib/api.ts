@@ -1820,10 +1820,18 @@ export const api = {
       sizeBytes: number | null;
       errorMessage: string | null;
       expiresAt: string;
+      partCount?: number;
+      parts?: {
+        index: number;
+        label: string | null;
+        sizeBytes: number | null;
+        fileCount: number;
+      }[];
     }>(`/g/${slug}/download/zip/${zipId}`),
 
-  zipDownloadUrl: (slug: string, zipId: string) =>
-    `${API_URL}/api/v1/g/${slug}/download/zip/${zipId}?download=1`,
+  zipDownloadUrl: (slug: string, zipId: string, part?: number) =>
+    `${API_URL}/api/v1/g/${slug}/download/zip/${zipId}?download=1` +
+    (part != null ? `&part=${part}` : ""),
 
   // ===========================================================================
   // Studio-side ZIP-Download (z.B. nach Tag-Filter)
