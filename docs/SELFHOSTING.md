@@ -13,6 +13,8 @@ Detailed hardware/architecture requirements: [REQUIREMENTS.md](REQUIREMENTS.md).
 
 This guide covers **single studio**. For multi-tenant see [MULTI_TENANT.md](MULTI_TENANT.md).
 
+Running on a **Synology NAS**? See the Synology-specific companion: [SELFHOSTING-SYNOLOGY.md](SELFHOSTING-SYNOLOGY.md).
+
 ---
 
 ## 1. Set up DNS

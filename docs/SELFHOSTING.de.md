@@ -13,6 +13,8 @@ Detaillierte Hardware-/Architektur-Voraussetzungen: [REQUIREMENTS.md](REQUIREMEN
 
 Dieser Guide deckt **Single-Studio** ab. Für Multi-Tenant siehe [MULTI_TENANT.md](MULTI_TENANT.de.md).
 
+Betrieb auf einer **Synology-NAS**? Siehe die Synology-Ergänzung: [SELFHOSTING-SYNOLOGY.de.md](SELFHOSTING-SYNOLOGY.de.md).
+
 ---
 
 ## 1. DNS einrichten
