@@ -1029,8 +1029,14 @@ export function tmplTrialReminder(opts: {
     month: "long",
     year: "numeric",
   });
+  const daysLeft = Math.max(
+    1,
+    Math.ceil((opts.trialEndsAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000))
+  );
+  const daysLabel =
+    daysLeft === 1 ? "morgen" : `in ${daysLeft} Tagen`;
   return {
-    subject: `Dein Lumio-Trial endet in 3 Tagen`,
+    subject: `Dein Lumio-Trial endet ${daysLabel}`,
     text:
       `${greeting}\n\n` +
       `Dein kostenloser Trial im ${opts.planName}-Plan läuft am ${trialEnd} ab.\n\n` +
