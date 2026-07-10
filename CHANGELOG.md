@@ -38,6 +38,15 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.47.0] - 2026-07-10
+
+_Pull genügt — kein manueller Eingriff. Die additive DB-Migration läuft beim Deploy automatisch mit. · Pull is enough — no manual steps. The additive DB migration runs automatically on deploy._
+
+### Added
+- **Automatische Lifecycle-Mails für Trial und Kündigung.** Lumio sendet jetzt drei Kategorien von Marketing-Mails: einen Trial-Reminder 3 Tage vor Ablauf, eine einmalige Mail wenn ein Trial aktiv aber bereits storniert wurde, und eine einmalige Winback-Mail wenn ein Trial abläuft ohne Upgrade oder ein zahlendes Abo endet. Jede Mail enthält einen tokenbasierten Abmelde-Link (kein Login nötig). · *Automatic lifecycle emails for trial and cancellation. Lumio now sends three categories of marketing emails: a trial reminder 3 days before expiry, a one-time email when a trial is active but already cancelled, and a one-time winback email when a trial expires without upgrade or a paying subscription ends. Every email contains a token-based unsubscribe link (no login required).*
+- **Globaler Marketing-Mail-Kill-Switch im Super-Admin.** Unter Super-Admin → Marketing-Mails können alle automatischen Lifecycle-Mails global deaktiviert werden. Die Seite zeigt auch eine Opt-out-Statistik (wie viele Tenants haben sich abgemeldet). Transaktionale Mails (Passwort-Reset, Galerieeinladungen etc.) sind nicht betroffen. · *Global marketing email kill-switch in Super-Admin. Under Super-Admin → Marketing Emails, all automatic lifecycle emails can be disabled globally. The page also shows an opt-out statistic. Transactional emails (password reset, gallery invitations, etc.) are not affected.*
+- **Per-Tenant Marketing-Mail-Override.** Im Tenant-Detail-View des Super-Admins und in den Studio-Einstellungen (Benachrichtigungen → Produkt-Mails) kann der Marketing-Mail-Toggle pro Tenant ein- und ausgeschaltet werden. Opt-out via Abmelde-Link in jeder Mail setzt denselben Toggle. · *Per-tenant marketing email override. In the Super-Admin tenant detail view and in Studio settings (Notifications → Product emails) the marketing email toggle can be switched per tenant. Opting out via the unsubscribe link in any email sets the same toggle.*
+
 ## [0.46.0] - 2026-07-09
 
 _Pull genügt — kein manueller Eingriff. Die additive DB-Migration läuft beim Deploy automatisch mit. Optional können `ZIP_PART_MAX_MIB` / `ZIP_PART_MAX_HARD_CAP_MIB` in der `.env` gesetzt werden. · Pull is enough — no manual steps. The additive DB migration runs automatically on deploy. Optionally set `ZIP_PART_MAX_MIB` / `ZIP_PART_MAX_HARD_CAP_MIB` in `.env`._

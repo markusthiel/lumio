@@ -1891,6 +1891,7 @@ export const api = {
     request<{
       events: Array<{ key: string; label: string; description: string }>;
       prefs: Record<string, boolean>;
+      marketingEmailsEnabled: boolean | null;
     }>("/settings/notifications"),
 
   updateStudioNotifications: (prefs: Record<string, boolean>) =>
@@ -3569,6 +3570,32 @@ export const api = {
         body: autoTagIds ? JSON.stringify({ autoTagIds }) : undefined,
       }
     ),
+
+  // Marketing-Config (Super-Admin)
+  superGetMarketingConfig: () =>
+    request<{
+      globalEnabled: boolean;
+      stats: { totalSubscriptions: number; optedOut: number; optedIn: number };
+    }>("/super/marketing-config"),
+
+  superSetMarketingConfig: (globalEnabled: boolean) =>
+    request<{ ok: boolean; globalEnabled: boolean }>(
+      "/super/marketing-config",
+      { method: "PUT", body: JSON.stringify({ globalEnabled }) }
+    ),
+
+  superSetTenantMarketingEmails: (tenantId: string, enabled: boolean) =>
+    request<{ ok: boolean; enabled: boolean }>(
+      `/super/tenants/${tenantId}/marketing-emails`,
+      { method: "PUT", body: JSON.stringify({ enabled }) }
+    ),
+
+  // Marketing-Opt-out (Studio-Owner)
+  setMarketingEmailsEnabled: (enabled: boolean) =>
+    request<{ ok: boolean; marketingEmailsEnabled: boolean }>(
+      "/billing/marketing-emails",
+      { method: "PATCH", body: JSON.stringify({ enabled }) }
+    ),
 };
 
 // ---------------------------------------------------------------------------
@@ -3928,6 +3955,7 @@ export interface SuperTenantSubscription {
   storageAddonGib: number;
   galleriesCount: number;
   readOnlySince: string | null;
+  marketingEmailsEnabled: boolean;
   createdAt: string;
   updatedAt: string;
   plan: {

@@ -1150,8 +1150,24 @@ function BillingBlock({
   const [extendOpen, setExtendOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [marketingEnabled, setMarketingEnabled] = useState(
+    subscription.marketingEmailsEnabled
+  );
+  const [marketingSaving, setMarketingSaving] = useState(false);
   // Stripe-verwaltete Abos werden nicht manuell angefasst (Server blockt).
   const stripeManaged = Boolean(subscription.stripeSubscriptionId);
+
+  async function toggleMarketingEmails() {
+    setMarketingSaving(true);
+    try {
+      const r = await api.superSetTenantMarketingEmails(tenantId, !marketingEnabled);
+      setMarketingEnabled(r.enabled);
+    } catch {
+      // ignore — state bleibt
+    } finally {
+      setMarketingSaving(false);
+    }
+  }
 
   async function removeSubscription() {
     if (
@@ -1332,6 +1348,34 @@ function BillingBlock({
           {plan.galleriesMax !== null && ` von ${plan.galleriesMax}`}
         </span>
       </dl>
+
+      <div className="pt-3 border-t border-line-subtle flex items-start justify-between gap-4 text-ui-sm">
+        <div>
+          <span className="font-medium text-ink-primary">Marketing-Mails</span>
+          <p className="text-ink-tertiary mt-0.5 text-ui-xs">
+            Trial-Reminder, Winback. Überstimmt den globalen Kill-Switch nur
+            in Richtung Deaktivieren.
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={marketingEnabled}
+          disabled={marketingSaving}
+          onClick={() => void toggleMarketingEmails()}
+          className={
+            "relative inline-flex shrink-0 mt-0.5 h-6 w-11 items-center rounded-full px-0.5 transition-colors disabled:opacity-50 " +
+            (marketingEnabled ? "bg-accent" : "bg-line-strong")
+          }
+        >
+          <span
+            className={
+              "inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform " +
+              (marketingEnabled ? "translate-x-5" : "translate-x-0")
+            }
+          />
+        </button>
+      </div>
 
       {(stripeCustomerUrl || stripeSubUrl) && (
         <div className="pt-3 border-t border-line-subtle flex gap-3 text-ui-sm">

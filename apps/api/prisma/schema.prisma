@@ -1164,7 +1164,29 @@ model BillingSubscription {
   purgeScheduledFor     DateTime?
   archiveNoticeMailedAt DateTime?
   purgeReminderMailedAt DateTime?
-  
+
+  // -------------------------------------------------------------------------
+  // Marketing / Lifecycle E-Mails
+  //
+  // marketingEmailsEnabled: vom Owner in Studio-Settings ein/ausschaltbar.
+  // Default true (Signup = Einwilligung via Checkbox). Auch vom Super-Admin
+  // pro Tenant überschreibbar. Die globale Sperre sitzt in SystemConfig
+  // (key="marketing_emails_enabled"). Sweeper prüft beides bevor er sendet.
+  //
+  // *MailedAt-Felder sind Sent-Locks analog zu storageWarnedAt:
+  // Sie verhindern Doppelversand wenn der Sweeper alle 6h läuft.
+  // -------------------------------------------------------------------------
+  marketingEmailsEnabled   Boolean   @default(true)
+
+  // Trial endet in 3 Tagen → einmaliger "bald läuft's ab"-Hinweis
+  trialReminder3dMailedAt  DateTime?
+  // Trial läuft noch, Subscription aber schon auf cancel_at_period_end
+  trialCancelledMailedAt   DateTime?
+  // Trial abgelaufen ohne Upgrade (status=trial_expired)
+  trialExpiredMailedAt     DateTime?
+  // Zahlender Kunde hat gekündigt (status=canceled/inactive nach Zahlung)
+  winbackMailedAt          DateTime?
+
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -2369,6 +2391,18 @@ model SuperAdminDigestLog {
   sentAt DateTime @default(now())
 
   @@map("super_admin_digest_log")
+}
+
+/// Key-Value-Store für globale System-Einstellungen (Super-Admin).
+/// Aktuell genutzter Key:
+///   "marketing_emails_enabled" → "true"/"false"  (Kill-Switch für alle
+///   automatischen Marketing-Mails; überstimmt per-Tenant-Settings)
+model SystemConfig {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+
+  @@map("system_config")
 }
 
 /// Zustellungs-Log für ausgehende Mails — speist die Super-Admin-

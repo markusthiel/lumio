@@ -1006,3 +1006,172 @@ export function tmplUploadReceived(opts: {
     }),
   };
 }
+
+// =============================================================================
+// Marketing / Lifecycle-Templates
+// =============================================================================
+
+/**
+ * Trial-Reminder — 3 Tage vor Ablauf.
+ * Ton: hilfreich, kein Druck. Zeigt kurz was noch drin steckt, CTA Studio.
+ */
+export function tmplTrialReminder(opts: {
+  displayName: string | null;
+  studioName: string;
+  studioUrl: string;
+  planName: string;
+  trialEndsAt: Date;
+  unsubscribeUrl: string;
+}): { subject: string; text: string; html: string } {
+  const greeting = opts.displayName ? `Hallo ${opts.displayName},` : "Hallo,";
+  const trialEnd = opts.trialEndsAt.toLocaleDateString("de-DE", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+  return {
+    subject: `Dein Lumio-Trial endet in 3 Tagen`,
+    text:
+      `${greeting}\n\n` +
+      `Dein kostenloser Trial im ${opts.planName}-Plan läuft am ${trialEnd} ab.\n\n` +
+      `Falls du noch nicht alles ausprobiert hast — hier ein paar Dinge, ` +
+      `die sich lohnen:\n\n` +
+      `  • Galerie erstellen und mit einem Kunden teilen\n` +
+      `  • Kundenauswahl aktivieren (dein Kunde markiert Favoriten)\n` +
+      `  • Branding anpassen (Logo, Farben, eigene Domain)\n\n` +
+      `Wenn du danach weiter bei Lumio bleibst, läuft dein Abo einfach weiter — ` +
+      `ohne Unterbrechung, keine Daten gehen verloren.\n\n` +
+      `Studio öffnen: ${opts.studioUrl}\n\n` +
+      `Bei Fragen antworte einfach auf diese Mail.\n\n— Lumio\n\n` +
+      `---\nDiese Mail abbestellen: ${opts.unsubscribeUrl}`,
+    html: renderMailLayout({
+      preheader: `Dein Trial endet am ${trialEnd} — hier ein kurzer Überblick.`,
+      bodyHtml:
+        mailHeading(greeting) +
+        mailParagraph(
+          `Dein kostenloser Trial im <strong>${opts.planName}</strong>-Plan läuft am <strong>${trialEnd}</strong> ab.`
+        ) +
+        mailParagraph(
+          `Falls du noch nicht alles ausprobiert hast, lohnen sich besonders:`
+        ) +
+        `<ul style="margin:0 0 16px 0;padding-left:20px;color:#374151;font-size:15px;line-height:1.6;">` +
+        `<li>Galerie erstellen und mit einem Kunden teilen</li>` +
+        `<li>Kundenauswahl aktivieren (dein Kunde markiert Favoriten)</li>` +
+        `<li>Branding anpassen (Logo, Farben, eigene Domain)</li>` +
+        `</ul>` +
+        mailParagraph(
+          `Wenn du nach dem Trial weiter bei Lumio bleibst, läuft dein Abo einfach weiter — ohne Unterbrechung, keine Daten gehen verloren.`
+        ) +
+        mailButton(opts.studioUrl, "Studio öffnen") +
+        mailParagraph(
+          `Bei Fragen antworte einfach auf diese Mail.`
+        ) +
+        `<p style="margin:24px 0 0 0;font-size:12px;color:#9ca3af;">` +
+        `<a href="${opts.unsubscribeUrl}" style="color:#9ca3af;">Keine weiteren Produkt-Mails erhalten</a>` +
+        `</p>`,
+    }),
+  };
+}
+
+/**
+ * Trial läuft noch, Subscription aber schon gecancelt.
+ * Ton: neugierig, kein Vorwurf. Einmal, kein Follow-up.
+ */
+export function tmplTrialCancelled(opts: {
+  displayName: string | null;
+  studioName: string;
+  studioUrl: string;
+  trialEndsAt: Date;
+  unsubscribeUrl: string;
+}): { subject: string; text: string; html: string } {
+  const greeting = opts.displayName ? `Hallo ${opts.displayName},` : "Hallo,";
+  const trialEnd = opts.trialEndsAt.toLocaleDateString("de-DE", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  });
+  return {
+    subject: `Du hast abgebrochen — dein Studio ist noch bis ${trialEnd} offen`,
+    text:
+      `${greeting}\n\n` +
+      `Du hast dein Lumio-Abo während des Trials storniert. ` +
+      `Dein Studio bleibt noch bis zum ${trialEnd} voll zugänglich.\n\n` +
+      `Wir wären neugierig: War etwas unklar, hat etwas gefehlt oder ` +
+      `war es einfach der falsche Zeitpunkt? Antworte gerne kurz auf diese ` +
+      `Mail — wir lesen jede Antwort.\n\n` +
+      `Falls du es dir anders überlegt hast, kannst du dein Abo jederzeit ` +
+      `im Studio reaktivieren:\n` +
+      `${opts.studioUrl}/billing\n\n` +
+      `— Lumio\n\n` +
+      `---\nDiese Mail abbestellen: ${opts.unsubscribeUrl}`,
+    html: renderMailLayout({
+      preheader: `Dein Studio ist noch bis ${trialEnd} zugänglich.`,
+      bodyHtml:
+        mailHeading(greeting) +
+        mailParagraph(
+          `Du hast dein Lumio-Abo während des Trials storniert. Dein Studio bleibt noch bis zum <strong>${trialEnd}</strong> voll zugänglich.`
+        ) +
+        mailParagraph(
+          `Wir wären neugierig: War etwas unklar, hat etwas gefehlt oder war es einfach der falsche Zeitpunkt? Antworte gerne kurz auf diese Mail — wir lesen jede Antwort.`
+        ) +
+        mailParagraph(
+          `Falls du es dir anders überlegt hast, kannst du dein Abo jederzeit reaktivieren.`
+        ) +
+        mailButton(`${opts.studioUrl}/billing`, "Abo reaktivieren") +
+        `<p style="margin:24px 0 0 0;font-size:12px;color:#9ca3af;">` +
+        `<a href="${opts.unsubscribeUrl}" style="color:#9ca3af;">Keine weiteren Mails von uns — versprochen.</a>` +
+        `</p>`,
+    }),
+  };
+}
+
+/**
+ * Winback — Trial abgelaufen ohne Upgrade ODER zahlender Kunde hat gekündigt.
+ * Ton: 1 Mail, nie wieder. Kein Druck, aber ehrliches Angebot.
+ */
+export function tmplWinback(opts: {
+  displayName: string | null;
+  studioName: string;
+  studioUrl: string;
+  reason: "trial_expired" | "cancelled";
+  unsubscribeUrl: string;
+}): { subject: string; text: string; html: string } {
+  const greeting = opts.displayName ? `Hallo ${opts.displayName},` : "Hallo,";
+  const isChurn = opts.reason === "cancelled";
+  const subject = isChurn
+    ? `Schade, dass du gehst — Lumio wartet noch auf dich`
+    : `Lumio wartet noch auf dich`;
+  const intro = isChurn
+    ? `Dein Lumio-Abo für „${opts.studioName}" ist ausgelaufen. Schade, dass du gegangen bist.`
+    : `Dein Lumio-Trial für „${opts.studioName}" ist abgelaufen, ohne dass du ein Abo gestartet hast.`;
+  return {
+    subject,
+    text:
+      `${greeting}\n\n` +
+      `${intro}\n\n` +
+      `Wenn der Zeitpunkt gerade einfach nicht gepasst hat — kein Problem. ` +
+      `Du kannst jederzeit wieder einsteigen; deine Daten sind noch da.\n\n` +
+      `Studio öffnen: ${opts.studioUrl}/billing\n\n` +
+      `Das ist die einzige Mail dieser Art, die du von uns bekommst.\n\n` +
+      `— Lumio\n\n` +
+      `---\nDiese Mail abbestellen: ${opts.unsubscribeUrl}`,
+    html: renderMailLayout({
+      preheader: isChurn
+        ? "Deine Daten sind noch da — falls du doch zurückkommst."
+        : "Dein Trial ist abgelaufen — du kannst jederzeit zurück.",
+      bodyHtml:
+        mailHeading(greeting) +
+        mailParagraph(intro) +
+        mailParagraph(
+          `Wenn der Zeitpunkt gerade einfach nicht gepasst hat — kein Problem. Du kannst jederzeit wieder einsteigen, deine Daten sind noch da.`
+        ) +
+        mailButton(`${opts.studioUrl}/billing`, "Jetzt einsteigen") +
+        mailNoticeBox(
+          `Das ist die einzige Mail dieser Art, die du von uns bekommst.`
+        ) +
+        `<p style="margin:24px 0 0 0;font-size:12px;color:#9ca3af;">` +
+        `<a href="${opts.unsubscribeUrl}" style="color:#9ca3af;">Keine weiteren Mails erhalten</a>` +
+        `</p>`,
+    }),
+  };
+}

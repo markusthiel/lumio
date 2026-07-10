@@ -33,11 +33,12 @@ import { writeMrrSnapshot } from "./mrr.js";
 import { processBroadcast } from "./broadcast.js";
 import { computeStorageBytes } from "./usage.js";
 import { getPlan, effectiveStorageBytes } from "./plans.js";
-import { tmplStorageWarning, tmplGalleryExpiring } from "./mail.js";
+import { tmplStorageWarning, tmplGalleryExpiring, tmplTrialReminder, tmplTrialCancelled, tmplWinback } from "./mail.js";
 import { studioNotifyEnabled } from "./notifications.js";
 import { sendSuperAdminDigest } from "./notifier.js";
 import { logger } from "../logger.js";
 import { config } from "../config.js";
+import { unsubscribeUrl } from "./marketing-token.js";
 import {
   markDueArchives,
   dropArchivedDerivatives,
@@ -87,6 +88,11 @@ async function runOnce() {
           dropArchivedDerivatives(),
           sendPurgeReminders(),
           purgeDueArchives(),
+          // Marketing / Lifecycle-Mails (Trial, Winback)
+          sendTrialReminders(),
+          sendTrialCancelledMails(),
+          sendTrialExpiredWinbacks(),
+          sendChurnedWinbacks(),
         ]
       : []),
   ]);
@@ -621,5 +627,278 @@ async function executeScheduledSelfDeletions() {
         "sweeper.self_deletion_failed"
       );
     }
+  }
+}
+
+// =============================================================================
+// Marketing / Lifecycle-Mails
+// =============================================================================
+
+/**
+ * Liest den globalen Kill-Switch aus system_config.
+ * Gibt true zurück wenn Marketing-Mails erlaubt sind.
+ * Fehler → fail-safe false (lieber keine Mail als Fehler-Spam).
+ */
+async function marketingGlobalEnabled(): Promise<boolean> {
+  try {
+    const row = await prisma.systemConfig.findUnique({
+      where: { key: "marketing_emails_enabled" },
+    });
+    // kein Row = noch nicht gesetzt → default true
+    return row ? row.value === "true" : true;
+  } catch (err) {
+    logger.warn({ err }, "sweeper.marketing.global_check_failed");
+    return false;
+  }
+}
+
+/**
+ * Trial-Reminder — 3 Tage vor Ablauf.
+ * Bedingung: status=trialing, trialEndsAt in [now, now+3d],
+ *            cancelAtPeriodEnd=false, kein Lock.
+ */
+async function sendTrialReminders() {
+  if (!(await marketingGlobalEnabled())) return;
+  try {
+    const in3d = new Date(Date.now() + 3 * ONE_DAY_MS);
+    const subs = await prisma.billingSubscription.findMany({
+      where: {
+        status: "trialing",
+        cancelAtPeriodEnd: false,
+        trialEndsAt: { not: null, gt: new Date(), lte: in3d },
+        trialReminder3dMailedAt: null,
+        marketingEmailsEnabled: true,
+        comped: false,
+      },
+      select: {
+        tenantId: true,
+        trialEndsAt: true,
+        plan: { select: { name: true } },
+        tenant: {
+          select: {
+            name: true,
+            users: {
+              where: { role: "owner", status: "active" },
+              select: { email: true, name: true },
+            },
+          },
+        },
+      },
+    });
+
+    for (const sub of subs) {
+      if (!sub.trialEndsAt) continue;
+      const owner = sub.tenant.users[0];
+      if (!owner) continue;
+      try {
+        const unsub = unsubscribeUrl(sub.tenantId, config.PUBLIC_URL);
+        await sendMail({
+          to: owner.email,
+          ...tmplTrialReminder({
+            displayName: owner.name,
+            studioName: sub.tenant.name,
+            studioUrl: config.PUBLIC_URL,
+            planName: sub.plan.name,
+            trialEndsAt: sub.trialEndsAt,
+            unsubscribeUrl: unsub,
+          }),
+        });
+        await prisma.billingSubscription.update({
+          where: { tenantId: sub.tenantId },
+          data: { trialReminder3dMailedAt: new Date() },
+        });
+        logger.info({ tenantId: sub.tenantId }, "sweeper.trial_reminder.sent");
+      } catch (err) {
+        logger.warn({ err, tenantId: sub.tenantId }, "sweeper.trial_reminder.tenant_failed");
+      }
+    }
+  } catch (err) {
+    logger.warn({ err }, "sweeper.trial_reminder.failed");
+  }
+}
+
+/**
+ * Trial läuft noch, aber Abo schon gecancelt.
+ * Bedingung: status=trialing, cancelAtPeriodEnd=true, kein Lock.
+ * Einmalige neugierige Mail — kein Follow-up.
+ */
+async function sendTrialCancelledMails() {
+  if (!(await marketingGlobalEnabled())) return;
+  try {
+    const subs = await prisma.billingSubscription.findMany({
+      where: {
+        status: "trialing",
+        cancelAtPeriodEnd: true,
+        trialEndsAt: { not: null, gt: new Date() },
+        trialCancelledMailedAt: null,
+        marketingEmailsEnabled: true,
+        comped: false,
+      },
+      select: {
+        tenantId: true,
+        trialEndsAt: true,
+        tenant: {
+          select: {
+            name: true,
+            users: {
+              where: { role: "owner", status: "active" },
+              select: { email: true, name: true },
+            },
+          },
+        },
+      },
+    });
+
+    for (const sub of subs) {
+      if (!sub.trialEndsAt) continue;
+      const owner = sub.tenant.users[0];
+      if (!owner) continue;
+      try {
+        const unsub = unsubscribeUrl(sub.tenantId, config.PUBLIC_URL);
+        await sendMail({
+          to: owner.email,
+          ...tmplTrialCancelled({
+            displayName: owner.name,
+            studioName: sub.tenant.name,
+            studioUrl: config.PUBLIC_URL,
+            trialEndsAt: sub.trialEndsAt,
+            unsubscribeUrl: unsub,
+          }),
+        });
+        await prisma.billingSubscription.update({
+          where: { tenantId: sub.tenantId },
+          data: { trialCancelledMailedAt: new Date() },
+        });
+        logger.info({ tenantId: sub.tenantId }, "sweeper.trial_cancelled.sent");
+      } catch (err) {
+        logger.warn({ err, tenantId: sub.tenantId }, "sweeper.trial_cancelled.tenant_failed");
+      }
+    }
+  } catch (err) {
+    logger.warn({ err }, "sweeper.trial_cancelled.failed");
+  }
+}
+
+/**
+ * Trial abgelaufen ohne Upgrade (Winback).
+ * Bedingung: status=trial_expired, trialEndsAt vor max. 7 Tagen,
+ *            kein Lock. Nur 1x pro Tenant.
+ */
+async function sendTrialExpiredWinbacks() {
+  if (!(await marketingGlobalEnabled())) return;
+  try {
+    const sevenDaysAgo = new Date(Date.now() - 7 * ONE_DAY_MS);
+    const subs = await prisma.billingSubscription.findMany({
+      where: {
+        status: "trial_expired",
+        trialEndsAt: { not: null, gte: sevenDaysAgo },
+        trialExpiredMailedAt: null,
+        marketingEmailsEnabled: true,
+        comped: false,
+      },
+      select: {
+        tenantId: true,
+        tenant: {
+          select: {
+            name: true,
+            users: {
+              where: { role: "owner", status: "active" },
+              select: { email: true, name: true },
+            },
+          },
+        },
+      },
+    });
+
+    for (const sub of subs) {
+      const owner = sub.tenant.users[0];
+      if (!owner) continue;
+      try {
+        const unsub = unsubscribeUrl(sub.tenantId, config.PUBLIC_URL);
+        await sendMail({
+          to: owner.email,
+          ...tmplWinback({
+            displayName: owner.name,
+            studioName: sub.tenant.name,
+            studioUrl: config.PUBLIC_URL,
+            reason: "trial_expired",
+            unsubscribeUrl: unsub,
+          }),
+        });
+        await prisma.billingSubscription.update({
+          where: { tenantId: sub.tenantId },
+          data: { trialExpiredMailedAt: new Date() },
+        });
+        logger.info({ tenantId: sub.tenantId }, "sweeper.trial_expired_winback.sent");
+      } catch (err) {
+        logger.warn({ err, tenantId: sub.tenantId }, "sweeper.trial_expired_winback.tenant_failed");
+      }
+    }
+  } catch (err) {
+    logger.warn({ err }, "sweeper.trial_expired_winback.failed");
+  }
+}
+
+/**
+ * Zahlender Kunde hat gekündigt (Winback).
+ * Bedingung: status=canceled ODER inactive (nach bezahltem Abo),
+ *            stripeSubscriptionId vorhanden (= war mal zahlend),
+ *            cancelAtPeriodEnd war true, kein Lock.
+ * Timing: 1–2 Tage nach Ablauf des letzten bezahlten Zeitraums.
+ */
+async function sendChurnedWinbacks() {
+  if (!(await marketingGlobalEnabled())) return;
+  try {
+    const twoDaysAgo = new Date(Date.now() - 2 * ONE_DAY_MS);
+    const subs = await prisma.billingSubscription.findMany({
+      where: {
+        status: { in: ["canceled", "inactive"] },
+        stripeSubscriptionId: { not: null },
+        // currentPeriodEnd liegt in den letzten 2 Tagen = frisch abgelaufen
+        currentPeriodEnd: { not: null, gte: twoDaysAgo, lte: new Date() },
+        winbackMailedAt: null,
+        marketingEmailsEnabled: true,
+        comped: false,
+      },
+      select: {
+        tenantId: true,
+        tenant: {
+          select: {
+            name: true,
+            users: {
+              where: { role: "owner", status: "active" },
+              select: { email: true, name: true },
+            },
+          },
+        },
+      },
+    });
+
+    for (const sub of subs) {
+      const owner = sub.tenant.users[0];
+      if (!owner) continue;
+      try {
+        const unsub = unsubscribeUrl(sub.tenantId, config.PUBLIC_URL);
+        await sendMail({
+          to: owner.email,
+          ...tmplWinback({
+            displayName: owner.name,
+            studioName: sub.tenant.name,
+            studioUrl: config.PUBLIC_URL,
+            reason: "cancelled",
+            unsubscribeUrl: unsub,
+          }),
+        });
+        await prisma.billingSubscription.update({
+          where: { tenantId: sub.tenantId },
+          data: { winbackMailedAt: new Date() },
+        });
+        logger.info({ tenantId: sub.tenantId }, "sweeper.churn_winback.sent");
+      } catch (err) {
+        logger.warn({ err, tenantId: sub.tenantId }, "sweeper.churn_winback.tenant_failed");
+      }
+    }
+  } catch (err) {
+    logger.warn({ err }, "sweeper.churn_winback.failed");
   }
 }

@@ -21,7 +21,8 @@ import { registerGalleryRoutes } from "./routes/galleries.js";
 import { registerAccessRoutes } from "./routes/access.js";
 import { registerFileRoutes } from "./routes/files.js";
 import { registerProofingRoutes } from "./routes/proofing.js";
-import { registerBillingRoutes } from "./routes/billing.js";
+import { registerBillingRoutes, registerMarketingOptOutRoutes } from "./routes/billing.js";
+import { registerUnsubscribeRoute } from "./routes/unsubscribe.js";
 import { registerSignupRoutes } from "./routes/signup.js";
 import { registerReadOnlyEnforcement } from "./plugins/read-only.js";
 import { registerHlsRoutes } from "./routes/hls.js";
@@ -46,7 +47,7 @@ import { registerTenantExportRoutes } from "./routes/exports.js";
 import { registerTeamRoutes } from "./routes/team.js";
 import { registerAccountRoutes } from "./routes/account.js";
 import { registerSuperAuthRoutes } from "./routes/super-auth.js";
-import { registerSuperTenantRoutes } from "./routes/super-tenants.js";
+import { registerSuperTenantRoutes, registerSuperMarketingRoutes } from "./routes/super-tenants.js";
 import { registerAnnouncementRoutes } from "./routes/announcements.js";
 import { registerBroadcastRoutes } from "./routes/broadcasts.js";
 import { registerPrintShopRoutes } from "./routes/print-shop.js";
@@ -176,6 +177,7 @@ async function buildServer() {
       // sind aber bewusst eingekapselt damit ihr Guard nicht auf andere
       // Routes des selben Scopes wirkt.
       await api.register(registerSuperTenantRoutes);
+      await api.register(registerSuperMarketingRoutes);
       // Announcement-Routes: GET /announcements/active ist public, der
       // Rest ist Super-Admin (Guard innerhalb der Funktion via
       // requireSuperAdmin).
@@ -196,7 +198,12 @@ async function buildServer() {
       if (config.BILLING_ENABLED) {
         await registerBillingRoutes(api);
         await registerSignupRoutes(api);
+        await registerMarketingOptOutRoutes(api);
       }
+      // Öffentlich (kein Auth, kein BILLING_ENABLED-Gate — Token-Route
+      // muss auch nach Billing-Deaktivierung erreichbar sein damit
+      // bereits versendete Links nicht ins Leere laufen).
+      await registerUnsubscribeRoute(api);
     },
     { prefix: "/api/v1" }
   );

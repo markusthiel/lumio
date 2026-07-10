@@ -519,3 +519,40 @@ export async function registerBillingRoutes(app: FastifyInstance) {
     return reply.status(200).send({ received: true });
   });
 }
+
+// =============================================================================
+// Marketing-Opt-out
+// =============================================================================
+
+/**
+ * PATCH /billing/marketing-emails
+ * Studio-Owner schaltet seine Marketing-Mails ein/aus.
+ * Auth: normaler Studio-Session.
+ */
+export async function registerMarketingOptOutRoutes(
+  app: FastifyInstance
+) {
+  app.patch(
+    "/billing/marketing-emails",
+    async (req, reply) => {
+      const s = req.requireAuth();
+      void s;
+      if (!req.tenantId)
+        return reply.status(400).send({ error: "no_tenant" });
+      if (!config.BILLING_ENABLED)
+        return reply.status(404).send({ error: "billing_disabled" });
+
+      const body = z
+        .object({ enabled: z.boolean() })
+        .safeParse(req.body);
+      if (!body.success)
+        return reply.status(400).send({ error: "invalid_body" });
+
+      await prisma.billingSubscription.updateMany({
+        where: { tenantId: req.tenantId },
+        data: { marketingEmailsEnabled: body.data.enabled },
+      });
+      return { ok: true, marketingEmailsEnabled: body.data.enabled };
+    }
+  );
+}

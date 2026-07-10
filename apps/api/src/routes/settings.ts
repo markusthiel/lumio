@@ -149,7 +149,10 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
     req.requireAuth();
     const t = await prisma.tenant.findUnique({
       where: { id: req.tenantId },
-      select: { notificationPrefs: true },
+      select: {
+        notificationPrefs: true,
+        subscription: { select: { marketingEmailsEnabled: true } },
+      },
     });
     if (!t) return reply.status(404).send({ error: "not_found" });
     return {
@@ -159,6 +162,8 @@ export async function registerSettingsRoutes(app: FastifyInstance) {
         description: e.description,
       })),
       prefs: resolveStudioPrefs(t.notificationPrefs),
+      // null wenn kein BILLING_ENABLED / keine Subscription
+      marketingEmailsEnabled: t.subscription?.marketingEmailsEnabled ?? null,
     };
   });
 

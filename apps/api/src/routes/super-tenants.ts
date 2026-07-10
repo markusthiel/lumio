@@ -414,6 +414,7 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
               storageAddonGib: true,
               galleriesCount: true,
               readOnlySince: true,
+              marketingEmailsEnabled: true,
               createdAt: true,
               updatedAt: true,
               plan: {
@@ -488,6 +489,7 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
             storageAddonGib: sub.storageAddonGib,
             galleriesCount: sub.galleriesCount,
             readOnlySince: sub.readOnlySince,
+            marketingEmailsEnabled: sub.marketingEmailsEnabled,
             createdAt: sub.createdAt,
             updatedAt: sub.updatedAt,
             plan: {
@@ -3664,6 +3666,115 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
       });
 
       return { ok: true };
+    }
+  );
+}
+
+// =============================================================================
+// Marketing-E-Mail-Einstellungen (Super-Admin)
+// =============================================================================
+
+/**
+ * Erweitert registerSuperTenantRoutes um:
+ *
+ *   GET  /super/marketing-config          — globaler Kill-Switch + Statistik
+ *   PUT  /super/marketing-config          — globalen Kill-Switch setzen
+ *   PUT  /super/tenants/:id/marketing-emails — per-Tenant Override
+ */
+export async function registerSuperMarketingRoutes(app: FastifyInstance) {
+  // -------------------------------------------------------------------------
+  // GET /super/marketing-config
+  // -------------------------------------------------------------------------
+  app.get("/super/marketing-config", async (req) => {
+    req.requireSuperAdmin();
+
+    const [cfgRow, total, optedOut] = await Promise.all([
+      prisma.systemConfig.findUnique({
+        where: { key: "marketing_emails_enabled" },
+      }),
+      prisma.billingSubscription.count({ where: { comped: false } }),
+      prisma.billingSubscription.count({
+        where: { comped: false, marketingEmailsEnabled: false },
+      }),
+    ]);
+
+    return {
+      globalEnabled: cfgRow ? cfgRow.value === "true" : true,
+      stats: {
+        totalSubscriptions: total,
+        optedOut,
+        optedIn: total - optedOut,
+      },
+    };
+  });
+
+  // -------------------------------------------------------------------------
+  // PUT /super/marketing-config
+  // -------------------------------------------------------------------------
+  app.put("/super/marketing-config", async (req, reply) => {
+    const sa = req.requireSuperAdmin();
+    const body = z
+      .object({ globalEnabled: z.boolean() })
+      .safeParse(req.body);
+    if (!body.success)
+      return reply.status(400).send({ error: "invalid_body" });
+
+    await prisma.systemConfig.upsert({
+      where: { key: "marketing_emails_enabled" },
+      create: {
+        key: "marketing_emails_enabled",
+        value: body.data.globalEnabled ? "true" : "false",
+      },
+      update: { value: body.data.globalEnabled ? "true" : "false" },
+    });
+
+    await logEvent({
+      tenantId: null,
+      actorType: "super_admin",
+      actorId: sa.admin.id,
+      action: "super.marketing.global_toggle",
+      targetType: "system_config",
+      targetId: "marketing_emails_enabled",
+      payload: { globalEnabled: body.data.globalEnabled },
+      ipAddress: req.ip,
+    });
+
+    return { ok: true, globalEnabled: body.data.globalEnabled };
+  });
+
+  // -------------------------------------------------------------------------
+  // PUT /super/tenants/:id/marketing-emails
+  // Per-Tenant Override (Super-Admin kann für einzelne Tenants übersteuern)
+  // -------------------------------------------------------------------------
+  app.put<{ Params: { id: string } }>(
+    "/super/tenants/:id/marketing-emails",
+    async (req, reply) => {
+      const sa = req.requireSuperAdmin();
+      const body = z
+        .object({ enabled: z.boolean() })
+        .safeParse(req.body);
+      if (!body.success)
+        return reply.status(400).send({ error: "invalid_body" });
+
+      const updated = await prisma.billingSubscription.updateMany({
+        where: { tenantId: req.params.id },
+        data: { marketingEmailsEnabled: body.data.enabled },
+      });
+      if (updated.count === 0)
+        return reply.status(404).send({ error: "no_subscription" });
+
+      await logEvent({
+        tenantId: req.params.id,
+        actorType: "super_admin",
+        actorId: sa.admin.id,
+        action: "super.marketing.per_tenant_override",
+        targetType: "billing_subscription",
+        targetId: req.params.id,
+        payload: { enabled: body.data.enabled },
+        ipAddress: req.ip,
+      });
+
+      return { ok: true, enabled: body.data.enabled };
     }
   );
 }
