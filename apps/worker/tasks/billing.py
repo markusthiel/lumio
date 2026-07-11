@@ -673,6 +673,35 @@ def enforce_limits() -> dict:
                 tenant_id=str(row["tenantId"]),
             )
 
+        # 1b) Stripe-Abo beendet (gekündigt/unbezahlt) und Periode vorbei
+        #     → read-only. Deckt die Fälle ab, die NICHT über den kartenlosen
+        #     Trial laufen: gekündigte Trials MIT Karte, abgewanderte Zahler,
+        #     ausgelaufene Zahlungsversuche. Bisher setzte KEIN Webhook-Handler
+        #     readOnlySince (deleted/past_due schrieben nur den status),
+        #     sodass diese Accounts nie gesperrt/archiviert/suspendiert wurden.
+        #     Idempotent + selbstheilend — holt bestehende canceled-Accounts
+        #     beim nächsten Lauf nach. comped-Accounts (Gratis-Partner) bleiben
+        #     unberührt; wer cancelAtPeriodEnd hat, behält Zugriff bis zum
+        #     Periodenende (currentPeriodEnd-Guard).
+        result = conn.execute(
+            '''
+            UPDATE billing_subscriptions
+            SET "readOnlySince" = NOW(), "updatedAt" = NOW()
+            WHERE status IN (%s, %s)
+              AND comped = FALSE
+              AND ("currentPeriodEnd" IS NULL OR "currentPeriodEnd" < NOW())
+              AND "readOnlySince" IS NULL
+            RETURNING "tenantId"
+            ''',
+            ("canceled", "unpaid"),
+        ).fetchall()
+        counts["to_readonly"] += len(result)
+        for row in result:
+            log.warning(
+                "billing.subscription_ended_readonly",
+                tenant_id=str(row["tenantId"]),
+            )
+
         # 2) Read-only > 30 Tage → Galerien archivieren
         # Wir lockern das auf: nur ACTIVE Galerien (nicht schon archived/draft)
         result = conn.execute(
