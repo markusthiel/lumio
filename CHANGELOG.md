@@ -38,6 +38,14 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.47.1] - 2026-07-11
+
+_Pull genügt — nur API betroffen, keine Migration. · Pull is enough — API only, no migration._
+
+### Fixed
+- **Trial-Abbrecher bekamen zwei Abschieds-Mails statt einer.** Wer sein Abo während des Trials kündigte, erhielt sowohl die einmalige „Du hast abgebrochen"-Mail als auch — Stunden später beim Trial-Ende — die Churn-Winback-Mail („Schade, dass du gehst"), obwohl jede als einzige ihrer Art gedacht ist. Der Churn-Winback filtert jetzt Trial-Kündiger heraus (er ist ausschließlich für echte Ex-Zahler), und alle Abschieds-Mails schließen sich gegenseitig aus: ein Account bekommt höchstens eine. · *Trial cancellers received two goodbye emails instead of one. Cancelling during the trial triggered both the one-time "you cancelled" email and — hours later at trial end — the churn winback ("sorry you're leaving"), even though each is meant to be the only one of its kind. The churn winback now excludes trial cancellers (it targets genuine former payers only), and all goodbye emails are mutually exclusive: an account receives at most one.*
+- **Trial-Reminder-Betreff spiegelt die tatsächlich verbleibenden Tage.** · *Trial reminder subject reflects the actual number of days left.*
+
 ## [0.47.0] - 2026-07-10
 
 _Pull genügt — kein manueller Eingriff. Die additive DB-Migration läuft beim Deploy automatisch mit. · Pull is enough — no manual steps. The additive DB migration runs automatically on deploy._
