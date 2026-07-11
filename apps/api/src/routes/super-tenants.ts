@@ -168,6 +168,7 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
         status: true,
         customDomain: true,
         createdAt: true,
+        subscription: { select: { readOnlySince: true } },
         _count: {
           select: { users: true, galleries: true },
         },
@@ -180,6 +181,7 @@ export async function registerSuperTenantRoutes(app: FastifyInstance) {
         name: t.name,
         displayName: t.displayName,
         status: t.status,
+        readOnly: t.subscription?.readOnlySince != null,
         customDomain: t.customDomain,
         createdAt: t.createdAt,
         userCount: t._count.users,

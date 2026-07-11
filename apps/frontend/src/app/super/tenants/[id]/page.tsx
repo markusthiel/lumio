@@ -230,7 +230,10 @@ function TenantDetail() {
         <div>
           <h1 className="text-2xl font-semibold flex items-center gap-3">
             {tenant.name}
-            <StatusBadge status={tenant.status} />
+            <StatusBadge
+              status={tenant.status}
+              readOnly={!!tenant.subscription?.readOnlySince}
+            />
           </h1>
           <div className="text-ui-sm text-ink-tertiary mt-1 font-mono">
             {tenant.slug}
@@ -828,19 +831,28 @@ function TenantDetail() {
 }
 
 // -----------------------------------------------------------------------------
-function StatusBadge({ status }: { status: SuperTenantDetail["status"] }) {
-  const cls =
-    status === "active"
-      ? "bg-semantic-success/20 text-semantic-success border-semantic-success/40"
-      : status === "suspended"
-      ? "bg-semantic-warning/20 text-semantic-warning border-semantic-warning/40"
-      : "bg-ink-tertiary/20 text-ink-tertiary border-ink-tertiary/40";
-  const label =
-    status === "active"
-      ? "AKTIV"
-      : status === "suspended"
-      ? "SUSPENDIERT"
-      : "ARCHIVIERT";
+function StatusBadge({
+  status,
+  readOnly = false,
+}: {
+  status: SuperTenantDetail["status"];
+  readOnly?: boolean;
+}) {
+  const activeReadOnly = status === "active" && readOnly;
+  const cls = activeReadOnly
+    ? "bg-semantic-warning/20 text-semantic-warning border-semantic-warning/40"
+    : status === "active"
+    ? "bg-semantic-success/20 text-semantic-success border-semantic-success/40"
+    : status === "suspended"
+    ? "bg-semantic-warning/20 text-semantic-warning border-semantic-warning/40"
+    : "bg-ink-tertiary/20 text-ink-tertiary border-ink-tertiary/40";
+  const label = activeReadOnly
+    ? "AKTIV · READ-ONLY"
+    : status === "active"
+    ? "AKTIV"
+    : status === "suspended"
+    ? "SUSPENDIERT"
+    : "ARCHIVIERT";
   return (
     <span
       className={`inline-block text-ui-xs uppercase tracking-wide px-2 py-0.5 rounded border ${cls}`}

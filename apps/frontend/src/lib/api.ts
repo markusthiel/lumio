@@ -3725,6 +3725,9 @@ export interface SuperTenantSummary {
   /** Oeffentlicher Anzeigename (Login, Mails). Null = Fallback auf name. */
   displayName: string | null;
   status: "active" | "suspended" | "archived" | "pending_deletion";
+  /** true = Subscription ist read-only (gesperrt, aber noch nicht
+   * suspendiert). UI zeigt 'active' dann gelb statt grün. */
+  readOnly: boolean;
   customDomain: string | null;
   createdAt: string;
   userCount: number;

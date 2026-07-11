@@ -67,7 +67,7 @@ function TenantsList() {
                 href={`/super/tenants/${t.id}`}
                 className="flex items-center gap-3 px-4 py-3 hover:bg-surface-overlay transition-colors duration-motion"
               >
-                <StatusDot status={t.status} />
+                <StatusDot status={t.status} readOnly={t.readOnly} />
                 <div className="flex-1 min-w-0">
                   <div className="text-ui text-ink-primary truncate">
                     {t.name}
@@ -104,19 +104,28 @@ function TenantsList() {
   );
 }
 
-function StatusDot({ status }: { status: SuperTenantSummary["status"] }) {
-  const color =
-    status === "active"
-      ? "bg-semantic-success"
-      : status === "suspended"
-      ? "bg-semantic-warning"
-      : "bg-ink-tertiary";
-  const title =
-    status === "active"
-      ? "Aktiv"
-      : status === "suspended"
-      ? "Suspendiert"
-      : "Archiviert";
+function StatusDot({
+  status,
+  readOnly = false,
+}: {
+  status: SuperTenantSummary["status"];
+  readOnly?: boolean;
+}) {
+  const activeReadOnly = status === "active" && readOnly;
+  const color = activeReadOnly
+    ? "bg-semantic-warning"
+    : status === "active"
+    ? "bg-semantic-success"
+    : status === "suspended"
+    ? "bg-semantic-warning"
+    : "bg-ink-tertiary";
+  const title = activeReadOnly
+    ? "Aktiv · Read-only"
+    : status === "active"
+    ? "Aktiv"
+    : status === "suspended"
+    ? "Suspendiert"
+    : "Archiviert";
   return (
     <span
       className={`block w-2 h-2 rounded-full flex-shrink-0 ${color}`}
