@@ -38,6 +38,13 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.48.1] - 2026-07-11
+
+_Nur SaaS-/Billing-Betrieb betroffen. Self-Host ohne Billing: reiner Pull, keine Änderung. Billing-Betreiber: Worker neu bauen, damit `BILLING_ENABLED` im Worker ankommt. · SaaS/billing only. Self-host without billing: pull, no change. Billing operators: rebuild the worker so BILLING_ENABLED reaches it._
+
+### Fixed
+- **Billing-Lifecycle (Trial-Ablauf, Read-only, Suspend) lief im Worker nie.** Der Worker-Container startet den Scheduler (`consumer.py`), der `enforce_limits` alle 10 Minuten auslöst — aber nur, wenn `BILLING_ENABLED=true` im Worker-Env steht. Diese Variable wurde bisher ausschließlich an die API übergeben, nicht an den Worker. Dadurch wurde der komplette Read-only-Lifecycle (inkl. des Fixes aus 0.47.2) nie ausgeführt: abgelaufene bzw. gekündigte Abos blieben dauerhaft voll aktiv. `BILLING_ENABLED` wird jetzt auch an den `worker`-Service durchgereicht (`docker-compose.yml` + `docker-compose.worker.yml`), und die Variable ist in `.env.example` dokumentiert. · *Billing lifecycle (trial expiry, read-only, suspend) never ran in the worker. The worker starts the scheduler that triggers enforce_limits every 10 minutes, but only when BILLING_ENABLED=true — and that variable was only passed to the API, not the worker. As a result the entire read-only lifecycle (including the 0.47.2 fix) never executed: expired/cancelled subscriptions stayed fully active. BILLING_ENABLED is now passed to the worker service too, and documented in .env.example.*
+
 ## [0.48.0] - 2026-07-11
 
 _Pull genügt — nur Hauptserver (Frontend + API), keine Migration. · Pull is enough — main server only (frontend + API), no migration._
