@@ -1,6 +1,6 @@
 {
   "name": "@lumio/shared",
-  "version": "0.48.2",
+  "version": "0.48.3",
   "private": true,
   "description": "Shared TypeScript types and Zod schemas",
   "main": "src/index.ts",

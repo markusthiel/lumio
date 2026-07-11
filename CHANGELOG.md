@@ -38,6 +38,13 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.48.3] - 2026-07-11
+
+_Pull genügt — nur Hauptserver (API + Frontend), keine Migration. · Pull is enough — main server only (API + frontend), no migration._
+
+### Changed
+- **Super-Admin: „AKTIV" wird gelb statt grün, wenn der Tenant read-only ist.** Ein aktives, aber gesperrtes Konto (Subscription read-only, noch nicht suspendiert) war bisher optisch nicht von einem gesunden Konto zu unterscheiden — Badge und Übersichts-Punkt waren grün. Jetzt zeigen sowohl der Status-Badge im Tenant-Detail („AKTIV · READ-ONLY", gelb) als auch der Punkt in der Tenant-Übersicht (gelb, Tooltip „Aktiv · Read-only") den Karenz-Zustand auf einen Blick. · *Super-admin: "ACTIVE" now shows yellow instead of green when the tenant is read-only. An active-but-locked account (subscription read-only, not yet suspended) was previously indistinguishable from a healthy one — badge and overview dot were green. Now both the status badge in the tenant detail ("ACTIVE · READ-ONLY", yellow) and the dot in the tenant overview (yellow, tooltip "Active · Read-only") surface the grace-period state at a glance.*
+
 ## [0.48.2] - 2026-07-11
 
 _Pull genügt — nur Hauptserver (Frontend), keine Migration. · Pull is enough — main server only (frontend), no migration._
