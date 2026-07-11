@@ -38,6 +38,13 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.48.0] - 2026-07-11
+
+_Pull genügt — nur Hauptserver (Frontend + API), keine Migration. · Pull is enough — main server only (frontend + API), no migration._
+
+### Added
+- **Trial vorzeitig beenden & sofort starten.** Studios, die sich im Trial befinden und bereits eine Karte hinterlegt haben, finden auf der Billing-Seite jetzt den Button „Trial beenden & jetzt starten". Damit endet die Testphase sofort und die erste Zahlung wird umgehend über die hinterlegte Karte eingezogen — statt erst am Tag 14. Ein In-Page-Bestätigungsdialog verhindert versehentliches Abbuchen. Der finale Zahlungsstatus kommt wie gewohnt über die Stripe-Webhooks. · *End trial early & start now. Studios that are in trial and already have a card on file now get an "End trial & start now" button on the billing page. It ends the trial immediately and charges the first payment right away instead of waiting until day 14. An in-page confirmation dialog prevents accidental charges. The final payment status arrives via the Stripe webhooks as usual.*
+
 ## [0.47.2] - 2026-07-11
 
 _Pull genügt — betrifft nur den Worker (kein Env/DB/Compose). Bei mehreren Worker-Nodes alle neu bauen. · Pull is enough — worker only (no env/DB/compose). Rebuild all worker nodes if you run more than one._
