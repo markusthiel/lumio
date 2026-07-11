@@ -1103,6 +1103,16 @@ export const en: Dict = {
       "You've cancelled your subscription. Until the date shown you can keep using Lumio in full. After that your studio enters read-only mode. You can undo the cancellation at any time.",
     reactivating: "Reactivating …",
     continueSubscription: "Resume subscription",
+    startTrialNow: "End trial & start now",
+    startTrialNowHint:
+      "Convinced? End the trial and start your subscription right away.",
+    startNowConfirmTitle: "Start now?",
+    startNowConfirmBody:
+      "We'll end your trial immediately and charge the first payment to your card on file. Your subscription then continues as normal — cancellable anytime.",
+    startNowConfirm: "Charge now",
+    startNowCancel: "Cancel",
+    startingNow: "Starting …",
+    startNowFailed: "Could not end the trial.",
     currentPlan: "Current plan",
     trialEndsOn: "Trial ends on",
     readOnlyTitle: "Account in read-only mode",

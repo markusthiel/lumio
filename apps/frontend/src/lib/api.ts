@@ -930,6 +930,17 @@ export const api = {
       method: "POST",
     }),
 
+  /** Beendet die laufende Trial sofort → Stripe bucht die erste Zahlung
+   * umgehend über die hinterlegte Karte ab. Nur bei trialing + Karte
+   * (hasStripeId). Ohne Karte antwortet der Server mit 409
+   * no_payment_method — dann sollte stattdessen der reguläre Checkout
+   * (startSubscription) geöffnet werden. */
+  endTrialNow: () =>
+    request<{ started: true; status: string }>(
+      `/billing/subscription/end-trial`,
+      { method: "POST" }
+    ),
+
   searchGlobal: (q: string, limit = 5) =>
     request<SearchResults>(
       `/search?q=${encodeURIComponent(q)}&limit=${limit}`

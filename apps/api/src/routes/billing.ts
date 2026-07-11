@@ -26,7 +26,7 @@ import { config } from "../config.js";
 import { getTenantUsage } from "../services/usage.js";
 import { PLANS, STORAGE_ADDON, type PlanSlug } from "../services/plans.js";
 import { getStripe, isStripeEnabled } from "../services/stripe-client.js";
-import { ensureStripeCustomer } from "../services/stripe-service.js";
+import { ensureStripeCustomer, endTrialNow } from "../services/stripe-service.js";
 import { enqueue, Queues } from "../services/queue.js";
 
 /**
@@ -323,6 +323,42 @@ export async function registerBillingRoutes(app: FastifyInstance) {
     });
 
     return { checkoutUrl: session.url, sessionId: session.id };
+  });
+
+  // -------------------------------------------------------------------------
+  // POST /billing/subscription/end-trial
+  // -------------------------------------------------------------------------
+  // Beendet eine laufende Trial sofort → Stripe zieht die erste Zahlung
+  // umgehend über die hinterlegte Karte ein (statt erst am Tag 14). Nur
+  // für trialing-Subscriptions MIT Karte. Kartenlose Trials bekommen
+  // no_payment_method und sollen den regulären Checkout öffnen (der zahlt
+  // ohnehin sofort ohne Trial).
+  app.post("/billing/subscription/end-trial", async (req, reply) => {
+    req.requireAuth();
+    if (!req.tenantId) {
+      return reply.status(400).send({ error: "no_tenant" });
+    }
+    if (!isStripeEnabled()) {
+      return reply.status(503).send({ error: "stripe_disabled" });
+    }
+    const result = await endTrialNow(req.tenantId);
+    if (!result.ok) {
+      const codeMap: Record<string, number> = {
+        no_subscription: 404,
+        no_payment_method: 409,
+        not_trialing: 409,
+        stripe_error: 502,
+      };
+      return reply.status(codeMap[result.reason] ?? 400).send({
+        error: result.reason,
+        message: result.message,
+      });
+    }
+    app.log.info(
+      { tenantId: req.tenantId, status: result.status },
+      "billing.trial_ended_early"
+    );
+    return { started: true, status: result.status };
   });
 
   // -------------------------------------------------------------------------

@@ -10,7 +10,7 @@ import {
 } from "@/lib/api";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { useT } from "@/lib/i18n";
-import { Card } from "@/components/ui";
+import { Button, Card } from "@/components/ui";
 
 /**
  * Plan & Speicher — Studio-Seite zum aktuellen Plan, Verbrauch und
@@ -33,6 +33,9 @@ export default function BillingPage() {
   // busy-State für die Action-Buttons (Plan-Wechsel + Portal). Wir
   // disablen während Stripe-Calls laufen, sonst doppelte Checkouts.
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  // Bestätigungs-Modal fürs Trial-Sofort-Beenden. In-Page-Modal, weil
+  // window.confirm auf manchen Geräten (iPad) still blockiert wird.
+  const [showEndTrial, setShowEndTrial] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -90,6 +93,21 @@ export default function BillingPage() {
     } catch (e) {
       setErr(e instanceof Error ? e.message : t("billing.portalFailed"));
       setBusyAction(null);
+    }
+  }, []);
+
+  /** Beendet die laufende Trial sofort → Stripe bucht die erste Zahlung
+   * umgehend ab. Nach Erfolg reloaden wir, damit der neue Status (active)
+   * und die verschwundene Trial-Anzeige sichtbar werden. */
+  const handleEndTrial = useCallback(async () => {
+    setBusyAction("endTrial");
+    try {
+      await api.endTrialNow();
+      window.location.reload();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : t("billing.startNowFailed"));
+      setBusyAction(null);
+      setShowEndTrial(false);
     }
   }, []);
 
@@ -185,9 +203,28 @@ export default function BillingPage() {
             <StatusBadge status={usage.subscriptionStatus} />
           </div>
           {usage.trialEndsAt && (
-            <div className="text-ui-xs text-ink-tertiary text-right">{t("billing.trialEndsOn")}<div className="text-ui-sm text-ink-primary font-medium">
-                {new Date(usage.trialEndsAt).toLocaleDateString("de-DE")}
+            <div className="flex flex-col items-end gap-2 text-right">
+              <div className="text-ui-xs text-ink-tertiary">
+                {t("billing.trialEndsOn")}
+                <div className="text-ui-sm text-ink-primary font-medium">
+                  {new Date(usage.trialEndsAt).toLocaleDateString("de-DE")}
+                </div>
               </div>
+              {sub?.status === "trialing" && sub.hasStripeId && (
+                <div className="flex flex-col items-end gap-1">
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => setShowEndTrial(true)}
+                    disabled={busyAction !== null}
+                  >
+                    {t("billing.startTrialNow")}
+                  </Button>
+                  <div className="text-ui-xs text-ink-tertiary max-w-[16rem]">
+                    {t("billing.startTrialNowHint")}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -429,6 +466,43 @@ export default function BillingPage() {
         </Card>
       )}
       </div>
+
+      {showEndTrial && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => busyAction !== "endTrial" && setShowEndTrial(false)}
+        >
+          <div
+            className="bg-surface-base rounded-lg border border-line-subtle shadow-2xl max-w-md w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-ui-md font-medium text-ink-primary">
+              {t("billing.startNowConfirmTitle")}
+            </h3>
+            <p className="text-ui-sm text-ink-secondary mt-2">
+              {t("billing.startNowConfirmBody")}
+            </p>
+            <div className="flex gap-2 justify-end mt-5">
+              <Button
+                variant="ghost"
+                onClick={() => setShowEndTrial(false)}
+                disabled={busyAction === "endTrial"}
+              >
+                {t("billing.startNowCancel")}
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleEndTrial}
+                disabled={busyAction === "endTrial"}
+              >
+                {busyAction === "endTrial"
+                  ? t("billing.startingNow")
+                  : t("billing.startNowConfirm")}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

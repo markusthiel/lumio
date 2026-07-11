@@ -370,3 +370,80 @@ export async function extendTrial(
     };
   }
 }
+
+/**
+ * Trial sofort beenden → Stripe rechnet umgehend ab.
+ *
+ * Use-Case: Der Owner ist überzeugt und will nicht die vollen 14 Tage
+ * warten — wir ziehen die erste Abbuchung auf jetzt vor. Stripe beendet
+ * die Trial (trial_end=now), finalisiert die erste Rechnung und zieht
+ * die hinterlegte Karte ein. Der finale Zahlungs-Ausgang kommt über die
+ * Webhooks (invoice.paid → active / invoice.payment_failed → past_due);
+ * wir übernehmen optimistisch den zurückgegebenen Status, der Webhook
+ * korrigiert idempotent nach.
+ *
+ * Voraussetzung: status=trialing UND eine Stripe-Subscription mit
+ * hinterlegter Karte. Ohne stripeSubscriptionId (kartenlose Trial) gibt
+ * es nichts abzurechnen — dann muss der User den regulären Checkout
+ * durchlaufen (der ohnehin ohne Trial sofort zahlt).
+ */
+export async function endTrialNow(
+  tenantId: string
+): Promise<
+  | { ok: true; status: string }
+  | {
+      ok: false;
+      reason:
+        | "no_subscription"
+        | "no_payment_method"
+        | "not_trialing"
+        | "stripe_error";
+      message?: string;
+    }
+> {
+  const sub = await prisma.billingSubscription.findUnique({
+    where: { tenantId },
+    select: { stripeSubscriptionId: true, status: true },
+  });
+  if (!sub) return { ok: false, reason: "no_subscription" };
+  if (sub.status !== "trialing") {
+    return { ok: false, reason: "not_trialing" };
+  }
+  // Kartenlose Trial → nichts abzurechnen. Client soll den regulären
+  // Checkout öffnen (zahlt ohne Trial sofort).
+  if (!sub.stripeSubscriptionId) {
+    return { ok: false, reason: "no_payment_method" };
+  }
+
+  const stripe = getStripe();
+  try {
+    const updated = await stripe.subscriptions.update(sub.stripeSubscriptionId, {
+      trial_end: "now",
+      // Keine Proration — wir starten einfach die erste reguläre Periode.
+      proration_behavior: "none",
+    });
+    // Optimistischer Sync: trialEndsAt leeren, Status übernehmen. Der
+    // Webhook (_sync_subscription / invoice.*) setzt currentPeriodEnd +
+    // finalen Status idempotent nach. readOnlySince beim Übergang in
+    // active/trialing zurücksetzen (Recovery), analog zum Webhook.
+    await prisma.billingSubscription.update({
+      where: { tenantId },
+      data: {
+        status: updated.status,
+        trialEndsAt: null,
+        cancelAtPeriodEnd: updated.cancel_at_period_end,
+        ...(updated.status === "active" || updated.status === "trialing"
+          ? { readOnlySince: null }
+          : {}),
+      },
+    });
+    return { ok: true, status: updated.status };
+  } catch (err) {
+    const stripeErr = err as { statusCode?: number; message?: string };
+    return {
+      ok: false,
+      reason: "stripe_error",
+      message: stripeErr.message ?? "Stripe-API-Fehler",
+    };
+  }
+}

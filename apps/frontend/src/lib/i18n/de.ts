@@ -1108,6 +1108,16 @@ export const de: Dict = {
       "Du hast dein Abo gekündigt. Bis zum genannten Datum kannst du Lumio weiter im vollen Umfang nutzen. Danach geht dein Studio in den Read-Only-Modus. Die Kündigung kannst du jederzeit zurücknehmen.",
     reactivating: "Wird reaktiviert …",
     continueSubscription: "Abo fortführen",
+    startTrialNow: "Trial beenden & jetzt starten",
+    startTrialNowHint:
+      "Überzeugt? Beende die Testphase und starte dein Abo sofort.",
+    startNowConfirmTitle: "Jetzt starten?",
+    startNowConfirmBody:
+      "Wir beenden deine Testphase sofort und buchen die erste Zahlung über deine hinterlegte Karte ab. Dein Abo läuft danach ganz normal weiter — kündbar bleibt es jederzeit.",
+    startNowConfirm: "Jetzt abbuchen",
+    startNowCancel: "Abbrechen",
+    startingNow: "Wird gestartet …",
+    startNowFailed: "Trial konnte nicht beendet werden.",
     currentPlan: "Aktueller Plan",
     trialEndsOn: "Trial endet am",
     readOnlyTitle: "Konto im Read-only-Modus",
