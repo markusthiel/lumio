@@ -43,6 +43,11 @@ services:
       # CLIP-faehigen Haupt-Server. Wuerde die Node 'ml' ziehen, bekaemen
       # hier verarbeitete Bilder nur rule-based-Tags.
       - WORKER_QUEUES=${WORKER_QUEUES:-default,heavy,io}
+      # Billing-Lifecycle auch hier durchreichen. In .env.worker
+      # BILLING_ENABLED=true setzen, wenn diese Node den Trial-/Read-only-
+      # Lifecycle mit-triggern soll (redundant zum Hauptserver, aber
+      # unschädlich, da enforce_limits idempotent ist).
+      - BILLING_ENABLED=${BILLING_ENABLED:-false}
     deploy:
       # Mehrere Worker-Prozesse pro Node. concurrency × replicas = parallele
       # Jobs. Bei 12 Kernen z.B. replicas=1 + concurrency=10, oder

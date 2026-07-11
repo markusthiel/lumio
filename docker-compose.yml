@@ -173,6 +173,10 @@ services:
       - S3_FORCE_PATH_STYLE=${S3_FORCE_PATH_STYLE:-true}
       - WORKER_CONCURRENCY=${WORKER_CONCURRENCY:-4}
       - LOG_LEVEL=${LOG_LEVEL:-info}
+      # Billing-Lifecycle (Trial-Expiry, Read-only-Eskalation, Suspend).
+      # consumer.py triggert enforce_limits nur wenn das hier "true" ist —
+      # ohne diese Zeile lief der gesamte Read-only-Lifecycle nie.
+      - BILLING_ENABLED=${BILLING_ENABLED:-false}
     deploy:
       replicas: 1
     depends_on:
