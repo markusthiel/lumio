@@ -1232,15 +1232,22 @@ function BillingBlock({
           <span className="font-medium text-semantic-danger">
             Zahlungsproblem: {subscription.status}
           </span>
-          {subscription.readOnlySince && (
-            <span className="text-ink-tertiary">
-              {" "}
-              · Read-Only seit{" "}
-              {new Date(subscription.readOnlySince).toLocaleDateString(
-                "de-DE"
-              )}
-            </span>
-          )}
+        </div>
+      )}
+
+      {/* Read-Only-Hinweis für JEDEN gesperrten Account (canceled,
+          past_due, unpaid, Trial abgelaufen). Vorher steckte er im
+          Zahlungsproblem-Banner und war damit an past_due/unpaid/
+          incomplete gekoppelt — ein gekündigtes, read-only gesetztes
+          Abo (status=canceled) blieb dadurch im Super-Admin unsichtbar. */}
+      {subscription.readOnlySince && (
+        <div className="rounded-md border border-semantic-warning/30 bg-semantic-warning/8 px-3 py-2 text-ui-sm">
+          <span className="font-medium text-semantic-warning">Read-Only</span>
+          <span className="text-ink-tertiary">
+            {" "}
+            · seit{" "}
+            {new Date(subscription.readOnlySince).toLocaleDateString("de-DE")}
+          </span>
         </div>
       )}
 
