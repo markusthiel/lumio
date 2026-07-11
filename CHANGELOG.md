@@ -38,6 +38,13 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.47.2] - 2026-07-11
+
+_Pull genügt — betrifft nur den Worker (kein Env/DB/Compose). Bei mehreren Worker-Nodes alle neu bauen. · Pull is enough — worker only (no env/DB/compose). Rebuild all worker nodes if you run more than one._
+
+### Fixed
+- **Gekündigte/ausgelaufene Abos landeten nicht im Read-only-Modus.** Der stündliche Lifecycle-Job sperrte bisher nur abgelaufene Trials OHNE hinterlegte Karte. Während des Trials gekündigte Abos (Karte hinterlegt), abgewanderte Zahler und ausgelaufene Zahlungsversuche behielten nach Periodenende vollen Schreibzugriff — kein Read-only, keine Archivierung, keine Suspendierung, kein Reaktivierungs-Banner. Der Job setzt `readOnlySince` jetzt auch bei Status `canceled`/`unpaid` nach Periodenende (comped-Accounts bleiben unberührt, laufende Perioden behalten Zugriff); bestehende Fälle werden beim nächsten Lauf automatisch nachgeholt. · *Cancelled/expired subscriptions were not put into read-only mode. The hourly lifecycle job previously only locked expired trials WITHOUT a card on file. Subscriptions cancelled during the trial (card on file), churned payers, and exhausted payment retries kept full write access after their period ended — no read-only, no archiving, no suspension, no reactivation banner. The job now also sets readOnlySince for status canceled/unpaid after period end (comped accounts untouched, running periods keep access); existing cases are picked up automatically on the next run.*
+
 ## [0.47.1] - 2026-07-11
 
 _Pull genügt — nur API betroffen, keine Migration. · Pull is enough — API only, no migration._
