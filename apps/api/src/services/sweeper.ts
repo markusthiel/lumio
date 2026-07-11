@@ -793,6 +793,9 @@ async function sendTrialExpiredWinbacks() {
         status: "trial_expired",
         trialEndsAt: { not: null, gte: sevenDaysAgo },
         trialExpiredMailedAt: null,
+        // Mutual Exclusion: nie zwei Abschieds-Mails pro Account.
+        trialCancelledMailedAt: null,
+        winbackMailedAt: null,
         marketingEmailsEnabled: true,
         comped: false,
       },
@@ -857,6 +860,13 @@ async function sendChurnedWinbacks() {
         // currentPeriodEnd liegt in den letzten 2 Tagen = frisch abgelaufen
         currentPeriodEnd: { not: null, gte: twoDaysAgo, lte: new Date() },
         winbackMailedAt: null,
+        // Mutual Exclusion: nie zwei Abschieds-Mails pro Account.
+        // trialCancelledMailedAt filtert Trial-Kündiger raus — die haben nie
+        // gezahlt (Trial hat zwar eine stripeSubscriptionId, aber der Churn-
+        // Winback ist ausschliesslich fuer echte Ex-Zahler gedacht). Ohne
+        // diesen Guard bekam ein Trial-Abbrecher BEIDE Mails (Bug).
+        trialCancelledMailedAt: null,
+        trialExpiredMailedAt: null,
         marketingEmailsEnabled: true,
         comped: false,
       },
