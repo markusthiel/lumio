@@ -38,6 +38,13 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ### Fixed
 -
 
+## [0.48.2] - 2026-07-11
+
+_Pull genügt — nur Hauptserver (Frontend), keine Migration. · Pull is enough — main server only (frontend), no migration._
+
+### Fixed
+- **Super-Admin zeigte den Read-only-Hinweis bei gekündigten Abos nicht an.** Der „Read-Only seit …"-Hinweis im Tenant-Detail war an die Zahlungsproblem-Status (`past_due`/`unpaid`/`incomplete`) gekoppelt und blieb dadurch bei Status `canceled` unsichtbar — obwohl das Konto korrekt read-only war. Der Hinweis erscheint jetzt als eigener Banner bei **jedem** gesperrten Account, unabhängig vom Status. · *Super-admin didn't show the read-only indicator for cancelled subscriptions. The "read-only since …" note in the tenant detail was coupled to payment-problem statuses and stayed hidden for status canceled — even though the account was correctly in read-only. It now shows as its own banner for any locked account, regardless of status.*
+
 ## [0.48.1] - 2026-07-11
 
 _Nur SaaS-/Billing-Betrieb betroffen. Self-Host ohne Billing: reiner Pull, keine Änderung. Billing-Betreiber: Worker neu bauen, damit `BILLING_ENABLED` im Worker ankommt. · SaaS/billing only. Self-host without billing: pull, no change. Billing operators: rebuild the worker so BILLING_ENABLED reaches it._
