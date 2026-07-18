@@ -16,7 +16,7 @@ Danke, dass du beitragen möchtest!
 
 - **Bug-Fixes** mit reproduzierbarem Testfall
 - **Performance-Verbesserungen** mit Vorher/Nachher-Messung
-- **Übersetzungen** (sobald i18n drin ist)
+- **Übersetzungen** — siehe [Eine Übersetzung hinzufügen](#eine-übersetzung-hinzufügen)
 - **Dokumentation** — auch kleine Tippfehler-Fixes
 - **RAW-Format-Tests** — wenn du eine ungewöhnliche Kamera hast, sind Beispieldateien Gold wert
 
@@ -32,6 +32,38 @@ Danke, dass du beitragen möchtest!
 Lumio steht unter der **Functional Source License 1.1 (FSL-1.1-ALv2)** — einer *source-available* Lizenz (nicht OSI-Open-Source). Mit deinem Beitrag stimmst du zu, dass dein Code unter dieser Lizenz veröffentlicht wird.
 
 Falls eine kommerzielle Dual-Lizenz für proprietäre Forks angeboten werden soll, behalten wir uns ein DCO oder CLA für signifikante Beiträge vor — wird diskutiert, sobald das praxisrelevant wird.
+
+## Eine Übersetzung hinzufügen
+
+Die UI-Texte des Frontends liegen als TypeScript-Dictionaries in
+`apps/frontend/src/lib/i18n/` — kein externer Lokalisierungsdienst, nur einfache Dateien.
+
+Neue Sprache hinzufügen (Beispiel: Tschechisch, `cs`):
+
+1. **`en.ts` nach `cs.ts` kopieren** (in `apps/frontend/src/lib/i18n/`) und die
+   Werte übersetzen. Alle Keys und die Verschachtelung exakt wie in `en.ts`
+   lassen — der `Dict`-Typ erlaubt nur String-Werte, fehlende Keys fallen auf
+   Englisch zurück.
+2. **Locale in `dict.ts` registrieren**: Import ergänzen, den `Locale`-Typ
+   erweitern (`"en" | "de" | "cs"`) und den Eintrag zu `dictionaries` hinzufügen.
+3. **Locale in `SUPPORTED` aufnehmen** (in `apps/frontend/src/lib/i18n.tsx`),
+   damit Cookie-/`navigator.language`-Erkennung greift.
+4. **Sprach-Umschalter aktualisieren.** Einige Komponenten tragen die
+   Locale-Union und die Anzeigenamen direkt. Fundstellen:
+   ```bash
+   grep -rn '"en" | "de"' apps/frontend/src
+   ```
+   (aktuell `components/gallery/GalleryShell.tsx` und
+   `app/studio/settings/page.tsx`) — dort die neue Sprache ergänzen.
+5. **Prüfen**: `npx tsc --noEmit` in `apps/frontend` muss durchlaufen — das
+   Typsystem fängt fehlende oder überzählige Keys.
+
+Teilübersetzungen sind für einen ersten PR völlig okay — nicht übersetzte Keys
+fallen auf Englisch zurück. Bitte im PR erwähnen, welche Bereiche noch fehlen.
+
+Die Doku (`docs/*.md`) folgt einer eigenen Konvention: Englisch ist die
+kanonische `.md`, Deutsch liegt in `*.de.md`. Weitere Doku-Sprachen sind
+willkommen — bitte vorher ein Issue eröffnen, damit wir das Namensschema abstimmen.
 
 ## Code of Conduct
 
