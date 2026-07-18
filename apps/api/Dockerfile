@@ -22,7 +22,11 @@ WORKDIR /app
 RUN apk add --no-cache openssl3
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-RUN npx prisma generate && npm run build
+# Bewusst ./node_modules/.bin statt npx: npx lädt bei fehlender lokaler
+# Installation still die NEUESTE Prisma-CLI aus dem Netz (Major-Sprünge
+# brechen dann das Schema, siehe GitHub-Issue #1). Der direkte Pfad
+# schlägt stattdessen hart und klar fehl.
+RUN ./node_modules/.bin/prisma generate && npm run build
 
 # Stage 3: Runtime
 FROM node:20-alpine AS runner
@@ -40,4 +44,4 @@ COPY package.json ./
 
 EXPOSE 3001
 ENTRYPOINT ["/sbin/tini", "--"]
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
+CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy && node dist/server.js"]
