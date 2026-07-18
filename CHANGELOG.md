@@ -36,6 +36,13 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 -
 
 ### Fixed
+-
+
+## [0.48.4] - 2026-07-18
+
+_Pull + Rebuild genügt — nur Hauptserver (API), keine Migration. · Pull + rebuild is enough — main server only (API), no migration._
+
+### Fixed
 - **Frische Docker-Builds/-Starts konnten still auf Prisma 7 upgraden und scheiterten mit Schema-Fehler P1012 (GitHub-Issue #1).** Die Prisma-CLI war nur devDependency und fehlte dadurch im Runtime-Image; `npx prisma migrate deploy` lud beim Container-Start ungepinnt die neueste CLI aus dem Netz — seit Prisma 7 bricht das mit „datasource `url` is no longer supported". Die CLI ist jetzt reguläre Dependency (im Image enthalten), das API-Dockerfile ruft `./node_modules/.bin/prisma` direkt auf (nie wieder Netz-Fallback), und das gedriftete `package-lock.json` wurde neu synchronisiert. Kein Eingriff nötig: `git pull` + Rebuild genügt. · *Fresh Docker builds/starts could silently upgrade to Prisma 7 and fail with schema error P1012 (GitHub issue #1). The Prisma CLI was only a devDependency and thus missing from the runtime image; `npx prisma migrate deploy` downloaded the latest unpinned CLI from the network at container start — since Prisma 7 this breaks with "datasource `url` is no longer supported". The CLI is now a regular dependency (shipped in the image), the API Dockerfile calls `./node_modules/.bin/prisma` directly (no network fallback ever again), and the drifted `package-lock.json` has been re-synchronized. No action needed: `git pull` + rebuild is enough.*
 
 ## [0.48.3] - 2026-07-11
