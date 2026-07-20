@@ -30,10 +30,20 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ## [Unreleased]
 
 ### Added
-- **Antwortadresse für ausgehende Mails (`SMTP_REPLY_TO`).** Neue optionale Env-Variable: Wenn gesetzt, bekommt jede Mail einen Reply-To-Header — Empfänger können auch bei einem noreply-Absender einfach auf die Mail antworten und erreichen dich. Ohne den Wert ändert sich nichts. Format wie `SMTP_FROM`, z.B. `"Support <support@deine-domain.de>"`. · **🇬🇧 Reply address for outgoing mail (`SMTP_REPLY_TO`).** New optional env variable: when set, every email carries a Reply-To header — recipients can simply reply even when the sender is a no-reply address. Without the value, nothing changes. Same format as `SMTP_FROM`, e.g. `"Support <support@your-domain.com>"`.
+-
 
 ### Changed
 -
+
+### Fixed
+-
+
+## [0.49.0] - 2026-07-20
+
+Pull genügt — kein manueller Eingriff nötig. Die neue Env-Variable `SMTP_REPLY_TO` ist optional. · *Pull is enough — no manual intervention required. The new `SMTP_REPLY_TO` env variable is optional.*
+
+### Added
+- **Antwortadresse für ausgehende Mails (`SMTP_REPLY_TO`).** Neue optionale Env-Variable: Wenn gesetzt, bekommt jede Mail einen Reply-To-Header — Empfänger können auch bei einem noreply-Absender einfach auf die Mail antworten und erreichen dich. Ohne den Wert ändert sich nichts. Format wie `SMTP_FROM`, z.B. `"Support <support@deine-domain.de>"`. · **🇬🇧 Reply address for outgoing mail (`SMTP_REPLY_TO`).** New optional env variable: when set, every email carries a Reply-To header — recipients can simply reply even when the sender is a no-reply address. Without the value, nothing changes. Same format as `SMTP_FROM`, e.g. `"Support <support@your-domain.com>"`.
 
 ### Fixed
 - **Trial-Reminder respektiert Stripe-verwaltete Trials.** Der Sweeper schickt keine eigene Trial-Erinnerung mehr für Abos, deren Trial von Stripe verwaltet wird — dort verschickt Stripe bereits eigene Hinweise, Doppel-Mails entfallen. · **🇬🇧 Trial reminder respects Stripe-managed trials.** The sweeper no longer sends its own trial reminder for subscriptions whose trial is managed by Stripe — Stripe already sends its own notices there, so duplicate emails are gone.
