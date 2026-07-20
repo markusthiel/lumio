@@ -665,6 +665,11 @@ async function sendTrialReminders() {
       where: {
         status: "trialing",
         cancelAtPeriodEnd: false,
+        // Nur Trials ohne gebuchten Plan (kein Stripe-Abo hinterlegt).
+        // Wer Checkout durchlaufen hat und eine Karte hinterlegt hat,
+        // bekommt nach Trial-Ende automatisch eine Rechnung von Stripe —
+        // ein Reminder wäre störend und irreführend.
+        stripeSubscriptionId: null,
         trialEndsAt: { not: null, gt: new Date(), lte: in3d },
         trialReminder3dMailedAt: null,
         marketingEmailsEnabled: true,
