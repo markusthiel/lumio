@@ -202,8 +202,11 @@ SMTP_SECURE=false                    # STARTTLS, true for SMTPS on port 465
 SMTP_USER=noreply@your-saas-domain.com
 SMTP_PASSWORD=...
 SMTP_FROM="Lumio <noreply@your-saas-domain.com>"
+SMTP_REPLY_TO="Support <support@your-saas-domain.com>"   # optional, see below
 LEAD_ADMIN_EMAIL=ops@your-saas-domain.com
 ```
+
+**Reply-To:** Several emails invite the recipient to "just reply to this email". If `SMTP_FROM` is a no-reply address without a mailbox behind it, those replies bounce. Set `SMTP_REPLY_TO` to a monitored address (real mailbox or forwarding) so replies actually reach you. Without it, no Reply-To header is set.
 
 If `SMTP_HOST` stays empty, everything runs in no-op mode – trial emails aren't sent, the rest works normally.
 

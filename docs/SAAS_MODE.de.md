@@ -202,8 +202,11 @@ SMTP_SECURE=false                    # STARTTLS, true für SMTPS auf Port 465
 SMTP_USER=noreply@deine-saas-domain.de
 SMTP_PASSWORD=...
 SMTP_FROM="Lumio <noreply@deine-saas-domain.de>"
+SMTP_REPLY_TO="Support <support@deine-saas-domain.de>"   # optional, siehe unten
 LEAD_ADMIN_EMAIL=ops@deine-saas-domain.de
 ```
+
+**Reply-To:** Mehrere Mails laden den Empfänger ein, „einfach auf diese Mail zu antworten". Wenn `SMTP_FROM` eine noreply-Adresse ohne Postfach dahinter ist, bouncen diese Antworten. Setze `SMTP_REPLY_TO` auf eine gelesene Adresse (echtes Postfach oder Weiterleitung), damit Antworten dich wirklich erreichen. Ohne den Wert wird kein Reply-To-Header gesetzt.
 
 Wenn `SMTP_HOST` leer bleibt, läuft alles im No-Op-Modus – Trial-Mails werden nicht versendet, der Rest funktioniert normal.
 

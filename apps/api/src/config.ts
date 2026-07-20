@@ -58,6 +58,12 @@ const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASSWORD: z.string().optional(),
   SMTP_FROM: z.string().optional(),
+  // Optionale globale Antwortadresse (Reply-To-Header). Sinnvoll wenn
+  // SMTP_FROM eine noreply-Adresse ist: Antworten der Empfaenger landen
+  // dann hier statt im Nirvana. Format wie SMTP_FROM, z.B.
+  // "Lumio Support <support@example.com>". Kein Default — ohne Wert
+  // wird kein Reply-To gesetzt (Verhalten wie bisher).
+  SMTP_REPLY_TO: z.string().optional(),
   SMTP_SECURE: z
     .string()
     .default("false")

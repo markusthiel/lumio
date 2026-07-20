@@ -46,6 +46,10 @@ export interface MailMessage {
    *  (alternative) versendet: Klartext als Fallback fuer Clients die
    *  HTML nicht koennen/wollen, HTML als bevorzugte Darstellung. */
   html?: string;
+  /** Optionale Antwortadresse fuer genau diese Mail. Ueberschreibt den
+   *  globalen Default aus SMTP_REPLY_TO. Wenn beides fehlt, wird kein
+   *  Reply-To-Header gesetzt. */
+  replyTo?: string;
 }
 
 export async function sendMail(msg: MailMessage): Promise<void> {
@@ -61,6 +65,9 @@ export async function sendMail(msg: MailMessage): Promise<void> {
   try {
     await transport.sendMail({
       from: config.SMTP_FROM ?? "Lumio <noreply@lumio.local>",
+      // Reply-To: pro Mail > globaler Default > gar nicht. Damit koennen
+      // Empfaenger auch bei einem noreply-Absender einfach antworten.
+      replyTo: msg.replyTo ?? config.SMTP_REPLY_TO,
       to: msg.to,
       subject: msg.subject,
       text: msg.text,
