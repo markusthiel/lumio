@@ -36,6 +36,13 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 -
 
 ### Fixed
+-
+
+## [0.50.1] - 2026-07-21
+
+_Pull + Rebuild genügt — nur Hauptserver, keine Migration. · Pull + rebuild is enough — main server only, no migration._
+
+### Fixed
 - **Verwirrende Compose-Warnung `The "ACME_DNS_BIND_IP" variable is not set` bei jedem `docker compose`-Aufruf beseitigt** — die Variable hat jetzt einen harmlosen Default (127.0.0.1); der acme-dns-Container startet ohne `--profile wildcard` ohnehin nicht. Für aktives Wildcard-TLS muss weiterhin die externe Server-IP gesetzt sein. Außerdem erklärt der Quick Start im README jetzt explizit, dass Updates `docker compose up -d --build` brauchen (Fixes stecken oft in den Images; ein bloßes `up -d` fährt die alten weiter). · *Removed the confusing Compose warning `The "ACME_DNS_BIND_IP" variable is not set` on every `docker compose` invocation — the variable now has a harmless default (127.0.0.1); the acme-dns container doesn't start without `--profile wildcard` anyway. Active wildcard TLS still requires the external server IP. The README Quick Start now also states explicitly that updates need `docker compose up -d --build` (fixes often live inside the images; a plain `up -d` keeps running the old ones).*
 
 ## [0.50.0] - 2026-07-21
