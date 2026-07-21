@@ -907,6 +907,13 @@ export const api = {
   getGalleryStats: (id: string) =>
     request<GalleryStats>(`/galleries/${id}/stats`),
 
+  // Instanz-Flags — wie läuft diese Installation? (kein Auth nötig)
+  getInstanceInfo: () => request<InstanceInfo>(`/instance`),
+
+  // Speicherverbrauch des eigenen Tenants — unabhängig vom Billing,
+  // funktioniert also auch self-hosted ohne Plan.
+  getAccountStorage: () => request<AccountStorage>(`/account/storage`),
+
   // Billing — Read-Only-Endpoints + Sprint 2 Stripe-Aktionen
   getBillingPlans: () => request<BillingPlansResponse>(`/billing/plans`),
   getBillingUsage: () => request<BillingUsage>(`/billing/usage`),
@@ -4318,3 +4325,17 @@ function filterToQueryString(filter?: GalleryFilter): string {
 }
 
 export { API_URL, ApiError };
+
+// ---------------------------------------------------------------------------
+// Instanz-Flags & Konto-Speicher (auch self-hosted, ohne Billing)
+// ---------------------------------------------------------------------------
+export interface InstanceInfo {
+  billingEnabled: boolean;
+  deploymentMode: "single" | "multi";
+}
+
+export interface AccountStorage {
+  originalsBytes: number;
+  renditionsBytes: number;
+  totalBytes: number;
+}

@@ -1100,6 +1100,12 @@ export const de: Dict = {
   },
 
   billing: {
+    selfHostedTitle: "Self-hosted — keine Plan-Limits",
+    selfHostedInfo:
+      "Diese Installation läuft selbst gehostet ohne Abrechnung. Es gelten keine Speicher- oder Feature-Limits — der einzige Rahmen ist dein eigener Server.",
+    storageUsed: "Belegter Speicher",
+    storageOriginals: "Originale",
+    storageRenditions: "Abgeleitete Dateien (Vorschauen, Web-Größen)",
     title: "Plan & Speicher",
     noData: "Keine Abrechnungs-Daten gefunden.",
     portalFailed: "Portal-Öffnen fehlgeschlagen",

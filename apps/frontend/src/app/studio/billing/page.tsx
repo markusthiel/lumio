@@ -7,6 +7,7 @@ import {
   type BillingUsage,
   type BillingPlan,
   type BillingSubscriptionInfo,
+  type AccountStorage,
 } from "@/lib/api";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { useT } from "@/lib/i18n";
@@ -23,6 +24,11 @@ import { Button, Card } from "@/components/ui";
 export default function BillingPage() {
   const t = useT();
   const [usage, setUsage] = useState<BillingUsage | null>(null);
+  // Self-Hosted-Modus (BILLING_ENABLED=false): statt Plänen zeigen wir
+  // eine Info-Karte + den Speicherverbrauch (GitHub-Feedback: vorher
+  // lief die Seite in "Route not found").
+  const [selfHosted, setSelfHosted] = useState(false);
+  const [storage, setStorage] = useState<AccountStorage | null>(null);
   const [plans, setPlans] = useState<BillingPlan[]>([]);
   const [sub, setSub] = useState<BillingSubscriptionInfo | null>(null);
   const [loading, setLoading] = useState(true);
@@ -39,6 +45,14 @@ export default function BillingPage() {
 
   const load = useCallback(async () => {
     try {
+      // Erst fragen, wie die Instanz läuft — self-hosted ohne Billing hat
+      // die /billing/*-Routen gar nicht registriert.
+      const info = await api.getInstanceInfo();
+      if (!info.billingEnabled) {
+        setSelfHosted(true);
+        setStorage(await api.getAccountStorage());
+        return;
+      }
       // Subscription-Get ist optional — wenn der Tenant noch keine hat
       // (alte Self-Host-Installation ohne Billing), bleibt sub null.
       const [u, p, s] = await Promise.all([
@@ -120,6 +134,55 @@ export default function BillingPage() {
       <>
         <PageHeader title={t("billing.title")} />
         <div className="px-6 sm:px-8 lg:px-12 py-6 text-ui-sm text-ink-tertiary">Lädt …</div>
+      </>
+    );
+  }
+
+  if (selfHosted) {
+    const fmt = (b: number): string => {
+      if (b < 1024) return `${b} B`;
+      const units = ["KB", "MB", "GB", "TB"];
+      let v = b;
+      let i = -1;
+      do {
+        v /= 1024;
+        i++;
+      } while (v >= 1024 && i < units.length - 1);
+      return `${v.toFixed(v >= 100 ? 0 : 1)} ${units[i]}`;
+    };
+    return (
+      <>
+        <PageHeader title={t("billing.title")} />
+        <div className="px-6 sm:px-8 lg:px-12 py-6 space-y-4 max-w-3xl">
+          <Card className="p-5">
+            <h2 className="text-ui-md font-semibold mb-1">
+              {t("billing.selfHostedTitle")}
+            </h2>
+            <p className="text-ui-sm text-ink-secondary">
+              {t("billing.selfHostedInfo")}
+            </p>
+          </Card>
+          {storage && (
+            <Card className="p-5">
+              <h3 className="text-ui-sm font-semibold mb-3">
+                {t("billing.storageUsed")}
+              </h3>
+              <div className="text-2xl font-semibold mb-3">
+                {fmt(storage.totalBytes)}
+              </div>
+              <dl className="text-ui-sm text-ink-secondary space-y-1">
+                <div className="flex justify-between gap-4">
+                  <dt>{t("billing.storageOriginals")}</dt>
+                  <dd className="tabular-nums">{fmt(storage.originalsBytes)}</dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt>{t("billing.storageRenditions")}</dt>
+                  <dd className="tabular-nums">{fmt(storage.renditionsBytes)}</dd>
+                </div>
+              </dl>
+            </Card>
+          )}
+        </div>
       </>
     );
   }

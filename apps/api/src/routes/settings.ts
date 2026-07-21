@@ -17,7 +17,7 @@ import {
   zipPartDefaultMib,
   zipPartHardCapMib,
 } from "../services/zip-part-limit.js";
-import { checkFeatureAvailable } from "../services/usage.js";
+import { checkFeatureAvailable, computeStorageBytes } from "../services/usage.js";
 import { validateSlugFormat } from "../services/slugs.js";
 import {
   STUDIO_NOTIFICATION_EVENTS,
@@ -85,6 +85,36 @@ const initWatermarkUploadSchema = z.object({
 });
 
 export async function registerSettingsRoutes(app: FastifyInstance) {
+  // -------------------------------------------------------------------------
+  // GET /instance — öffentliche Instanz-Flags (kein Auth)
+  // -------------------------------------------------------------------------
+  // Damit das Frontend weiß, in welchem Modus die Instanz läuft, statt
+  // Billing-Endpoints ins Leere zu rufen (Self-Host: "Route not found"
+  // auf der Konto-Seite, GitHub-Feedback). Bewusst nur unkritische Flags.
+  app.get("/instance", async () => ({
+    billingEnabled: config.BILLING_ENABLED,
+    deploymentMode: config.DEPLOYMENT_MODE,
+  }));
+
+  // -------------------------------------------------------------------------
+  // GET /account/storage — Speicherverbrauch des Tenants (Auth)
+  // -------------------------------------------------------------------------
+  // Unabhängig vom Billing registriert: auch Self-Hoster ohne Plan-Limits
+  // sollen ihren Verbrauch sehen (Originale + Renditions getrennt).
+  app.get("/account/storage", async (req, reply) => {
+    req.requireAuth();
+    if (!req.tenantId) {
+      return reply.status(401).send({ error: "tenant_unknown" });
+    }
+    const b = await computeStorageBytes(req.tenantId);
+    // BigInt → Number: sicher bis 2^53 Bytes (~9 PB), weit jenseits real.
+    return {
+      originalsBytes: Number(b.originalsBytes),
+      renditionsBytes: Number(b.renditionsBytes),
+      totalBytes: Number(b.originalsBytes + b.renditionsBytes),
+    };
+  });
+
   // -------------------------------------------------------------------------
   // GET /settings
   // -------------------------------------------------------------------------

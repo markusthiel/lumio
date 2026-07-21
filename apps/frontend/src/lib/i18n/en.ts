@@ -1095,6 +1095,12 @@ export const en: Dict = {
   },
 
   billing: {
+    selfHostedTitle: "Self-hosted — no plan limits",
+    selfHostedInfo:
+      "This installation is self-hosted without billing. No storage or feature limits apply — the only boundary is your own server.",
+    storageUsed: "Storage used",
+    storageOriginals: "Originals",
+    storageRenditions: "Derived files (previews, web sizes)",
     title: "Plan & storage",
     noData: "No billing data found.",
     portalFailed: "Could not open portal",

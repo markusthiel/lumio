@@ -30,13 +30,13 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ## [Unreleased]
 
 ### Added
--
+- **Konto → Plan & Speicher funktioniert jetzt auch self-hosted (GitHub-Feedback).** Statt „Route not found" zeigt die Seite ohne Billing eine Self-Hosted-Info („keine Plan-Limits") plus den tatsächlichen Speicherverbrauch (Originale und abgeleitete Dateien getrennt). Dafür zwei neue, immer verfügbare API-Endpoints: `GET /api/v1/instance` (Instanz-Flags) und `GET /api/v1/account/storage` (Verbrauch des eigenen Studios). · *Account → Plan & Storage now works self-hosted too (GitHub feedback). Instead of "Route not found", the page without billing shows a self-hosted note ("no plan limits") plus actual storage usage (originals and derived files separately). Backed by two new always-available API endpoints: `GET /api/v1/instance` (instance flags) and `GET /api/v1/account/storage` (your studio's usage).*
 
 ### Changed
 - Quick Start (README DE+EN): Der Zugriff über `http://<server-ip>` ist jetzt explizit als gleichwertiger Weg neben `http://localhost` dokumentiert, inkl. Hinweis auf erzwungene HTTPS-Upgrades mancher Browser. · *Quick Start (README DE+EN): access via `http://<server-ip>` is now explicitly documented as an equivalent path alongside `http://localhost`, incl. a note on some browsers forcing HTTPS upgrades.*
 
 ### Fixed
--
+- **Uploads und Bild-Anzeige schlugen ohne gesetztes `S3_PUBLIC_URL` immer sofort fehl — in jedem Quick-Start-Setup.** Presigned URLs fielen auf den internen `S3_ENDPOINT` (`http://minio:9000`) zurück, einen Container-DNS-Namen, den kein Browser auflösen kann. Die API signiert jetzt automatisch auf `http://<aufgerufener-host>:9000` (localhost, Server-IP oder Domain — je nachdem, worüber man zugreift; Port konfigurierbar über `MINIO_API_PORT`). Setups mit gesetztem `S3_PUBLIC_URL` (eigene S3-Domain hinter TLS) sind unverändert. Wichtig: Port 9000 muss in der Cloud-Firewall offen sein — steht jetzt im Quick Start. · *Uploads and image display always failed immediately without `S3_PUBLIC_URL` set — in every Quick Start setup. Presigned URLs fell back to the internal `S3_ENDPOINT` (`http://minio:9000`), a container DNS name no browser can resolve. The API now automatically signs against `http://<requested-host>:9000` (localhost, server IP or domain — whichever you're using; port configurable via `MINIO_API_PORT`). Setups with `S3_PUBLIC_URL` set (own S3 domain behind TLS) are unchanged. Important: port 9000 must be open in your cloud firewall — now documented in the Quick Start.*
 
 ## [0.50.1] - 2026-07-21
 
