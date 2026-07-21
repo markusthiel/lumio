@@ -33,6 +33,16 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 -
 
 ### Changed
+-
+
+### Fixed
+-
+
+## [0.50.0] - 2026-07-21
+
+_Für die meisten genügt Pull + Rebuild (nur Hauptserver, keine Migration). Betreiber der Marketing-Site-Blöcke: siehe ⚠️ Upgrade-Hinweise unten. · For most, pull + rebuild is enough (main server only, no migration). Operators of the marketing-site blocks: see ⚠️ upgrade notes below._
+
+### Changed
 - **Die Marketing-Site-Blöcke im Caddyfile (`lumio-cloud.de`, `lumio-app.de`, `lumio-cloud.com`, `www.lumio-cloud.com`) sind jetzt env-gesteuert und standardmäßig inaktiv.** Bisher waren diese Domains hart kodiert — jede frische Installation startete dadurch sofort Let's-Encrypt-Challenges für fremde Domains (Log-Spam, sinnloser Traffic). Ohne die neuen Variablen sind die Blöcke tot und Caddy holt keine Zertifikate dafür; normale Self-Hoster müssen nichts tun. · *The marketing-site blocks in the Caddyfile (`lumio-cloud.de`, `lumio-app.de`, `lumio-cloud.com`, `www.lumio-cloud.com`) are now env-driven and inactive by default. These domains used to be hard-coded — every fresh installation immediately started Let's Encrypt challenges for foreign domains (log spam, pointless traffic). Without the new variables the blocks are dead and Caddy fetches no certificates for them; regular self-hosters don't need to do anything.*
 
 ### ⚠️ Upgrade-Hinweise · Upgrade notes
@@ -46,9 +56,6 @@ LUMIO_MARKETING_CLOUD_COM_WWW_HOST=www.lumio-cloud.com
 ```
 
 *Only relevant if you actively use the marketing-site blocks (Astro/Nginx containers on the same Caddy) — for everyone else pull + rebuild is enough. Set the domains in `.env` before rebuilding, otherwise Caddy will stop serving the marketing sites.*
-
-### Fixed
--
 
 ## [0.49.3] - 2026-07-21
 
