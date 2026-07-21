@@ -36,6 +36,13 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 -
 
 ### Fixed
+-
+
+## [0.49.2] - 2026-07-21
+
+_Pull + Rebuild genügt — nur Hauptserver (API), keine Migration. · Pull + rebuild is enough — main server only (API), no migration._
+
+### Fixed
 - **Login über die Server-IP (`http://<ip>`) hielt keine Session — man war sofort wieder ausgeloggt.** Das Session-Cookie wurde immer mit `Secure`-Flag gesetzt; Browser akzeptieren das auf `http://localhost`, verwerfen es aber auf einer nackten IP ohne TLS. Das Flag folgt jetzt dem tatsächlichen Protokoll (`X-Forwarded-Proto`): HTTPS-Setups behalten `Secure` unverändert, reiner HTTP-Zugriff (Quick-Start-Test über IP) funktioniert jetzt. Kein Eingriff nötig: Pull + Rebuild genügt. · *Login via the server IP (`http://<ip>`) didn't keep a session — you were logged out immediately. The session cookie was always set with the `Secure` flag; browsers accept that on `http://localhost` but drop it on a bare IP without TLS. The flag now follows the actual protocol (`X-Forwarded-Proto`): HTTPS setups keep `Secure` unchanged, plain HTTP access (Quick Start testing via IP) now works. No action needed: pull + rebuild is enough.*
 
 ## [0.49.1] - 2026-07-21
