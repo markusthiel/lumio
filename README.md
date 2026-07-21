@@ -139,10 +139,13 @@ docker compose exec api npm run create-admin -- \
 
 In your browser:
 
-→ **http://localhost** (studio login)
+→ **http://localhost** (studio login) — or, on a remote server, simply
+**http://\<server-ip\>** (type the `http://` explicitly; some browsers force
+`https://`, and there's no certificate for a bare IP)
 
 > **Note:** Always access Lumio through **port 80** (the Caddy proxy) — it routes
-> `/api/*` to the API. On a remote server, tunnel port 80, not 3000:
+> `/api/*` to the API. No configuration needed for IP access; leave `LUMIO_HOST`
+> empty. Alternatively, tunnel port 80 (not 3000):
 > `ssh -L 8080:127.0.0.1:80 your-server` → then open `http://localhost:8080`.
 > (Since v0.49.1 the frontend port 3000 also proxies API calls as a fallback,
 > but port 80 remains the intended entry point.)

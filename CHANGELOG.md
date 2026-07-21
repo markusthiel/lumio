@@ -33,7 +33,7 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 -
 
 ### Changed
--
+- Quick Start (README DE+EN): Der Zugriff über `http://<server-ip>` ist jetzt explizit als gleichwertiger Weg neben `http://localhost` dokumentiert, inkl. Hinweis auf erzwungene HTTPS-Upgrades mancher Browser. · *Quick Start (README DE+EN): access via `http://<server-ip>` is now explicitly documented as an equivalent path alongside `http://localhost`, incl. a note on some browsers forcing HTTPS upgrades.*
 
 ### Fixed
 -
