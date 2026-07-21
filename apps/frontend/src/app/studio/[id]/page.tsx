@@ -1025,7 +1025,7 @@ export default function GalleryDetailPage() {
 
       <PageHeader
         breadcrumb={[
-          { label: "Studio", href: "/studio" },
+          { label: t("nav.studio"), href: "/studio" },
           { label: gallery.title },
         ]}
         title={gallery.title}

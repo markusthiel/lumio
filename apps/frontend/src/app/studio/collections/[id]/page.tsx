@@ -95,10 +95,10 @@ export default function CollectionEditPage() {
     <>
       <PageHeader
         breadcrumb={[
-          { label: "Studio", href: "/studio" },
-          { label: "Smart Collections" },
+          { label: t("nav.studio"), href: "/studio" },
+          { label: t("collections.breadcrumb") },
         ]}
-        title="Smart Collection bearbeiten"
+        title={t("collections.editTitle")}
       />
       <div className="px-6 sm:px-8 lg:px-12 py-6 max-w-2xl space-y-6">
         <section className="rounded-lg border border-line-subtle bg-surface-raised p-5 space-y-3">

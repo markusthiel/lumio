@@ -79,7 +79,7 @@ export default function TagsPage() {
     <>
       <PageHeader
         breadcrumb={[
-          { label: "Studio", href: "/studio" },
+          { label: t("nav.studio"), href: "/studio" },
           { label: t("studio.tagsTitle") },
         ]}
         title={t("studio.tagsTitle")}

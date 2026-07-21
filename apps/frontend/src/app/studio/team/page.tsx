@@ -90,6 +90,7 @@ export default function TeamPage() {
   return (
     <>
       <PageHeader
+        breadcrumb={[{ label: t("nav.studio"), href: "/studio" }, { label: t("team.title") }]}
         title={t("team.title")}
         description={
           isOwner

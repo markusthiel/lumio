@@ -2066,6 +2066,8 @@ export const en: Dict = {
   },
 
   collections: {
+    breadcrumb: "Smart Collections",
+    editTitle: "Edit Smart Collection",
     nameIcon: "Name & icon",
     filter: "Filter",
     any: "Any",

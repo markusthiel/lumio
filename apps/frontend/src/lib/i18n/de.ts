@@ -2071,6 +2071,8 @@ export const de: Dict = {
   },
 
   collections: {
+    breadcrumb: "Smart Collections",
+    editTitle: "Smart Collection bearbeiten",
     nameIcon: "Name & Icon",
     filter: "Filter",
     any: "Beliebig",

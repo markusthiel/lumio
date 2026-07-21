@@ -97,6 +97,7 @@ export default function AccountPage() {
   return (
     <>
       <PageHeader
+        breadcrumb={[{ label: t("nav.studio"), href: "/studio" }, { label: t("account.title") }]}
         title={t("account.title")}
         description={t("account.description")}
       />

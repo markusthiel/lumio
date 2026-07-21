@@ -501,7 +501,6 @@ export default function AppearancePage() {
       <PageHeader
         breadcrumb={[
           { label: t("nav.studio"), href: "/studio" },
-          { label: t("nav.design"), href: "/studio/brandings" },
           { label: t("subtabs.studioLogin") },
         ]}
         title={t("appearance.title")}

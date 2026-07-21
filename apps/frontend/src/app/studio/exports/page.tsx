@@ -121,6 +121,7 @@ export default function ExportsPage() {
   return (
     <>
       <PageHeader
+        breadcrumb={[{ label: t("nav.studio"), href: "/studio" }, { label: t("exportsList.title") }]}
         title={t("exportsList.title")}
         description={t("exportsList.description")}
       />

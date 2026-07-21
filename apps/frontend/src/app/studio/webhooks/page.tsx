@@ -48,7 +48,7 @@ export default function WebhooksPage() {
     <>
       <PageHeader
         breadcrumb={[
-          { label: "Studio", href: "/studio" },
+          { label: t("nav.studio"), href: "/studio" },
           { label: t("studio.webhooksTitle") },
         ]}
         title={t("studio.webhooksTitle")}

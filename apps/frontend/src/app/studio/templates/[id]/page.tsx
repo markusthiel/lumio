@@ -133,8 +133,8 @@ export default function TemplateEditorPage() {
     <>
       <PageHeader
         breadcrumb={[
-          { label: "Studio", href: "/studio" },
-          { label: "Templates", href: "/studio/templates" },
+          { label: t("nav.studio"), href: "/studio" },
+          { label: t("nav.templates"), href: "/studio/templates" },
           { label: template.name },
         ]}
         title={template.name}

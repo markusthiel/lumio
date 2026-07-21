@@ -132,7 +132,7 @@ export default function BillingPage() {
   if (loading) {
     return (
       <>
-        <PageHeader title={t("billing.title")} />
+        <PageHeader breadcrumb={[{ label: t("nav.studio"), href: "/studio" }, { label: t("billing.title") }]} title={t("billing.title")} />
         <div className="px-6 sm:px-8 lg:px-12 py-6 text-ui-sm text-ink-tertiary">Lädt …</div>
       </>
     );
@@ -152,7 +152,7 @@ export default function BillingPage() {
     };
     return (
       <>
-        <PageHeader title={t("billing.title")} />
+        <PageHeader breadcrumb={[{ label: t("nav.studio"), href: "/studio" }, { label: t("billing.title") }]} title={t("billing.title")} />
         <div className="px-6 sm:px-8 lg:px-12 py-6 space-y-4 max-w-3xl">
           <Card className="p-5">
             <h2 className="text-ui-md font-semibold mb-1">
@@ -190,7 +190,7 @@ export default function BillingPage() {
   if (err || !usage) {
     return (
       <>
-        <PageHeader title={t("billing.title")} />
+        <PageHeader breadcrumb={[{ label: t("nav.studio"), href: "/studio" }, { label: t("billing.title") }]} title={t("billing.title")} />
         <div className="px-6 sm:px-8 lg:px-12 py-6">
           <Card className="p-4 border-semantic-danger/30 bg-semantic-danger/5">
             <div className="text-semantic-danger text-ui-sm">
@@ -213,7 +213,7 @@ export default function BillingPage() {
 
   return (
     <>
-      <PageHeader title={t("billing.title")} />
+      <PageHeader breadcrumb={[{ label: t("nav.studio"), href: "/studio" }, { label: t("billing.title") }]} title={t("billing.title")} />
       <div className="px-6 sm:px-8 lg:px-12 py-6 max-w-5xl space-y-6">
 
       {/* Banner: geplante Kündigung — User kann hier rückgängig machen */}

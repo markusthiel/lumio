@@ -122,6 +122,7 @@ export default function ExportDetailPage() {
         className="text-ui-xs text-ink-tertiary hover:text-ink-secondary mb-3 inline-block"
       >{t("exportDetail.backLink")}</Link>
       <PageHeader
+        breadcrumb={[{ label: t("nav.studio"), href: "/studio" }, { label: t("exportsList.title"), href: "/studio/exports" }, { label: t("exportDetail.title") }]}
         title={t("exportDetail.title")}
         description={t("exportDetail.createdExpires", { created: new Date(data.createdAt).toLocaleString("de-DE"), expires: new Date(data.expiresAt).toLocaleDateString("de-DE") })}
       />

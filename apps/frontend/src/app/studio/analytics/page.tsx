@@ -73,6 +73,7 @@ export default function AnalyticsPage() {
   return (
     <>
       <PageHeader
+        breadcrumb={[{ label: t("nav.studio"), href: "/studio" }, { label: t("analytics.title") }]}
         title={t("analytics.title")}
         actions={
           <div className="flex gap-1.5">
