@@ -36,6 +36,13 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 -
 
 ### Fixed
+-
+
+## [0.49.3] - 2026-07-21
+
+_Pull + Rebuild genügt — nur Hauptserver (Caddy-Image wird neu gebaut, ~1–2 s Proxy-Unterbrechung), keine Migration. · Pull + rebuild is enough — main server only (Caddy image is rebuilt, ~1–2 s proxy interruption), no migration._
+
+### Fixed
 - **Caddy startete auf frischen Installationen nie — `ERR_CONNECTION_REFUSED` auf Port 80.** Drei übereinanderliegende Ursachen, die auf bestehenden Setups (mit gesetzten Hosts + vorhandener acme-dns-Datei) nie sichtbar wurden: (1) Das Compose übergab `LUMIO_HOST` als *leere* Variable — Caddys `{$VAR:default}` greift aber nur bei *ungesetzter*, ein leerer Site-Key bricht den Start. (2) Die toten Default-Adressen von Wildcard- und Umami-Block kollidierten beide auf `127.0.0.1:9` („ambiguous site definition"; TLS-Policies sind Host-basiert, daher jetzt eigene Loopback-IPs pro Block). (3) Das acme-dns-Plugin lädt seine Credentials-Datei bereits beim Caddy-Start — auf frischen Clones existiert `secrets/acmedns.json` nicht (gitignored); der neue Caddy-Entrypoint fällt dann auf eine eingebackene Dummy-Datei zurück. Bestehende Setups: kein Eingriff nötig, Pull + Rebuild genügt; gesetzte Hosts und eine vorhandene `acmedns.json` werden unverändert genutzt. · *Caddy never started on fresh installations — `ERR_CONNECTION_REFUSED` on port 80. Three stacked causes, invisible on existing setups (hosts set + acme-dns file present): (1) Compose passed `LUMIO_HOST` as an* empty *variable — Caddy's `{$VAR:default}` only applies when* unset*, and an empty site key breaks startup. (2) The dead default addresses of the wildcard and Umami blocks both collided on `127.0.0.1:9` ("ambiguous site definition"; TLS policies are host-based, hence distinct loopback IPs per block now). (3) The acme-dns plugin loads its credentials file at Caddy startup — on fresh clones `secrets/acmedns.json` doesn't exist (gitignored); the new Caddy entrypoint falls back to a baked-in dummy file. Existing setups: no action needed, pull + rebuild is enough; configured hosts and an existing `acmedns.json` are used unchanged.*
 
 ## [0.49.2] - 2026-07-21
