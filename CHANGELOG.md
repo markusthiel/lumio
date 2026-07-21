@@ -36,6 +36,13 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 -
 
 ### Fixed
+-
+
+## [0.49.1] - 2026-07-21
+
+_Pull + Rebuild genügt — nur Hauptserver (Frontend), keine Migration. · Pull + rebuild is enough — main server only (frontend), no migration._
+
+### Fixed
 - **Kryptischer „JSON.parse: unexpected character"-Fehler beim Login, wenn die API nicht erreichbar war (GitHub-Issue #3).** Trat v.a. im Quick Start auf, wenn statt Port 80 (Caddy-Proxy) der Frontend-Port 3000 direkt aufgerufen wurde — etwa per SSH-Tunnel. Drei Verbesserungen: (1) Das Frontend zeigt bei Nicht-JSON-Antworten (HTML-404/502) jetzt eine verständliche Fehlermeldung mit Lösungshinweis. (2) Der Frontend-Port proxied `/api/*` und `/health` nun selbst als Fallback zur API — Direktzugriff auf Port 3000 funktioniert damit. (3) README und TROUBLESHOOTING erklären den richtigen Zugang (Port 80) inkl. SSH-Tunnel-Beispiel. Kein Eingriff nötig: Pull + Rebuild genügt. · *Cryptic "JSON.parse: unexpected character" error on login when the API was unreachable (GitHub issue #3). Occurred mainly in the Quick Start when the frontend port 3000 was accessed directly instead of port 80 (Caddy proxy) — e.g. via SSH tunnel. Three improvements: (1) the frontend now shows a descriptive error with a fix hint on non-JSON responses (HTML 404/502); (2) the frontend port itself now proxies `/api/*` and `/health` to the API as a fallback, so direct access to port 3000 works; (3) README and TROUBLESHOOTING explain the intended entry point (port 80) incl. an SSH tunnel example. No action needed: pull + rebuild is enough.*
 
 ## [0.49.0] - 2026-07-20
