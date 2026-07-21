@@ -30,10 +30,21 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ## [Unreleased]
 
 ### Added
-- **CI-Smoke-Test für den Quick Start** (`.github/workflows/smoke-test.yml`): Bei jedem Push/PR wird der komplette Self-Hoster-Pfad auf GitHub Actions nachgestellt — frischer Checkout, `.env` exakt nach README, `docker compose up`, Health über Caddy (Port 80) inkl. Versions-Abgleich, `create-admin`, Login über HTTP (Session-Cookie), Galerie anlegen, Upload-Presign (Assertion: URL zeigt nie auf den internen Docker-Host) und ein echter PUT auf die presigned URL. Fängt die Bug-Klassen des Quick-Start-Testtags künftig vor dem Release. · *CI smoke test for the quick start: on every push/PR, GitHub Actions replays the full self-hosting path — fresh checkout, `.env` exactly as per README, `docker compose up`, health via Caddy (port 80) incl. version check, `create-admin`, login over HTTP (session cookie), gallery creation, upload presign (asserting the URL never points at the internal Docker host) and a real PUT to the presigned URL. Catches the quick-start bug classes before they reach a release.*
+-
 
 ### Changed
 -
+
+### Fixed
+-
+
+## [0.52.3] - 2026-07-21
+
+_Pull + Rebuild genügt — nur Hauptserver (Frontend), keine Migration. Erstes Release mit Smoke-Test-Gate: der Quick-Start-Pfad dieses Stands wurde vor dem Tag automatisch auf GitHub Actions verifiziert. · Pull + rebuild is enough — main server only (frontend), no migration. First release with the smoke-test gate: this build's quick-start path was automatically verified on GitHub Actions before tagging._
+
+### Added
+- **CI-Smoke-Test für den Quick Start** (`.github/workflows/smoke-test.yml`): Bei jedem Push/PR wird der komplette Self-Hoster-Pfad auf GitHub Actions nachgestellt — frischer Checkout, `.env` exakt nach README, `docker compose up`, Health über Caddy (Port 80) inkl. Versions-Abgleich, `create-admin`, Login über HTTP (Session-Cookie), Galerie anlegen, Upload-Presign (Assertion: URL zeigt nie auf den internen Docker-Host) und ein echter PUT auf die presigned URL. Fängt die Bug-Klassen des Quick-Start-Testtags künftig vor dem Release. · *CI smoke test for the quick start: on every push/PR, GitHub Actions replays the full self-hosting path — fresh checkout, `.env` exactly as per README, `docker compose up`, health via Caddy (port 80) incl. version check, `create-admin`, login over HTTP (session cookie), gallery creation, upload presign (asserting the URL never points at the internal Docker host) and a real PUT to the presigned URL. Catches the quick-start bug classes before they reach a release.*
+
 
 ### Fixed
 - **Videos „verschwanden" nach einem Reload scheinbar aus der Verarbeitung.** Video-Poster entstehen früh — nach einem Seiten-Reload sah die Kachel im Studio deshalb fertig aus, obwohl der Worker (z.B. HLS-Transcoding) noch rechnete und die Datei in geteilten Links noch fehlte. Jetzt tragen auch Kacheln mit Thumbnail ein „in Arbeit"-Badge mit Spinner, und über der Dateiliste zeigt ein Zähler „N in Verarbeitung" mit Erklärung (Tooltip), dass diese Dateien in geteilten Links automatisch erscheinen, sobald sie fertig sind. Die Liste aktualisiert sich dabei wie bisher alle 10 Sekunden von selbst. Außerdem waren die Kachel-Badges „Fehler" und „versteckt" hartkodiert deutsch und sind jetzt übersetzt. · *Videos seemingly "disappeared" from processing after a reload. Video posters are written early — after a page reload the studio tile looked finished although the worker (e.g. HLS transcoding) was still running and the file was still missing from shared links. Tiles with a thumbnail now carry a "processing" badge with a spinner, and a counter above the file list shows "N processing" with an explanation (tooltip) that these files appear in shared links automatically once ready. The list keeps auto-refreshing every 10 seconds as before. Also, the "error" and "hidden" tile badges were hard-coded German and are now translated.*
