@@ -80,10 +80,17 @@ Set these values:
 LUMIO_HOST=gallery.your-studio.com
 PUBLIC_URL=https://gallery.your-studio.com
 
-# S3 public URL for browser uploads — same domain with the /s3 path,
-# or a dedicated subdomain (see below)
-S3_PUBLIC_URL=https://gallery.your-studio.com/s3
+# S3 needs its OWN subdomain — a path prefix (…/s3) does NOT work:
+# MinIO verifies the AWS V4 signature over the full path incl. bucket,
+# so path rewriting breaks every upload. Set BOTH values and add a
+# DNS A record for the subdomain pointing to the same server IP:
+LUMIO_S3_HOST=s3.your-studio.com
+S3_PUBLIC_URL=https://s3.your-studio.com
 ```
+
+(Without a domain — plain IP testing — leave both S3 values unset: the API
+then automatically signs against `http://<host>:9000`; make sure port 9000
+is reachable.)
 
 ## 5. Start
 

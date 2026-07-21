@@ -176,6 +176,11 @@ EOF
 chmod 600 infra/caddy/secrets/acmedns.json
 ```
 
+
+> Seit v0.49.3 startet Caddy auch *ohne* diese Datei (Fallback auf einen
+> eingebackenen Dummy, damit frische Installationen nicht crashen) — die
+> Wildcard-TLS funktioniert aber erst, wenn die echte Credentials-Datei
+> existiert. Dieser Schritt bleibt fürs Wildcard-Setup also Pflicht.
 Wildcard-Host in `.env` aktivieren:
 
 ```bash

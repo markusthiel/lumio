@@ -65,6 +65,10 @@ server is no longer enough (see [SCALING.md](SCALING.md)).
 
 - A public **IPv4** (and optionally IPv6) with open ports **80** + **443**
   (Caddy fetches the Let's Encrypt certificate over them).
+- **Port 9000** additionally open if you run WITHOUT an S3 subdomain
+  (Quick Start / IP testing): the browser uploads and loads images
+  directly from MinIO on that port. With `S3_PUBLIC_URL` set (domain
+  setup per SELFHOSTING.md), 9000 stays internal.
 - A **domain** pointing to the server IP.
 - For multi-tenant with wildcard subdomains also see [WILDCARD.md](WILDCARD.md).
 
@@ -72,6 +76,6 @@ server is no longer enough (see [SCALING.md](SCALING.md)).
 
 - [ ] Linux server, amd64 **or** arm64
 - [ ] Docker ≥ 24 + Compose v2
-- [ ] Domain + public IP, ports 80/443 open (OS **and** cloud firewall)
+- [ ] Domain + public IP, ports 80/443 open (OS **and** cloud firewall); without S3 subdomain also 9000
 - [ ] RAM/CPU per the table (account for video & ML tagging)
 - [ ] Storage strategy decided (local MinIO vs. external S3)

@@ -67,6 +67,10 @@ ein Server nicht mehr reicht (siehe [SCALING.md](SCALING.de.md)).
 
 - Öffentliche **IPv4** (und optional IPv6) mit offenen Ports **80** + **443**
   (Caddy holt darüber das Let's-Encrypt-Zertifikat).
+- **Port 9000** zusätzlich offen, wenn du OHNE S3-Subdomain fährst
+  (Quick Start / IP-Test): der Browser lädt Uploads und Bilder direkt
+  von MinIO über diesen Port. Mit gesetztem `S3_PUBLIC_URL`
+  (Domain-Setup laut SELFHOSTING.de.md) bleibt 9000 intern.
 - Eine **Domain**, die auf die Server-IP zeigt.
 - Bei Multi-Tenant mit Wildcard-Subdomains zusätzlich
   [WILDCARD.md](WILDCARD.de.md) beachten.
@@ -75,6 +79,6 @@ ein Server nicht mehr reicht (siehe [SCALING.md](SCALING.de.md)).
 
 - [ ] Linux-Server, amd64 **oder** arm64
 - [ ] Docker ≥ 24 + Compose v2
-- [ ] Domain + öffentliche IP, Ports 80/443 frei (OS- **und** Cloud-Firewall)
+- [ ] Domain + öffentliche IP, Ports 80/443 frei (OS- **und** Cloud-Firewall); ohne S3-Subdomain zusätzlich 9000
 - [ ] RAM/CPU nach Tabelle (Video & ML-Tagging einplanen)
 - [ ] Storage-Strategie entschieden (MinIO lokal vs. externes S3)

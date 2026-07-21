@@ -80,10 +80,17 @@ Diese Werte setzen:
 LUMIO_HOST=galerien.dein-studio.de
 PUBLIC_URL=https://galerien.dein-studio.de
 
-# S3-Public-URL für Browser-Uploads — gleiche Domain mit /s3-Pfad,
-# oder eine eigene Subdomain (siehe unten)
-S3_PUBLIC_URL=https://galerien.dein-studio.de/s3
+# S3 braucht eine EIGENE Subdomain — ein Pfad-Präfix (…/s3) funktioniert
+# NICHT: MinIO prüft die AWS-V4-Signatur über den vollen Pfad inkl.
+# Bucket, Path-Rewriting bricht jeden Upload. Beide Werte setzen und
+# einen DNS-A-Record für die Subdomain auf dieselbe Server-IP anlegen:
+LUMIO_S3_HOST=s3.dein-studio.de
+S3_PUBLIC_URL=https://s3.dein-studio.de
 ```
+
+(Ohne Domain — reiner IP-Test — beide S3-Werte weglassen: die API
+signiert dann automatisch auf `http://<host>:9000`; Port 9000 muss
+erreichbar sein.)
 
 ## 5. Starten
 

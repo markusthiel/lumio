@@ -33,7 +33,7 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 -
 
 ### Changed
--
+- Doku-Nachzug zum Quick-Start-Testtag: SELFHOSTING (DE+EN) empfahl für `S3_PUBLIC_URL` ein **funktional kaputtes** Pfad-Präfix (`…/s3` — MinIO kann wegen der V4-Signatur kein Path-Rewriting) und unterschlug `LUMIO_S3_HOST`; jetzt korrektes Subdomain-Setup inkl. DNS-Hinweis. REQUIREMENTS (DE+EN) nennt Port 9000 für Setups ohne S3-Subdomain. DEVELOPMENT-Troubleshooting (DE+EN) zum „DNS error: minio" auf den v0.51.0-Auto-Fallback aktualisiert. WILDCARD (DE+EN) erklärt den Caddy-Start-Fallback ohne `acmedns.json`. · *Docs follow-up to the Quick Start test day: SELFHOSTING (DE+EN) recommended a functionally broken path prefix for `S3_PUBLIC_URL` (`…/s3` — MinIO can't do path rewriting due to V4 signatures) and omitted `LUMIO_S3_HOST`; now documents the correct subdomain setup incl. DNS note. REQUIREMENTS (DE+EN) lists port 9000 for setups without an S3 subdomain. DEVELOPMENT troubleshooting (DE+EN) for "DNS error: minio" updated to the v0.51.0 auto-fallback. WILDCARD (DE+EN) explains the Caddy startup fallback without `acmedns.json`.*
 
 ### Fixed
 -
