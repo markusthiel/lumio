@@ -17,6 +17,13 @@ name: Smoke Test (Quick Start)
 # möglich. Forgejo scannt auch .github/workflows, daher der server_url-
 # Guard (gleiches Muster wie in den Release-Workflows, nur umgekehrt).
 # Falls der Forgejo-Runner später Docker-in-Docker kann: Guard entfernen.
+#
+# RELEASE-GATE (Prozessregel seit 2026-07-21): Tags werden erst gesetzt,
+# nachdem dieser Test für den zu releasenden Code-Stand GRÜN war.
+# Ablauf: Fix-Commits pushen → Mirror-Sync → diesen Lauf abwarten →
+# bei Grün Release-Commit (nur VERSION/CHANGELOG) + Tag + Release.
+# Damit hat jedes Release, das Self-Hoster ziehen, den Quick Start
+# nachweislich bestanden.
 
 on:
   push:
