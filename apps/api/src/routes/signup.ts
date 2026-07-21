@@ -21,7 +21,7 @@
  * Welcome-E-Mail kommt vom Stripe-Hosted-Receipt + unserer Lifecycle-
  * Mail (Sprint 2 Phase 3).
  */
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import type Stripe from "stripe";
 import { z } from "zod";
 import { prisma } from "../db.js";
@@ -63,11 +63,17 @@ const signupSchema = z.object({
   turnstileToken: z.string().max(4096).optional(),
 });
 
-const cookieOpts = (maxAgeDays: number) => ({
+// secure dynamisch nach tatsächlichem Protokoll (X-Forwarded-Proto via
+// trustProxy) statt NODE_ENV: Über https bleibt das Cookie Secure wie
+// bisher; bei reinem http-Zugriff (Quick Start über Server-IP ohne TLS)
+// würde ein Secure-Cookie vom Browser verworfen und der Login wäre
+// sofort wieder weg. Gleiches Muster wie bei den übrigen Cookies
+// (Impersonate, Super-Admin).
+const cookieOpts = (maxAgeDays: number, req: FastifyRequest) => ({
   path: "/",
   httpOnly: true,
   sameSite: "lax" as const,
-  secure: config.NODE_ENV === "production",
+  secure: req.protocol === "https",
   maxAge: maxAgeDays * 24 * 60 * 60,
 });
 
@@ -406,7 +412,7 @@ export async function registerSignupRoutes(app: FastifyInstance) {
       ipAddress: req.ip,
       userAgent: req.headers["user-agent"] ?? null,
     });
-    reply.setCookie(SESSION_COOKIE, token, cookieOpts(30));
+    reply.setCookie(SESSION_COOKIE, token, cookieOpts(30, req));
 
     // Welcome-Mail fire-and-forget — Response soll nicht auf SMTP warten
     // (3-5s Latenz waeren UX-Killer beim Checkout-Redirect).

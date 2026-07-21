@@ -150,6 +150,18 @@ The frontend received HTML instead of JSON from the API. Two common causes:
 Since v0.49.1 the frontend shows a descriptive error message instead of the
 raw `JSON.parse` failure.
 
+### Login succeeds but you're immediately logged out (access via server IP)
+
+Before v0.49.2 the session cookie was always set with the `Secure` flag.
+Browsers accept that on `http://localhost`, but silently drop it on
+`http://<server-ip>` — login returns OK, yet the session never sticks.
+Fixed in v0.49.2 (the flag now follows the actual protocol; HTTPS setups
+keep `Secure` as before). If the page doesn't load at all via the IP, check:
+
+- **Firewall**: port 80 must be open (Hetzner Cloud Firewall, `ufw status`).
+- **Browser HTTPS upgrade**: some browsers (e.g. Brave) force `https://` —
+  there's no certificate for a bare IP. Explicitly type `http://<ip>`.
+
 ### No login button, blank page
 
 Frontend logs:

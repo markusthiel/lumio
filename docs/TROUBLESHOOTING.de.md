@@ -151,6 +151,20 @@ Das Frontend hat HTML statt JSON von der API erhalten. Zwei häufige Ursachen:
 Seit v0.49.1 zeigt das Frontend statt des rohen `JSON.parse`-Fehlers eine
 verständliche Fehlermeldung.
 
+### Login klappt, aber du bist sofort wieder ausgeloggt (Zugriff über Server-IP)
+
+Vor v0.49.2 wurde das Session-Cookie immer mit `Secure`-Flag gesetzt.
+Browser akzeptieren das auf `http://localhost`, verwerfen es aber
+stillschweigend auf `http://<server-ip>` — der Login meldet Erfolg, die
+Session bleibt trotzdem nie bestehen. Ab v0.49.2 behoben (das Flag folgt
+jetzt dem tatsächlichen Protokoll; HTTPS-Setups behalten `Secure` wie
+bisher). Lädt die Seite über die IP gar nicht erst, prüfe:
+
+- **Firewall**: Port 80 muss offen sein (Hetzner Cloud Firewall, `ufw status`).
+- **Browser-HTTPS-Upgrade**: manche Browser (z.B. Brave) erzwingen
+  `https://` — für eine nackte IP gibt es kein Zertifikat. Explizit
+  `http://<ip>` eintippen.
+
 ### Kein Login-Button, leere Seite
 
 Frontend-Logs:

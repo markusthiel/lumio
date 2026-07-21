@@ -14,7 +14,7 @@
  *
  * Galerie-Zugang (Kunden-Seite) läuft separat über Tokens, siehe galleries.ts.
  */
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import { z } from "zod";
 
 import { prisma } from "../db.js";
@@ -89,11 +89,17 @@ const disableTotpSchema = z.object({
 const DUMMY_HASH =
   "$argon2id$v=19$m=19456,t=2,p=1$YWFhYWFhYWFhYWFhYWFhYQ$Z9p7n5LcVCwQk6JNQK6Bs3i3qZKgkV2y8ksv9HzC3xc";
 
-const cookieOpts = (maxAgeDays: number) => ({
+// secure dynamisch nach tatsächlichem Protokoll (X-Forwarded-Proto via
+// trustProxy) statt NODE_ENV: Über https bleibt das Cookie Secure wie
+// bisher; bei reinem http-Zugriff (Quick Start über Server-IP ohne TLS)
+// würde ein Secure-Cookie vom Browser verworfen und der Login wäre
+// sofort wieder weg. Gleiches Muster wie bei den übrigen Cookies
+// (Impersonate, Super-Admin).
+const cookieOpts = (maxAgeDays: number, req: FastifyRequest) => ({
   path: "/",
   httpOnly: true,
   sameSite: "lax" as const,
-  secure: config.NODE_ENV === "production",
+  secure: req.protocol === "https",
   maxAge: maxAgeDays * 24 * 60 * 60,
 });
 
@@ -266,7 +272,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         userAgent: req.headers["user-agent"] ?? null,
       });
 
-      reply.setCookie(SESSION_COOKIE, token, cookieOpts(30));
+      reply.setCookie(SESSION_COOKIE, token, cookieOpts(30, req));
 
       await logEvent({
         tenantId,
@@ -344,7 +350,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         userAgent: req.headers["user-agent"] ?? null,
       });
 
-      reply.setCookie(SESSION_COOKIE, token, cookieOpts(30));
+      reply.setCookie(SESSION_COOKIE, token, cookieOpts(30, req));
 
       await logEvent({
         tenantId: user.tenantId,
@@ -552,7 +558,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
         ipAddress: req.ip,
         userAgent: req.headers["user-agent"] ?? null,
       });
-      reply.setCookie(SESSION_COOKIE, token, cookieOpts(30));
+      reply.setCookie(SESSION_COOKIE, token, cookieOpts(30, req));
 
       await logEvent({
         tenantId: user.tenantId,
@@ -872,7 +878,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
     });
 
     reply.setCookie(SESSION_COOKIE, sessionToken, {
-      ...cookieOpts(0),
+      ...cookieOpts(0, req),
       // 60min — passt zur Server-Side-Session-TTL fuer Impersonate
       maxAge: 60 * 60,
     });
@@ -1488,7 +1494,7 @@ export async function registerAuthRoutes(app: FastifyInstance) {
           ipAddress: req.ip,
           userAgent: req.headers["user-agent"] ?? null,
         });
-        reply.setCookie(SESSION_COOKIE, token, cookieOpts(30));
+        reply.setCookie(SESSION_COOKIE, token, cookieOpts(30, req));
 
         app.log.info(
           { tenantId, userId: owner.id, sessionId: body.data.sessionId },
