@@ -497,6 +497,10 @@ export const en: Dict = {
     statusProcessing: "Processing…",
     statusUploading: "Uploading…",
     statusHidden: "Hidden",
+    processingBadge: "processing",
+    processingBanner: "{count} processing",
+    processingBannerHint:
+      "These files are still being processed (e.g. video transcoding). They will appear in shared links automatically once ready.",
     tabShare: "Share",
     tabInsights: "Selection & stats",
     tabSettings: "Settings",

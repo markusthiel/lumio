@@ -1503,6 +1503,24 @@ export default function GalleryDetailPage() {
                     · {selected.size} {t("studio.selectedSuffix")}
                   </span>
                 )}
+                {gallery.files.some(
+                  (fl) =>
+                    fl.status === "processing" || fl.status === "uploading"
+                ) && (
+                  <span
+                    className="text-ui-xs uppercase tracking-wider px-2 py-0.5 rounded-xs font-medium bg-surface-overlay text-ink-secondary flex items-center gap-1.5"
+                    title={t("studio.processingBannerHint")}
+                  >
+                    <span className="inline-block w-2.5 h-2.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    {t("studio.processingBanner", {
+                      count: gallery.files.filter(
+                        (fl) =>
+                          fl.status === "processing" ||
+                          fl.status === "uploading"
+                      ).length,
+                    })}
+                  </span>
+                )}
                 {pendingCount > 0 && (
                   <button
                     onClick={() =>
@@ -1637,7 +1655,25 @@ export default function GalleryDetailPage() {
                   <>
                     {/* Quickaction: alle wartenden freigeben — sichtbar
                         wenn überhaupt was wartet, unabhängig von Filter. */}
-                    {pendingCount > 0 && (
+                    {gallery.files.some(
+                  (fl) =>
+                    fl.status === "processing" || fl.status === "uploading"
+                ) && (
+                  <span
+                    className="text-ui-xs uppercase tracking-wider px-2 py-0.5 rounded-xs font-medium bg-surface-overlay text-ink-secondary flex items-center gap-1.5"
+                    title={t("studio.processingBannerHint")}
+                  >
+                    <span className="inline-block w-2.5 h-2.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    {t("studio.processingBanner", {
+                      count: gallery.files.filter(
+                        (fl) =>
+                          fl.status === "processing" ||
+                          fl.status === "uploading"
+                      ).length,
+                    })}
+                  </span>
+                )}
+                {pendingCount > 0 && (
                       <Button
                         size="sm"
                         variant="primary"
@@ -2542,6 +2578,12 @@ function _FileTile({
   const sortMode = mode === "sort";
   const isHidden = file.status === "hidden";
   const isFailed = file.status === "failed";
+  // Noch nicht fertig verarbeitet (Upload läuft oder Worker rechnet noch,
+  // z.B. HLS-Transcoding bei Videos). Wichtig fürs Badge: Video-Poster
+  // werden früh geschrieben — eine Kachel MIT Thumbnail kann trotzdem
+  // noch mitten in der Verarbeitung stecken.
+  const isTransient =
+    file.status === "processing" || file.status === "uploading";
   // Pending-Approval: File kam via UploadLink und ist noch nicht
   // freigegeben. Studio sieht es mit Badge; Customer noch nicht
   // (publicVisibility-Filter im API). Freigabe läuft über die
@@ -2678,14 +2720,25 @@ function _FileTile({
           spezifischere Problem ist */}
       {isFailed && (
         <div className="absolute top-1.5 right-1.5 text-ui-xs uppercase tracking-wider px-1.5 py-0.5 rounded-xs bg-semantic-danger/90 text-surface-canvas font-medium">
-          Fehler
+          {t("common.error")}
+        </div>
+      )}
+
+      {/* Processing-Badge — auch auf Kacheln MIT Thumbnail. Video-Poster
+          entstehen früh, HLS/Renditions können danach noch Minuten brauchen;
+          ohne Badge sah die Kachel nach einem Reload fertig aus, obwohl die
+          Datei in geteilten Links noch fehlte. */}
+      {isTransient && !isFailed && (
+        <div className="absolute top-1.5 right-1.5 text-ui-xs uppercase tracking-wider px-1.5 py-0.5 rounded-xs bg-surface-overlay/90 backdrop-blur-sm text-ink-primary font-medium flex items-center gap-1">
+          <span className="inline-block w-2.5 h-2.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+          {t("studio.processingBadge")}
         </div>
       )}
 
       {/* Hidden-Badge (nur wenn nicht failed — sonst Doppel-Badge) */}
       {isHidden && !isFailed && (
         <div className="absolute top-1.5 right-1.5 text-ui-xs uppercase tracking-wider px-1.5 py-0.5 rounded-xs bg-semantic-warning/90 text-surface-canvas font-medium">
-          versteckt
+          {t("studio.statusHidden")}
         </div>
       )}
 
@@ -2696,7 +2749,7 @@ function _FileTile({
           Toolbar (Bulk-Action), nicht über den Tile selbst — auf dem
           Tile würde der Approve-Button mit dem Drag-and-Drop kollidieren
           (Klick wird als Drag-Start interpretiert). */}
-      {isPending && !isFailed && (
+      {isPending && !isFailed && !isTransient && (
         <div
           className="absolute top-1.5 right-1.5 text-ui-xs uppercase tracking-wider px-1.5 py-0.5 rounded-xs bg-accent/90 text-accent-contrast font-medium"
           title={t("studio.uploadLinks.pendingHint")}

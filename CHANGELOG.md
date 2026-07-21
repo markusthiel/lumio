@@ -36,7 +36,7 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 -
 
 ### Fixed
--
+- **Videos „verschwanden" nach einem Reload scheinbar aus der Verarbeitung.** Video-Poster entstehen früh — nach einem Seiten-Reload sah die Kachel im Studio deshalb fertig aus, obwohl der Worker (z.B. HLS-Transcoding) noch rechnete und die Datei in geteilten Links noch fehlte. Jetzt tragen auch Kacheln mit Thumbnail ein „in Arbeit"-Badge mit Spinner, und über der Dateiliste zeigt ein Zähler „N in Verarbeitung" mit Erklärung (Tooltip), dass diese Dateien in geteilten Links automatisch erscheinen, sobald sie fertig sind. Die Liste aktualisiert sich dabei wie bisher alle 10 Sekunden von selbst. Außerdem waren die Kachel-Badges „Fehler" und „versteckt" hartkodiert deutsch und sind jetzt übersetzt. · *Videos seemingly "disappeared" from processing after a reload. Video posters are written early — after a page reload the studio tile looked finished although the worker (e.g. HLS transcoding) was still running and the file was still missing from shared links. Tiles with a thumbnail now carry a "processing" badge with a spinner, and a counter above the file list shows "N processing" with an explanation (tooltip) that these files appear in shared links automatically once ready. The list keeps auto-refreshing every 10 seconds as before. Also, the "error" and "hidden" tile badges were hard-coded German and are now translated.*
 
 ## [0.52.2] - 2026-07-21
 
