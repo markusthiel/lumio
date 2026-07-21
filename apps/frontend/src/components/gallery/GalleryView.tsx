@@ -834,19 +834,24 @@ function DownloadMenu({
           <path d="M2.5 4 5 6.5 7.5 4" />
         </svg>
       </button>
-      {open && (
-        <div
-          role="menu"
-          onClick={() => setOpen(false)}
-          style={{
-            borderColor: "var(--brand-border)",
-            backgroundColor: "var(--brand-surface-solid)",
-          }}
-          className="absolute right-0 mt-1 z-30 min-w-[15rem] rounded-md border p-1.5 shadow-xl flex flex-col gap-1.5"
-        >
-          {children}
-        </div>
-      )}
+      {/* Immer gerendert, Sichtbarkeit per CSS: die ZipDownloadButtons
+          tragen State (laufender Build, Polling, fertiger Download-Link).
+          Ein Unmount beim Schließen — oder das frühere Auto-Close per
+          onClick auf dem Panel — hat diesen State verworfen: der Klick
+          stieß den Build zwar an, aber Spinner und Download-Link waren
+          nie zu sehen ("es tut sich nichts"). */}
+      <div
+        role="menu"
+        style={{
+          borderColor: "var(--brand-border)",
+          backgroundColor: "var(--brand-surface-solid)",
+        }}
+        className={`absolute right-0 mt-1 z-30 min-w-[15rem] rounded-md border p-1.5 shadow-xl flex-col gap-1.5 ${
+          open ? "flex" : "hidden"
+        }`}
+      >
+        {children}
+      </div>
     </div>
   );
 }

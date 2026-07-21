@@ -36,7 +36,7 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 -
 
 ### Fixed
--
+- **„Alle herunterladen" / „Alle als Web-Version" in der Kundenansicht zeigte keine Reaktion.** Das Herunterladen-Dropdown schloss sich bei jedem Klick auf einen Menüpunkt sofort selbst und warf dabei den Zustand der Download-Buttons weg — der ZIP-Build wurde zwar serverseitig angestoßen, aber Spinner und der fertige Download-Link waren nie zu sehen. Das Menü bleibt jetzt beim Klick auf Einträge offen und behält den Fortschritt auch, wenn es zwischendurch geschlossen wird (laufende Builds und fertige Links sind beim Wiederöffnen noch da). · *"Download all" / "All as web version" in the customer view showed no reaction. The download dropdown closed itself on every click on a menu item, discarding the download buttons' state — the ZIP build was started server-side, but the spinner and the finished download link were never visible. The menu now stays open when clicking entries and keeps progress even when closed in between (running builds and finished links are still there on reopen).*
 
 ## [0.52.1] - 2026-07-21
 
