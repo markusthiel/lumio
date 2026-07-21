@@ -87,6 +87,33 @@ export function getS3Client(): S3Client {
   return _client;
 }
 
+/** Ist der konfigurierte S3_ENDPOINT nur intern erreichbar (Docker-
+ *  Servicename wie "minio", localhost, private IP)? Nur dann brauchen
+ *  presigned URLs den Request-Host-Fallback. Öffentliche Endpoints
+ *  (z.B. Hetzner Object Storage) sind vom Browser direkt erreichbar
+ *  und werden unverändert verwendet — sonst würden wir funktionierende
+ *  Produktions-Setups ohne S3_PUBLIC_URL auf <host>:9000 umbiegen. */
+function isInternalEndpoint(endpoint: string): boolean {
+  let host: string;
+  try {
+    host = new URL(endpoint).hostname;
+  } catch {
+    return true; // im Zweifel wie bisher den Fallback nutzen
+  }
+  if (host === "localhost" || host === "::1") return true;
+  // Docker-Servicenamen haben keinen Punkt (minio, lumio_minio, …)
+  if (!host.includes(".")) return true;
+  // Private IPv4-Ranges (RFC 1918) + Loopback
+  const m = host.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  if (m) {
+    const [a, b] = [Number(m[1]), Number(m[2])];
+    if (a === 10 || a === 127 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168)) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function getPublicS3Client(): S3Client {
   // 1. Explizit konfiguriert → fester Client (Produktions-Setups mit
   //    eigener S3-Domain, z.B. s3.lumio-cloud.de). Unverändertes Verhalten.
@@ -100,12 +127,19 @@ function getPublicS3Client(): S3Client {
     }
     return _publicClient;
   }
-  // 2. Kein S3_PUBLIC_URL: den Host nehmen, über den der Browser die API
-  //    gerade erreicht (localhost, Server-IP oder Domain), plus den nach
-  //    außen gemappten MinIO-Port. Damit funktionieren Uploads und
-  //    Bild-Anzeige im Quick Start ohne jede Konfiguration. http hart,
-  //    weil MinIO auf dem Direktport kein TLS spricht — Setups hinter
-  //    HTTPS setzen S3_PUBLIC_URL (siehe docs/SELFHOSTING.md).
+  // 2. S3_ENDPOINT ist selbst öffentlich erreichbar (externes S3 wie
+  //    Hetzner Object Storage): direkt darauf signieren — Verhalten
+  //    wie vor v0.51.0. Der Request-Host-Fallback ist hier falsch.
+  if (!isInternalEndpoint(config.S3_ENDPOINT)) {
+    return getS3Client();
+  }
+  // 3. Interner Endpoint (MinIO im Compose) ohne S3_PUBLIC_URL: den Host
+  //    nehmen, über den der Browser die API gerade erreicht (localhost,
+  //    Server-IP oder Domain), plus den nach außen gemappten MinIO-Port.
+  //    Damit funktionieren Uploads und Bild-Anzeige im Quick Start ohne
+  //    jede Konfiguration. http hart, weil MinIO auf dem Direktport kein
+  //    TLS spricht — Setups hinter HTTPS setzen S3_PUBLIC_URL
+  //    (siehe docs/SELFHOSTING.md).
   const hostname = getRequestHostname();
   if (hostname) {
     const endpoint = `http://${hostname}:${config.MINIO_API_PORT}`;

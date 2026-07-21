@@ -36,7 +36,7 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 -
 
 ### Fixed
--
+- **Bilder in Produktions-Setups mit externem S3 (z.B. Hetzner Object Storage) waren nach v0.51.0 kaputt.** Der in 0.51.0 eingeführte Presign-Fallback auf `http://<request-host>:9000` griff immer, sobald `S3_PUBLIC_URL` nicht gesetzt war — auch wenn `S3_ENDPOINT` bereits öffentlich erreichbar ist. Presigned URLs zeigten dann auf einen toten Port statt auf das externe S3; weder Logos noch Galeriebilder luden. Jetzt greift der Fallback nur noch bei intern erreichbaren Endpoints (Docker-Servicename wie `minio`, localhost, private IP); öffentliche Endpoints werden wie vor 0.51.0 direkt verwendet. Der Quick Start bleibt unverändert konfigurationsfrei. · *Images broken after v0.51.0 in production setups with external S3 (e.g. Hetzner Object Storage). The presign fallback to `http://<request-host>:9000` introduced in 0.51.0 kicked in whenever `S3_PUBLIC_URL` was unset — even when `S3_ENDPOINT` is already publicly reachable. Presigned URLs then pointed at a dead port instead of the external S3; neither logos nor gallery images loaded. The fallback now only applies to internally-reachable endpoints (Docker service name like `minio`, localhost, private IP); public endpoints are used directly as before 0.51.0. Quick start remains zero-config.*
 
 ## [0.52.0] - 2026-07-21
 
