@@ -33,7 +33,19 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 -
 
 ### Changed
--
+- **Die Marketing-Site-Blöcke im Caddyfile (`lumio-cloud.de`, `lumio-app.de`, `lumio-cloud.com`, `www.lumio-cloud.com`) sind jetzt env-gesteuert und standardmäßig inaktiv.** Bisher waren diese Domains hart kodiert — jede frische Installation startete dadurch sofort Let's-Encrypt-Challenges für fremde Domains (Log-Spam, sinnloser Traffic). Ohne die neuen Variablen sind die Blöcke tot und Caddy holt keine Zertifikate dafür; normale Self-Hoster müssen nichts tun. · *The marketing-site blocks in the Caddyfile (`lumio-cloud.de`, `lumio-app.de`, `lumio-cloud.com`, `www.lumio-cloud.com`) are now env-driven and inactive by default. These domains used to be hard-coded — every fresh installation immediately started Let's Encrypt challenges for foreign domains (log spam, pointless traffic). Without the new variables the blocks are dead and Caddy fetches no certificates for them; regular self-hosters don't need to do anything.*
+
+### ⚠️ Upgrade-Hinweise · Upgrade notes
+Nur relevant, wenn du die Marketing-Site-Blöcke aktiv nutzt (Astro-/Nginx-Container am selben Caddy) — für alle anderen genügt Pull + Rebuild. Vor dem Rebuild in der `.env` die Domains setzen, sonst liefert Caddy die Marketing-Sites nicht mehr aus:
+
+```
+LUMIO_MARKETING_CLOUD_DE_HOST=lumio-cloud.de
+LUMIO_MARKETING_APP_DE_HOST=lumio-app.de
+LUMIO_MARKETING_CLOUD_COM_HOST=lumio-cloud.com
+LUMIO_MARKETING_CLOUD_COM_WWW_HOST=www.lumio-cloud.com
+```
+
+*Only relevant if you actively use the marketing-site blocks (Astro/Nginx containers on the same Caddy) — for everyone else pull + rebuild is enough. Set the domains in `.env` before rebuilding, otherwise Caddy will stop serving the marketing sites.*
 
 ### Fixed
 -

@@ -144,15 +144,21 @@
 # du nur Lumio fährst, kannst du sie löschen oder ignorieren (Caddy
 # liefert die Domains dann mangels DNS einfach nicht aus).
 #
-# Wenn deine Marketing-Sites unter anderen Domains laufen, hier
-# entsprechend ändern. Cert wird von Caddy automatisch geholt
-# (HTTP-01-Challenge, kein DNS-Setup nötig solange A-Record steht).
-lumio-cloud.de {
+# Alle vier Blöcke sind wie LUMIO_HOST env-gesteuert und default-tot
+# (jeweils eigene tote Loopback-IP — TLS-Policies sind Host-basiert,
+# gleiche IPs würden kollidieren). Grund: hart kodierte Domains hier
+# führten dazu, dass JEDE frische Installation weltweit sofort
+# Let's-Encrypt-Challenges für fremde (unsere) Domains startete.
+# Aktivierung in .env, z.B.:
+#   LUMIO_MARKETING_CLOUD_DE_HOST=lumio-cloud.de
+# Cert wird von Caddy automatisch geholt (HTTP-01-Challenge, kein
+# DNS-Setup nötig solange der A-Record steht).
+{$LUMIO_MARKETING_CLOUD_DE_HOST:127.0.0.4:9} {
 	reverse_proxy lumio-cloud-de-web-1:4321
 	encode zstd gzip
 }
 
-lumio-app.de {
+{$LUMIO_MARKETING_APP_DE_HOST:127.0.0.5:9} {
 	reverse_proxy lumio-app-de-web-1:80
 	encode zstd gzip
 }
@@ -160,14 +166,15 @@ lumio-app.de {
 # lumio-cloud.com — internationale Portal-/Einstiegsseite (Split-Screen,
 # zweigt zu Cloud bzw. Self-Hosted ab). Eigenes Repo (Lumio-cloud-com),
 # statische Astro-Site → Nginx, am lumio_lumio_net.
-lumio-cloud.com {
+{$LUMIO_MARKETING_CLOUD_COM_HOST:127.0.0.6:9} {
 	reverse_proxy lumio-cloud-com-web-1:80
 	encode zstd gzip
 }
 
 # www → apex (nur wirksam, wenn auch ein www-A-Record gesetzt ist).
-www.lumio-cloud.com {
-	redir https://lumio-cloud.com{uri} permanent
+# Redirect-Ziel = der Apex-Host aus der Env darüber.
+{$LUMIO_MARKETING_CLOUD_COM_WWW_HOST:127.0.0.7:9} {
+	redir https://{$LUMIO_MARKETING_CLOUD_COM_HOST:127.0.0.6:9}{uri} permanent
 }
 
 # -----------------------------------------------------------------------------

@@ -41,6 +41,13 @@ services:
       # z.B. LUMIO_UMAMI_HOST=stats.lumio-cloud.de (A-Record + laufender
       # Umami-Stack vorausgesetzt).
       - LUMIO_UMAMI_HOST=${LUMIO_UMAMI_HOST:-127.0.0.3:9}
+      # Marketing-Sites (opt-in, siehe Caddyfile): default-tot mit je
+      # eigener Loopback-IP. Wer die Sites neben Lumio fährt, setzt die
+      # echten Domains in der .env.
+      - LUMIO_MARKETING_CLOUD_DE_HOST=${LUMIO_MARKETING_CLOUD_DE_HOST:-127.0.0.4:9}
+      - LUMIO_MARKETING_APP_DE_HOST=${LUMIO_MARKETING_APP_DE_HOST:-127.0.0.5:9}
+      - LUMIO_MARKETING_CLOUD_COM_HOST=${LUMIO_MARKETING_CLOUD_COM_HOST:-127.0.0.6:9}
+      - LUMIO_MARKETING_CLOUD_COM_WWW_HOST=${LUMIO_MARKETING_CLOUD_COM_WWW_HOST:-127.0.0.7:9}
     ports:
       - "${CADDY_HTTP_PORT:-80}:80"
       - "${CADDY_HTTPS_PORT:-443}:443"
