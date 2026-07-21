@@ -30,13 +30,20 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ## [Unreleased]
 
 ### Added
-- **Feature-Flags und Print-Provider self-hosted per Env aktivierbar.** Bisher waren alle Feature-Flags (`print_shop`, `lightroom_plugin`, `advanced_analytics`, `ai_tagging`, `video_streaming_4k`) und die Print-Provider-Freischaltung nur über das Super-Admin-UI erreichbar — das es im Single-Mode nicht gibt. Self-Hoster konnten diese Features also nie einschalten. Neu: `FEATURES_ENABLED=print_shop,…` und `PRINT_PROVIDERS_ENABLED=prodigi,gelato` in der `.env` aktivieren sie global; ein expliziter Super-Admin-Override (Multi-Mode) gewinnt weiterhin, auch zum Deaktivieren. Self-Print ist unverändert immer verfügbar. Unbekannte Keys werden beim Start mit Warnung ignoriert. Doku: SELFHOSTING + PRINT_SHOP (DE/EN). · *Feature flags and print providers can now be enabled via env when self-hosting. Previously all feature flags and the print-provider platform activation were only reachable through the super admin UI — which doesn't exist in single mode, so self-hosters could never enable these features. New: `FEATURES_ENABLED=print_shop,…` and `PRINT_PROVIDERS_ENABLED=prodigi,gelato` in `.env` enable them globally; an explicit super-admin override (multi mode) still wins, including for disabling. Self print remains always available. Unknown keys are ignored with a startup warning. Docs: SELFHOSTING + PRINT_SHOP (DE/EN).*
+-
 
 ### Changed
 -
 
 ### Fixed
 -
+
+## [0.52.0] - 2026-07-21
+
+_Pull + Rebuild genügt — nur Hauptserver (API), keine Migration. Neue optionale Envs: `FEATURES_ENABLED`, `PRINT_PROVIDERS_ENABLED`. · Pull + rebuild is enough — main server only (API), no migration. New optional envs: `FEATURES_ENABLED`, `PRINT_PROVIDERS_ENABLED`._
+
+### Added
+- **Feature-Flags und Print-Provider self-hosted per Env aktivierbar.** Bisher waren alle Feature-Flags (`print_shop`, `lightroom_plugin`, `advanced_analytics`, `ai_tagging`, `video_streaming_4k`) und die Print-Provider-Freischaltung nur über das Super-Admin-UI erreichbar — das es im Single-Mode nicht gibt. Self-Hoster konnten diese Features also nie einschalten. Neu: `FEATURES_ENABLED=print_shop,…` und `PRINT_PROVIDERS_ENABLED=prodigi,gelato` in der `.env` aktivieren sie global; ein expliziter Super-Admin-Override (Multi-Mode) gewinnt weiterhin, auch zum Deaktivieren. Self-Print ist unverändert immer verfügbar. Unbekannte Keys werden beim Start mit Warnung ignoriert. Doku: SELFHOSTING + PRINT_SHOP (DE/EN). · *Feature flags and print providers can now be enabled via env when self-hosting. Previously all feature flags and the print-provider platform activation were only reachable through the super admin UI — which doesn't exist in single mode, so self-hosters could never enable these features. New: `FEATURES_ENABLED=print_shop,…` and `PRINT_PROVIDERS_ENABLED=prodigi,gelato` in `.env` enable them globally; an explicit super-admin override (multi mode) still wins, including for disabling. Self print remains always available. Unknown keys are ignored with a startup warning. Docs: SELFHOSTING + PRINT_SHOP (DE/EN).*
 
 ## [0.51.2] - 2026-07-21
 
