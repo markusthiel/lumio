@@ -126,6 +126,10 @@ docker compose ps
 
 All services should be `running` (healthy).
 
+> **Cloud firewall note:** open ports **80** (app) and **9000** (MinIO —
+> the browser uploads and loads images directly from object storage).
+> Without 9000, uploads fail immediately.
+
 ### 3. Create an admin user
 
 ```bash

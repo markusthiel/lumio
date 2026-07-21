@@ -58,6 +58,7 @@ import { registerWsRoutes } from "./routes/ws.js";
 import { registerCspRoutes } from "./routes/csp.js";
 import superAdminPlugin from "./plugins/super-admin.js";
 import { startPeriodicSweeper } from "./services/sweeper.js";
+import { registerRequestContext } from "./lib/request-context.js";
 import { startPrintOrderMailSweeper } from "./services/print-mail-sweeper.js";
 
 async function buildServer() {
@@ -66,6 +67,10 @@ async function buildServer() {
     bodyLimit: 50 * 1024 * 1024,
     trustProxy: true,
   });
+
+  // Request-Kontext (AsyncLocalStorage) — muss VOR allen Routen hängen,
+  // damit services/storage.ts den Browser-Host für presigned URLs kennt.
+  registerRequestContext(app);
 
   // Core-Plugins
   await app.register(sensible);

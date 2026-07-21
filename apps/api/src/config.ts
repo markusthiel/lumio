@@ -49,6 +49,11 @@ const envSchema = z.object({
     .default("true")
     .transform((v) => v === "true"),
   S3_PUBLIC_URL: z.string().optional(),
+  // Fallback-Port für browser-erreichbare presigned URLs, wenn
+  // S3_PUBLIC_URL nicht gesetzt ist: http://<request-host>:<dieser Port>.
+  // Muss dem Host-Port-Mapping des MinIO-Containers entsprechen —
+  // deshalb bewusst derselbe Variablenname wie im docker-compose.yml.
+  MINIO_API_PORT: z.string().default("9000"),
 
   JWT_SECRET: z.string().min(16),
   SESSION_SECRET: z.string().min(16),

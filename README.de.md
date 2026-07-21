@@ -126,6 +126,10 @@ docker compose ps
 
 Alle Services sollten `running` (healthy) sein.
 
+> **Cloud-Firewall-Hinweis:** Ports **80** (App) und **9000** (MinIO —
+> der Browser lädt Uploads und Bilder direkt vom Object Storage) öffnen.
+> Ohne 9000 schlagen Uploads sofort fehl.
+
 ### 3. Admin-User anlegen
 
 ```bash

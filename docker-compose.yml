@@ -116,6 +116,9 @@ services:
       - NODE_ENV=production
       - PORT=3001
       - DEPLOYMENT_MODE=${DEPLOYMENT_MODE:-single}
+      # Muss dem MinIO-Port-Mapping unten entsprechen: ohne S3_PUBLIC_URL
+      # signiert die API presigned URLs auf http://<request-host>:<PORT>.
+      - MINIO_API_PORT=${MINIO_API_PORT:-9000}
       - PUBLIC_URL=${PUBLIC_URL}
       # Basis-Domain für die Subdomain-Tenant-Auflösung (Multi-Mode).
       # Ohne diese Variable erkennt resolveTenant <slug>.<base> nicht und

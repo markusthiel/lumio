@@ -17,6 +17,7 @@ import {
   ListObjectVersionsCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { getRequestHostname } from "../lib/request-context.js";
 import {
   PutObjectCommand,
   GetObjectCommand,
@@ -50,6 +51,7 @@ import { logger } from "../logger.js";
 // Browser-Upload) oder echtes externes S3 ohne Reverse-Proxy korrekt.
 let _client: S3Client | null = null;
 let _publicClient: S3Client | null = null;
+const _hostClients = new Map<string, S3Client>();
 
 function makeClient(endpoint: string): S3Client {
   return new S3Client({
@@ -86,14 +88,41 @@ export function getS3Client(): S3Client {
 }
 
 function getPublicS3Client(): S3Client {
-  if (_publicClient) return _publicClient;
-  const publicEndpoint = config.S3_PUBLIC_URL || config.S3_ENDPOINT;
-  _publicClient = makeClient(publicEndpoint);
-  logger.info(
-    { endpoint: publicEndpoint },
-    "s3 client initialized (public/presign)"
-  );
-  return _publicClient;
+  // 1. Explizit konfiguriert → fester Client (Produktions-Setups mit
+  //    eigener S3-Domain, z.B. s3.lumio-cloud.de). Unverändertes Verhalten.
+  if (config.S3_PUBLIC_URL) {
+    if (!_publicClient) {
+      _publicClient = makeClient(config.S3_PUBLIC_URL);
+      logger.info(
+        { endpoint: config.S3_PUBLIC_URL },
+        "s3 client initialized (public/presign)"
+      );
+    }
+    return _publicClient;
+  }
+  // 2. Kein S3_PUBLIC_URL: den Host nehmen, über den der Browser die API
+  //    gerade erreicht (localhost, Server-IP oder Domain), plus den nach
+  //    außen gemappten MinIO-Port. Damit funktionieren Uploads und
+  //    Bild-Anzeige im Quick Start ohne jede Konfiguration. http hart,
+  //    weil MinIO auf dem Direktport kein TLS spricht — Setups hinter
+  //    HTTPS setzen S3_PUBLIC_URL (siehe docs/SELFHOSTING.md).
+  const hostname = getRequestHostname();
+  if (hostname) {
+    const endpoint = `http://${hostname}:${config.MINIO_API_PORT}`;
+    let client = _hostClients.get(endpoint);
+    if (!client) {
+      // Cache begrenzen — Host-Header sind Nutzereingaben; ein Angreifer
+      // soll uns nicht beliebig viele Client-Instanzen anlegen können.
+      if (_hostClients.size >= 50) _hostClients.clear();
+      client = makeClient(endpoint);
+      _hostClients.set(endpoint, client);
+      logger.info({ endpoint }, "s3 client initialized (public/presign, per-host)");
+    }
+    return client;
+  }
+  // 3. Kein Request-Kontext (z.B. Aufruf aus einem Sweeper/Job): wie
+  //    bisher auf den internen Endpoint zurückfallen.
+  return getS3Client();
 }
 
 export function getBucket(): string {
