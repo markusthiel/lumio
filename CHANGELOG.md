@@ -36,6 +36,13 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 -
 
 ### Fixed
+-
+
+## [0.51.1] - 2026-07-21
+
+_Pull + Rebuild genügt — nur Hauptserver (API + Frontend), keine Migration. · Pull + rebuild is enough — main server only (API + frontend), no migration._
+
+### Fixed
 - **Der AV-Vertrag (AVV) wird self-hosted nicht mehr angezeigt.** Der AVV nach Art. 28 DSGVO betrifft nur die gehostete Cloud-Variante (Studio ↔ Anbieter als Auftragsverarbeiter); self-hosted ist der Betreiber selbst Verantwortlicher. Der Menüpunkt unter Einstellungen ist ohne Billing jetzt ausgeblendet, die AVV-API-Routen sind nicht registriert, und Direktaufrufe der Seite (Bookmarks) zeigen einen erklärenden Hinweis statt Fehlern. · *The data processing agreement (DPA) is no longer shown when self-hosted. The Art. 28 GDPR DPA only applies to the hosted cloud offering (studio ↔ provider as processor); self-hosted, the operator is the controller themselves. The settings menu item is now hidden without billing, the DPA API routes are not registered, and direct page visits (bookmarks) show an explanatory note instead of errors.*
 
 ## [0.51.0] - 2026-07-21
