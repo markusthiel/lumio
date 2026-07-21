@@ -153,6 +153,10 @@ After logging in you'll find gallery creation in the top left. Upload a photo, s
 
 ## It's running. What now?
 
+- **Updating an existing installation** → `git pull && docker compose up -d --build` —
+  the `--build` matters: fixes often live inside the images (Caddy, API, frontend),
+  a plain `up -d` keeps running the old ones. Details: [docs/SELFHOSTING.md](docs/SELFHOSTING.md#updates)
+
 - **Attach your own domain** → [docs/SELFHOSTING.md](docs/SELFHOSTING.md) (15-min setup with HTTPS)
 - **Images disappear on container restart?** → MinIO stores data in the `minio_data` volume, which persists. Just make sure you don't accidentally `docker volume rm` it.
 - **Set up backups** → [docs/BACKUP.md](docs/BACKUP.md)

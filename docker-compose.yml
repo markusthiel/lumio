@@ -349,8 +349,12 @@ services:
       # only Listener machen 0.0.0.0 zum Konflikt). Lösung: an die
       # öffentliche IP binden. ACME_DNS_BIND_IP muss in der .env
       # auf die externe Server-IP gesetzt sein.
-      - "${ACME_DNS_BIND_IP}:53:53/udp"
-      - "${ACME_DNS_BIND_IP}:53:53/tcp"
+      # Default 127.0.0.1 nur, damit Compose ohne gesetzte Variable keine
+      # verwirrende Warnung ausgibt — der Service startet ohne
+      # --profile wildcard ohnehin nicht. Für aktives Wildcard-TLS MUSS
+      # die externe Server-IP gesetzt werden (siehe Kommentar oben).
+      - "${ACME_DNS_BIND_IP:-127.0.0.1}:53:53/udp"
+      - "${ACME_DNS_BIND_IP:-127.0.0.1}:53:53/tcp"
       - "127.0.0.1:8053:80"  # API nur intern + via Caddy reverse-proxied
     volumes:
       # Live-Konfig liegt in config.local.cfg (gitignored, von git pull

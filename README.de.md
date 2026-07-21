@@ -154,6 +154,10 @@ Nach dem Login findest du oben links die Galerie-Erstellung. Lade ein Foto hoch,
 
 ## Es läuft. Was jetzt?
 
+- **Bestehende Installation aktualisieren** → `git pull && docker compose up -d --build` —
+  das `--build` ist wichtig: Fixes stecken oft in den Images (Caddy, API, Frontend),
+  ein bloßes `up -d` fährt die alten weiter. Details: [docs/SELFHOSTING.de.md](docs/SELFHOSTING.de.md#updates)
+
 - **Eigene Domain dranhängen** → [docs/SELFHOSTING.de.md](docs/SELFHOSTING.de.md) (15-Min-Setup mit HTTPS)
 - **Bilder gehen verloren beim Container-Restart?** → MinIO speichert im `minio_data`-Volume, das persistiert. Sicher dass du das Volume nicht versehentlich `docker volume rm`'st.
 - **Backups einrichten** → [docs/BACKUP.md](docs/BACKUP.de.md)
