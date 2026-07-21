@@ -1,0 +1,137 @@
+name: Smoke Test (Quick Start)
+
+# Stellt bei jedem Push/PR den kompletten Self-Hoster-Quick-Start nach:
+# frischer Checkout → .env exakt wie im README erzeugt → compose up →
+# Health über Caddy (Port 80) → create-admin → Login → Galerie anlegen →
+# Upload-Presign anfordern → echten PUT auf die presigned URL ausführen.
+#
+# Warum es diesen Test gibt: In der Woche vom 2026-07-14 sind sechs
+# Bugs aufgeschlagen, die alle NUR auf diesem Pfad sichtbar waren
+# (Prisma im Docker-Build, Caddy-Start auf frischem Clone, Login über
+# Frontend-Port, Secure-Cookies auf nackter IP, presigned URLs auf
+# minio:9000, .env.example-Lücken). Jeder einzelne davon wäre hier
+# rot geworden, bevor er ein Release erreicht.
+#
+# Läuft NUR auf GitHub Actions: Der Forgejo-Runner führt Workflows in
+# node:20-alpine-Containern ohne Docker aus — compose up ist dort nicht
+# möglich. Forgejo scannt auch .github/workflows, daher der server_url-
+# Guard (gleiches Muster wie in den Release-Workflows, nur umgekehrt).
+# Falls der Forgejo-Runner später Docker-in-Docker kann: Guard entfernen.
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  quick-start:
+    if: ${{ github.server_url == 'https://github.com' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      ADMIN_EMAIL: smoke@example.com
+      ADMIN_PASSWORD: smoketest-passw0rd
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: .env erzeugen (exakt die README-Schritte)
+        run: |
+          cp .env.example .env
+          sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(openssl rand -base64 24 | tr -d '/+=')|" .env
+          sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$(openssl rand -base64 32 | tr -d '/+=')|" .env
+          sed -i "s|^SESSION_SECRET=.*|SESSION_SECRET=$(openssl rand -base64 32 | tr -d '/+=')|" .env
+          sed -i "s|^S3_ACCESS_KEY=.*|S3_ACCESS_KEY=$(openssl rand -hex 12)|" .env
+          sed -i "s|^S3_SECRET_KEY=.*|S3_SECRET_KEY=$(openssl rand -base64 32 | tr -d '/+=')|" .env
+
+      - name: docker compose up (Build + Start)
+        run: docker compose up -d --build
+
+      - name: Health über Caddy (Port 80) abwarten
+        run: |
+          echo "Warte auf http://localhost/health …"
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost/health > /tmp/health.json 2>/dev/null; then
+              cat /tmp/health.json; echo
+              # Version im Health muss der Repo-VERSION entsprechen —
+              # fängt Container, die stillschweigend alte Bundles serven.
+              WANT="$(cat VERSION)"
+              GOT="$(python3 -c 'import json;print(json.load(open("/tmp/health.json"))["version"])')"
+              if [ "$WANT" != "$GOT" ]; then
+                echo "::error::Health meldet Version $GOT, Repo ist $WANT"
+                exit 1
+              fi
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::API/Caddy nach 300s nicht erreichbar"
+          exit 1
+
+      - name: create-admin (README Schritt 3)
+        run: |
+          docker compose exec -T api npm run create-admin -- \
+            --email="$ADMIN_EMAIL" \
+            --password="$ADMIN_PASSWORD" \
+            --name="Smoke Studio"
+
+      - name: Login über Port 80 (Cookie über HTTP, JSON-Antwort)
+        run: |
+          code=$(curl -s -o /tmp/login.json -w '%{http_code}' -c /tmp/cookies.txt \
+            -X POST http://localhost/api/v1/auth/login \
+            -H 'Content-Type: application/json' \
+            -d "{\"email\":\"$ADMIN_EMAIL\",\"password\":\"$ADMIN_PASSWORD\"}")
+          cat /tmp/login.json; echo
+          [ "$code" = "200" ] || { echo "::error::Login: HTTP $code"; exit 1; }
+          # Session-Cookie muss über plain-HTTP ankommen (Secure-Flag-Bug 0.49.2)
+          grep -q "lumio" /tmp/cookies.txt || { echo "::error::Kein Session-Cookie gesetzt"; exit 1; }
+
+      - name: Galerie anlegen
+        run: |
+          code=$(curl -s -o /tmp/gallery.json -w '%{http_code}' -b /tmp/cookies.txt \
+            -X POST http://localhost/api/v1/galleries \
+            -H 'Content-Type: application/json' \
+            -d '{"title":"Smoke Test"}')
+          cat /tmp/gallery.json; echo
+          [ "$code" = "200" ] || [ "$code" = "201" ] || { echo "::error::Galerie: HTTP $code"; exit 1; }
+          python3 -c 'import json;print(json.load(open("/tmp/gallery.json"))["id"])' > /tmp/gallery_id
+
+      - name: Upload-Presign anfordern und URL prüfen
+        run: |
+          GID="$(cat /tmp/gallery_id)"
+          code=$(curl -s -o /tmp/init.json -w '%{http_code}' -b /tmp/cookies.txt \
+            -X POST http://localhost/api/v1/uploads/init \
+            -H 'Content-Type: application/json' \
+            -d "{\"galleryId\":\"$GID\",\"files\":[{\"filename\":\"smoke.jpg\",\"mimeType\":\"image/jpeg\",\"sizeBytes\":4096}]}")
+          cat /tmp/init.json; echo
+          [ "$code" = "200" ] || { echo "::error::uploads/init: HTTP $code"; exit 1; }
+          URL="$(python3 -c 'import json;print(json.load(open("/tmp/init.json"))["uploads"][0]["uploadUrl"])')"
+          echo "Presigned URL: $URL"
+          # Die zentrale Assertion (Bug-Klasse 0.51.0): Die URL muss vom
+          # Browser aus erreichbar sein — niemals der interne Docker-Host.
+          case "$URL" in
+            *minio:9000*) echo "::error::Presigned URL zeigt auf internen Docker-Host (minio:9000)"; exit 1 ;;
+            http://localhost:9000/*) echo "URL-Host OK (localhost:9000)" ;;
+            *) echo "::error::Unerwarteter Presign-Host: $URL"; exit 1 ;;
+          esac
+          echo "$URL" > /tmp/upload_url
+
+      - name: Echten PUT auf die presigned URL ausführen
+        run: |
+          head -c 4096 /dev/urandom > /tmp/smoke.jpg
+          code=$(curl -s -o /tmp/put.out -w '%{http_code}' \
+            -X PUT "$(cat /tmp/upload_url)" \
+            -H 'Content-Type: image/jpeg' \
+            --data-binary @/tmp/smoke.jpg)
+          cat /tmp/put.out; echo
+          [ "$code" = "200" ] || { echo "::error::PUT auf presigned URL: HTTP $code (Signatur/Checksum-Problem?)"; exit 1; }
+
+      - name: Container-Logs bei Fehler
+        if: failure()
+        run: |
+          docker compose ps
+          docker compose logs --tail 120
+
+      - name: Aufräumen
+        if: always()
+        run: docker compose down -v

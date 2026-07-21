@@ -30,7 +30,7 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ## [Unreleased]
 
 ### Added
--
+- **CI-Smoke-Test für den Quick Start** (`.github/workflows/smoke-test.yml`): Bei jedem Push/PR wird der komplette Self-Hoster-Pfad auf GitHub Actions nachgestellt — frischer Checkout, `.env` exakt nach README, `docker compose up`, Health über Caddy (Port 80) inkl. Versions-Abgleich, `create-admin`, Login über HTTP (Session-Cookie), Galerie anlegen, Upload-Presign (Assertion: URL zeigt nie auf den internen Docker-Host) und ein echter PUT auf die presigned URL. Fängt die Bug-Klassen des Quick-Start-Testtags künftig vor dem Release. · *CI smoke test for the quick start: on every push/PR, GitHub Actions replays the full self-hosting path — fresh checkout, `.env` exactly as per README, `docker compose up`, health via Caddy (port 80) incl. version check, `create-admin`, login over HTTP (session cookie), gallery creation, upload presign (asserting the URL never points at the internal Docker host) and a real PUT to the presigned URL. Catches the quick-start bug classes before they reach a release.*
 
 ### Changed
 -
