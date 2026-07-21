@@ -30,6 +30,19 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 ## [Unreleased]
 
 ### Added
+-
+
+### Changed
+-
+
+### Fixed
+-
+
+## [0.51.0] - 2026-07-21
+
+_Pull + Rebuild genügt — nur Hauptserver (API + Frontend), keine Migration. Quick-Start-/IP-Setups: Port 9000 in der Cloud-Firewall öffnen (Direct-to-S3). · Pull + rebuild is enough — main server only (API + frontend), no migration. Quick Start / IP setups: open port 9000 in your cloud firewall (direct-to-S3)._
+
+### Added
 - **Konto → Plan & Speicher funktioniert jetzt auch self-hosted (GitHub-Feedback).** Statt „Route not found" zeigt die Seite ohne Billing eine Self-Hosted-Info („keine Plan-Limits") plus den tatsächlichen Speicherverbrauch (Originale und abgeleitete Dateien getrennt). Dafür zwei neue, immer verfügbare API-Endpoints: `GET /api/v1/instance` (Instanz-Flags) und `GET /api/v1/account/storage` (Verbrauch des eigenen Studios). · *Account → Plan & Storage now works self-hosted too (GitHub feedback). Instead of "Route not found", the page without billing shows a self-hosted note ("no plan limits") plus actual storage usage (originals and derived files separately). Backed by two new always-available API endpoints: `GET /api/v1/instance` (instance flags) and `GET /api/v1/account/storage` (your studio's usage).*
 
 ### Changed
