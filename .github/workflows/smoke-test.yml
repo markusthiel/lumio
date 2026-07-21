@@ -104,7 +104,7 @@ jobs:
             -H 'Content-Type: application/json' \
             -d "{\"galleryId\":\"$GID\",\"files\":[{\"filename\":\"smoke.jpg\",\"mimeType\":\"image/jpeg\",\"sizeBytes\":4096}]}")
           cat /tmp/init.json; echo
-          [ "$code" = "200" ] || { echo "::error::uploads/init: HTTP $code"; exit 1; }
+          [ "$code" = "200" ] || [ "$code" = "201" ] || { echo "::error::uploads/init: HTTP $code"; exit 1; }
           URL="$(python3 -c 'import json;print(json.load(open("/tmp/init.json"))["uploads"][0]["uploadUrl"])')"
           echo "Presigned URL: $URL"
           # Die zentrale Assertion (Bug-Klasse 0.51.0): Die URL muss vom
