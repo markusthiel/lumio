@@ -119,6 +119,12 @@ services:
       # Muss dem MinIO-Port-Mapping unten entsprechen: ohne S3_PUBLIC_URL
       # signiert die API presigned URLs auf http://<request-host>:<PORT>.
       - MINIO_API_PORT=${MINIO_API_PORT:-9000}
+      # Feature-Flags global aktivieren (Self-Hosting ohne Super-Admin),
+      # z.B. FEATURES_ENABLED=print_shop,advanced_analytics
+      - FEATURES_ENABLED=${FEATURES_ENABLED:-}
+      # Print-Provider global aktivieren (Self-Hosting), z.B.
+      # PRINT_PROVIDERS_ENABLED=prodigi,gelato — Self-Print ist immer an.
+      - PRINT_PROVIDERS_ENABLED=${PRINT_PROVIDERS_ENABLED:-}
       - PUBLIC_URL=${PUBLIC_URL}
       # Basis-Domain für die Subdomain-Tenant-Auflösung (Multi-Mode).
       # Ohne diese Variable erkennt resolveTenant <slug>.<base> nicht und

@@ -36,6 +36,23 @@ The German/EU/US consumer labs (WhiteWall, Saal, CEWE, Pixum, myposter, etc.) al
 
 That's a **business onboarding step, not a pure coding matter**. Building an adapter against guessed endpoints would be worthless code that breaks in production. These providers therefore deliberately stay as stubs until concrete partner access incl. docs is available.
 
+## Activation (SaaS vs. self-hosted)
+
+There are **two levels**:
+
+1. **`print_shop` feature flag** — unlocks the print shop area for a tenant.
+2. **Provider activation** — which labs are offered platform-wide.
+
+| | SaaS / multi mode | Self-hosted (single mode) |
+|---|---|---|
+| Feature flag | Super admin UI, per tenant | `FEATURES_ENABLED=print_shop` in `.env` |
+| Providers | Super admin UI (`/super/print-providers`) | `PRINT_PROVIDERS_ENABLED=prodigi,gelato` in `.env` |
+
+Self print (`manual_self_print`) is always available on both paths. A DB
+entry set via the super admin UI takes precedence over the env variables —
+including for disabling. After changing `.env`: `docker compose up -d api`.
+Each studio enters its own lab API credentials under Print shop → Providers.
+
 ## Adding a new provider
 
 1. An entry in the registry (`providers.ts`): `key`, `label`, `market`, `credentialFields`, `categories`, initially `stage: "planned"` with `new NotImplementedAdapter("<key>")`.

@@ -125,6 +125,33 @@ Beim ersten Login Test-Galerie anlegen, ein Bild hochladen, Galerie-Link teilen,
 
 ---
 
+## Optionale Features aktivieren (Print-Shop, Analytics, …)
+
+Beta-/Experimental-Features liegen hinter Feature-Flags und sind
+standardmäßig aus. Self-hosted (kein Super-Admin-UI) aktivierst du sie
+global über die `.env`:
+
+```bash
+FEATURES_ENABLED=print_shop,advanced_analytics
+```
+
+Verfügbare Keys: `print_shop`, `lightroom_plugin`, `advanced_analytics`,
+`ai_tagging` (braucht den ML-Worker, `docker-compose.ml.yml`),
+`video_streaming_4k`. Nach Änderung die API neu starten:
+`docker compose up -d api`. Im Multi-Mode gewinnen Per-Tenant-Overrides
+aus dem Super-Admin-UI — auch zum Deaktivieren.
+
+Der Print-Shop hat zusätzlich eine **Provider-Ebene** (normalerweise im
+Super-Admin-UI geschaltet). Self-Print funktioniert immer; für die
+Labor-Anbindungen setzt du:
+
+```bash
+PRINT_PROVIDERS_ENABLED=prodigi,gelato
+```
+
+Jedes Studio hinterlegt dann eigene API-Zugangsdaten unter
+Print-Shop → Provider.
+
 ## Backups
 
 Mindestens zwei Sachen sichern:

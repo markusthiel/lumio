@@ -8,6 +8,8 @@
  */
 
 import { prisma } from "../../db.js";
+import { config } from "../../config.js";
+import { logger } from "../../logger.js";
 import { isFeatureEnabled } from "../feature-flags.js";
 import {
   encryptCredentials,
@@ -109,6 +111,35 @@ export async function upsertTenantPrintConfig(
 
 /** Globale Anbieter aus Super-Admin-Config + Self-Print. Self-Print ist
  *  immer dabei. */
+// Global via Env aktivierte Provider (PRINT_PROVIDERS_ENABLED="prodigi,gelato").
+// Self-Hosting-Weg ohne Super-Admin-UI. Ein expliziter DB-Eintrag aus
+// /super/print-providers gewinnt weiterhin (auch zum Deaktivieren);
+// unbekannte Keys werden beim Start mit Warnung ignoriert.
+const ENV_ENABLED_PROVIDERS: ReadonlySet<string> = (() => {
+  const keys = config.PRINT_PROVIDERS_ENABLED.split(",")
+    .map((k) => k.trim())
+    .filter(Boolean);
+  const known = new Set(listPrintProviders().map((p) => p.key));
+  const valid = new Set<string>();
+  for (const k of keys) {
+    if (known.has(k)) {
+      valid.add(k);
+    } else {
+      logger.warn(
+        { key: k, known: [...known] },
+        "PRINT_PROVIDERS_ENABLED enthält unbekannten Provider-Key — ignoriert"
+      );
+    }
+  }
+  if (valid.size > 0) {
+    logger.info(
+      { providers: [...valid] },
+      "Print-Provider global via Env aktiviert"
+    );
+  }
+  return valid;
+})();
+
 export async function listAvailableProvidersForTenant(): Promise<
   Array<{
     def: PrintProviderDef;
@@ -116,13 +147,15 @@ export async function listAvailableProvidersForTenant(): Promise<
   }>
 > {
   const adminConfigs = await prisma.superAdminPrintProviderConfig.findMany();
-  const enabledKeys = new Set(
-    adminConfigs.filter((c) => c.enabled).map((c) => c.providerKey)
-  );
+  // Expliziter DB-Wert (Super-Admin) gewinnt; ohne Eintrag zählt die
+  // globale Env-Aktivierung; Self-Print ist immer an.
+  const dbValue = new Map(adminConfigs.map((c) => [c.providerKey, c.enabled]));
   return listPrintProviders().map((def) => ({
     def,
     globallyEnabled:
-      def.key === "manual_self_print" ? true : enabledKeys.has(def.key),
+      def.key === "manual_self_print"
+        ? true
+        : dbValue.get(def.key) ?? ENV_ENABLED_PROVIDERS.has(def.key),
   }));
 }
 

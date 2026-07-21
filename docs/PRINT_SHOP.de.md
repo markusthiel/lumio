@@ -57,6 +57,24 @@ Adapter gegen geratene Endpoints zu bauen wäre wertloser Code, der in
 Produktion bricht. Deshalb bleiben diese Provider bewusst als Stub, bis ein
 konkreter Partner-Zugang inkl. Doku vorliegt.
 
+## Aktivierung (SaaS vs. Self-Hosted)
+
+Es gibt **zwei Ebenen**:
+
+1. **Feature-Flag `print_shop`** — schaltet den Print-Shop-Bereich für einen Tenant frei.
+2. **Provider-Aktivierung** — welche Labs plattformweit angeboten werden.
+
+| | SaaS / Multi-Mode | Self-Hosted (Single-Mode) |
+|---|---|---|
+| Feature-Flag | Super-Admin-UI, pro Tenant | `FEATURES_ENABLED=print_shop` in der `.env` |
+| Provider | Super-Admin-UI (`/super/print-providers`) | `PRINT_PROVIDERS_ENABLED=prodigi,gelato` in der `.env` |
+
+Self-Print (`manual_self_print`) ist auf beiden Wegen immer verfügbar. Ein
+DB-Eintrag aus dem Super-Admin-UI gewinnt gegenüber den Env-Variablen —
+auch zum Deaktivieren. Nach `.env`-Änderung: `docker compose up -d api`.
+Jedes Studio hinterlegt eigene Lab-API-Zugangsdaten unter
+Print-Shop → Provider.
+
 ## Einen neuen Provider hinzufügen
 
 1. Eintrag in der Registry (`providers.ts`): `key`, `label`, `market`,

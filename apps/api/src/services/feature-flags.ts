@@ -19,6 +19,8 @@
  *   einer Flag keine bestehenden Tenants migriert werden.
  */
 import { prisma } from "../db.js";
+import { config } from "../config.js";
+import { logger } from "../logger.js";
 
 export interface FeatureFlagDef {
   key: string;
@@ -81,6 +83,31 @@ export const FEATURE_FLAG_DEFS: FeatureFlagDef[] = [
 // Index fuer schnellen Lookup nach Key
 const DEFS_BY_KEY = new Map(FEATURE_FLAG_DEFS.map((d) => [d.key, d]));
 
+// Global via Env aktivierte Flags (FEATURES_ENABLED="print_shop,…").
+// Self-Hosting-Weg ohne Super-Admin-UI: hebt den Registry-Default an,
+// ein expliziter Per-Tenant-Override aus der DB gewinnt aber weiterhin
+// (auch zum gezielten Deaktivieren im Multi-Mode).
+const ENV_ENABLED: ReadonlySet<string> = (() => {
+  const keys = config.FEATURES_ENABLED.split(",")
+    .map((k) => k.trim())
+    .filter(Boolean);
+  const valid = new Set<string>();
+  for (const k of keys) {
+    if (DEFS_BY_KEY.has(k)) {
+      valid.add(k);
+    } else {
+      logger.warn(
+        { key: k, known: [...DEFS_BY_KEY.keys()] },
+        "FEATURES_ENABLED enthält unbekannten Flag-Key — ignoriert"
+      );
+    }
+  }
+  if (valid.size > 0) {
+    logger.info({ flags: [...valid] }, "Feature-Flags global via Env aktiviert");
+  }
+  return valid;
+})();
+
 // Cache: tenantId → (flagKey → enabled). TTL pro Tenant.
 const CACHE_TTL_MS = 60 * 1000;
 const cache = new Map<string, { expires: number; flags: Map<string, boolean> }>();
@@ -119,7 +146,13 @@ export async function getEffectiveFlags(
 
   const result = new Map<string, boolean>();
   for (const def of FEATURE_FLAG_DEFS) {
-    result.set(def.key, overrideMap.get(def.key) ?? def.defaultValue);
+    // Präzedenz: DB-Override (Super-Admin, kann auch AUS-schalten)
+    // > globale Env-Aktivierung > Registry-Default.
+    result.set(
+      def.key,
+      overrideMap.get(def.key) ??
+        (ENV_ENABLED.has(def.key) ? true : def.defaultValue)
+    );
   }
   setCached(tenantId, result);
   return result;

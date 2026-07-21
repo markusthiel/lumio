@@ -125,6 +125,30 @@ On first login create a test gallery, upload an image, share the gallery link, o
 
 ---
 
+## Enabling optional features (print shop, analytics, …)
+
+Beta/experimental features are behind feature flags and disabled by default.
+Self-hosted (no super admin UI) you enable them globally via `.env`:
+
+```bash
+FEATURES_ENABLED=print_shop,advanced_analytics
+```
+
+Available keys: `print_shop`, `lightroom_plugin`, `advanced_analytics`,
+`ai_tagging` (requires the ML worker, `docker-compose.ml.yml`),
+`video_streaming_4k`. Restart the API after changing:
+`docker compose up -d api`. In multi mode, per-tenant overrides from the
+super admin UI take precedence — including for disabling.
+
+The print shop additionally has **provider-level activation** (normally done
+in the super admin UI). Self print always works; for the lab integrations set:
+
+```bash
+PRINT_PROVIDERS_ENABLED=prodigi,gelato
+```
+
+Each studio then enters its own API credentials under Print shop → Providers.
+
 ## Backups
 
 Back up at least two things:

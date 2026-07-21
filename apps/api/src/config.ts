@@ -54,6 +54,18 @@ const envSchema = z.object({
   // Muss dem Host-Port-Mapping des MinIO-Containers entsprechen —
   // deshalb bewusst derselbe Variablenname wie im docker-compose.yml.
   MINIO_API_PORT: z.string().default("9000"),
+  // Kommaseparierte Feature-Flag-Keys, die GLOBAL aktiviert werden
+  // (z.B. "print_shop,advanced_analytics"). Gedacht für Self-Hosting
+  // ohne Super-Admin-UI. Ein expliziter Per-Tenant-Override aus dem
+  // Super-Admin-UI (Multi-Mode) gewinnt weiterhin — auch zum
+  // Deaktivieren. Unbekannte Keys werden beim Start mit Warnung
+  // ignoriert. Verfügbare Keys: siehe services/feature-flags.ts.
+  FEATURES_ENABLED: z.string().default(""),
+  // Kommaseparierte Print-Provider-Keys, die GLOBAL aktiviert werden
+  // (z.B. "prodigi,gelato"). Self-Hosting-Pendant zum Super-Admin-UI
+  // /super/print-providers. Ein expliziter DB-Eintrag (Super-Admin)
+  // gewinnt weiterhin. Self-Print ist immer aktiv.
+  PRINT_PROVIDERS_ENABLED: z.string().default(""),
 
   JWT_SECRET: z.string().min(16),
   SESSION_SECRET: z.string().min(16),
