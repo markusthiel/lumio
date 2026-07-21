@@ -133,6 +133,24 @@ API-Logs anschauen (`docker compose logs api`). Häufige Ursachen:
 
 ## Login-Probleme
 
+### „JSON.parse: unexpected character" / „Unexpected token '<'" beim Login
+
+Das Frontend hat HTML statt JSON von der API erhalten. Zwei häufige Ursachen:
+
+1. **Du gehst am Proxy vorbei.** Lumio muss über Caddy auf **Port 80/443**
+   aufgerufen werden — der routet `/api/*` zur API. Direkter Zugriff auf den
+   Frontend-Port (3000), z.B. per SSH-Tunnel `ssh -L 3000:127.0.0.1:3000 …`,
+   trifft Next.js ohne API-Routen. Stattdessen Port 80 tunneln:
+   `ssh -L 8080:127.0.0.1:80 dein-server` → `http://localhost:8080` öffnen.
+   (Seit v0.49.1 proxied Port 3000 API-Aufrufe als Fallback mit, auf älteren
+   Versionen ist das aber exakt dieses Fehlerbild.)
+2. **Der API-Container ist down** — Caddy antwortet dann mit einer
+   HTML-Fehlerseite. Prüfen: `docker compose ps` und
+   `docker compose logs api --tail=50`.
+
+Seit v0.49.1 zeigt das Frontend statt des rohen `JSON.parse`-Fehlers eine
+verständliche Fehlermeldung.
+
 ### Kein Login-Button, leere Seite
 
 Frontend-Logs:

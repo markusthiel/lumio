@@ -141,6 +141,13 @@ Im Browser:
 
 → **http://localhost** (Studio-Login)
 
+> **Hinweis:** Lumio immer über **Port 80** (den Caddy-Proxy) aufrufen — er
+> routet `/api/*` zur API. Auf einem entfernten Server also Port 80 tunneln,
+> nicht 3000: `ssh -L 8080:127.0.0.1:80 dein-server` → dann
+> `http://localhost:8080` öffnen. (Seit v0.49.1 proxied auch der
+> Frontend-Port 3000 API-Aufrufe als Fallback, Port 80 bleibt aber der
+> vorgesehene Einstieg.)
+
 Nach dem Login findest du oben links die Galerie-Erstellung. Lade ein Foto hoch, teile den Galerie-Link — fertig.
 
 ---

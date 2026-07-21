@@ -240,7 +240,24 @@ async function request<T>(
     },
   });
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  // Nicht-JSON-Antworten (HTML-404 vom falschen Port, 502-Seite vom Proxy,
+  // wenn die API down ist) dürfen nicht als kryptischer JSON.parse-Fehler
+  // beim Nutzer landen — siehe GitHub-Issue #3.
+  let data: any = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new ApiError(
+        `API returned an unexpected non-JSON response (HTTP ${res.status}). ` +
+          `This usually means the API is not reachable at this origin — ` +
+          `make sure you access Lumio through the proxy (port 80/443), ` +
+          `not the frontend port directly, and check \`docker compose ps\`.`,
+        res.status,
+        "NON_JSON_RESPONSE"
+      );
+    }
+  }
   if (!res.ok) {
     throw new ApiError(
       data?.message ?? data?.error ?? `HTTP ${res.status}`,
