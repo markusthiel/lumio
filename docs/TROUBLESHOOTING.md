@@ -34,6 +34,20 @@ curl -s http://localhost/health
 
 ## Setup problems
 
+### ERR_CONNECTION_REFUSED — nothing answers on port 80
+
+On installations before v0.49.3, Caddy could never start on a fresh clone
+(restart loop) for three stacked reasons: an empty `LUMIO_HOST` produced a
+site block without a key, the dead default addresses of two blocks collided,
+and the acme-dns plugin requires its credentials file at startup even when
+the wildcard block is unused. Update to v0.49.3+ (`git pull`,
+`docker compose up -d --build`). To confirm this is what you're hitting:
+
+```bash
+docker compose ps            # caddy restarting?
+docker compose logs caddy --tail=20
+```
+
 ### Containers won't start
 
 ```bash

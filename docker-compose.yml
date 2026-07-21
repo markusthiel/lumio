@@ -22,19 +22,25 @@ services:
       # ist genau das gewünschte Verhalten für lokales Dev und für
       # Custom-Domain-fähige Produktion ohne Hauptdomain. Falls eine
       # Hauptdomain gewünscht ist, in .env: LUMIO_HOST=lumio-cloud.de
-      - LUMIO_HOST=${LUMIO_HOST:-}
+      # WICHTIG: Default ist eine tote Loopback-Adresse, NICHT leer —
+      # Caddys {$VAR:default} greift nur bei UNGESETZTER Variable; eine
+      # leere ergäbe einen Site-Block ohne Key und Caddy startet nicht.
+      - LUMIO_HOST=${LUMIO_HOST:-127.0.0.1:9}
       - LUMIO_S3_HOST=${LUMIO_S3_HOST:-:81}
       # Optional: Wildcard-Hostname für Tenant-Subdomains. Default ist
       # ein internes Pseudo-Host (127.0.0.1:9), das niemals von außen
       # erreichbar ist — der Caddy-Block matched dann nichts, und der
       # Hauptdomain-Block bleibt der einzige aktive.
       # Aktivieren in .env mit z.B. LUMIO_WILDCARD_HOST=*.lumio-cloud.de:80
-      - LUMIO_WILDCARD_HOST=${LUMIO_WILDCARD_HOST:-127.0.0.1:9}
+      # Tote Default-Adressen müssen sich pro Block in der IP unterscheiden
+      # (nicht nur im Port): Caddys TLS-Automation-Policies sind Host-basiert,
+      # gleiche IP in zwei Blöcken = "ambiguous automation policy"-Crash.
+      - LUMIO_WILDCARD_HOST=${LUMIO_WILDCARD_HOST:-127.0.0.2:9}
       # Optional: Host für die Umami-Analytics (infra/umami). Default
       # 127.0.0.1:9 = inaktiv (kein Cert-Versuch). Aktivieren in .env mit
       # z.B. LUMIO_UMAMI_HOST=stats.lumio-cloud.de (A-Record + laufender
       # Umami-Stack vorausgesetzt).
-      - LUMIO_UMAMI_HOST=${LUMIO_UMAMI_HOST:-127.0.0.1:9}
+      - LUMIO_UMAMI_HOST=${LUMIO_UMAMI_HOST:-127.0.0.3:9}
     ports:
       - "${CADDY_HTTP_PORT:-80}:80"
       - "${CADDY_HTTPS_PORT:-443}:443"

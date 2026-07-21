@@ -122,9 +122,15 @@
 # als Vermittler — die Credentials liegen in infra/caddy/secrets/acmedns.json
 # (NIE in git committen!), CNAME _acme-challenge.<DOMAIN> zeigt auf den
 # acme-dns-Server. Setup siehe docs/MULTI_TENANT.md.
-{$LUMIO_WILDCARD_HOST:127.0.0.1:9} {
+{$LUMIO_WILDCARD_HOST:127.0.0.2:9} {
 	tls {
-		dns acmedns /etc/caddy/secrets/acmedns.json
+		# Pfad via Env: der Entrypoint (infra/caddy/entrypoint.sh) zeigt auf
+		# die echte Datei in secrets/, oder — falls sie fehlt (frischer Clone,
+		# Wildcard nicht in Benutzung) — auf eine eingebackene Dummy-Datei.
+		# Das acmedns-Plugin liest die Datei bereits beim Caddy-START; ohne
+		# existierende Datei startet Caddy gar nicht, auch wenn der
+		# Wildcard-Block auf einer toten Adresse liegt.
+		dns acmedns {$ACMEDNS_CONFIG:/etc/caddy/secrets/acmedns.json}
 	}
 	import lumio_app
 }
@@ -176,7 +182,7 @@ www.lumio-cloud.com {
 # LUMIO_UMAMI_HOST=stats.<domain> in der .env (und sorgt für A-Record +
 # laufenden Umami-Stack). Der spezifische Host greift dann VOR dem
 # *.<domain>-Wildcard (der sonst per import lumio_app an die App ginge).
-{$LUMIO_UMAMI_HOST:127.0.0.1:9} {
+{$LUMIO_UMAMI_HOST:127.0.0.3:9} {
 	reverse_proxy lumio_umami:3000
 	encode zstd gzip
 }

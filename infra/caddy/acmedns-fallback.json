@@ -1,0 +1,8 @@
+{
+  "_comment": "Eingebackener Dummy — wird nur benutzt, wenn keine echte /etc/caddy/secrets/acmedns.json gemountet ist. Werte sind absichtlich unbrauchbar; der Wildcard-Block ist in diesem Fall ohnehin auf einer toten Adresse. Echte Credentials: siehe docs/MULTI_TENANT.md.",
+  "username": "00000000-0000-0000-0000-000000000000",
+  "password": "unused-dummy-fallback",
+  "subdomain": "00000000-0000-0000-0000-000000000000",
+  "fulldomain": "00000000-0000-0000-0000-000000000000.acme-dns.invalid",
+  "server_url": "http://acme_dns:80"
+}
