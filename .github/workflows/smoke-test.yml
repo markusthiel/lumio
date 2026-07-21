@@ -94,7 +94,7 @@ jobs:
             -d '{"title":"Smoke Test"}')
           cat /tmp/gallery.json; echo
           [ "$code" = "200" ] || [ "$code" = "201" ] || { echo "::error::Galerie: HTTP $code"; exit 1; }
-          python3 -c 'import json;print(json.load(open("/tmp/gallery.json"))["id"])' > /tmp/gallery_id
+          python3 -c 'import json;print(json.load(open("/tmp/gallery.json"))["gallery"]["id"])' > /tmp/gallery_id
 
       - name: Upload-Presign anfordern und URL prüfen
         run: |
