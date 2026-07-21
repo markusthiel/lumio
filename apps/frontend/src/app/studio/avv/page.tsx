@@ -47,11 +47,20 @@ export default function StudioAvvPage() {
   const [saved, setSaved] = useState(false);
   const [accepting, setAccepting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Self-hosted (kein Billing): AVV-Routen existieren nicht — statt
+  // Fehlern zeigen wir einen erklärenden Hinweis (Direktaufruf/Bookmark;
+  // der Menü-Tab ist self-hosted ohnehin ausgeblendet).
+  const [selfHosted, setSelfHosted] = useState(false);
 
   async function load() {
     setLoading(true);
     setError(null);
     try {
+      const info = await api.getInstanceInfo();
+      if (!info.billingEnabled) {
+        setSelfHosted(true);
+        return;
+      }
       const s = await api.getDpaStatus();
       setStatus(s);
       setForm(toForm(s.company));
@@ -116,6 +125,27 @@ export default function StudioAvvPage() {
   const complete = status?.companyComplete ?? false;
   const acceptance = status?.acceptance ?? null;
   const upToDate = status?.upToDate ?? false;
+
+  if (selfHosted) {
+    return (
+      <>
+        <PageHeader
+          breadcrumb={[{ label: t("avv.breadcrumbStudio"), href: "/studio" }, { label: t("avv.breadcrumb") }]}
+          title={t("avv.title")}
+        />
+        <div className="px-6 sm:px-8 lg:px-12 py-6 max-w-3xl">
+          <div className="rounded border border-line-subtle bg-surface-sunken p-5">
+            <h2 className="text-ui-md font-semibold mb-1">
+              {t("avv.selfHostedTitle")}
+            </h2>
+            <p className="text-ui-sm text-ink-secondary leading-relaxed">
+              {t("avv.selfHostedInfo")}
+            </p>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>

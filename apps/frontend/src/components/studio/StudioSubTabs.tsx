@@ -15,6 +15,8 @@ interface SubTab {
   rolesAllowed?: Role[];
   /** Nur sichtbar wenn dieser Feature-Flag aktiv ist. */
   requiresFeature?: string;
+  /** Nur in der SaaS sichtbar (BILLING_ENABLED). Self-hosted ausgeblendet. */
+  saasOnly?: boolean;
 }
 
 interface SubGroup {
@@ -58,7 +60,7 @@ const SUB_GROUPS: SubGroup[] = [
       { href: "/studio/webhooks", label: "subtabs.integrations" },
       { href: "/studio/exports", label: "subtabs.dataExport" },
       { href: "/studio/audit", label: "nav.audit" },
-      { href: "/studio/avv", label: "subtabs.dpa", rolesAllowed: ["owner", "admin"] },
+      { href: "/studio/avv", label: "subtabs.dpa", rolesAllowed: ["owner", "admin"], saasOnly: true },
     ],
   },
   {
@@ -80,15 +82,22 @@ export function StudioSubTabs() {
   const pathname = usePathname();
   const [userRole, setUserRole] = useState<Role | null>(null);
   const [features, setFeatures] = useState<string[]>([]);
+  // null = noch unbekannt → saasOnly-Tabs erst zeigen, wenn bestätigt SaaS
+  // (gleiches Erscheinen-nach-Laden-Muster wie bei rolesAllowed).
+  const [billingEnabled, setBillingEnabled] = useState<boolean | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const r = await api.me();
+        const [r, info] = await Promise.all([
+          api.me(),
+          api.getInstanceInfo().catch(() => null),
+        ]);
         if (cancelled) return;
         setUserRole(r.user.role);
         setFeatures(r.features ?? []);
+        setBillingEnabled(info ? info.billingEnabled : null);
       } catch {
         if (!cancelled) setUserRole("member");
       }
@@ -109,6 +118,9 @@ export function StudioSubTabs() {
       if (!tab.rolesAllowed.includes(userRole)) return false;
     }
     if (tab.requiresFeature && !features.includes(tab.requiresFeature)) {
+      return false;
+    }
+    if (tab.saasOnly && billingEnabled !== true) {
       return false;
     }
     return true;

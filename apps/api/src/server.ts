@@ -159,7 +159,6 @@ async function buildServer() {
       await registerHlsRoutes(api);
       await registerZipRoutes(api);
       await registerSettingsRoutes(api);
-      await registerDpaRoutes(api);
       await registerMetaRoutes(api);
       await registerExportRoutes(api);
       await registerBrandingRoutes(api);
@@ -202,6 +201,11 @@ async function buildServer() {
       await registerCspRoutes(api);
       if (config.BILLING_ENABLED) {
         await registerBillingRoutes(api);
+        // AVV (Art. 28 DSGVO) ist das Vertragswerk zwischen Studio und
+        // UNS als Auftragsverarbeiter — existiert nur in der SaaS.
+        // Self-hosted ist der Betreiber selbst Verantwortlicher, ein
+        // AVV mit uns wäre gegenstandslos.
+        await registerDpaRoutes(api);
         await registerSignupRoutes(api);
         await registerMarketingOptOutRoutes(api);
       }

@@ -1558,6 +1558,9 @@ export const de: Dict = {
   },
 
   avv: {
+    selfHostedTitle: "Self-hosted — kein AV-Vertrag erforderlich",
+    selfHostedInfo:
+      "Diese Installation läuft selbst gehostet: Du betreibst Lumio auf eigener Infrastruktur und bist selbst datenschutzrechtlich Verantwortlicher. Ein Auftragsverarbeitungsvertrag (Art. 28 DSGVO) mit dem Lumio-Anbieter ist daher nicht erforderlich — er betrifft nur die gehostete Cloud-Variante. Denk daran, mit deinen eigenen Dienstleistern (Server-Provider, Storage) entsprechende Verträge zu schließen.",
     breadcrumbStudio: "Studio",
     breadcrumb: "AV-Vertrag",
     title: "Auftragsverarbeitungsvertrag (AVV)",

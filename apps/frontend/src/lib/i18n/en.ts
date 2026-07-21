@@ -1553,6 +1553,9 @@ export const en: Dict = {
   },
 
   avv: {
+    selfHostedTitle: "Self-hosted — no data processing agreement required",
+    selfHostedInfo:
+      "This installation is self-hosted: you run Lumio on your own infrastructure and are the data controller yourself. A data processing agreement (Art. 28 GDPR) with the Lumio provider is therefore not required — it only applies to the hosted cloud offering. Remember to put equivalent agreements in place with your own providers (hosting, storage).",
     breadcrumbStudio: "Studio",
     breadcrumb: "DPA",
     title: "Data processing agreement (DPA)",
