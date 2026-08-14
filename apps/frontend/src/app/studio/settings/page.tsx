@@ -564,11 +564,12 @@ export default function StudioSettingsPage() {
           </div>
           <select
             value={locale}
-            onChange={(e) => setLocale(e.target.value as "en" | "de")}
+            onChange={(e) => setLocale(e.target.value as "en" | "de" | "it")}
             className="text-sm rounded-md border border-line-subtle px-2 py-1 bg-surface-raised"
           >
             <option value="en">English</option>
             <option value="de">Deutsch</option>
+            <option value="it">Italiano</option>
           </select>
         </section>
 
