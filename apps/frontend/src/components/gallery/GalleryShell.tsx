@@ -352,8 +352,8 @@ function LocaleSwitcher({
   supported,
 }: {
   locale: string;
-  setLocale: (l: "en" | "de") => void;
-  supported: readonly ("en" | "de")[];
+  setLocale: (l: "en" | "de" | "it") => void;
+  supported: readonly ("en" | "de" | "it")[];
 }) {
   return (
     <div className="flex items-center gap-1 text-[11px]">
@@ -370,7 +370,7 @@ function LocaleSwitcher({
             }
             aria-current={l === locale ? "true" : undefined}
           >
-            {l === "de" ? "Deutsch" : "English"}
+            {l === "de" ? "Deutsch" : l === "it" ? "Italiano" : "English"}
           </button>
         </span>
       ))}
