@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 interface NotificationEvent {
   key: string;
@@ -15,6 +16,7 @@ interface NotificationEvent {
  * Lädt und speichert eigenständig; speichert direkt beim Umschalten.
  */
 export function NotificationSettings({ canEdit }: { canEdit: boolean }) {
+  const t = useT();
   const [events, setEvents] = useState<NotificationEvent[]>([]);
   const [prefs, setPrefs] = useState<Record<string, boolean>>({});
   // null = kein Billing aktiviert / keine Subscription → Toggle nicht zeigen
@@ -36,7 +38,7 @@ export function NotificationSettings({ canEdit }: { canEdit: boolean }) {
           setMarketingEnabled(r.marketingEmailsEnabled);
         }
       } catch {
-        setError("Einstellungen konnten nicht geladen werden.");
+        setError(t("notifications.loadError"));
       } finally {
         setLoading(false);
       }
@@ -54,7 +56,7 @@ export function NotificationSettings({ canEdit }: { canEdit: boolean }) {
       setPrefs(r.prefs);
     } catch {
       setPrefs((p) => ({ ...p, [key]: !p[key] }));
-      setError("Speichern fehlgeschlagen.");
+      setError(t("notifications.saveFailed"));
     } finally {
       setSavingKey(null);
     }
@@ -70,7 +72,7 @@ export function NotificationSettings({ canEdit }: { canEdit: boolean }) {
       setMarketingEnabled(r.marketingEmailsEnabled);
     } catch {
       setMarketingEnabled(!next);
-      setError("Speichern fehlgeschlagen.");
+      setError(t("notifications.saveFailed"));
     } finally {
       setMarketingSaving(false);
     }
@@ -80,14 +82,13 @@ export function NotificationSettings({ canEdit }: { canEdit: boolean }) {
     <section className="rounded-lg border border-line-subtle bg-surface-raised p-5 space-y-6">
       {/* Transaktionale Benachrichtigungen */}
       <div>
-        <h2 className="text-lg font-semibold">E-Mail-Benachrichtigungen</h2>
+        <h2 className="text-lg font-semibold">{t("notifications.heading")}</h2>
         <p className="text-ui-sm text-ink-tertiary mt-0.5 mb-4">
-          Wähle, worüber dich Lumio per E-Mail informiert. Mails gehen an den
-          Studio-Owner.
+          {t("notifications.desc")}
         </p>
 
         {loading ? (
-          <div className="text-ui-sm text-ink-tertiary">Lädt…</div>
+          <div className="text-ui-sm text-ink-tertiary">{t("common.loading")}</div>
         ) : (
           <div className="divide-y divide-line-subtle">
             {events.map((e) => {
@@ -116,9 +117,9 @@ export function NotificationSettings({ canEdit }: { canEdit: boolean }) {
                     title={
                       canEdit
                         ? on
-                          ? "Aktiviert"
-                          : "Deaktiviert"
-                        : "Nur Owner/Admin können das ändern"
+                          ? t("notifications.enabledTitle")
+                          : t("notifications.disabledTitle")
+                        : t("notifications.onlyOwnerAdminTitle")
                     }
                   >
                     <span
@@ -138,19 +139,17 @@ export function NotificationSettings({ canEdit }: { canEdit: boolean }) {
       {/* Marketing-Mails (nur wenn Billing aktiv) */}
       {!loading && marketingEnabled !== null && (
         <div className="border-t border-line-subtle pt-5">
-          <h3 className="font-semibold text-ink-primary">Produkt-Mails</h3>
+          <h3 className="font-semibold text-ink-primary">{t("notifications.productMailsHeading")}</h3>
           <p className="text-ui-sm text-ink-tertiary mt-0.5 mb-4">
-            Gelegentliche Hinweise zu deinem Trial oder Abo (z.&nbsp;B.
-            Ablauf-Erinnerung). Kein Newsletter, keine Werbung Dritter.
+            {t("notifications.productMailsDesc")}
           </p>
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <div className="font-medium text-ink-primary">
-                Produkt- &amp; Lifecycle-Mails
+                {t("notifications.productLifecycleLabel")}
               </div>
               <div className="text-ui-sm text-ink-tertiary">
-                Trial-Reminder, Reaktivierungs-Hinweise. Maximal eine Mail
-                pro Kategorie.
+                {t("notifications.productLifecycleDesc")}
               </div>
             </div>
             <button
@@ -166,9 +165,9 @@ export function NotificationSettings({ canEdit }: { canEdit: boolean }) {
               title={
                 canEdit
                   ? marketingEnabled
-                    ? "Aktiviert"
-                    : "Deaktiviert"
-                  : "Nur Owner/Admin können das ändern"
+                    ? t("notifications.enabledTitle")
+                    : t("notifications.disabledTitle")
+                  : t("notifications.onlyOwnerAdminTitle")
               }
             >
               <span
@@ -187,7 +186,7 @@ export function NotificationSettings({ canEdit }: { canEdit: boolean }) {
       )}
       {!canEdit && !loading && (
         <p className="text-ui-xs text-ink-tertiary">
-          Nur Owner und Admins können Benachrichtigungen ändern.
+          {t("notifications.onlyOwnerAdminChange")}
         </p>
       )}
     </section>

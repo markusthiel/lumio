@@ -123,16 +123,16 @@ export function DangerZone({
     return (
       <section className="rounded-md border border-semantic-danger/30 bg-semantic-danger/[0.06] p-5 space-y-3">
         <h2 className="text-ui font-medium text-semantic-danger">
-          Studio-Löschung läuft
+          {t("dangerZone.statusHeading")}
         </h2>
         <dl className="grid grid-cols-[200px_1fr] gap-y-2 gap-x-3 text-ui-sm">
           <dt className="text-ink-secondary">Status</dt>
           <dd className="text-ink-primary font-medium">
-            Pending Deletion (Karenzphase)
+            {t("dangerZone.statusPendingLabel")}
           </dd>
           {requestedDate && (
             <>
-              <dt className="text-ink-secondary">Angefordert am</dt>
+              <dt className="text-ink-secondary">{t("dangerZone.requestedOn")}</dt>
               <dd className="text-ink-primary">
                 {requestedDate.toLocaleString("de-DE", {
                   day: "2-digit",
@@ -152,12 +152,12 @@ export function DangerZone({
               year: "numeric",
             })}{" "}
             <span className="text-ink-tertiary">
-              ({daysLeft} {daysLeft === 1 ? "Tag" : "Tage"})
+              ({daysLeft} {daysLeft === 1 ? t("dangerZone.daySingular") : t("dangerZone.dayPlural")})
             </span>
           </dd>
           <dt className="text-ink-secondary">Stripe-Subscription</dt>
           <dd className="text-ink-primary">
-            Gekündigt — bei Reaktivierung manuell neu starten.
+            {t("dangerZone.stripeCancelledNote")}
           </dd>
         </dl>
         <Button

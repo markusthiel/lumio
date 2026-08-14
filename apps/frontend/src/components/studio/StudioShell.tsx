@@ -130,17 +130,17 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  { href: "/studio",            labelKey: "nav.galleries",  fallback: "Galerien",      icon: "galleries",  prefix: "/studio" },
+  { href: "/studio",            labelKey: "nav.galleries",  fallback: "Galleries",     icon: "galleries",  prefix: "/studio" },
   { href: "/studio/analytics",  labelKey: "nav.analytics",  fallback: "Analytics",     icon: "analytics",  prefix: "/studio/analytics",  rolesAllowed: ["owner", "admin"], requiresFeature: "advanced_analytics" },
-  { href: "/studio/print-shop", labelKey: "nav.printShop",  fallback: "Print-Shop",    icon: "print",      prefix: "/studio/print-shop", rolesAllowed: ["owner", "admin"], requiresFeature: "print_shop" },
+  { href: "/studio/print-shop", labelKey: "nav.printShop",  fallback: "Print shop",    icon: "print",      prefix: "/studio/print-shop", rolesAllowed: ["owner", "admin"], requiresFeature: "print_shop" },
   // Sammeleintrag „Gestaltung" → Tabs: Branding · Templates · Tags
-  { href: "/studio/brandings",  labelKey: "nav.design",     fallback: "Gestaltung",    icon: "design",     prefix: "/studio/brandings",
+  { href: "/studio/brandings",  labelKey: "nav.design",     fallback: "Design",        icon: "design",     prefix: "/studio/brandings",
     matchPrefixes: ["/studio/brandings", "/studio/templates", "/studio/tags", "/studio/appearance"] },
   // Sammeleintrag „Einstellungen" → Tabs: Allgemein · Team · Integrationen · Datenexport · Audit · AV-Vertrag
-  { href: "/studio/settings",   labelKey: "nav.settings",   fallback: "Einstellungen", icon: "settings",   prefix: "/studio/settings",
+  { href: "/studio/settings",   labelKey: "nav.settings",   fallback: "Settings",      icon: "settings",   prefix: "/studio/settings",
     matchPrefixes: ["/studio/settings", "/studio/team", "/studio/webhooks", "/studio/exports", "/studio/audit", "/studio/avv"] },
   // Sammeleintrag „Konto" → Tabs: Mein Konto · Plan & Speicher
-  { href: "/studio/account",    labelKey: "nav.accountGroup", fallback: "Konto",       icon: "account",    prefix: "/studio/account",
+  { href: "/studio/account",    labelKey: "nav.accountGroup", fallback: "Account",     icon: "account",    prefix: "/studio/account",
     matchPrefixes: ["/studio/account", "/studio/billing"] },
 ];
 
@@ -302,7 +302,7 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
                   src={logo}
-                  alt="Studio-Logo"
+                  alt={t("nav.studioLogoAlt")}
                   className="h-7 max-w-[150px] object-contain"
                 />
               ) : (
@@ -530,7 +530,7 @@ function SidebarFooter({
 
   const logoutLabel = (() => {
     const translated = t("nav.logout");
-    return translated === "nav.logout" ? "Abmelden" : translated;
+    return translated === "nav.logout" ? "Logout" : translated;
   })();
 
   return (

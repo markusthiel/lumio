@@ -51,9 +51,7 @@ export function PasskeysSection() {
 
   async function addPasskey() {
     setError(null);
-    const label = window.prompt(
-      'Bezeichnung für diesen Passkey (z.B. "MacBook" oder "YubiKey #1"):'
-    );
+    const label = window.prompt(t("passkeys.labelPrompt"));
     if (!label || !label.trim()) return;
 
     setAdding(true);
@@ -91,9 +89,7 @@ export function PasskeysSection() {
   }
 
   async function removePasskey(id: string, label: string) {
-    if (
-      !window.confirm(`Passkey "${label}" wirklich entfernen?`)
-    )
+    if (!window.confirm(t("passkeys.removeConfirm", { label })))
       return;
     try {
       await api.deleteWebauthnCredential(id);
@@ -108,8 +104,7 @@ export function PasskeysSection() {
       <section className="rounded-lg border border-line-subtle bg-surface-raised p-5">
         <h2 className="text-sm font-medium">Passkeys</h2>
         <p className="text-xs text-ink-tertiary mt-1">
-          Dieser Browser unterstützt keine WebAuthn-/Passkey-Anmeldung. Auf
-          einem aktuellen Chrome, Safari oder Firefox sollte es funktionieren.
+          {t("passkeys.notSupported")}
         </p>
       </section>
     );
@@ -156,8 +151,9 @@ export function PasskeysSection() {
               <div>
                 <div className="font-medium">{c.label}</div>
                 <div className="text-xs text-ink-tertiary mt-0.5">
-                  Hinzugefügt {formatDate(c.createdAt)}
-                  {c.lastUsedAt && ` · zuletzt verwendet ${formatDate(c.lastUsedAt)}`}
+                  {t("passkeys.addedOn", { date: formatDate(c.createdAt) })}
+                  {c.lastUsedAt &&
+                    t("passkeys.lastUsedOn", { date: formatDate(c.lastUsedAt) })}
                 </div>
               </div>
               <button
@@ -165,7 +161,7 @@ export function PasskeysSection() {
                 onClick={() => removePasskey(c.id, c.label)}
                 className="text-xs text-semantic-danger hover:underline"
               >
-                Entfernen
+                {t("common.remove")}
               </button>
             </li>
           ))}

@@ -183,7 +183,7 @@ export function SharePanel({
         // die neuen Adressen zeigt
         if (payload.updateDefaults) void load();
       } else {
-        alert("Einladung konnte nicht verschickt werden.");
+        alert(t("share.inviteFailed"));
       }
     } catch (err) {
       alert(

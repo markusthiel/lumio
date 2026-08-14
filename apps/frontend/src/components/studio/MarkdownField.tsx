@@ -3,6 +3,7 @@
 import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useT } from "@/lib/i18n";
 
 /**
  * Markdown-Textarea mit Live-Preview-Toggle.
@@ -42,6 +43,7 @@ export function MarkdownField({
   previewClassName?: string;
 }) {
   const [mode, setMode] = useState<"edit" | "preview">("edit");
+  const t = useT();
 
   return (
     <div className="space-y-1">
@@ -57,7 +59,7 @@ export function MarkdownField({
                 : "bg-surface-raised text-ink-tertiary hover:text-ink-primary"
             }`}
           >
-            Bearbeiten
+            {t("common.edit")}
           </button>
           <button
             type="button"
@@ -69,7 +71,7 @@ export function MarkdownField({
             }`}
             disabled={!value.trim()}
           >
-            Vorschau
+            {t("studio.preview")}
           </button>
         </div>
       </div>
@@ -96,7 +98,7 @@ export function MarkdownField({
             </ReactMarkdown>
           ) : (
             <div className="text-ink-tertiary text-ui-xs italic">
-              Leer — schreibe etwas im Bearbeiten-Modus.
+              {t("common.markdownEmptyPreview")}
             </div>
           )}
         </div>

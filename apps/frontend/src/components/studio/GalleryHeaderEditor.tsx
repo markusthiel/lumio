@@ -697,7 +697,7 @@ function RgbaPicker({
         className="h-8 w-12 rounded border border-line-subtle bg-transparent cursor-pointer"
       />
       <label className="text-ui-xs text-ink-tertiary flex items-center gap-1.5">
-        Stärke
+        {t("appearance.strength")}
         <input
           type="range"
           min={0}

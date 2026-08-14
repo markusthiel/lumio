@@ -115,7 +115,7 @@ export default function TemplateEditorPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen text-ui text-ink-tertiary">
-        Lädt…
+        {t("common.loading")}
       </div>
     );
   }
@@ -123,7 +123,7 @@ export default function TemplateEditorPage() {
     return (
       <div className="px-6 sm:px-8 lg:px-12 py-8">
         <div className="text-ui text-semantic-danger">
-          {error ?? "Template nicht gefunden."}
+          {error ?? t("templates.notFound")}
         </div>
       </div>
     );
@@ -141,10 +141,10 @@ export default function TemplateEditorPage() {
         actions={
           <>
             <Button variant="danger" onClick={remove}>
-              Löschen
+              {t("common.delete")}
             </Button>
             <Button variant="primary" onClick={save} disabled={saving}>
-              {saving ? "Speichert…" : t("common.save")}
+              {saving ? t("common.saving") : t("common.save")}
             </Button>
           </>
         }
@@ -165,12 +165,12 @@ export default function TemplateEditorPage() {
               className="w-full rounded border border-line-subtle bg-surface-sunken text-ink-primary px-3 py-2 text-ui focus:border-accent focus:outline-none transition-colors duration-motion"
             />
           </Field>
-          <Field label="Beschreibung (intern)">
+          <Field label={t("templates.descriptionInternal")}>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
-              placeholder="Wann nutze ich dieses Template?"
+              placeholder={t("templates.descriptionPlaceholder")}
               className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm"
             />
           </Field>
@@ -243,7 +243,7 @@ export default function TemplateEditorPage() {
               onChange={(e) => setBrandingId(e.target.value)}
               className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm bg-surface-raised"
             >
-              <option value="">{t("templates.tenantDefault")}</option>
+              <option value="">{t("studio.brandingTenantDefault")}</option>
               {brandings.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name}

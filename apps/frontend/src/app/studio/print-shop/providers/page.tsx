@@ -59,7 +59,7 @@ export default function PrintProvidersPage() {
   }, [load]);
 
   if (!available || !mine) {
-    return <div className="text-sm text-ink-tertiary">Lädt…</div>;
+    return <div className="text-sm text-ink-tertiary">{t("common.loading")}</div>;
   }
 
   const mineKeys = new Set(mine.map((p) => p.providerKey));

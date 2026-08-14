@@ -107,7 +107,7 @@ export default function PrintProductsPage() {
   }
 
   if (!products || !providers) {
-    return <div className="text-sm text-ink-tertiary">Lädt…</div>;
+    return <div className="text-sm text-ink-tertiary">{t("common.loading")}</div>;
   }
 
   const enabledProviders = providers.filter((p) => p.enabled);

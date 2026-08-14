@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { useT } from "@/lib/i18n";
 
 /**
  * Adaptive Video-Player mit sichtbarer Filmstrip-Scrub-Leiste,
@@ -94,6 +95,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
     },
     ref
   ) {
+    const t = useT();
     const videoRef = useRef<HTMLVideoElement | null>(null);
     const mediaRef = useRef<HTMLDivElement | null>(null);
     const barRef = useRef<HTMLDivElement | null>(null);
@@ -404,7 +406,7 @@ export const VideoPlayer = forwardRef<VideoPlayerHandle, VideoPlayerProps>(
               onPointerCancel={onPointerUp}
               onPointerLeave={onPointerLeave}
               role="slider"
-              aria-label="Video-Position"
+              aria-label={t("gallery.videoPositionLabel")}
               aria-valuemin={0}
               aria-valuemax={Math.round(duration)}
               aria-valuenow={Math.round(current)}

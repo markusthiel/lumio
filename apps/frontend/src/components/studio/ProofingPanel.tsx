@@ -76,7 +76,7 @@ export function ProofingPanel({
           embedded ? "py-16" : "h-screen"
         }`}
       >
-        Lädt…
+        {t("common.loading")}
       </div>
     );
   }
@@ -84,7 +84,7 @@ export function ProofingPanel({
     return (
       <div className="px-6 sm:px-8 lg:px-12 py-6">
         <div className="text-ui text-semantic-danger bg-semantic-danger/10 border border-semantic-danger/30 rounded-sm px-3 py-2 max-w-3xl">
-          {error ?? "Galerie nicht gefunden."}
+          {error ?? t("proofing.notFound")}
         </div>
       </div>
     );
@@ -95,7 +95,7 @@ export function ProofingPanel({
       {!embedded && (
         <PageHeader
           breadcrumb={[
-            { label: "Studio", href: "/studio" },
+            { label: t("nav.studio"), href: "/studio" },
             { label: data.gallery.title, href: `/studio/${data.gallery.id}` },
             { label: t("annotation.selectionOverview") },
           ]}
@@ -164,7 +164,7 @@ export function ProofingPanel({
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M12 21s-7-4.6-9.5-8.3C.9 10.2 1.5 7 4.3 6c1.9-.7 3.7.2 4.7 1.6C10 6.2 11.8 5.3 13.7 6c2.8 1 3.4 4.2 1.8 6.7C19 16.4 12 21 12 21z" />
                 </svg>
-                Favoriten
+                {t("proofing.favoritesFilter")}
               </button>
               <button
                 type="button"
@@ -187,7 +187,7 @@ export function ProofingPanel({
                 >
                   <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                 </svg>
-                Kommentare
+                {t("proofing.comments")}
               </button>
               {filterActive && (
                 <button
@@ -242,15 +242,15 @@ export function ProofingPanel({
                           className={`w-3.5 h-3.5 rounded-full border border-white/60 shadow-sm ${colorBg(
                             colorTag
                           )}`}
-                          aria-label={`Farbe: ${colorTag}`}
-                          title={`Farbe: ${colorTag}`}
+                          aria-label={t("proofing.colorBadge", { color: colorTag })}
+                          title={t("proofing.colorBadge", { color: colorTag })}
                         />
                       )}
                       {hasLike && (
                         <span
                           className="w-5 h-5 rounded-full bg-black/55 text-white inline-flex items-center justify-center shadow-sm"
-                          aria-label="Favorit"
-                          title="Favorit"
+                          aria-label={t("proofing.favoriteBadge")}
+                          title={t("proofing.favoriteBadge")}
                         >
                           <svg
                             width="11"
@@ -266,12 +266,16 @@ export function ProofingPanel({
                     {commentCount > 0 && (
                       <span
                         className="absolute bottom-1.5 left-1.5 inline-flex items-center gap-0.5 h-5 px-1.5 rounded-full bg-black/55 text-white text-[10px] font-medium shadow-sm"
-                        aria-label={`${commentCount} Kommentar${
-                          commentCount === 1 ? "" : "e"
-                        }`}
-                        title={`${commentCount} Kommentar${
-                          commentCount === 1 ? "" : "e"
-                        }`}
+                        aria-label={
+                          commentCount === 1
+                            ? t("proofing.commentCountSg", { n: commentCount })
+                            : t("proofing.commentCountPl", { n: commentCount })
+                        }
+                        title={
+                          commentCount === 1
+                            ? t("proofing.commentCountSg", { n: commentCount })
+                            : t("proofing.commentCountPl", { n: commentCount })
+                        }
                       >
                         <svg
                           width="11"
@@ -297,11 +301,11 @@ export function ProofingPanel({
 
         {/* Top-Stats */}
         <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard label="Dateien" value={data.totals.fileCount} />
-          <StatCard label="Mit Like" value={data.totals.withLike} />
-          <StatCard label="Mit Rating" value={data.totals.withRating} />
+          <StatCard label={t("proofing.files")} value={data.totals.fileCount} />
+          <StatCard label={t("proofing.withLike")} value={data.totals.withLike} />
+          <StatCard label={t("proofing.withRating")} value={data.totals.withRating} />
           <StatCard
-            label="Farb-Tags gesamt"
+            label={t("proofing.colorTags")}
             value={Object.values(data.totals.byLabel).reduce(
               (sum, n) => sum + n,
               0
@@ -312,7 +316,7 @@ export function ProofingPanel({
         {/* Label-Verteilung */}
         {Object.keys(data.totals.byLabel).length > 0 && (
           <section className="rounded-md border border-line-subtle bg-surface-raised p-4">
-            <h2 className="text-ui-md font-medium mb-3">Farb-Tags</h2>
+            <h2 className="text-ui-md font-medium mb-3">{t("proofing.colorTagsHeader")}</h2>
             <div className="flex flex-wrap gap-3">
               {Object.entries(data.totals.byLabel).map(([label, count]) => (
                 <div
@@ -334,15 +338,15 @@ export function ProofingPanel({
         {data.perAccess.length > 0 && (
           <section className="rounded-lg border border-line-subtle bg-surface-raised">
             <h2 className="text-sm font-medium px-4 py-3 border-b border-line-subtle">
-              Beteiligung pro Share-Link
+              {t("proofing.perAccess")}
             </h2>
             <table className="w-full text-sm">
               <thead className="bg-surface-sunken text-xs text-ink-tertiary">
                 <tr>
-                  <th className="text-left px-4 py-2">Bezeichnung</th>
-                  <th className="text-right px-4 py-2">Picks/Likes</th>
-                  <th className="text-right px-4 py-2">Likes</th>
-                  <th className="text-right px-4 py-2">Kommentare</th>
+                  <th className="text-left px-4 py-2">{t("proofing.label")}</th>
+                  <th className="text-right px-4 py-2">{t("proofing.picks")}</th>
+                  <th className="text-right px-4 py-2">{t("proofing.likes")}</th>
+                  <th className="text-right px-4 py-2">{t("proofing.comments")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line-subtle">
@@ -361,11 +365,9 @@ export function ProofingPanel({
 
         {/* Export-Aktionen */}
         <section className="rounded-lg border border-line-subtle bg-surface-raised p-4">
-          <h2 className="text-sm font-medium mb-1">Exporte</h2>
+          <h2 className="text-sm font-medium mb-1">{t("proofing.exports")}</h2>
           <p className="text-xs text-ink-tertiary mb-3">
-            CSV für Tabellenkalkulation, XMP-Sidecars für Lightroom Classic
-            oder Capture One. Lege die XMPs neben deine Original-RAWs, dann
-            in Lightroom <em>Metadaten → Aus Datei lesen</em>.
+            {t("proofing.exportsHint")}
           </p>
           <div className="flex flex-wrap gap-2">
             <a
@@ -373,40 +375,35 @@ export function ProofingPanel({
               className="text-sm px-3 py-1.5 rounded bg-accent text-accent-contrast hover:bg-accent-hover"
               download
             >
-              CSV herunterladen
+              {t("proofing.csv")}
             </a>
             <a
               href={api.xmpExportUrl(data.gallery.id)}
               className="text-sm px-3 py-1.5 rounded bg-accent text-accent-contrast hover:bg-accent-hover"
               download
             >
-              XMP-Sidecars (ZIP)
+              {t("proofing.xmp")}
             </a>
           </div>
           <div className="text-xs text-ink-tertiary mt-3 leading-relaxed">
-            <strong>Hinweis zu Farb-Tags:</strong> Lightroom erkennt
-            Farb-Labels anhand des aktiven Label-Sets. Stelle in Lightroom
-            unter <em>Metadaten → Farbbeschriftungs-Sets</em> auf
-            „Lightroom-Standard" (englisch) — Lumio schreibt „Red"/„Yellow"/
-            „Green". Bei deutschem Label-Set („Rot"/„Gelb"/„Grün") werden
-            die Sterne erkannt, die Farben nicht.
+            {t("proofing.lightroomHint")}
           </div>
         </section>
 
         {/* Files-Liste */}
         <section className="rounded-lg border border-line-subtle bg-surface-raised">
           <h2 className="text-sm font-medium px-4 py-3 border-b border-line-subtle">
-            Dateien
+            {t("proofing.files")}
             {data.fileCountTotal > data.files.length && (
               <span className="text-xs text-ink-tertiary font-normal ml-2">
-                — zeigt {data.files.length} von {data.fileCountTotal}
+                {t("proofing.showingOf", { shown: data.files.length, total: data.fileCountTotal })}
               </span>
             )}
           </h2>
           <table className="w-full text-sm">
             <thead className="bg-surface-sunken text-xs text-ink-tertiary">
               <tr>
-                <th className="text-left px-4 py-2">Datei</th>
+                <th className="text-left px-4 py-2">{t("proofing.fileColumn")}</th>
                 <th className="text-center px-4 py-2">Rating</th>
                 <th className="text-center px-4 py-2">Label</th>
                 <th className="text-center px-4 py-2">Liked</th>
@@ -452,7 +449,7 @@ export function ProofingPanel({
                     colSpan={5}
                     className="px-4 py-6 text-center text-sm text-ink-tertiary"
                   >
-                    Noch keine Auswahl von Kunden.
+                    {t("proofing.noClientSelection")}
                   </td>
                 </tr>
               )}

@@ -85,7 +85,7 @@ export default function CollectionEditPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen text-ui text-ink-tertiary">
-        Lädt…
+        {t("common.loading")}
       </div>
     );
   }
@@ -124,14 +124,12 @@ export default function CollectionEditPage() {
         <section className="rounded-lg border border-line-subtle bg-surface-raised p-5 space-y-3">
           <h2 className="text-sm font-medium">{t("collections.filter")}</h2>
           <p className="text-xs text-ink-tertiary">
-            Alle Filter sind UND-verknüpft — eine Galerie muss alle
-            gesetzten Bedingungen erfüllen um in der Collection zu
-            erscheinen.
+            {t("collections.filterAndNote")}
           </p>
 
           <div>
             <label className="block text-ui-xs uppercase tracking-wide text-ink-tertiary mb-1">
-              Modus
+              {t("studio.modeLabel")}
             </label>
             <select
               value={filter.mode ?? ""}
@@ -174,7 +172,7 @@ export default function CollectionEditPage() {
           {allTags.length > 0 && (
             <div>
               <label className="block text-ui-xs uppercase tracking-wide text-ink-tertiary mb-2">
-                Tags (alle gewählten müssen vorhanden sein)
+                {t("collections.tagsAllRequired")}
               </label>
               <div className="flex flex-wrap gap-1.5">
                 {allTags.map((tag) => {
@@ -202,10 +200,10 @@ export default function CollectionEditPage() {
 
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={() => router.push("/studio")}>
-            Abbrechen
+            {t("common.cancel")}
           </Button>
           <Button variant="primary" onClick={save} disabled={saving || !name.trim()}>
-            {saving ? "Speichert…" : t("common.save")}
+            {saving ? t("common.saving") : t("common.save")}
           </Button>
         </div>
       </div>

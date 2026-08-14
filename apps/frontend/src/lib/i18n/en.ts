@@ -47,6 +47,7 @@ export const en: Dict = {
     remove: "Remove",
     upload: "Upload",
     replace: "Replace",
+    markdownEmptyPreview: "Empty — write something in edit mode.",
   },
 
   nav: {
@@ -67,6 +68,7 @@ export const en: Dict = {
     menuOpen: "Open menu",
     menuClose: "Close menu",
     logout: "Logout",
+    studioLogoAlt: "Studio logo",
   },
 
   subtabs: {
@@ -166,6 +168,11 @@ export const en: Dict = {
     firstGallery: "Create first gallery →",
     files: "Files",
     liked: "liked",
+    loggedInAs: "Logged in as {name}",
+    deleteActiveCollection: "Delete active",
+    resetFilters: "Reset filters",
+    statsVisitsTooltip: "Visits",
+    statsLikesTooltip: "Likes",
 
     // Gallery detail page
     proofingLink: "Selection overview →",
@@ -308,6 +315,9 @@ export const en: Dict = {
     sectionAvailableEmpty: "All images already assigned.",
     sectionRemoveFromChapter: "Remove from chapter",
     sectionAddToChapter: "Add to this chapter",
+    sectionSmartTitle: 'Smart section: fills from tag "{name}"',
+    sectionAutoPrefix: "Auto: {name}",
+    sectionSmartLabel: "Smart section (fill from tag)",
     eventLogo: "Event logo",
     eventLogoHint:
       "Small, shown above the gallery title. E.g. wedding monogram or event branding. PNG with transparent background recommended.",
@@ -564,6 +574,7 @@ export const en: Dict = {
     cleanupFailedMessage:
       "These files could not be processed — e.g. due to invalid formats or worker errors. File records are removed, along with any existing S3 objects.",
     modeLabel: "Mode",
+    filterAndNote: "Galleries must satisfy all set conditions.",
     modeSelection: "Selection / Proofing",
     modeSelectionDesc: "The client can select, comment on and flag media.",
     modePresentation: "Presentation",
@@ -612,9 +623,11 @@ export const en: Dict = {
     lbZoomInTitle: "Zoom in (+)",
     lbActualSize: "Actual size",
     lbActualSizeTitle: "Actual size (0)",
+    lbNoPreview: "No preview available",
   },
 
   gallery: {
+    videoPositionLabel: "Video position",
     locked: "This gallery is password-protected.",
     open: "Open gallery",
     password: "Password",
@@ -735,6 +748,15 @@ export const en: Dict = {
   },
 
   proofing: {
+    notFound: "Gallery not found.",
+    favoritesFilter: "Favorites",
+    favoriteBadge: "Favorite",
+    colorBadge: "Color: {color}",
+    commentCountSg: "{n} comment",
+    commentCountPl: "{n} comments",
+    showingOf: "— showing {shown} of {total}",
+    fileColumn: "File",
+    noClientSelection: "No client selection yet.",
     title: "Selection overview",
     files: "Files",
     withLike: "With like",
@@ -786,6 +808,8 @@ export const en: Dict = {
     twoFactorBackup:
       "Save these backup codes in a safe place. Each can be used once if you lose access to your device.",
     twoFactorBackupSaved: "I've saved the codes",
+    copyAllCodes: "Copy",
+    copiedAllCodes: "✓ Copied",
     twoFactorConfirmDisable: "Confirm with a current code to disable 2FA:",
     slugChangeError: "The studio address could not be changed",
     domainInUse: "This domain is already in use.",
@@ -1069,6 +1093,8 @@ export const en: Dict = {
     confirmationSentTo:
       "A confirmation email was sent to {email}. Click the link in the email to complete the change.",
     changeEmail: "Change email address",
+    changeEmailSecurityNote:
+      "For security reasons we need your current password. We'll send a confirmation link to the new address — the change only takes effect after that.",
     newEmail: "New email address",
     currentPassword: "Current password",
     requesting: "Requesting…",
@@ -1092,6 +1118,11 @@ export const en: Dict = {
     descAdmin:
       "Users of this studio. As an admin you can invite and manage members — owner roles are reserved for the owner.",
     inviteUser: "Invite user",
+    inviteDesc:
+      "The invited user receives an email with a setup link (valid 72 hours) and can then sign in with their own password.",
+    roleAdminDesc: "Admin — can manage galleries and team",
+    roleOwnerDesc: "Owner — can additionally grant owner roles",
+    roleMemberDesc: "Member — restricted access",
     fieldName: "Name",
     fieldEmail: "Email",
     fieldRole: "Role",
@@ -1207,6 +1238,9 @@ export const en: Dict = {
   },
 
   appearance: {
+    saveFailed: "Saving failed",
+    strength: "Strength",
+    nothingUploadedYet: "Nothing uploaded yet.",
     studioColorHex: "Studio accent color must be a hex value, e.g. #3a87fe",
     loginColorHex: "Login accent color must be a hex value, e.g. #3a87fe",
     title: "Studio & login",
@@ -1279,6 +1313,12 @@ export const en: Dict = {
   dangerZone: {
     nameMismatch: "The entered studio name does not match.",
     finalDeletion: "Final deletion",
+    statusHeading: "Studio deletion in progress",
+    statusPendingLabel: "Pending deletion (grace period)",
+    requestedOn: "Requested on",
+    stripeCancelledNote: "Cancelled — restart manually upon reactivation.",
+    daySingular: "day",
+    dayPlural: "days",
     wrongPassword: "Password is not correct.",
     title: "Delete studio",
     description:
@@ -1382,6 +1422,8 @@ export const en: Dict = {
   },
 
   printSettings: {
+    disconnectConfirm:
+      "Really disconnect the Stripe Connect account? You won't be able to receive online orders afterwards.",
     onboardingIncomplete:
       "Stripe onboarding is still incomplete. Click 'Set up' again.",
     syncFailed: "Sync failed",
@@ -2076,6 +2118,12 @@ export const en: Dict = {
     none: "No passkeys registered yet.",
     add: "Add passkey",
     addError: "Passkey could not be added.",
+    labelPrompt: 'Label for this passkey (e.g. "MacBook" or "YubiKey #1"):',
+    removeConfirm: 'Really remove passkey "{label}"?',
+    notSupported:
+      "This browser doesn't support WebAuthn/passkey sign-in. It should work on a current Chrome, Safari or Firefox.",
+    addedOn: "Added {date}",
+    lastUsedOn: " · last used {date}",
   },
 
   bulkSel: {
@@ -2107,6 +2155,9 @@ export const en: Dict = {
     draft: "Draft",
     active: "Active",
     archived: "Archived",
+    filterAndNote:
+      "All filters are AND-combined — a gallery must satisfy every set condition to appear in the collection.",
+    tagsAllRequired: "Tags (all selected must be present)",
   },
   templates: {
     watermarkActive: "Watermark active",
@@ -2118,6 +2169,14 @@ export const en: Dict = {
     deleteConfirm: "Delete template? Galleries already created are not affected.",
     defaultDescLabel: "Default description for new galleries",
     defaultDescPlaceholder: "Used as default text in the gallery — editable per gallery.",
+    notFound: "Template not found.",
+    descriptionInternal: "Description (internal)",
+    descriptionPlaceholder: "When do I use this template?",
+    emptyTitle: "No templates created yet.",
+    emptyHint:
+      "Templates save time creating recurring gallery types like wedding, newborn or portrait — all settings are used as defaults.",
+    namePlaceholder: "e.g. Wedding, Newborn, Portrait",
+    days: "days",
   },
   impersonate: {
     noToken: "No token in the link.",
@@ -2346,5 +2405,21 @@ export const en: Dict = {
   },
   announcement: {
     dismiss: "Dismiss banner",
+  },
+  notifications: {
+    loadError: "Settings could not be loaded.",
+    saveFailed: "Saving failed.",
+    heading: "Email notifications",
+    desc: "Choose what Lumio notifies you about by email. Emails go to the studio owner.",
+    enabledTitle: "Enabled",
+    disabledTitle: "Disabled",
+    onlyOwnerAdminTitle: "Only owner/admin can change this",
+    productMailsHeading: "Product emails",
+    productMailsDesc:
+      "Occasional notes about your trial or subscription (e.g. expiry reminder). No newsletter, no third-party ads.",
+    productLifecycleLabel: "Product & lifecycle emails",
+    productLifecycleDesc:
+      "Trial reminders, reactivation notices. Maximum one email per category.",
+    onlyOwnerAdminChange: "Only owners and admins can change notifications.",
   },
 };

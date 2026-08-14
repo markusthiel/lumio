@@ -361,8 +361,7 @@ function InviteDialog({
     <Modal onClose={pending ? () => {} : onClose}>
       <h2 className="text-lg font-medium text-ink-primary">{t("team.inviteUser")}</h2>
       <p className="text-ui-sm text-ink-secondary mt-2">
-        Der eingeladene User erhält eine E-Mail mit einem Setup-Link (gültig 72
-        Stunden) und kann sich danach mit eigenem Passwort einloggen.
+        {t("team.inviteDesc")}
       </p>
       <div className="space-y-3 mt-4">
         <Field label={t("team.fieldName")}>
@@ -396,15 +395,15 @@ function InviteDialog({
             className={inputCls}
           >
             <option value="admin">
-              Admin — kann Galerien und Team verwalten
+              {t("team.roleAdminDesc")}
             </option>
             {canInviteOwner && (
               <option value="owner">
-                Owner — kann zusätzlich Owner-Rollen vergeben
+                {t("team.roleOwnerDesc")}
               </option>
             )}
             <option value="member">
-              Member — eingeschränkter Zugriff
+              {t("team.roleMemberDesc")}
             </option>
           </select>
         </Field>

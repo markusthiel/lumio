@@ -288,7 +288,7 @@ function BackupCodesPanel({
           onClick={copyAll}
           className="text-xs px-2 py-1 rounded border border-line-subtle hover:bg-surface-sunken"
         >
-          {copied ? "✓ kopiert" : "Kopieren"}
+          {copied ? t("settings.copiedAllCodes") : t("settings.copyAllCodes")}
         </button>
         <button
           onClick={onDone}

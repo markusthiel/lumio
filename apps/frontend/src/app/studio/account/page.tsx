@@ -350,9 +350,7 @@ function EmailSection({
             />
           </Row>
           <p className="text-ui-xs text-ink-tertiary leading-relaxed">
-            Aus Sicherheitsgründen brauchen wir dein aktuelles Passwort. Wir
-            schicken einen Bestätigungslink an die neue Adresse — erst danach
-            ist der Wechsel aktiv.
+            {t("account.changeEmailSecurityNote")}
           </p>
           {error && (
             <div className="text-ui-sm text-semantic-danger">{error}</div>

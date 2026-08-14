@@ -283,13 +283,13 @@ function SectionRow({
                   color: section.autoTag.color,
                   border: `1px solid ${section.autoTag.color}55`,
                 }}
-                title={`Smart-Section: befüllt sich aus Tag "${section.autoTag.name}"`}
+                title={t("studio.sectionSmartTitle", { name: section.autoTag.name })}
               >
                 <span
                   className="inline-block w-1.5 h-1.5 rounded-full"
                   style={{ backgroundColor: section.autoTag.color }}
                 />
-                Auto: {section.autoTag.name}
+                {t("studio.sectionAutoPrefix", { name: section.autoTag.name })}
               </span>
             )}
           </div>
@@ -496,7 +496,7 @@ function SectionEditForm({
           Section verschoben (und nicht-passende raus). */}
       <div className="pt-2 border-t border-line-subtle">
         <label className="block text-ui-xs text-ink-tertiary mb-1">
-          Smart-Section (aus Tag befüllen)
+          {t("studio.sectionSmartLabel")}
         </label>
         <div className="flex items-center gap-2">
           <select
@@ -555,7 +555,7 @@ function SectionEditForm({
           disabled={saving}
           className="text-ui-sm h-8 px-3 rounded text-ink-secondary hover:text-ink-primary hover:bg-surface-overlay disabled:opacity-50 transition-colors duration-motion"
         >
-          {t("studio.cancel")}
+          {t("common.cancel")}
         </button>
         <button
           type="button"
@@ -563,7 +563,7 @@ function SectionEditForm({
           disabled={saving}
           className="text-ui-sm h-8 px-3 rounded bg-accent text-accent-contrast hover:bg-accent-hover disabled:opacity-50 transition-colors duration-motion"
         >
-          {saving ? "…" : t("studio.save")}
+          {saving ? "…" : t("common.save")}
         </button>
       </div>
     </div>

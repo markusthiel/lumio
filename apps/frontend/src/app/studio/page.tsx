@@ -249,7 +249,7 @@ export default function StudioPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen text-ui text-ink-tertiary">
-        Lädt…
+        {t("common.loading")}
       </div>
     );
   }
@@ -259,7 +259,7 @@ export default function StudioPage() {
     <>
       <PageHeader
         title={t("studio.galleriesTitle")}
-        description={user.name ? `Angemeldet als ${user.name}` : user.email}
+        description={user.name ? t("studio.loggedInAs", { name: user.name }) : user.email}
         actions={
           <Button variant="primary" size="md" onClick={() => setShowCreate(true)}>
             {t("studio.newGallery")}
@@ -482,7 +482,7 @@ export default function StudioPage() {
               onClick={deleteActiveCollection}
               className="text-ui-xs text-semantic-danger/80 hover:text-semantic-danger ml-2"
             >
-              Aktive löschen
+              {t("studio.deleteActiveCollection")}
             </button>
           )}
         </div>
@@ -516,7 +516,7 @@ export default function StudioPage() {
               onClick={clearFilters}
               className="text-ui-xs text-ink-tertiary hover:text-ink-secondary ml-1"
             >
-              Filter zurücksetzen
+              {t("studio.resetFilters")}
             </button>
           )}
         </div>
@@ -721,7 +721,7 @@ function SaveCollectionDialog({
             Filter
           </div>
           <p className="text-ui-xs text-ink-tertiary mb-3">
-            Galerien müssen alle gesetzten Bedingungen erfüllen.
+            {t("studio.filterAndNote")}
           </p>
 
           <div className="space-y-3">
@@ -902,7 +902,7 @@ function GalleryCard({
     <div className="flex items-center gap-2.5 text-ui-xs text-ink-tertiary">
       <span>{t("studio.nFiles", { n: g.fileCount ?? 0 })}</span>
       {stats && stats.visits > 0 && (
-        <span className="inline-flex items-center gap-1" title="Besuche">
+        <span className="inline-flex items-center gap-1" title={t("studio.statsVisitsTooltip")}>
           <svg
             width="12"
             height="12"
@@ -920,7 +920,7 @@ function GalleryCard({
         </span>
       )}
       {stats && stats.likes > 0 && (
-        <span className="inline-flex items-center gap-1" title="Favoriten">
+        <span className="inline-flex items-center gap-1" title={t("studio.statsLikesTooltip")}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 21s-7-4.6-9.5-8.3C.9 10.2 1.5 7 4.3 6c1.9-.7 3.7.2 4.7 1.6C10 6.2 11.8 5.3 13.7 6c2.8 1 3.4 4.2 1.8 6.7C19 16.4 12 21 12 21z" />
           </svg>

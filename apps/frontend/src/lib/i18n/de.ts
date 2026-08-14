@@ -49,6 +49,7 @@ export const de: Dict = {
     remove: "Entfernen",
     upload: "Hochladen",
     replace: "Ersetzen",
+    markdownEmptyPreview: "Leer — schreibe etwas im Bearbeiten-Modus.",
   },
 
   nav: {
@@ -69,6 +70,7 @@ export const de: Dict = {
     menuOpen: "Menü öffnen",
     menuClose: "Menü schließen",
     logout: "Abmelden",
+    studioLogoAlt: "Studio-Logo",
   },
 
   subtabs: {
@@ -168,6 +170,11 @@ export const de: Dict = {
     firstGallery: "Erste Galerie erstellen →",
     files: "Dateien",
     liked: "geliked",
+    loggedInAs: "Angemeldet als {name}",
+    deleteActiveCollection: "Aktive löschen",
+    resetFilters: "Filter zurücksetzen",
+    statsVisitsTooltip: "Besuche",
+    statsLikesTooltip: "Favoriten",
 
     // Gallery detail page
     proofingLink: "Auswahl-Übersicht →",
@@ -310,6 +317,9 @@ export const de: Dict = {
     sectionAvailableEmpty: "Alle Bilder sind bereits zugeordnet.",
     sectionRemoveFromChapter: "Aus dem Kapitel entfernen",
     sectionAddToChapter: "In dieses Kapitel verschieben",
+    sectionSmartTitle: 'Smart-Section: befüllt sich aus Tag "{name}"',
+    sectionAutoPrefix: "Auto: {name}",
+    sectionSmartLabel: "Smart-Section (aus Tag befüllen)",
     eventLogo: "Event-Logo",
     eventLogoHint:
       "Klein über dem Galerie-Titel sichtbar. Z.B. Hochzeitsmonogramm oder Event-Branding. PNG mit transparentem Hintergrund empfohlen.",
@@ -566,6 +576,7 @@ export const de: Dict = {
     cleanupFailedMessage:
       "Diese Dateien konnten nicht verarbeitet werden — z.B. wegen ungültigen Formaten oder Worker-Fehlern. File-Records werden entfernt und ggf. vorhandene S3-Objekte mit.",
     modeLabel: "Modus",
+    filterAndNote: "Galerien müssen alle gesetzten Bedingungen erfüllen.",
     modeSelection: "Auswahl / Proofing",
     modeSelectionDesc: "Kunde kann Medien auswählen, kommentieren und markieren.",
     modePresentation: "Präsentation",
@@ -614,9 +625,11 @@ export const de: Dict = {
     lbZoomInTitle: "Vergrößern (+)",
     lbActualSize: "Originalgröße",
     lbActualSizeTitle: "Originalgröße (0)",
+    lbNoPreview: "Keine Vorschau verfügbar",
   },
 
   gallery: {
+    videoPositionLabel: "Video-Position",
     locked: "Diese Galerie ist passwortgeschützt.",
     open: "Galerie öffnen",
     password: "Passwort",
@@ -738,6 +751,15 @@ export const de: Dict = {
   },
 
   proofing: {
+    notFound: "Galerie nicht gefunden.",
+    favoritesFilter: "Favoriten",
+    favoriteBadge: "Favorit",
+    colorBadge: "Farbe: {color}",
+    commentCountSg: "{n} Kommentar",
+    commentCountPl: "{n} Kommentare",
+    showingOf: "— zeigt {shown} von {total}",
+    fileColumn: "Datei",
+    noClientSelection: "Noch keine Auswahl von Kunden.",
     title: "Auswahl-Übersicht",
     files: "Dateien",
     withLike: "Mit Like",
@@ -790,6 +812,8 @@ export const de: Dict = {
     twoFactorBackup:
       "Speichere diese Backup-Codes an einem sicheren Ort. Jeder lässt sich einmalig nutzen, falls du keinen Zugriff mehr aufs Gerät hast.",
     twoFactorBackupSaved: "Ich habe die Codes gespeichert",
+    copyAllCodes: "Kopieren",
+    copiedAllCodes: "✓ kopiert",
     twoFactorConfirmDisable:
       "Bestätige mit einem aktuellen Code, um 2FA zu deaktivieren:",
     slugChangeError: "Studio-Adresse konnte nicht geändert werden",
@@ -1074,6 +1098,8 @@ export const de: Dict = {
     confirmationSentTo:
       "Eine Bestätigungsmail wurde an {email} geschickt. Klick den Link in der Mail, um den Wechsel abzuschließen.",
     changeEmail: "E-Mail-Adresse ändern",
+    changeEmailSecurityNote:
+      "Aus Sicherheitsgründen brauchen wir dein aktuelles Passwort. Wir schicken einen Bestätigungslink an die neue Adresse — erst danach ist der Wechsel aktiv.",
     newEmail: "Neue E-Mail-Adresse",
     currentPassword: "Aktuelles Passwort",
     requesting: "Wird angefordert…",
@@ -1097,6 +1123,11 @@ export const de: Dict = {
     descAdmin:
       "User dieses Studios. Als Admin kannst du Mitglieder einladen und verwalten — Owner-Rollen bleiben dem Owner vorbehalten.",
     inviteUser: "User einladen",
+    inviteDesc:
+      "Der eingeladene User erhält eine E-Mail mit einem Setup-Link (gültig 72 Stunden) und kann sich danach mit eigenem Passwort einloggen.",
+    roleAdminDesc: "Admin — kann Galerien und Team verwalten",
+    roleOwnerDesc: "Owner — kann zusätzlich Owner-Rollen vergeben",
+    roleMemberDesc: "Member — eingeschränkter Zugriff",
     fieldName: "Name",
     fieldEmail: "E-Mail",
     fieldRole: "Rolle",
@@ -1214,6 +1245,9 @@ export const de: Dict = {
   },
 
   appearance: {
+    saveFailed: "Speichern fehlgeschlagen",
+    strength: "Stärke",
+    nothingUploadedYet: "Noch nichts hochgeladen.",
     studioColorHex: "Studio-Akzentfarbe muss ein Hex-Wert sein, z.B. #3a87fe",
     loginColorHex: "Login-Akzentfarbe muss ein Hex-Wert sein, z.B. #3a87fe",
     title: "Studio & Login",
@@ -1286,6 +1320,12 @@ export const de: Dict = {
   dangerZone: {
     nameMismatch: "Der eingegebene Studio-Name stimmt nicht.",
     finalDeletion: "Endgültige Löschung",
+    statusHeading: "Studio-Löschung läuft",
+    statusPendingLabel: "Pending Deletion (Karenzphase)",
+    requestedOn: "Angefordert am",
+    stripeCancelledNote: "Gekündigt — bei Reaktivierung manuell neu starten.",
+    daySingular: "Tag",
+    dayPlural: "Tage",
     wrongPassword: "Passwort ist nicht korrekt.",
     title: "Studio löschen",
     description:
@@ -1389,6 +1429,8 @@ export const de: Dict = {
   },
 
   printSettings: {
+    disconnectConfirm:
+      "Stripe-Connect-Account wirklich trennen? Du kannst danach keine Online-Bestellungen mehr empfangen.",
     onboardingIncomplete:
       "Stripe-Onboarding ist noch unvollständig. Klicke nochmal auf 'Einrichten'.",
     syncFailed: "Sync fehlgeschlagen",
@@ -2083,6 +2125,12 @@ export const de: Dict = {
     none: "Noch keine Passkeys registriert.",
     add: "Passkey hinzufügen",
     addError: "Passkey konnte nicht hinzugefügt werden.",
+    labelPrompt: 'Bezeichnung für diesen Passkey (z.B. "MacBook" oder "YubiKey #1"):',
+    removeConfirm: 'Passkey "{label}" wirklich entfernen?',
+    notSupported:
+      "Dieser Browser unterstützt keine WebAuthn-/Passkey-Anmeldung. Auf einem aktuellen Chrome, Safari oder Firefox sollte es funktionieren.",
+    addedOn: "Hinzugefügt {date}",
+    lastUsedOn: " · zuletzt verwendet {date}",
   },
 
   bulkSel: {
@@ -2114,6 +2162,9 @@ export const de: Dict = {
     draft: "Entwurf",
     active: "Aktiv",
     archived: "Archiviert",
+    filterAndNote:
+      "Alle Filter sind UND-verknüpft — eine Galerie muss alle gesetzten Bedingungen erfüllen um in der Collection zu erscheinen.",
+    tagsAllRequired: "Tags (alle gewählten müssen vorhanden sein)",
   },
   templates: {
     watermarkActive: "Wasserzeichen aktiv",
@@ -2125,6 +2176,14 @@ export const de: Dict = {
     deleteConfirm: "Template löschen? Bereits angelegte Galerien sind nicht betroffen.",
     defaultDescLabel: "Default-Beschreibung für neue Galerien",
     defaultDescPlaceholder: "Wird als Default-Text in die Galerie übernommen — pro Galerie editierbar.",
+    notFound: "Template nicht gefunden.",
+    descriptionInternal: "Beschreibung (intern)",
+    descriptionPlaceholder: "Wann nutze ich dieses Template?",
+    emptyTitle: "Noch keine Templates angelegt.",
+    emptyHint:
+      "Templates sparen Zeit beim Anlegen wiederkehrender Galerie-Typen wie Hochzeit, Newborn oder Portrait — alle Settings werden als Defaults übernommen.",
+    namePlaceholder: "z.B. Hochzeit, Newborn, Portrait",
+    days: "Tage",
   },
   impersonate: {
     noToken: "Kein Token im Link.",
@@ -2353,5 +2412,21 @@ export const de: Dict = {
   },
   announcement: {
     dismiss: "Banner ausblenden",
+  },
+  notifications: {
+    loadError: "Einstellungen konnten nicht geladen werden.",
+    saveFailed: "Speichern fehlgeschlagen.",
+    heading: "E-Mail-Benachrichtigungen",
+    desc: "Wähle, worüber dich Lumio per E-Mail informiert. Mails gehen an den Studio-Owner.",
+    enabledTitle: "Aktiviert",
+    disabledTitle: "Deaktiviert",
+    onlyOwnerAdminTitle: "Nur Owner/Admin können das ändern",
+    productMailsHeading: "Produkt-Mails",
+    productMailsDesc:
+      "Gelegentliche Hinweise zu deinem Trial oder Abo (z. B. Ablauf-Erinnerung). Kein Newsletter, keine Werbung Dritter.",
+    productLifecycleLabel: "Produkt- & Lifecycle-Mails",
+    productLifecycleDesc:
+      "Trial-Reminder, Reaktivierungs-Hinweise. Maximal eine Mail pro Kategorie.",
+    onlyOwnerAdminChange: "Nur Owner und Admins können Benachrichtigungen ändern.",
   },
 };

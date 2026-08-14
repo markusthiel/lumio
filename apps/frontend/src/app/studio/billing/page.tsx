@@ -133,7 +133,7 @@ export default function BillingPage() {
     return (
       <>
         <PageHeader breadcrumb={[{ label: t("nav.studio"), href: "/studio" }, { label: t("billing.title") }]} title={t("billing.title")} />
-        <div className="px-6 sm:px-8 lg:px-12 py-6 text-ui-sm text-ink-tertiary">Lädt …</div>
+        <div className="px-6 sm:px-8 lg:px-12 py-6 text-ui-sm text-ink-tertiary">{t("common.loading")}</div>
       </>
     );
   }

@@ -144,11 +144,7 @@ function SettingsInner() {
   }
 
   async function disconnect() {
-    if (
-      !confirm(
-        "Stripe-Connect-Account wirklich trennen? Du kannst danach keine Online-Bestellungen mehr empfangen."
-      )
-    ) {
+    if (!confirm(t("printSettings.disconnectConfirm"))) {
       return;
     }
     setSaving(true);

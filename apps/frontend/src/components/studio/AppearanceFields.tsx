@@ -85,7 +85,7 @@ export function OverlayField({
         />
       </label>
       <label className="flex items-center gap-2 text-sm text-ink-secondary flex-1 min-w-[180px]">
-        Stärke
+        {t("appearance.strength")}
         <input
           type="range"
           min={0}
@@ -200,7 +200,7 @@ export function AssetField({
             className={`border rounded text-xs text-center flex items-center justify-center ${previewBg} ${previewCls}`}
             style={previewStyle}
           >
-            <span className={emptyTextCls}>Noch nichts hochgeladen.</span>
+            <span className={emptyTextCls}>{t("appearance.nothingUploadedYet")}</span>
           </div>
         )}
         <div className="flex justify-between items-center gap-2">

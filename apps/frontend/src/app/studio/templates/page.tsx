@@ -36,7 +36,7 @@ export default function TemplatesPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen text-ui text-ink-tertiary">
-        Lädt…
+        {t("common.loading")}
       </div>
     );
   }
@@ -59,12 +59,10 @@ export default function TemplatesPage() {
         {templates.length === 0 ? (
           <div className="rounded-md border border-dashed border-line-subtle bg-surface-sunken p-12 text-center">
             <div className="text-ink-tertiary text-ui">
-              Noch keine Templates angelegt.
+              {t("templates.emptyTitle")}
             </div>
             <p className="text-ui-xs text-ink-tertiary mt-2 max-w-md mx-auto">
-              Templates sparen Zeit beim Anlegen wiederkehrender
-              Galerie-Typen wie Hochzeit, Newborn oder Portrait —
-              alle Settings werden als Defaults übernommen.
+              {t("templates.emptyHint")}
             </p>
             <button
               onClick={() => setShowCreate(true)}
@@ -187,7 +185,7 @@ function CreateTemplateDialog({
           autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="z.B. Hochzeit, Newborn, Portrait"
+          placeholder={t("templates.namePlaceholder")}
           className="w-full rounded-md border border-line-subtle px-3 py-2 text-sm"
         />
         {error && (
@@ -201,14 +199,14 @@ function CreateTemplateDialog({
             onClick={onClose}
             className="text-sm px-3 py-2 rounded-md border border-line-subtle hover:bg-surface-sunken"
           >
-            Abbrechen
+            {t("common.cancel")}
           </button>
           <button
             type="submit"
             disabled={pending}
             className="text-sm px-3 py-2 rounded-md bg-accent text-accent-contrast hover:bg-accent-hover disabled:opacity-50"
           >
-            {pending ? "Wird erstellt…" : "Erstellen"}
+            {pending ? t("common.creating") : t("common.create")}
           </button>
         </div>
       </form>

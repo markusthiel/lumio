@@ -490,7 +490,7 @@ export default function AppearancePage() {
       applyStudioAccent(appearance.studioAccentColor);
       applyStudioTheme(appearance.studioTheme);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Speichern fehlgeschlagen");
+      setError(e instanceof Error ? e.message : t("appearance.saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -520,7 +520,7 @@ export default function AppearancePage() {
         )}
 
         {loading ? (
-          <div className="text-sm text-ink-tertiary">Lädt…</div>
+          <div className="text-sm text-ink-tertiary">{t("common.loading")}</div>
         ) : !appearance ? null : (
           <>
             {/* ============ STUDIO-BACKEND ============ */}
