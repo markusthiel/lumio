@@ -2130,6 +2130,10 @@ export const de: Dict = {
     noToken: "Kein Token im Link.",
     errCookie: "Session-Cookie wurde nicht akzeptiert. Bitte Cookies/Tracking-Schutz für diese Domain erlauben.",
     errToken: "Token ungültig oder abgelaufen. Bitte erneut vom Super-Admin starten.",
+    supportLoginTitle: "Support-Login",
+    creatingSession: "Session wird angelegt…",
+    failedTitle: "Impersonate fehlgeschlagen",
+    backToHome: "Zurück zur Startseite",
   },
 
   storageBanner: {
@@ -2353,5 +2357,12 @@ export const de: Dict = {
   },
   announcement: {
     dismiss: "Banner ausblenden",
+  },
+  landing: {
+    heroTitle: "Foto- & Video-Sharing",
+    heroTitleAccent: "für Profis.",
+    heroSubtitle: "Schnelles Proofing, Auswahl und Auslieferung von Shootings.",
+    selfHosted: "Self-hosted Version",
+    sourceCode: "Quellcode",
   },
 };

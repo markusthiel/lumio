@@ -23,13 +23,27 @@
  * sehen will, geht direkt zu /api/v1/health.
  */
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
+import { headers, cookies } from "next/headers";
 import Link from "next/link";
 
 import { TenantPicker } from "@/components/landing/TenantPicker";
+import { dictionaries, type Locale, type Dict } from "@/lib/i18n/dict";
 
 const MODE = process.env.NEXT_PUBLIC_DEPLOYMENT_MODE ?? "single";
 const DOMAIN_BASE = process.env.NEXT_PUBLIC_DOMAIN_BASE ?? "";
+
+// Server Component — kein useT() verfügbar (das ist Client-Context).
+// Locale kommt aus dem gleichen Cookie wie im Client (siehe lib/i18n.tsx),
+// nur hier serverseitig gelesen für die eine Handvoll Strings dieser Page.
+function pickString(dict: Dict, path: string): string {
+  const parts = path.split(".");
+  let current: Dict | string = dict;
+  for (const part of parts) {
+    if (typeof current === "string") return path;
+    current = current[part] as Dict | string;
+  }
+  return typeof current === "string" ? current : path;
+}
 
 export default async function HomePage() {
   // Single-Mode: direkt durchleiten.
@@ -57,6 +71,12 @@ export default async function HomePage() {
     redirect("/login");
   }
 
+  const cookieStore = await cookies();
+  const rawLocale = cookieStore.get("lumio_locale")?.value;
+  const locale: Locale =
+    rawLocale && rawLocale in dictionaries ? (rawLocale as Locale) : "en";
+  const dict = dictionaries[locale];
+
   // Apex: Tenant-Picker rendern. Form-Submit redirected auf Subdomain.
   return (
     <main className="min-h-screen flex items-center justify-center p-8 bg-surface-canvas">
@@ -75,12 +95,14 @@ export default async function HomePage() {
             Lumio
           </div>
           <h1 className="text-display-xl font-medium tracking-tight text-ink-primary">
-            Foto- &amp; Video-Sharing
+            {pickString(dict, "landing.heroTitle")}
             <br />
-            <span className="text-ink-secondary">für Profis.</span>
+            <span className="text-ink-secondary">
+              {pickString(dict, "landing.heroTitleAccent")}
+            </span>
           </h1>
           <p className="text-ui-lg text-ink-tertiary leading-relaxed">
-            Schnelles Proofing, Auswahl und Auslieferung von Shootings.
+            {pickString(dict, "landing.heroSubtitle")}
           </p>
         </header>
 
@@ -91,14 +113,14 @@ export default async function HomePage() {
             href="https://lumio-app.de"
             className="hover:text-ink-secondary"
           >
-            Self-hosted Version
+            {pickString(dict, "landing.selfHosted")}
           </Link>
           <span>·</span>
           <a
             href="https://github.com/markusthiel/lumio"
             className="hover:text-ink-secondary"
           >
-            Quellcode
+            {pickString(dict, "landing.sourceCode")}
           </a>
         </div>
       </div>

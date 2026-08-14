@@ -101,7 +101,7 @@ export default function PublicExportPage() {
   if (loading) {
     return (
       <FullScreenCenter>
-        <div className="text-ui text-ink-tertiary">Wird geladen…</div>
+        <div className="text-ui text-ink-tertiary">{t("common.loading")}</div>
       </FullScreenCenter>
     );
   }

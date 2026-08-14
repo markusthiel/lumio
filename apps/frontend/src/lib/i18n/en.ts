@@ -2123,6 +2123,10 @@ export const en: Dict = {
     noToken: "No token in the link.",
     errCookie: "Session cookie was not accepted. Please allow cookies/tracking protection for this domain.",
     errToken: "Token invalid or expired. Please start again from the super admin.",
+    supportLoginTitle: "Support login",
+    creatingSession: "Creating session…",
+    failedTitle: "Impersonation failed",
+    backToHome: "Back to home",
   },
 
   storageBanner: {
@@ -2346,5 +2350,12 @@ export const en: Dict = {
   },
   announcement: {
     dismiss: "Dismiss banner",
+  },
+  landing: {
+    heroTitle: "Photo & video sharing",
+    heroTitleAccent: "for professionals.",
+    heroSubtitle: "Fast proofing, selection, and delivery of shoots.",
+    selfHosted: "Self-hosted version",
+    sourceCode: "Source code",
   },
 };

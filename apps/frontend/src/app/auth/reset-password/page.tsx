@@ -38,11 +38,12 @@ type State =
   | { kind: "done" };
 
 export default function ResetPasswordPage() {
+  const t = useT();
   return (
     <Suspense
       fallback={
         <div className="min-h-screen flex items-center justify-center bg-surface-canvas">
-          <div className="text-ui text-ink-tertiary">Lädt…</div>
+          <div className="text-ui text-ink-tertiary">{t("common.loading")}</div>
         </div>
       }
     >

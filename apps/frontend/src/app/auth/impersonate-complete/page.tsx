@@ -37,11 +37,12 @@ export default function ImpersonateCompletePage() {
 }
 
 function LoadingShell() {
+  const t = useT();
   return (
     <div className="min-h-screen flex items-center justify-center bg-surface-canvas">
       <div className="max-w-md w-full mx-4 rounded-lg border border-line-subtle bg-surface-raised p-6 text-center">
-        <h1 className="text-lg font-semibold mb-2">Support-Login</h1>
-        <p className="text-sm text-ink-tertiary">Session wird angelegt…</p>
+        <h1 className="text-lg font-semibold mb-2">{t("impersonate.supportLoginTitle")}</h1>
+        <p className="text-sm text-ink-tertiary">{t("impersonate.creatingSession")}</p>
       </div>
     </div>
   );
@@ -113,17 +114,17 @@ function Inner() {
         {error ? (
           <>
             <h1 className="text-lg font-semibold text-semantic-danger mb-2">
-              Impersonate fehlgeschlagen
+              {t("impersonate.failedTitle")}
             </h1>
             <p className="text-sm text-ink-secondary mb-4">{error}</p>
             <a href="/" className="text-sm text-accent hover:underline">
-              Zurück zur Startseite
+              {t("impersonate.backToHome")}
             </a>
           </>
         ) : (
           <>
-            <h1 className="text-lg font-semibold mb-2">Support-Login</h1>
-            <p className="text-sm text-ink-tertiary">Session wird angelegt…</p>
+            <h1 className="text-lg font-semibold mb-2">{t("impersonate.supportLoginTitle")}</h1>
+            <p className="text-sm text-ink-tertiary">{t("impersonate.creatingSession")}</p>
           </>
         )}
       </div>

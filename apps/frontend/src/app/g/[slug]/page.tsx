@@ -16,11 +16,12 @@ import { useT } from "@/lib/i18n";
 // Next.js 16 verlangt einen <Suspense>-Boundary um useSearchParams() —
 // sonst kann die Page nicht prerendert werden.
 export default function PublicGalleryPage() {
+  const t = useT();
   return (
     <Suspense
       fallback={
         <div className="min-h-screen flex items-center justify-center bg-surface-canvas">
-          <div className="text-ui text-ink-tertiary">Lädt…</div>
+          <div className="text-ui text-ink-tertiary">{t("common.loading")}</div>
         </div>
       }
     >
