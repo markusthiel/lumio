@@ -65,7 +65,12 @@ export const it: LocaleDict = {
     captchaFailed:
       "Verifica CAPTCHA non riuscita. Ricarica la pagina e riprova.",
     customerMismatch: "Questa sessione non appartiene a questo tenant.",
+    deleteNotAllowed: "Non hai il permesso di eliminare questa galleria.",
     emailTaken: "Questo indirizzo email è già in uso in questo studio.",
+    galleryHasPrintOrders:
+      "Questa galleria ha ordini di stampa e non può essere eliminata.",
+    galleryNotArchived:
+      "Archivia la galleria prima di eliminarla definitivamente.",
     inUse:
       "Ci sono ordini che usano questa variante. Disattivala invece di eliminarla.",
     invalidChallenge: "Accedi di nuovo.",
@@ -706,6 +711,12 @@ export const it: LocaleDict = {
     lbActualSizeTitle: "Dimensione reale (0)",
     reactivate: "Riattiva",
     archive: "Archivia",
+    deletePermanently: "Elimina definitivamente",
+    deleteConfirmTitle: "Elimina definitivamente la galleria",
+    deleteConfirmMessage:
+      "Questo elimina definitivamente “{title}” e tutto il suo contenuto — file, link di condivisione, commenti e valutazioni. L'operazione non può essere annullata.\n\nDigita il titolo della galleria per confermare.",
+    deleteTitleMismatch:
+      "Il testo digitato non corrisponde al titolo della galleria. Non è stato eliminato nulla.",
     deleteActive: "Elimina attive",
     saveFilterHint:
       "Salva un filtro con un nome. Comparirà poi sopra l'elenco delle gallerie come scorciatoia.",

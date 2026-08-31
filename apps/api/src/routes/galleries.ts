@@ -27,7 +27,7 @@ import { resolveGalleryBranding } from "../services/branding.js";
 import { logEvent } from "../services/audit.js";
 import { checkActiveGalleriesLimit, checkFeatureAvailable } from "../services/usage.js";
 import { publishEvent } from "../services/webhooks.js";
-import { galleryAccessWhere } from "../lib/gallery-access.js";
+import { galleryAccessWhere, canDeleteGallery } from "../lib/gallery-access.js";
 import {
   createVisitorToken,
   verifyVisitorToken,
@@ -417,6 +417,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           heroFileId: true,
           createdAt: true,
           updatedAt: true,
+          ownerId: true,
           _count: { select: { files: true } },
           tags: {
             select: {
@@ -520,6 +521,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           createdAt: g.createdAt,
           updatedAt: g.updatedAt,
           fileCount: g._count.files,
+          canDelete: canDeleteGallery(s, g),
           tags: g.tags.map((gt) => gt.tag),
           coverThumbUrl: coverUrlByGallery.get(g.id) ?? null,
           stats: {
@@ -1048,8 +1050,18 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
   // -------------------------------------------------------------------------
   // DELETE /galleries/:id
   // -------------------------------------------------------------------------
-  // Soft-Delete via status=archived ist auch sinnvoll, aber für jetzt:
-  // Hard-Delete. S3-Aufräumen läuft als Worker-Job (TODO).
+  // Hard-Delete. S3-Aufräumen läuft als Worker-Job. Vor dem eigentlichen
+  // Löschen greifen drei Guards, in dieser Reihenfolge:
+  //   1. Rollen-Berechtigung (canDeleteGallery) — strenger als der normale
+  //      Zugriff, siehe gallery-access.ts.
+  //   2. Galerie muss archiviert sein — verhindert das versehentliche
+  //      Löschen einer live-Galerie, der Kunde könnte gerade drauf sein.
+  //      Server-seitig statt nur im UI, weil die Route auch direkt vom
+  //      Lightroom-Plugin/Skripten angesprochen wird.
+  //   3. Keine Druckbestellungen — PrintOrderItem.fileId ist als
+  //      onDelete: Restrict modelliert, ein Hard-Delete würde sonst
+  //      Bestell-/Zahlungsdaten mitreissen oder an der DB-Constraint
+  //      scheitern.
   app.delete<{ Params: { id: string } }>(
     "/galleries/:id",
     async (req, reply) => {
@@ -1060,9 +1072,22 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           tenantId: req.tenantId,
           ...galleryAccessWhere(s),
         },
-        select: { id: true, slug: true },
+        select: { id: true, slug: true, status: true, ownerId: true },
       });
       if (!existing) return reply.status(404).send({ error: "not_found" });
+
+      if (!canDeleteGallery(s, existing)) {
+        return reply.status(403).send({ error: "delete_not_allowed" });
+      }
+      if (existing.status !== "archived") {
+        return reply.status(409).send({ error: "gallery_not_archived" });
+      }
+      const printOrderCount = await prisma.printOrder.count({
+        where: { galleryId: existing.id },
+      });
+      if (printOrderCount > 0) {
+        return reply.status(409).send({ error: "gallery_has_print_orders" });
+      }
 
       const tenantId = req.tenantId;
       await prisma.gallery.delete({ where: { id: existing.id } });

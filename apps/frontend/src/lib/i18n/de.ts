@@ -67,7 +67,12 @@ export const de: LocaleDict = {
     captchaFailed:
       "CAPTCHA-Prüfung fehlgeschlagen. Bitte lade die Seite neu und versuche es erneut.",
     customerMismatch: "Session gehört nicht zu diesem Tenant.",
+    deleteNotAllowed: "Du hast keine Berechtigung, diese Galerie zu löschen.",
     emailTaken: "Diese E-Mail-Adresse ist im Studio bereits vergeben.",
+    galleryHasPrintOrders:
+      "Diese Galerie hat Druckbestellungen und kann nicht gelöscht werden.",
+    galleryNotArchived:
+      "Die Galerie muss vor dem endgültigen Löschen archiviert werden.",
     inUse:
       "Es gibt Bestellungen mit dieser Variante. Deaktiviere stattdessen.",
     invalidChallenge: "Bitte erneut anmelden.",
@@ -706,6 +711,12 @@ export const de: LocaleDict = {
     lbActualSizeTitle: "Originalgröße (0)",
       reactivate: "Reaktivieren",
     archive: "Archivieren",
+    deletePermanently: "Endgültig löschen",
+    deleteConfirmTitle: "Galerie endgültig löschen",
+    deleteConfirmMessage:
+      "Damit werden „{title}“ und alles darin — Dateien, Freigabe-Links, Kommentare und Bewertungen — endgültig gelöscht. Das kann nicht rückgängig gemacht werden.\n\nZum Bestätigen den Galerie-Titel eingeben.",
+    deleteTitleMismatch:
+      "Der eingegebene Text stimmt nicht mit dem Galerie-Titel überein. Es wurde nichts gelöscht.",
     deleteActive: "Aktive löschen",
     saveFilterHint:
       "Speichere einen Filter unter einem Namen. Er erscheint dann oben in der Galerien-Liste als Schnellzugriff.",

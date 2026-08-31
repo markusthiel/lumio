@@ -18,6 +18,7 @@ import {
   smartCollectionFilterSchema,
   buildWhereClause,
 } from "../services/smart-collection-filter.js";
+import { canDeleteGallery } from "../lib/gallery-access.js";
 
 const createSchema = z.object({
   name: z.string().min(1).max(120),
@@ -201,6 +202,7 @@ export async function registerCollectionRoutes(app: FastifyInstance) {
           watermarkEnabled: true,
           createdAt: true,
           updatedAt: true,
+          ownerId: true,
           _count: { select: { files: true } },
           tags: {
             select: {
@@ -223,6 +225,7 @@ export async function registerCollectionRoutes(app: FastifyInstance) {
           createdAt: g.createdAt,
           updatedAt: g.updatedAt,
           fileCount: g._count.files,
+          canDelete: canDeleteGallery(s, g),
           tags: g.tags.map((gt) => gt.tag),
         })),
       };

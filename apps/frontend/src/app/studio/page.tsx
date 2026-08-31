@@ -17,7 +17,7 @@ import { PageHeader } from "@/components/studio/PageHeader";
 import { Button, Input, Textarea, Select } from "@/components/ui";
 import { TagChip } from "@/components/studio/TagPicker";
 import { useErrorText } from "@/lib/error-i18n";
-import { useConfirm, useNotify} from "@/components/ui/dialogs";
+import { useConfirm, useNotify, usePrompt } from "@/components/ui/dialogs";
 
 export default function StudioPage() {
   const confirm = useConfirm();
@@ -855,6 +855,7 @@ function GalleryCard({
 }) {
   const notify = useNotify();
   const errText = useErrorText();
+  const ask = usePrompt();
   const t = useT();
   const [menuOpen, setMenuOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -892,6 +893,30 @@ function GalleryCard({
     setMenuOpen(false);
     try {
       await api.updateGallery(g.id, { status });
+      onChanged();
+    } catch (err) {
+      notify(errText(err, t("common.error")));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function deleteForever() {
+    setMenuOpen(false);
+    const typed = await ask({
+      title: t("studio.deleteConfirmTitle"),
+      message: t("studio.deleteConfirmMessage", { title: g.title }),
+      placeholder: g.title,
+      confirmLabel: t("common.delete"),
+    });
+    if (typed === null) return;
+    if (typed.trim().toLowerCase() !== g.title.trim().toLowerCase()) {
+      notify(t("studio.deleteTitleMismatch"));
+      return;
+    }
+    setBusy(true);
+    try {
+      await api.deleteGallery(g.id);
       onChanged();
     } catch (err) {
       notify(errText(err, t("common.error")));
@@ -1049,16 +1074,30 @@ function GalleryCard({
                 {t("studio.tabShare")}
               </button>
               {g.status === "archived" ? (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    void setStatus("live");
-                  }}
-                  className="w-full text-left px-3 py-1.5 text-ink-secondary hover:text-ink-primary hover:bg-surface-sunken"
-                >
-                  {t("studio.reactivate")}
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      void setStatus("live");
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-ink-secondary hover:text-ink-primary hover:bg-surface-sunken"
+                  >
+                    {t("studio.reactivate")}
+                  </button>
+                  {g.canDelete && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        void deleteForever();
+                      }}
+                      className="w-full text-left px-3 py-1.5 text-semantic-danger/90 hover:text-semantic-danger hover:bg-surface-sunken"
+                    >
+                      {t("studio.deletePermanently")}
+                    </button>
+                  )}
+                </>
               ) : (
                 <button
                   type="button"

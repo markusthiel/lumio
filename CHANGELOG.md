@@ -29,6 +29,10 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 
 ## [Unreleased]
 
+### Added
+
+- Galleries can now be permanently deleted. A gallery must be archived first, deletion respects studio roles (admins can delete any gallery they can see, owners only their own, members not at all), and any gallery with print orders is protected so order records are never lost.
+
 ## [0.74.1] - 2026-08-27
 
 A pull is enough. Only the main server is affected.

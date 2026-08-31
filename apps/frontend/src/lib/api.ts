@@ -105,6 +105,10 @@ export interface Gallery {
   coverThumbUrl?: string | null;
   /** Aggregierte Kennzahlen für die Übersichtskarte. */
   stats?: { visits: number; likes: number; selected: number };
+  /** Darf der eingeloggte User diese Galerie endgültig löschen? Vom
+   *  Backend rollenbasiert berechnet (canDeleteGallery) — nur in den
+   *  Listen-Endpunkten (listGalleries/runCollection) gesetzt. */
+  canDelete?: boolean;
   createdAt: string;
   updatedAt: string;
 }

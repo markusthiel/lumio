@@ -8,8 +8,11 @@
  *   3. Er ist Studio-Inhaber (Rolle "owner") — Sicherheitsnetz, damit
  *      keine Galerien verwaisen, wenn ein Mitarbeiter das Studio verlässt
  *
- * "Zugriff" bedeutet volle Rechte: sehen, bearbeiten, löschen, freigeben.
- * Wer keinen Zugriff hat, sieht die Galerie gar nicht (404).
+ * "Zugriff" bedeutet volle Rechte: sehen, bearbeiten, freigeben. Wer keinen
+ * Zugriff hat, sieht die Galerie gar nicht (404).
+ *
+ * Ausnahme: das endgueltige Loeschen einer Galerie folgt einer eigenen,
+ * strengeren Regel — siehe canDeleteGallery() weiter unten.
  *
  * WICHTIG: Diese Helper sind die EINZIGE Stelle, an der das Modell
  * definiert ist. Alle Routen, die auf Galerien (oder deren Dateien,
@@ -55,6 +58,8 @@ export const galleryRelationAccessWhere = galleryAccessWhere;
  * Erwartet `ownerId` und — sofern relevant — die `collaborators` als
  * `{ userId }[]`. Fehlt `collaborators`, zählt nur Ersteller + Owner-Rolle
  * (der Aufrufer muss die Relation dann mitladen, wenn Freigaben zählen).
+ *
+ * Deckt NICHT das Loeschen ab — dafuer gilt canDeleteGallery().
  */
 export function canAccessGallery(
   s: SessionContext,
@@ -71,3 +76,25 @@ export function canAccessGallery(
  * das auch — die Prüfung ist daher identisch zu canAccessGallery.
  */
 export const canManageGalleryCollaborators = canAccessGallery;
+
+/**
+ * Delete-Berechtigung — bewusst STRENGER als canAccessGallery, das sonst
+ * fuer alle Aktionen gilt (siehe Modul-Kommentar oben). Produktentscheidung:
+ *
+ *   - Admin darf jede Galerie loeschen, die er ohnehin sehen darf
+ *     (galleryAccessWhere bleibt unveraendert — keine Ausweitung der
+ *     Sichtbarkeit, nur der Loesch-Berechtigung innerhalb dessen).
+ *   - Owner darf nur eigene Galerien loeschen (ownerId === eigene id) —
+ *     auch eine Collaborator-Freigabe auf eine fremde Galerie reicht
+ *     dafuer NICHT, obwohl sie fuer canAccessGallery genuegen wuerde.
+ *   - Member darf nie loeschen, unabhaengig von Ersteller- oder
+ *     Freigabe-Status.
+ */
+export function canDeleteGallery(
+  s: SessionContext,
+  gallery: { ownerId: string }
+): boolean {
+  if (s.user.role === "admin") return true;
+  if (s.user.role === "owner") return gallery.ownerId === s.user.id;
+  return false;
+}
