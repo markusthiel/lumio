@@ -68,6 +68,7 @@ export default function OrderDetailPage({
       trackingCarrier?: string;
       trackingUrl?: string;
       reason?: string;
+      paymentReference?: string;
     }
   ) {
     setBusy(true);
@@ -169,6 +170,11 @@ export default function OrderDetailPage({
                 ? t("orderDetail.paymentOnline")
                 : t("orderDetail.paymentOffline")}
             </div>
+            {order.paymentReference && (
+              <div className="text-xs text-ink-tertiary font-mono">
+                {t("orderDetail.paymentReferenceLabel")}: {order.paymentReference}
+              </div>
+            )}
           </div>
         </div>
 
@@ -185,6 +191,27 @@ export default function OrderDetailPage({
                     disabled={busy}
                   >
                     {t("orderDetail.actShipped")}
+                  </Button>
+                );
+              }
+              if (tr === "mark_paid" && order.paymentMode === "offline_invoice") {
+                return (
+                  <Button
+                    key={tr}
+                    size="sm"
+                    variant="primary"
+                    onClick={async () => {
+                      const paymentReference = await ask({
+                        message: t("orderDetail.paymentReferencePrompt"),
+                        placeholder: t("orderDetail.paymentReferencePlaceholder"),
+                        required: true,
+                      });
+                      if (paymentReference === null) return; // dialog dismissed
+                      void transition(tr, { paymentReference });
+                    }}
+                    disabled={busy}
+                  >
+                    {t(transitionLabel(tr))}
                   </Button>
                 );
               }

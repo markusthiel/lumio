@@ -199,8 +199,10 @@ export interface CheckoutInput {
   guestNote?: string | null;
 }
 
-/** Erstellt eine Order im Status 'pending_payment' (stripe_connect)
- *  oder 'paid' (offline_invoice, da kein Online-Payment nötig). */
+/** Creates an order, always starting in 'pending_payment'. stripe_connect
+ *  orders move to 'paid' once the payment succeeds; offline_invoice
+ *  orders require a studio staff member to confirm payment manually via
+ *  the 'mark_paid' transition (with a payment reference). */
 export async function createOrder(input: CheckoutInput): Promise<{
   orderId: string;
   orderNumber: string;
@@ -223,8 +225,6 @@ export async function createOrder(input: CheckoutInput): Promise<{
   const providerKey = firstVariant.printProduct.providerKey;
 
   const orderNumber = generateOrderNumber();
-  const initialStatus =
-    input.paymentMode === "offline_invoice" ? "paid" : "pending_payment";
 
   const order = await prisma.printOrder.create({
     data: {
@@ -242,11 +242,10 @@ export async function createOrder(input: CheckoutInput): Promise<{
       totalCents: totals.totalCents,
       applicationFeeCents: totals.applicationFeeCents,
       currency: totals.currency,
-      status: initialStatus,
+      status: "pending_payment",
       providerKey,
       shippingMethodId: input.shippingMethodId,
       guestNote: input.guestNote ?? null,
-      paidAt: input.paymentMode === "offline_invoice" ? new Date() : null,
       items: {
         create: totals.items.map((i) => ({
           printProductVariantId: i.variantId,
@@ -267,25 +266,6 @@ export async function createOrder(input: CheckoutInput): Promise<{
     },
   });
 
-  // Bei offline_invoice direkt Mails feuern (Endkunde + Studio).
-  // Plus: 'mails_sent_paid'-Marker setzen damit der print-mail-sweeper
-  // diese Order NICHT nochmal versucht (er sucht paid-Orders ohne
-  // Marker). Bei stripe_connect kommt das erst nach
-  // payment_intent.succeeded + Sweeper.
-  if (input.paymentMode === "offline_invoice") {
-    void sendOrderMails(order.id, "paid").catch((err) =>
-      logger.warn({ err, orderId: order.id }, "print.order.mail_failed")
-    );
-    await prisma.printOrderEvent.create({
-      data: {
-        printOrderId: order.id,
-        eventType: "mails_sent_paid",
-        actor: "system",
-        data: { trigger: "offline_invoice_inline" } as never,
-      },
-    });
-  }
-
   return {
     orderId: order.id,
     orderNumber,
@@ -297,7 +277,12 @@ export async function createOrder(input: CheckoutInput): Promise<{
 // State-Transitions
 // =============================================================================
 type Transition =
-  | { type: "mark_paid"; actor: "system" | "studio"; actorUserId?: string }
+  | {
+      type: "mark_paid";
+      actor: "system" | "studio";
+      actorUserId?: string;
+      paymentReference?: string;
+    }
   | { type: "mark_in_production"; actor: "studio" | "system"; actorUserId?: string }
   | {
       type: "mark_shipped";
@@ -310,6 +295,21 @@ type Transition =
   | { type: "mark_delivered"; actor: "studio" | "system"; actorUserId?: string }
   | { type: "cancel"; actor: "studio" | "system" | "guest"; actorUserId?: string; reason?: string }
   | { type: "refund"; actor: "studio" | "system"; actorUserId?: string; reason?: string };
+
+/** True when a 'mark_paid' transition on an offline_invoice order is
+ *  missing the payment reference it requires. stripe_connect orders
+ *  never require one — stripeChargeId already is their reference. */
+export function isMissingRequiredPaymentReference(
+  transitionType: Transition["type"],
+  paymentMode: string,
+  paymentReference: string | undefined
+): boolean {
+  return (
+    transitionType === "mark_paid" &&
+    paymentMode === "offline_invoice" &&
+    !paymentReference?.trim()
+  );
+}
 
 export async function transitionOrder(
   orderId: string,
@@ -337,6 +337,17 @@ export async function transitionOrder(
       `Transition ${t.type} aus Status ${order.status} nicht erlaubt`
     );
   }
+  if (
+    isMissingRequiredPaymentReference(
+      t.type,
+      order.paymentMode,
+      t.type === "mark_paid" ? t.paymentReference : undefined
+    )
+  ) {
+    throw new Error(
+      "paymentReference is required to mark an offline_invoice order as paid"
+    );
+  }
 
   const now = new Date();
   const updates: Record<string, unknown> = {};
@@ -344,6 +355,9 @@ export async function transitionOrder(
     case "mark_paid":
       updates.status = "paid";
       updates.paidAt = now;
+      if (t.paymentReference?.trim()) {
+        updates.paymentReference = t.paymentReference.trim();
+      }
       break;
     case "mark_in_production":
       updates.status = "in_production";
@@ -414,9 +428,38 @@ export async function transitionOrder(
 
   // Mail-Trigger
   if (t.type === "mark_paid") {
-    void sendOrderMails(orderId, "paid").catch((err) =>
-      logger.warn({ err, orderId }, "print.order.mail_failed")
-    );
+    // Marker VOR dem Mail-Versand setzen (nicht danach) — sonst findet
+    // der print-mail-sweeper (laeuft alle 30s) dieselbe Order noch
+    // ohne Marker und verschickt die 'paid'-Mail ein zweites Mal.
+    //
+    // Existence-check + create in einer Transaktion, gleiches Muster
+    // wie print-mail-sweeper.ts's runOnce() — verhindert, dass zwei
+    // (fast) gleichzeitige mark_paid-Aufrufe (Doppelklick, ein
+    // wiederholter Request) beide ihren eigenen Marker anlegen und
+    // beide die Mail verschicken. Nur wer den Marker tatsaechlich
+    // anlegt, verschickt auch — der Verlierer des Race sieht einen
+    // bereits existierenden Marker und ueberspringt den Versand.
+    const markerCreated = await prisma.$transaction(async (tx) => {
+      const existingMarker = await tx.printOrderEvent.findFirst({
+        where: { printOrderId: orderId, eventType: "mails_sent_paid" },
+        select: { id: true },
+      });
+      if (existingMarker) return false;
+      await tx.printOrderEvent.create({
+        data: {
+          printOrderId: orderId,
+          eventType: "mails_sent_paid",
+          actor: "system",
+          data: { trigger: "mark_paid_transition" } as never,
+        },
+      });
+      return true;
+    });
+    if (markerCreated) {
+      void sendOrderMails(orderId, "paid").catch((err) =>
+        logger.warn({ err, orderId }, "print.order.mail_failed")
+      );
+    }
   } else if (t.type === "mark_shipped") {
     void sendOrderMails(orderId, "shipped").catch((err) =>
       logger.warn({ err, orderId }, "print.order.mail_failed")

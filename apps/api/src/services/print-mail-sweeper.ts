@@ -13,9 +13,13 @@
  *     {trigger:'webhook'}. Sweeper sucht solche Orders und versendet
  *     anschliessend. Idempotent durch 'mails_sent_paid'-Event-Marker.
  *
- * Im offline_invoice-Modus laufen Mails direkt aus createOrder() —
- * der Sweeper findet diese nicht (sie haben sofort den
- * mails_sent_paid-Marker den createOrder mitsetzt).
+ * offline_invoice orders no longer get an inline mail from createOrder()
+ * (they now start 'pending_payment' like every other order) — their
+ * mail fires from transitionOrder()'s 'mark_paid' branch instead, once
+ * staff confirm the payment there. That branch sets the
+ * mails_sent_paid marker itself, so the sweeper skips those orders too.
+ * The sweeper's only remaining job is the Stripe-webhook path below,
+ * which bypasses transitionOrder() entirely.
  */
 import { prisma } from "../db.js";
 import { logger } from "../logger.js";
@@ -24,15 +28,16 @@ const TICK_INTERVAL_MS = 30_000;
 const STARTUP_DELAY_MS = 10_000;
 let _interval: NodeJS.Timeout | null = null;
 
-/** Findet paid-Orders fuer die noch kein 'mails_sent_paid' Event
- *  existiert UND ein 'mark_paid'-Event mit trigger=webhook vorhanden ist.
- *  Letzteres Kriterium verhindert Doppel-Mails fuer offline_invoice-
- *  Orders (die haben Mails direkt nach createOrder verschickt). */
+/** Finds paid orders with no 'mails_sent_paid' event yet — in practice
+ *  only Stripe-webhook-triggered ones, since every other path to 'paid'
+ *  (transitionOrder()'s mark_paid branch) sets that marker itself. */
 async function runOnce(): Promise<void> {
-  // Zuerst Kandidaten finden: paid Orders OHNE mails_sent_paid Event
-  // und MIT mark_paid Event (was schon impliziert ist durch status=paid,
-  // aber Belt-and-suspenders). Wir limitieren auf wenige pro Tick um
-  // bei Backlog nicht zu fluten.
+  // Kandidaten: paid Orders ohne mails_sent_paid Event, innerhalb des
+  // 5s-24h-Fensters unten. Kein zusaetzlicher Filter auf ein
+  // mark_paid-Event noetig — status='paid' allein reicht schon als
+  // Kandidatenkriterium, das Marker-Event ist die einzige Bedingung,
+  // die eine Order hier ausschliesst. Wir limitieren auf wenige pro
+  // Tick um bei Backlog nicht zu fluten.
   const candidates = await prisma.printOrder.findMany({
     where: {
       status: "paid",

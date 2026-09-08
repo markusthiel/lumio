@@ -2186,6 +2186,12 @@ model PrintOrder {
   stripePaymentIntentId String?  @unique
   stripeChargeId        String?
 
+  /// Receipt/invoice reference for a manually confirmed offline_invoice
+  /// payment (e.g. an invoice number). Required by the 'mark_paid'
+  /// transition for offline_invoice orders; stripe_connect orders use
+  /// stripeChargeId as their reference instead.
+  paymentReference      String?
+
   /// Geld-Beträge. Alle in kleinster Waehrungseinheit.
   subtotalCents   Int
   shippingCents   Int      @default(0)
@@ -2199,9 +2205,12 @@ model PrintOrder {
   /// Lebenszyklus. Linear ausser bei Cancel/Refund die alle
   /// Zwischenzustaende ueberspringen.
   /// 'draft'      = User im Checkout, noch nicht bezahlt
-  /// 'pending_payment' = Stripe-Payment-Intent erstellt, warten auf Zahlung
+  /// 'pending_payment' = Order erstellt, warten auf Zahlung — bei
+  ///                stripe_connect: Payment-Intent erstellt; bei
+  ///                offline_invoice: wartet auf manuelle Bestaetigung
   /// 'paid'       = Zahlung eingegangen (bei stripe_connect) oder
   ///                vom Fotograf manuell als bezahlt markiert
+  ///                (offline_invoice erfordert dabei paymentReference)
   /// 'in_production' = An Lab uebergeben (api) oder Fotograf hat
   ///                'in Druck'-Status gesetzt
   /// 'shipped'    = Tracking-Nummer gesetzt
