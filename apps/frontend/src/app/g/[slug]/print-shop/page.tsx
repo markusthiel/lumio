@@ -517,6 +517,8 @@ function CartStep({
   const [shippingMethodId, setShippingMethodId] = useState<string>(
     catalog.shipping[0]?.id ?? ""
   );
+  const isPickup =
+    catalog.shipping.find((m) => m.id === shippingMethodId)?.isPickup ?? false;
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [addr, setAddr] = useState({
@@ -595,14 +597,18 @@ function CartStep({
         shippingMethodId,
         guestName,
         guestEmail,
-        shippingAddress: {
-          street: addr.street,
-          ...(addr.street2 ? { street2: addr.street2 } : {}),
-          postalCode: addr.postalCode,
-          city: addr.city,
-          countryCode: addr.countryCode,
-          ...(addr.phone ? { phone: addr.phone } : {}),
-        },
+        ...(isPickup
+          ? {}
+          : {
+              shippingAddress: {
+                street: addr.street,
+                ...(addr.street2 ? { street2: addr.street2 } : {}),
+                postalCode: addr.postalCode,
+                city: addr.city,
+                countryCode: addr.countryCode,
+                ...(addr.phone ? { phone: addr.phone } : {}),
+              },
+            }),
         paymentMode,
         guestNote: guestNote || undefined,
         acceptedTerms,
@@ -759,37 +765,45 @@ function CartStep({
             value={guestEmail}
             onChange={setGuestEmail}
           />
-          <FieldRow
-            label={t("printShop.street")}
-            required
-            value={addr.street}
-            onChange={(v) => setAddr({ ...addr, street: v })}
-            className="sm:col-span-2"
-          />
-          <FieldRow
-            label={t("printShop.addressExtra")}
-            value={addr.street2}
-            onChange={(v) => setAddr({ ...addr, street2: v })}
-            className="sm:col-span-2"
-          />
-          <FieldRow
-            label={t("printShop.postalCode")}
-            required
-            value={addr.postalCode}
-            onChange={(v) => setAddr({ ...addr, postalCode: v })}
-          />
-          <FieldRow
-            label={t("printShop.city")}
-            required
-            value={addr.city}
-            onChange={(v) => setAddr({ ...addr, city: v })}
-          />
-          <FieldRow
-            label={t("printShop.country")}
-            required
-            value={addr.countryCode}
-            onChange={(v) => setAddr({ ...addr, countryCode: v.toUpperCase() })}
-          />
+          {isPickup ? (
+            <div className="sm:col-span-2 rounded-md border border-line-subtle bg-surface-sunken px-3 py-2 text-sm text-ink-secondary">
+              {t("printShop.pickupNote")}
+            </div>
+          ) : (
+            <>
+              <FieldRow
+                label={t("printShop.street")}
+                required
+                value={addr.street}
+                onChange={(v) => setAddr({ ...addr, street: v })}
+                className="sm:col-span-2"
+              />
+              <FieldRow
+                label={t("printShop.addressExtra")}
+                value={addr.street2}
+                onChange={(v) => setAddr({ ...addr, street2: v })}
+                className="sm:col-span-2"
+              />
+              <FieldRow
+                label={t("printShop.postalCode")}
+                required
+                value={addr.postalCode}
+                onChange={(v) => setAddr({ ...addr, postalCode: v })}
+              />
+              <FieldRow
+                label={t("printShop.city")}
+                required
+                value={addr.city}
+                onChange={(v) => setAddr({ ...addr, city: v })}
+              />
+              <FieldRow
+                label={t("printShop.country")}
+                required
+                value={addr.countryCode}
+                onChange={(v) => setAddr({ ...addr, countryCode: v.toUpperCase() })}
+              />
+            </>
+          )}
           <FieldRow
             label={t("printShop.phone")}
             value={addr.phone}

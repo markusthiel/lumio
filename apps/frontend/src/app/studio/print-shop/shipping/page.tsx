@@ -121,6 +121,9 @@ export default function ShippingMethodsPage() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mb-0.5">
                   <strong className="text-sm">{m.name}</strong>
+                  {m.isPickup && (
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-accent/10 text-accent">{t("shipping.pickupBadge")}</span>
+                  )}
                   {!m.enabled && (
                     <span className="text-xs px-1.5 py-0.5 rounded bg-surface-sunken text-ink-tertiary">{t("shipping.inactive")}</span>
                   )}
@@ -207,6 +210,7 @@ function ShippingDialog({
   const [countries, setCountries] = useState(
     existing ? existing.countries.join(", ") : "DE, AT, CH"
   );
+  const [isPickup, setIsPickup] = useState(existing?.isPickup ?? false);
   const [enabled, setEnabled] = useState(existing?.enabled ?? true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -235,6 +239,7 @@ function ShippingDialog({
           ? parseInt(daysMax, 10)
           : null,
         countries: countryList,
+        isPickup,
         enabled,
       };
       if (existing) {
@@ -329,6 +334,13 @@ function ShippingDialog({
             />
             <span className="block text-xs text-ink-tertiary mt-0.5">{t("shipping.countriesHint")}</span>
           </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={isPickup}
+              onChange={(e) => setIsPickup(e.target.checked)}
+            />{t("shipping.isPickupLabel")}</label>
+          <span className="block text-xs text-ink-tertiary -mt-2">{t("shipping.isPickupHint")}</span>
           <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"

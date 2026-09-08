@@ -230,6 +230,18 @@ const printGuestPhrases = {
     it: "Non abbiamo ancora un numero di tracciamento, ma il tuo ordine è stato spedito.",
     fi: "Meillä ei ole vielä seurantanumeroa, mutta tilauksesi on lähetetty.",
   },
+  readyForPickupSubject: {
+    de: "Deine Bestellung {order} ist abholbereit",
+    en: "Your order {order} is ready for pickup",
+    it: "Il tuo ordine {order} è pronto per il ritiro",
+    fi: "Tilauksesi {order} on noudettavissa",
+  },
+  readyForPickupBody: {
+    de: "deine Bestellung {order} ist fertig und kann jetzt bei {studio} abgeholt werden.",
+    en: "your order {order} is ready and can now be picked up at {studio}.",
+    it: "il tuo ordine {order} è pronto e può essere ritirato presso {studio}.",
+    fi: "tilauksesi {order} on valmis ja se voidaan nyt noutaa studiolta {studio}.",
+  },
   regards: { de: "Viele Grüße,", en: "Kind regards,", it: "Cordiali saluti,", fi: "Ystävällisin terveisin," },
 } satisfies Record<string, Phrase>;
 
@@ -502,6 +514,52 @@ ${printSupport(supportEmail) ? phrase(P.questions, l, { contact: printSupport(su
   }
   <h3>${escapeHtml(phrase(P.deliveryAddress, l))}</h3>
   <pre style="font-family:inherit;white-space:pre-wrap;margin:0;color:#444;">${escapeHtml(formatAddress(order.shippingAddress))}</pre>
+  <p style="margin-top:24px;color:#444;">${escapeHtml(phrase(P.regards, l))}<br>${escapeHtml(studioName)}</p>
+  <p style="color:#888;font-size:13px;margin-top:24px;">
+    ${printSupport(supportEmail) ? `${escapeHtml(phrase(P.questionsLabel, l))} <a href="mailto:${escapeHtml(printSupport(supportEmail)!)}">${escapeHtml(printSupport(supportEmail)!)}</a>` : ""}
+  </p>
+`,
+  });
+
+  return { subject, text, html };
+}
+
+/** Sibling of tmplPrintOrderShippedGuest() for the pickup fulfillment
+ *  path — no tracking/address block (there's no courier or address on
+ *  a pickup order), just "it's ready, come get it". */
+export function tmplPrintOrderReadyForPickupGuest(opts: {
+  studioName: string;
+  branding?: MailBranding;
+  supportEmail: string;
+  order: OrderLike;
+  locale?: MailLocale;
+}): { subject: string; text: string; html: string } {
+  const { studioName, supportEmail, order, branding } = opts;
+  const l = opts.locale ?? instanceMailLocale();
+  const P = printGuestPhrases;
+  const vars = {
+    order: order.orderNumber,
+    studio: studioName,
+    name: order.guestName,
+  };
+  const subject = phrase(P.readyForPickupSubject, l, vars);
+
+  const text =
+    `${phrase(P.greeting, l, vars)}
+
+${phrase(P.readyForPickupBody, l, vars)}
+
+${phrase(P.regards, l)}
+${studioName}
+
+${printSupport(supportEmail) ? phrase(P.questions, l, { contact: printSupport(supportEmail)! }) : ""}`;
+
+  const html = renderMailLayout({
+    locale: l,
+    branding,
+    bodyHtml: `
+  <p>${escapeHtml(phrase(P.greeting, l, vars))}</p>
+  <p>${escapeHtml(phrase(P.readyForPickupBody, l, vars))}</p>
   <p style="margin-top:24px;color:#444;">${escapeHtml(phrase(P.regards, l))}<br>${escapeHtml(studioName)}</p>
   <p style="color:#888;font-size:13px;margin-top:24px;">
     ${printSupport(supportEmail) ? `${escapeHtml(phrase(P.questionsLabel, l))} <a href="mailto:${escapeHtml(printSupport(supportEmail)!)}">${escapeHtml(printSupport(supportEmail)!)}</a>` : ""}

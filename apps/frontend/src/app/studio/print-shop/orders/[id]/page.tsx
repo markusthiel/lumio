@@ -60,6 +60,7 @@ export default function OrderDetailPage({
       | "mark_paid"
       | "mark_in_production"
       | "mark_shipped"
+      | "mark_ready_for_pickup"
       | "mark_delivered"
       | "cancel"
       | "refund",
@@ -84,6 +85,37 @@ export default function OrderDetailPage({
     } finally {
       setBusy(false);
     }
+  }
+
+  /** Single place that knows which transitions need extra input before
+   *  firing — used by both the action-button row and the fulfillment
+   *  checklist, so the two never drift apart on what a click does. */
+  async function runTransition(
+    tr:
+      | "mark_paid"
+      | "mark_in_production"
+      | "mark_shipped"
+      | "mark_ready_for_pickup"
+      | "mark_delivered"
+      | "cancel"
+      | "refund"
+  ) {
+    if (tr === "mark_shipped") {
+      setShippingDialog(true);
+      return;
+    }
+    if (tr === "cancel" || tr === "refund") {
+      const verb =
+        tr === "cancel" ? t("orderDetail.verbCancel") : t("orderDetail.verbRefund");
+      const reason = await ask({
+        message: t("orderDetail.reasonPrompt", { verb }),
+        required: false,
+      });
+      if (reason === null) return; // dialog dismissed
+      void transition(tr, { reason });
+      return;
+    }
+    void transition(tr);
   }
 
   async function saveNote() {
@@ -114,7 +146,10 @@ export default function OrderDetailPage({
   }
 
   // Status-spezifische Buttons
-  const availableTransitions = transitionsForStatus(order.status);
+  const availableTransitions = transitionsForStatus(
+    order.status,
+    order.isPickupDelivery
+  );
 
   return (
     <div className="space-y-5">
@@ -143,7 +178,7 @@ export default function OrderDetailPage({
               <h1 className="text-lg font-semibold font-mono">
                 {order.orderNumber}
               </h1>
-              <StatusBadge status={order.status} />
+              <StatusBadge status={order.status} isPickupDelivery={order.isPickupDelivery} />
             </div>
             <div className="text-sm text-ink-secondary">
               {order.guestName} &lt;{order.guestEmail}&gt;
@@ -172,63 +207,39 @@ export default function OrderDetailPage({
           </div>
         </div>
 
-        {/* Action-Buttons */}
-        {availableTransitions.length > 0 && (
+        {/* Cancel/Refund — side-exits, not part of the linear fulfillment
+            checklist below. The linear steps (mark_paid..mark_delivered)
+            are driven from the checklist instead. */}
+        {availableTransitions.some((tr) => tr === "cancel" || tr === "refund") && (
           <div className="flex flex-wrap gap-2 pt-3 border-t border-line-subtle">
-            {availableTransitions.map((tr) => {
-              if (tr === "mark_shipped") {
-                return (
-                  <Button
-                    key={tr}
-                    size="sm"
-                    onClick={() => setShippingDialog(true)}
-                    disabled={busy}
-                  >
-                    {t("orderDetail.actShipped")}
-                  </Button>
-                );
-              }
-              if (tr === "cancel" || tr === "refund") {
-                return (
-                  <Button
-                    key={tr}
-                    size="sm"
-                    variant="secondary"
-                    onClick={async () => {
-                      const verb =
-                        tr === "cancel"
-                          ? t("orderDetail.verbCancel")
-                          : t("orderDetail.verbRefund");
-                      const reason = await ask({
-                        message: t("orderDetail.reasonPrompt", { verb }),
-                        required: false,
-                      });
-                      if (reason === null) return; // dialog dismissed
-                      void transition(tr, { reason });
-                    }}
-                    disabled={busy}
-                  >
-                    {tr === "cancel"
-                      ? t("orderDetail.actCancel")
-                      : t("orderDetail.actRefund")}
-                  </Button>
-                );
-              }
-              return (
+            {availableTransitions
+              .filter((tr) => tr === "cancel" || tr === "refund")
+              .map((tr) => (
                 <Button
                   key={tr}
                   size="sm"
-                  variant={tr === "mark_paid" ? "primary" : "secondary"}
-                  onClick={() => void transition(tr)}
+                  variant="secondary"
+                  onClick={() => void runTransition(tr)}
                   disabled={busy}
                 >
-                  {t(transitionLabel(tr))}
+                  {t(transitionLabel(tr, order.isPickupDelivery))}
                 </Button>
-              );
-            })}
+              ))}
           </div>
         )}
       </div>
+
+      {/* Fulfillment-Checklist */}
+      {order.status !== "cancelled" && order.status !== "refunded" && (
+        <FulfillmentChecklist
+          order={order}
+          nextTransition={availableTransitions.find(
+            (tr) => tr !== "cancel" && tr !== "refund"
+          )}
+          onAdvance={(tr) => void runTransition(tr)}
+          busy={busy}
+        />
+      )}
 
       {/* Tracking-Info wenn schon vorhanden */}
       {(order.trackingNumber || order.trackingUrl) && (
@@ -334,7 +345,11 @@ export default function OrderDetailPage({
 
       {/* Adressen */}
       <Section title={t("orderDetail.secShippingAddr")}>
-        <AddressBlock addr={order.shippingAddress} />
+        {order.shippingAddress ? (
+          <AddressBlock addr={order.shippingAddress} />
+        ) : (
+          <p className="text-sm text-ink-tertiary">{t("orderDetail.pickupNoAddress")}</p>
+        )}
       </Section>
 
       {order.billingAddress && (
@@ -376,7 +391,7 @@ export default function OrderDetailPage({
                 {new Date(e.createdAt).toLocaleString(fmt.bcp47)}
               </span>
               <span className="flex-1 min-w-0">
-                <strong>{t(eventLabel(e.eventType))}</strong>
+                <strong>{t(eventLabel(e.eventType, order.isPickupDelivery))}</strong>
                 <span className="text-ink-tertiary">
                   {" · "}
                   {t(actorLabel(e.actor))}
@@ -493,6 +508,99 @@ function ShippingDialog({
   );
 }
 
+type LinearTransition =
+  | "mark_paid"
+  | "mark_in_production"
+  | "mark_shipped"
+  | "mark_ready_for_pickup"
+  | "mark_delivered";
+
+/** Read-at-a-glance progress through the linear part of the order
+ *  lifecycle (cancel/refund are side-exits, shown separately). Each
+ *  step's status is derived from order.status, not tracked
+ *  independently — clicking the current step fires the same
+ *  transition as the equivalent action button (via onAdvance), so
+ *  the checklist can never drift from the real state machine. */
+function FulfillmentChecklist({
+  order,
+  nextTransition,
+  onAdvance,
+  busy,
+}: {
+  order: PrintOrderDetail;
+  nextTransition: LinearTransition | "cancel" | "refund" | undefined;
+  onAdvance: (tr: LinearTransition) => void;
+  busy: boolean;
+}) {
+  const t = useT();
+  const steps: Array<{ status: string; type: LinearTransition; title: string }> = [
+    { status: "paid", type: "mark_paid", title: t("orderDetail.checklistOrdered") },
+    { status: "in_production", type: "mark_in_production", title: t("orderDetail.checklistPrinting") },
+    order.isPickupDelivery
+      ? {
+          status: "ready_for_pickup",
+          type: "mark_ready_for_pickup",
+          title: t("orderDetail.checklistReadyForPickup"),
+        }
+      : { status: "shipped", type: "mark_shipped", title: t("orderDetail.checklistShipped") },
+    {
+      status: "delivered",
+      type: "mark_delivered",
+      title: order.isPickupDelivery
+        ? t("orderDetail.checklistPickedUp")
+        : t("orderDetail.checklistDelivered"),
+    },
+  ];
+  const rank = [
+    "pending_payment",
+    "paid",
+    "in_production",
+    order.isPickupDelivery ? "ready_for_pickup" : "shipped",
+    "delivered",
+  ];
+  const currentRank = rank.indexOf(order.status);
+  if (currentRank < 0) return null; // draft or an unknown status
+
+  return (
+    <Section title={t("orderDetail.secChecklist")}>
+      <ul className="space-y-2">
+        {steps.map((s, i) => {
+          const stepRank = rank.indexOf(s.status);
+          const done = currentRank >= stepRank;
+          const isNext = nextTransition === s.type;
+          return (
+            <li
+              key={s.status}
+              className="flex items-center gap-3 rounded-md border border-line-subtle p-2.5"
+            >
+              <span
+                className={
+                  done
+                    ? "shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-full bg-semantic-success/15 text-semantic-success text-sm"
+                    : "shrink-0 inline-flex items-center justify-center w-6 h-6 rounded-full bg-surface-sunken text-ink-tertiary text-sm"
+                }
+              >
+                {done ? "✓" : i + 1}
+              </span>
+              <span className="flex-1 text-sm font-medium">{s.title}</span>
+              {isNext && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  disabled={busy}
+                  onClick={() => onAdvance(s.type)}
+                >
+                  {t("orderDetail.checklistMark")}
+                </Button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </Section>
+  );
+}
+
 function Section({
   title,
   children,
@@ -531,10 +639,16 @@ function formatPrice(fmt: Formatters, cents: number, currency = "EUR"): string {
   return fmt.currencyFromMinor(cents, currency);
 }
 
-function transitionsForStatus(status: string): Array<
+/** Mirrors allowedTransitionsFor() in apps/api/src/services/print/orders.ts —
+ *  the 'in_production' step forks on isPickupDelivery. */
+function transitionsForStatus(
+  status: string,
+  isPickupDelivery: boolean
+): Array<
   | "mark_paid"
   | "mark_in_production"
   | "mark_shipped"
+  | "mark_ready_for_pickup"
   | "mark_delivered"
   | "cancel"
   | "refund"
@@ -545,8 +659,11 @@ function transitionsForStatus(status: string): Array<
     case "paid":
       return ["mark_in_production", "cancel", "refund"];
     case "in_production":
-      return ["mark_shipped", "cancel", "refund"];
+      return isPickupDelivery
+        ? ["mark_ready_for_pickup", "cancel", "refund"]
+        : ["mark_shipped", "cancel", "refund"];
     case "shipped":
+    case "ready_for_pickup":
       return ["mark_delivered", "refund"];
     case "delivered":
       return ["refund"];
@@ -555,7 +672,7 @@ function transitionsForStatus(status: string): Array<
   }
 }
 
-function transitionLabel(t: string): string {
+function transitionLabel(t: string, isPickupDelivery: boolean): string {
   switch (t) {
     case "mark_paid":
       return "orderDetail.actMarkPaid";
@@ -563,8 +680,12 @@ function transitionLabel(t: string): string {
       return "orderDetail.actInProduction";
     case "mark_shipped":
       return "orderDetail.actShipped";
+    case "mark_ready_for_pickup":
+      return "orderDetail.actReadyForPickup";
     case "mark_delivered":
-      return "orderDetail.actDelivered";
+      return isPickupDelivery
+        ? "orderDetail.actPickedUp"
+        : "orderDetail.actDelivered";
     case "cancel":
       return "orderDetail.actCancel";
     case "refund":
@@ -574,7 +695,7 @@ function transitionLabel(t: string): string {
   }
 }
 
-function eventLabel(t: string): string {
+function eventLabel(t: string, isPickupDelivery: boolean): string {
   switch (t) {
     case "created":
       return "orderDetail.evCreated";
@@ -584,8 +705,10 @@ function eventLabel(t: string): string {
       return "orderDetail.evInProduction";
     case "mark_shipped":
       return "orderDetail.evShipped";
+    case "mark_ready_for_pickup":
+      return "orderDetail.evReadyForPickup";
     case "mark_delivered":
-      return "orderDetail.evDelivered";
+      return isPickupDelivery ? "orderDetail.evPickedUp" : "orderDetail.evDelivered";
     case "cancel":
       return "orderDetail.evCancel";
     case "refund":

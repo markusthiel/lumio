@@ -20,6 +20,7 @@ const STATUS_FILTERS = [
   { value: "paid", label: "orders.statusPaid" },
   { value: "in_production", label: "orders.statusInProduction" },
   { value: "shipped", label: "orders.statusShipped" },
+  { value: "ready_for_pickup", label: "orders.statusReadyForPickup" },
   { value: "delivered", label: "orders.statusDelivered" },
   { value: "cancelled", label: "orders.statusCancelled" },
   { value: "refunded", label: "orders.statusRefunded" },
@@ -108,7 +109,7 @@ export default function PrintOrdersPage() {
                       <strong className="text-sm font-mono">
                         {o.orderNumber}
                       </strong>
-                      <StatusBadge status={o.status} />
+                      <StatusBadge status={o.status} isPickupDelivery={o.isPickupDelivery} />
                       <span className="text-xs px-1.5 py-0.5 rounded bg-surface-sunken text-ink-tertiary">
                         {o.paymentMode === "stripe_connect"
                           ? t("orders.online")
@@ -154,7 +155,14 @@ function formatPrice(fmt: Formatters, cents: number, currency = "EUR"): string {
   return fmt.currencyFromMinor(cents, currency);
 }
 
-export function StatusBadge({ status }: { status: string }) {
+export function StatusBadge({
+  status,
+  isPickupDelivery,
+}: {
+  status: string;
+  /** Relabels the shared 'delivered' terminal status as "picked up". */
+  isPickupDelivery?: boolean;
+}) {
   const t = useT();
   const map: Record<string, { label: string; classes: string }> = {
     draft: {
@@ -177,8 +185,14 @@ export function StatusBadge({ status }: { status: string }) {
       label: t("orders.statusShipped"),
       classes: "bg-semantic-success/15 text-semantic-success",
     },
+    ready_for_pickup: {
+      label: t("orders.statusReadyForPickup"),
+      classes: "bg-semantic-success/15 text-semantic-success",
+    },
     delivered: {
-      label: t("orders.statusDelivered"),
+      label: isPickupDelivery
+        ? t("orders.statusPickedUp")
+        : t("orders.statusDelivered"),
       classes: "bg-semantic-success/15 text-semantic-success",
     },
     cancelled: {

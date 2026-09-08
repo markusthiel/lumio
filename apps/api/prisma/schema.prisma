@@ -2131,6 +2131,11 @@ model ShippingMethod {
   /// Provider-spezifische Referenz (z.B. WhiteWall-Shipping-Method-ID).
   providerShippingRef String?
 
+  /// In-store pickup instead of a courier delivery. No shipping address
+  /// is collected at checkout for these; the order's fulfillment
+  /// checklist shows "ready for pickup" instead of "shipped".
+  isPickup      Boolean  @default(false)
+
   enabled       Boolean  @default(true)
   displayOrder  Int      @default(0)
 
@@ -2174,9 +2179,16 @@ model PrintOrder {
   /// Wir speichern als JSON statt Spalten, weil Adress-Schemas
   /// laenderspezifisch sind und sich aendern. Plus: Audit-Snapshot —
   /// wenn der Endkunde spaeter umzieht, soll die Order-Adresse
-  /// historisch bleiben.
-  shippingAddress Json
+  /// historisch bleiben. Null bei isPickupDelivery — dort wird keine
+  /// Adresse erhoben.
+  shippingAddress Json?
   billingAddress  Json?
+
+  /// Snapshot von shippingMethod.isPickup zum Bestellzeitpunkt (nicht
+  /// live nachgeschlagen — dieselbe Audit-Snapshot-Begruendung wie bei
+  /// shippingAddress). Bestimmt, ob der Fulfillment-Ablauf ueber
+  /// 'ready_for_pickup' oder 'shipped' laeuft.
+  isPickupDelivery Boolean @default(false)
 
   /// Bezahlmodus. 'stripe_connect' = online via Stripe Connect,
   /// 'offline_invoice' = Fotograf rechnet selbst ab.
@@ -2204,8 +2216,12 @@ model PrintOrder {
   ///                vom Fotograf manuell als bezahlt markiert
   /// 'in_production' = An Lab uebergeben (api) oder Fotograf hat
   ///                'in Druck'-Status gesetzt
-  /// 'shipped'    = Tracking-Nummer gesetzt
-  /// 'delivered'  = Aus Carrier-Webhook oder manuell vom Fotograf
+  /// Danach forkt der Ablauf je nach isPickupDelivery:
+  /// 'shipped'    = (Kurier) Tracking-Nummer gesetzt
+  /// 'ready_for_pickup' = (Abholung) im Geschaeft abholbereit
+  /// 'delivered'  = Terminal fuer beide Pfade — Kurier: aus Carrier-
+  ///                Webhook oder manuell; Abholung: vom Fotograf beim
+  ///                Abholen markiert
   /// 'cancelled'  = Bestellung storniert (vor Production)
   /// 'refunded'   = Zahlung an Endkunde zurueckgegeben
   status          String   @default("draft")
@@ -2233,6 +2249,7 @@ model PrintOrder {
   paidAt          DateTime?
   productionStartedAt DateTime?
   shippedAt       DateTime?
+  readyForPickupAt DateTime?
   deliveredAt     DateTime?
   cancelledAt     DateTime?
   refundedAt      DateTime?
