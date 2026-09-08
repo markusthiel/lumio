@@ -2099,12 +2099,44 @@ model PrintProductVariant {
   enabled         Boolean  @default(true)
 
   orderItems      PrintOrderItem[]
+  priceTiers      PrintProductVariantPriceTier[]
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   @@index([printProductId, enabled])
   @@map("print_product_variants")
+}
+
+/// Quantity-break pricing tiers for a variant. Empty = flat pricing
+/// (PrintProductVariant.priceCents applies to any quantity). When
+/// tiers exist, priceCents is a DERIVED, CACHED mirror of the first
+/// tier's (minQty=1) unit price — kept in sync only by the write paths
+/// that go through services/print/pricing-tiers.ts (manual variant
+/// CRUD, catalog import). Not a DB-enforced invariant.
+///
+/// Ladder shape enforced at the service layer (not by the DB): sorted
+/// by minQty ascending, first tier minQty=1, last tier maxQty=null
+/// (unbounded), contiguous with no gaps or overlaps.
+model PrintProductVariantPriceTier {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  printProductVariantId String   @db.Uuid
+  printProductVariant   PrintProductVariant @relation(fields: [printProductVariantId], references: [id], onDelete: Cascade)
+
+  /// Inclusive lower bound. First tier of a ladder must be 1.
+  minQty                Int
+  /// Inclusive upper bound. null = unbounded ("and above") — only
+  /// allowed on the last tier of a ladder.
+  maxQty                Int?
+  /// Price per single unit within this tier, in cents.
+  unitPriceCents        Int
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([printProductVariantId, minQty])
+  @@index([printProductVariantId])
+  @@map("print_product_variant_price_tiers")
 }
 
 /// Versandmethoden pro Tenant. Bei API-Lab-Providern oft vom Lab

@@ -30,6 +30,15 @@ import { useT, useFormat} from "@/lib/i18n";
 import { CropFrame, defaultCropForAspect, type Crop } from "@/components/print-shop/CropFrame";
 import type { Formatters } from "@/lib/i18n/format";
 import { useErrorText } from "@/lib/error-i18n";
+import {
+  unitPriceForQuantity,
+  aggregateQuantityForVariant,
+  buildQuantityByVariantMap,
+} from "@/lib/print-pricing";
+
+// Deep quantity-break tiers (e.g. "400 and above") need a generous
+// ceiling — must match the server-side cap in print-shop-public.ts.
+const MAX_CART_QUANTITY = 999;
 
 type Catalog = Awaited<ReturnType<typeof api.getGalleryPrintShopCatalog>>;
 type ProductRow = Catalog["products"][number];
@@ -61,7 +70,7 @@ export default function GalleryPrintShopPage({
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState<"browse" | "cart" | "payment">("browse");
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [picker, setPicker] = useState<PublicFile | null>(null);
+  const [pickerFiles, setPickerFiles] = useState<PublicFile[] | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -124,7 +133,7 @@ export default function GalleryPrintShopPage({
           <BrowseStep
             files={files}
             cart={cart}
-            onPickFile={setPicker}
+            onPickFiles={setPickerFiles}
           />
         )}
 
@@ -142,15 +151,16 @@ export default function GalleryPrintShopPage({
           />
         )}
 
-        {picker && (
+        {pickerFiles && (
           <PickerDialog
             slug={slug}
-            file={picker}
+            files={pickerFiles}
             catalog={catalog}
-            onClose={() => setPicker(null)}
-            onAdd={(item) => {
-              setCart((prev) => [...prev, item]);
-              setPicker(null);
+            cart={cart}
+            onClose={() => setPickerFiles(null)}
+            onAdd={(items) => {
+              setCart((prev) => [...prev, ...items]);
+              setPickerFiles(null);
             }}
           />
         )}
@@ -206,27 +216,57 @@ function Header({
 function BrowseStep({
   files,
   cart,
-  onPickFile,
+  onPickFiles,
 }: {
   files: PublicFile[];
   cart: CartItem[];
-  onPickFile: (f: PublicFile) => void;
+  onPickFiles: (files: PublicFile[]) => void;
 }) {
   const t = useT();
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  function toggleSelectMode() {
+    setSelectMode((v) => !v);
+    setSelectedIds(new Set());
+  }
+  function toggleFile(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   return (
     <div>
-      <p className="text-sm text-ink-tertiary mb-4">
-        {t("printShop.pickImage")}
-      </p>
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <p className="text-sm text-ink-tertiary">
+          {selectMode ? t("printShop.selectModeHint") : t("printShop.pickImage")}
+        </p>
+        <button
+          type="button"
+          onClick={toggleSelectMode}
+          className="text-xs text-accent hover:underline shrink-0"
+        >
+          {selectMode ? t("printShop.selectModeExit") : t("printShop.selectModeEnter")}
+        </button>
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
         {files.map((f) => {
           const inCart = cart.filter((c) => c.fileId === f.id).length;
+          const selected = selectedIds.has(f.id);
           return (
             <button
               key={f.id}
               type="button"
-              onClick={() => onPickFile(f)}
-              className="relative group rounded overflow-hidden bg-surface-sunken aspect-square hover:opacity-90 transition-opacity"
+              onClick={() =>
+                selectMode ? toggleFile(f.id) : onPickFiles([f])
+              }
+              className={`relative group rounded overflow-hidden bg-surface-sunken aspect-square hover:opacity-90 transition-opacity ${
+                selected ? "ring-2 ring-accent" : ""
+              }`}
             >
               {f.thumbUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -240,11 +280,23 @@ function BrowseStep({
                   {shareFilename(f)}
                 </div>
               )}
-              <div className="absolute inset-0 flex items-end justify-end p-2 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-t from-black/50 to-transparent">
-                <span className="text-xs text-white bg-accent px-2 py-1 rounded">
-                  {t("printShop.orderBtn")}
-                </span>
-              </div>
+              {selectMode ? (
+                <div
+                  className={`absolute top-2 left-2 w-5 h-5 rounded border flex items-center justify-center text-xs font-bold ${
+                    selected
+                      ? "bg-accent border-accent text-white"
+                      : "bg-black/40 border-white/80 text-transparent"
+                  }`}
+                >
+                  ✓
+                </div>
+              ) : (
+                <div className="absolute inset-0 flex items-end justify-end p-2 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-t from-black/50 to-transparent">
+                  <span className="text-xs text-white bg-accent px-2 py-1 rounded">
+                    {t("printShop.orderBtn")}
+                  </span>
+                </div>
+              )}
               {inCart > 0 && (
                 <span className="absolute top-2 right-2 inline-flex items-center justify-center w-6 h-6 rounded-full bg-accent text-white text-xs font-medium">
                   {inCart}
@@ -254,6 +306,24 @@ function BrowseStep({
           );
         })}
       </div>
+
+      {selectMode && selectedIds.size > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 flex items-center gap-3 rounded-full bg-ink-primary text-white px-4 py-2.5 shadow-lg">
+          <span className="text-sm">
+            {t("printShop.selectedCount", { count: selectedIds.size })}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              const selected = files.filter((f) => selectedIds.has(f.id));
+              onPickFiles(selected);
+            }}
+            className="text-sm font-medium px-3 py-1 rounded-full bg-accent"
+          >
+            {t("printShop.addSelectedToCart")}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -262,19 +332,23 @@ function BrowseStep({
 // Picker Dialog
 // =============================================================================
 function PickerDialog({
-  file,
+  files,
   catalog,
+  cart,
   onClose,
   onAdd,
 }: {
   slug: string;
-  file: PublicFile;
+  files: PublicFile[];
   catalog: Catalog;
+  cart: CartItem[];
   onClose: () => void;
-  onAdd: (item: CartItem) => void;
+  onAdd: (items: CartItem[]) => void;
 }) {
   const fmt = useFormat();
   const t = useT();
+  const bulk = files.length > 1;
+  const file = files[0];
   const [selectedProduct, setSelectedProduct] = useState<ProductRow | null>(
     catalog.products[0] ?? null
   );
@@ -282,11 +356,15 @@ function PickerDialog({
     catalog.products[0]?.variants[0] ?? null
   );
   const [quantity, setQuantity] = useState(1);
-  // Crop-State: aktiv wenn die ausgewaehlte Variante eine fixed
-  // aspectRatio hat UND wir die Bild-Pixel kennen (sonst koennten wir
-  // nichts constrainen). Default-Crop kommt vom Helper, der User kann
-  // ihn via Drag verschieben/resizen.
+  // Crop-State: aktiv wenn genau EIN Bild gewaehlt ist, die Variante
+  // eine fixed aspectRatio hat UND wir die Bild-Pixel kennen (sonst
+  // koennten wir nichts constrainen). Bei Mehrfachauswahl wird nicht
+  // gecroppt — ein Crop-Editor fuer N verschieden geschnittene Bilder
+  // in einem Dialog waere nicht sinnvoll bedienbar; jedes Bild bekommt
+  // den unbeschnittenen Default. Default-Crop kommt vom Helper, der
+  // User kann ihn (im Single-Modus) via Drag verschieben/resizen.
   const cropActive = !!(
+    !bulk &&
     selectedVariant?.aspectRatio &&
     file.width &&
     file.height
@@ -321,21 +399,31 @@ function PickerDialog({
 
   function add() {
     if (!selectedProduct || !selectedVariant) return;
-    onAdd({
-      variantId: selectedVariant.id,
-      fileId: file.id,
-      // Nicht file.filename direkt: null, wenn die Galerie dem Kunden
-      // keine Dateinamen zeigt. shareFilename() liefert dann einen
-      // neutralen Namen aus der Position ("image-012.jpg"), damit die
-      // Warenkorb-Zeile und die Bestellung identifizierbar bleiben.
-      fileName: shareFilename(file),
-      fileThumbUrl: file.thumbUrl,
-      product: selectedProduct,
-      variant: selectedVariant,
-      quantity,
-      crop: cropActive ? crop : null,
-    });
+    onAdd(
+      files.map((f) => ({
+        variantId: selectedVariant.id,
+        fileId: f.id,
+        // Nicht f.filename direkt: null, wenn die Galerie dem Kunden
+        // keine Dateinamen zeigt. shareFilename() liefert dann einen
+        // neutralen Namen aus der Position ("image-012.jpg"), damit die
+        // Warenkorb-Zeile und die Bestellung identifizierbar bleiben.
+        fileName: shareFilename(f),
+        fileThumbUrl: f.thumbUrl,
+        product: selectedProduct,
+        variant: selectedVariant,
+        quantity,
+        crop: cropActive ? crop : null,
+      }))
+    );
   }
+
+  // What this variant's total cart quantity would be if this add went
+  // through (quantity per photo × number of selected photos) — computed
+  // once and reused everywhere below instead of re-aggregating the cart
+  // on every reference.
+  const projectedQuantity = selectedVariant
+    ? aggregateQuantityForVariant(cart, selectedVariant.id) + quantity * files.length
+    : quantity * files.length;
 
   return (
     <div
@@ -349,7 +437,25 @@ function PickerDialog({
       <div className="bg-surface-raised rounded-md max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="grid sm:grid-cols-2 gap-0">
           <div className="bg-black flex items-center justify-center p-2 sm:p-3">
-            {cropActive && file.width && file.height ? (
+            {bulk ? (
+              <div className="grid grid-cols-3 gap-1.5 max-h-[360px] overflow-y-auto p-1">
+                {files.map((f) => (
+                  <div
+                    key={f.id}
+                    className="aspect-square bg-surface-sunken rounded overflow-hidden"
+                  >
+                    {f.thumbUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={f.thumbUrl}
+                        alt={shareFilename(f)}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : cropActive && file.width && file.height ? (
               <CropFrame
                 imageUrl={file.previewUrl ?? file.thumbUrl ?? ""}
                 imageWidth={file.width}
@@ -371,7 +477,11 @@ function PickerDialog({
             )}
           </div>
           <div className="p-5 space-y-4">
-            <h3 className="text-lg font-semibold">{t("printShop.orderPrint")}</h3>
+            <h3 className="text-lg font-semibold">
+              {bulk
+                ? t("printShop.orderPrintBulk", { count: files.length })
+                : t("printShop.orderPrint")}
+            </h3>
 
             {catalog.products.length === 0 ? (
               <p className="text-sm text-ink-tertiary">
@@ -425,7 +535,12 @@ function PickerDialog({
                       >
                         {selectedProduct.variants.map((v) => (
                           <option key={v.id} value={v.id}>
-                            {v.name} — {formatPrice(fmt, v.priceCents, catalog.config.currency)}
+                            {v.name} —{" "}
+                            {v.priceTiers && v.priceTiers.length > 0
+                              ? t("printShop.fromPrice", {
+                                  price: formatPrice(fmt, v.priceCents, catalog.config.currency),
+                                })
+                              : formatPrice(fmt, v.priceCents, catalog.config.currency)}
                           </option>
                         ))}
                       </select>
@@ -434,22 +549,48 @@ function PickerDialog({
 
                 <label className="block">
                   <span className="block text-xs text-ink-tertiary mb-1">
-                    {t("printShop.quantity")}
+                    {bulk
+                      ? t("printShop.quantityPerPhoto")
+                      : t("printShop.quantity")}
                   </span>
                   <input
                     type="number"
                     min={1}
-                    max={20}
+                    max={MAX_CART_QUANTITY}
                     value={quantity}
                     onChange={(e) =>
                       setQuantity(
-                        Math.max(1, Math.min(20, parseInt(e.target.value, 10) || 1))
+                        Math.max(
+                          1,
+                          Math.min(MAX_CART_QUANTITY, parseInt(e.target.value, 10) || 1)
+                        )
                       )
                     }
                     className="w-24 rounded border border-line-subtle bg-surface-raised px-2 py-1.5 text-sm"
                   />
+                  {selectedVariant?.priceTiers && selectedVariant.priceTiers.length > 0 && (
+                    <span className="block text-xs text-ink-tertiary mt-1">
+                      {t("printShop.perUnitAtQuantity", {
+                        // Tier preview reflects what's already in the cart for
+                        // this format too, not just the quantity being added
+                        // here (quantity per photo × number of photos) —
+                        // matches how the server aggregates at checkout.
+                        quantity: projectedQuantity,
+                        price: formatPrice(
+                          fmt,
+                          unitPriceForQuantity(selectedVariant, projectedQuantity),
+                          catalog.config.currency
+                        ),
+                      })}
+                    </span>
+                  )}
                 </label>
 
+                {bulk && (
+                  <p className="text-xs text-ink-tertiary bg-surface-sunken rounded px-2 py-1.5">
+                    {t("printShop.bulkCropHint")}
+                  </p>
+                )}
                 {cropActive && (
                   <p className="text-xs text-ink-tertiary bg-surface-sunken rounded px-2 py-1.5">
                     {t("printShop.cropHint")}
@@ -459,8 +600,13 @@ function PickerDialog({
                 <div className="text-sm pt-2 border-t border-line-subtle flex justify-between">
                   <span className="text-ink-tertiary">{t("printShop.subtotal")}</span>
                   <span className="font-semibold tabular-nums">
-                    {formatPrice(fmt, 
-                      (selectedVariant?.priceCents ?? 0) * quantity,
+                    {formatPrice(
+                      fmt,
+                      selectedVariant
+                        ? unitPriceForQuantity(selectedVariant, projectedQuantity) *
+                          quantity *
+                          files.length
+                        : 0,
                       catalog.config.currency
                     )}
                   </span>
@@ -514,6 +660,9 @@ function CartStep({
   const errText = useErrorText();
   const fmt = useFormat();
   const t = useT();
+  // Precomputed once per cart change instead of re-reducing the whole
+  // cart inside cart.map() below (was O(n²) for the per-line preview).
+  const quantityByVariant = useMemo(() => buildQuantityByVariantMap(cart), [cart]);
   const [shippingMethodId, setShippingMethodId] = useState<string>(
     catalog.shipping[0]?.id ?? ""
   );
@@ -577,7 +726,9 @@ function CartStep({
   }
   function updateQty(idx: number, q: number) {
     onUpdateCart(
-      cart.map((it, i) => (i === idx ? { ...it, quantity: Math.max(1, q) } : it))
+      cart.map((it, i) =>
+        i === idx ? { ...it, quantity: Math.max(1, Math.min(MAX_CART_QUANTITY, q)) } : it
+      )
     );
   }
 
@@ -700,14 +851,21 @@ function CartStep({
               <input
                 type="number"
                 min={1}
-                max={20}
+                max={MAX_CART_QUANTITY}
                 value={it.quantity}
                 onChange={(e) => updateQty(idx, parseInt(e.target.value, 10) || 1)}
                 className="w-16 rounded border border-line-subtle bg-surface-raised px-2 py-1 text-sm"
               />
               <div className="text-sm tabular-nums w-20 text-right">
-                {formatPrice(fmt, 
-                  it.variant.priceCents * it.quantity,
+                {formatPrice(
+                  fmt,
+                  // Tier applies per format across the whole cart, not per
+                  // line — look up the precomputed per-variant total
+                  // instead of re-aggregating the whole cart per line.
+                  unitPriceForQuantity(
+                    it.variant,
+                    quantityByVariant.get(it.variantId) ?? it.quantity
+                  ) * it.quantity,
                   catalog.config.currency
                 )}
               </div>
