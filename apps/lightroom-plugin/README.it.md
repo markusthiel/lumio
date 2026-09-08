@@ -8,9 +8,12 @@ Ponte bidirezionale tra Lightroom Classic e Lumio:
    una galleria arriva nel catalogo Lightroom come flag Pick, stelle
    e Color Label.
 2. **Servizio di pubblicazione** (LR → Lumio): carica le immagini da
-   LR direttamente in una galleria Lumio. Una raccolta pubblicata
-   per ogni galleria Lumio. Il contenuto è determinato da
-   drag-and-drop o da regole della smart collection.
+   LR direttamente in una galleria Lumio. Una singola raccolta
+   pubblicata diventa una **Simple Gallery** (1:1). Un **set di
+   raccolte** diventa una **Chapters Gallery** con capitoli — ogni
+   raccolta aggiuntiva nel set diventa un capitolo (vedi "Capitoli"
+   più sotto). Il contenuto è determinato da drag-and-drop o da
+   regole della smart collection.
 
 ## Prerequisiti
 
@@ -76,8 +79,11 @@ non riesci ad aprirla — rinominala semplicemente da `.lrdevplugin` a
 2. **Crea raccolta pubblicata** sotto il servizio Lumio.
 3. Nella finestra di dialogo:
    - scegli una **galleria esistente** dalla lista, OPPURE
-   - **creane una nuova** con titolo + modalità (selezione/proofing
-     o presentazione).
+   - lascia **"— Crea nuova —"**: la nuova galleria prende
+     automaticamente il nome della raccolta che stai scrivendo nel
+     campo nome di Lightroom — nessun campo titolo separato, il nome
+     lo scrivi una volta sola.
+   - **Modalità** (selezione/proofing o presentazione).
    - **Metti automaticamente 'live' dopo il caricamento**: se
      attivo, la galleria diventa live subito dopo il primo
      caricamento riuscito — i clienti possono aprire l'URL.
@@ -90,7 +96,8 @@ non riesci ad aprirla — rinominala semplicemente da `.lrdevplugin` a
    generate in background le varianti di anteprima, thumbnail ed
    eventualmente watermark.
 7. **Mostra in Lumio** (clic destro sulla raccolta) apre la galleria
-   nel browser.
+   nell'area di gestione dello Studio nel browser (non la vista
+   pubblica lato cliente).
 
 ### Ripubblicare
 
@@ -103,6 +110,46 @@ caricato quello nuovo.
 
 Rimuovi la foto dalla raccolta oppure elimina la raccolta → Lumio
 elimina automaticamente i file corrispondenti.
+
+### Capitoli (Chapters Gallery come set di raccolte)
+
+Invece di una singola raccolta pubblicata, sotto il servizio Lumio
+puoi anche creare un **set di raccolte**:
+
+1. Clic destro sul servizio Lumio → **Nuovo set di raccolte…**,
+   scegli la galleria come al solito o creane una nuova — il set
+   stesso è la "Chapters Gallery". I set annidati sono bloccati.
+   La voce generica di Lightroom "Crea raccolta dinamica pubblicata"
+   resta visibile nel menu contestuale — Lightroom non offre un modo
+   per rimuoverla del tutto, solo per rinominarla, quindi resta
+   volutamente con il nome generico invece di un'etichetta "Lumio…"
+   fuorviante, per chiarire che non è una funzione di Lumio.
+2. Al salvataggio, il plugin crea subito una raccolta chiamata
+   **"Default"** nel set. Le immagini che pubblichi lì finiscono
+   nell'area senza capitoli della galleria — esattamente come in
+   modalità Simple Gallery. Questa raccolta può essere rinominata
+   senza perdere il suo ruolo speciale.
+3. Ogni raccolta **aggiuntiva** che crei nel set diventa, alla prima
+   pubblicazione, un vero **capitolo** su Lumio. Il titolo del
+   capitolo segue il nome della raccolta in Lightroom — rinomina la
+   raccolta per rinominare il capitolo. (La voce di menu per crearla
+   si chiama, genericamente, "Crea raccolta pubblicata…", non
+   "Simple Gallery" — questo testo non è personalizzabile in modo
+   selettivo dentro un set, vedi il commento su
+   `titleForPublishedCollection` nel codice.)
+4. Elimina la raccolta → Lightroom chiede cosa fare delle foto già
+   pubblicate. **Solo scegliendo "Delete"** (rimuovi le foto dal
+   servizio) il capitolo corrispondente viene eliminato anche su
+   Lumio — le immagini restano e tornano semplicemente nell'area
+   senza capitoli, viene rimossa solo l'associazione al capitolo.
+   Scegliendo **"Leave on Service"**, lato Lumio non succede nulla
+   (in questo caso Lightroom non richiama alcun hook) — sparisce solo
+   la raccolta locale, mentre il capitolo resta su Lumio e va
+   eliminato manualmente in Studio se necessario. Eliminare l'intero
+   set/la galleria resta un'azione da fare in Lumio Studio.
+
+Le raccolte pubblicate singole già esistenti (**Simple Gallery**)
+continuano a funzionare invariate — i capitoli sono facoltativi.
 
 ## Logica di aggregazione (import selezione)
 
@@ -118,12 +165,19 @@ vengono aggregati lato server:
 
 ## Limitazioni note
 
-- **Matching per nome file (import selezione)**: se hai rinominato
-  i file in Lightroom, non li troviamo. Un matching basato su
-  SHA-256 è pianificato come miglioramento futuro.
-- **Nomi file duplicati**: se il tuo catalogo contiene più foto con
-  lo stesso nome file (es. due fotocamere), vengono aggiornate
-  tutte.
+- **Matching per nome file (import selezione)**: per i file pubblicati
+  con questa versione del plugin, nel JPEG caricato viene incorporato
+  anche un hash MD5 del master originale. Questo risolve automaticamente
+  le corrispondenze ambigue, e con l'opzione "ritrova i file rinominati
+  tramite hash" è possibile ritrovare anche i file rinominati. Per i file
+  pubblicati con versioni precedenti (o caricati da browser/upload-link)
+  questo hash non esiste — per quelli vale ancora: i file rinominati non
+  vengono trovati.
+- **Nomi file duplicati**: se il tuo catalogo contiene più foto con lo
+  stesso nome file (es. due fotocamere), la corrispondenza è considerata
+  ambigua. Senza un hash che la risolva, per questi file non viene
+  scritto nulla — meglio saltarli che aggiornare per errore la foto
+  sbagliata.
 - **Flag Reject**: al momento Lumio conosce solo "pick" e "none",
   non "reject". Per questo, durante l'import nessun flag Reject
   esistente viene sovrascritto.
@@ -141,20 +195,23 @@ vengono aggregati lato server:
 ```
 lumio.lrdevplugin/
 ├── Info.lua                       Manifest (Selection + Publish)
-├── PluginManager.lua              UI im Zusatzmodul-Manager (Host+Token)
-├── ImportSelectionDialog.lua      Galerie- + Optionen-Dialog (Import)
-├── ImportSelectionTask.lua        Eigentliche Import-Logik
+├── PluginManager.lua              UI nel gestore plug-in (Host+Token)
+├── ImportSelectionDialog.lua      Dialogo galleria + opzioni (Import)
+├── ImportSelectionTask.lua        Logica dell'import
 ├── LumioPublishService.lua        Publish-Service-Provider (Upload)
-├── LumioApi.lua                   HTTP-Wrapper mit Bearer-Auth
-├── Json.lua                       JSON-Lib (MIT, rxi/json.lua)
-└── Logger.lua                     LrLogger-Wrapper
+├── LumioApi.lua                   Wrapper HTTP con Bearer-Auth
+├── JpegXmp.lua                    Incorpora l'hash originale come XMP
+├── Json.lua                       Libreria JSON (MIT, rxi/json.lua)
+├── Logger.lua                     Wrapper LrLogger
+└── icon.png / icon@2x.png         Icona del Publish-Service
 ```
 
 ## Log
 
 I log del plugin si trovano in:
-- macOS: `~/Documents/LrClassicLogs/Lumio.log`
+- macOS: `~/Library/Logs/Adobe/Lightroom/LrClassicLogs/Lumio.log` (confermato su LrC 15.5)
 - Windows: `%USERPROFILE%\Documents\LrClassicLogs\Lumio.log`
+- La posizione dei log di LrLogger è già cambiata tra versioni di LrC in passato — in caso di dubbio controllare entrambi i percorsi.
 
 ## Licenza
 

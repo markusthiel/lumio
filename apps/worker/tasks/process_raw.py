@@ -1,19 +1,19 @@
 """
 Lumio Worker — process_raw
 
-RAW-Verarbeitung für CR2, CR3, NEF, ARW, RAF, DNG, ORF, PEF, RW2, X3F, ...
+RAW processing for CR2, CR3, NEF, ARW, RAF, DNG, ORF, PEF, RW2, X3F, ...
 
-Strategie (Geschwindigkeit > absolute Qualität):
-  1. Wenn das RAW ein eingebettetes JPEG-Preview enthält (>99% der Fälle bei
-     modernen Kameras): das verwenden — sieht aus wie auf dem Kamera-Display
-     und ist in <100 ms verfügbar.
-  2. Wenn das Preview ein BITMAP ist (selten): zu JPEG kodieren.
-  3. Fallback: voll demosaicen via rawpy.postprocess (sekundenlang) mit
-     use_camera_wb=True für brauchbare Kamera-WB.
+Strategy (speed > absolute quality):
+  1. If the RAW contains an embedded JPEG preview (>99% of cases on
+     modern cameras): use it -- looks like the camera's display and is
+     available in <100 ms.
+  2. If the preview is a BITMAP (rare): encode it to JPEG.
+  3. Fallback: full demosaic via rawpy.postprocess (takes seconds) with
+     use_camera_wb=True for a usable camera white balance.
 
-Aus dem Preview-JPEG werden dann mit libvips die finalen Renditions
-(thumb/preview/web) abgeleitet — exakt der gleiche Code wie für Standard-
-Bilder, gerufen über _generate_renditions_from_path.
+The final renditions (thumb/preview/web) are then derived from the
+preview JPEG with libvips -- the exact same code as for standard images,
+invoked via _generate_renditions_from_path.
 """
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ import structlog
 
 from app import app
 from db import fetch_file, mark_file_ready, mark_file_failed, upsert_rendition, set_taken_at, reconcile_original_size
-from exif_meta import extract_taken_at
+from exif_meta import extract_metadata
 from hashing import sha256_file
 from rt import file_status as _publish_status
 from storage import download_to_file, upload_file, rendition_key
@@ -33,10 +33,10 @@ from storage import download_to_file, upload_file, rendition_key
 log = structlog.get_logger(__name__)
 
 
-# Identisch zu process_file (Quelle der Wahrheit ist process_file). Wir
-# halten die Konstante hier separat, damit RAW-Verarbeitung unabhängig
-# weiter entwickelt werden kann (z.B. niedrigere Qualität fürs Thumb).
-# web_jpeg: kunden-freundliche Download-Variante, siehe process_file.
+# Identical to process_file (process_file is the source of truth). We
+# keep the constant separate here so RAW processing can evolve
+# independently (e.g. lower quality for the thumb).
+# web_jpeg: customer-friendly download variant, see process_file.
 RENDITION_SPECS: list[tuple[str, int, int, str]] = [
     ("thumb", 400, 75, "webp"),
     ("preview", 1600, 82, "webp"),
@@ -73,7 +73,7 @@ def generate_raw_preview(self, file_id: str) -> dict:
 
 
 def _process(file_row: dict) -> None:
-    """Decodiert RAW → JPEG-Preview → drei Renditions wie bei process_file."""
+    """Decodes RAW -> JPEG preview -> three renditions, same as process_file."""
     import rawpy
     import imageio.v3 as iio
 
@@ -89,20 +89,26 @@ def _process(file_row: dict) -> None:
         log.info("process_raw.downloaded",
                  file_id=file_id, size=os.path.getsize(src_path))
 
-        # SHA-256 vom RAW-Original — bevor die Decode-Pipeline beginnt,
-        # damit ein Decode-Fehler den Hash nicht verhindert.
+        # SHA-256 of the RAW original -- before the decode pipeline
+        # starts, so a decode error doesn't prevent the hash.
         src_sha = sha256_file(src_path)
 
-        # Aufnahmezeitpunkt aus EXIF des RAW-Originals (best-effort).
-        # exiv2 liest die meisten RAW-Container; nicht unterstützte → None.
-        taken_at = extract_taken_at(src_path)
+        # Read capture timestamp + original hash/size from the RAW
+        # original's EXIF (best-effort). exiftool reads most RAW
+        # containers; unsupported ones -> None. original_md5/
+        # original_size are practically always None here: the Lightroom
+        # plug-in only ever publishes JPEG renders (never the RAW
+        # itself), so a directly uploaded RAW never carries the embedded
+        # tag -- extraction stays in anyway, so process_file/process_raw
+        # remain symmetric.
+        taken_at, original_md5, original_size = extract_metadata(src_path)
 
         preview_jpeg_path = os.path.join(tmp, "preview.jpg")
         method = _extract_or_demosaic(src_path, preview_jpeg_path)
         log.info("process_raw.decoded", file_id=file_id, method=method)
 
-        # Aus dem Preview die Renditions ableiten — identische Pipeline
-        # wie process_file, nur dass die Quelle bereits ein JPEG ist.
+        # Derive the renditions from the preview -- identical pipeline to
+        # process_file, except the source is already a JPEG.
         from imaging import render_image_sizes
 
         def _persist(
@@ -123,21 +129,22 @@ def _process(file_row: dict) -> None:
             out_dir=tmp, on_rendition=_persist,
         )
 
-        # width/height des Originals — beim eingebetteten Preview ist das
-        # nicht zwingend die echte Sensor-Größe. Wir nutzen aus rawpy die
-        # tatsächlichen Sensor-Dimensionen.
+        # Width/height of the original -- for the embedded preview that's
+        # not necessarily the real sensor size. We use rawpy for the
+        # actual sensor dimensions.
         orig_w, orig_h = _read_sensor_size(src_path)
         final_w = orig_w or src_w
         final_h = orig_h or src_h
-        mark_file_ready(file_id, final_w, final_h, sha256=src_sha)
+        mark_file_ready(file_id, final_w, final_h, sha256=src_sha,
+                        original_md5=original_md5, original_size=original_size)
         set_taken_at(file_id, taken_at)
         _publish_status(gallery_id, file_id, "ready",
                         width=final_w, height=final_h)
         log.info("process_raw.complete",
                  file_id=file_id, width=final_w, height=final_h,
-                 sha256=src_sha)
-        # Auto-Tagging anstossen — analog zu process_file. Task selbst
-        # entscheidet via Feature-Flag ob er was tut.
+                 sha256=src_sha, original_md5=original_md5, original_size=original_size)
+        # Kick off auto-tagging -- same as process_file. The task itself
+        # decides via the feature flag whether it does anything.
         try:
             app.send_task("tasks.auto_tag.tag_image", args=[file_id])
         except Exception as err:
@@ -146,14 +153,14 @@ def _process(file_row: dict) -> None:
 
 
 def _extract_or_demosaic(src_path: str, out_jpeg: str) -> str:
-    """Schreibt entweder das eingebettete Preview oder ein demosaictes
-    Vollbild als JPEG nach `out_jpeg`. Gibt die verwendete Methode zurück
-    ("embedded_jpeg", "embedded_bitmap", "demosaic")."""
+    """Writes either the embedded preview or a demosaiced full image as
+    JPEG to `out_jpeg`. Returns the method used ("embedded_jpeg",
+    "embedded_bitmap", "demosaic")."""
     import rawpy
     import imageio.v3 as iio
 
     with rawpy.imread(src_path) as raw:
-        # 1. Eingebettetes Preview versuchen
+        # 1. Try the embedded preview
         try:
             thumb = raw.extract_thumb()
             if thumb.format == rawpy.ThumbFormat.JPEG:
@@ -161,7 +168,7 @@ def _extract_or_demosaic(src_path: str, out_jpeg: str) -> str:
                     f.write(thumb.data)
                 return "embedded_jpeg"
             elif thumb.format == rawpy.ThumbFormat.BITMAP:
-                # ndarray → JPEG via imageio
+                # ndarray -> JPEG via imageio
                 iio.imwrite(out_jpeg, thumb.data, extension=".jpg", quality=92)
                 return "embedded_bitmap"
         except rawpy.LibRawNoThumbnailError:
@@ -169,10 +176,10 @@ def _extract_or_demosaic(src_path: str, out_jpeg: str) -> str:
         except rawpy.LibRawUnsupportedThumbnailError:
             log.info("process_raw.unsupported_embedded_thumb")
         except Exception as err:
-            # Defensiv — manche Builds werfen andere Exceptions
+            # Defensive -- some builds throw other exceptions
             log.warning("process_raw.thumb_extract_failed", err=str(err))
 
-        # 2. Voll demosaicen — langsam, aber zuverlässig
+        # 2. Full demosaic -- slow, but reliable
         rgb = raw.postprocess(
             use_camera_wb=True,
             no_auto_bright=False,
@@ -183,7 +190,7 @@ def _extract_or_demosaic(src_path: str, out_jpeg: str) -> str:
 
 
 def _read_sensor_size(src_path: str) -> tuple[int | None, int | None]:
-    """Liest die echten Sensor-Dimensionen aus dem RAW. Robust gegen Fehler."""
+    """Reads the real sensor dimensions from the RAW. Robust against errors."""
     import rawpy
     try:
         with rawpy.imread(src_path) as raw:

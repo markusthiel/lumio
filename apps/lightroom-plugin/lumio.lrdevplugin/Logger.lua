@@ -1,11 +1,14 @@
 --[[
     Logger.lua
 
-    Dünner Wrapper um LrLogger. Schreibt nach
-    `~/Documents/LrClassicLogs/Lumio.log` (macOS) bzw.
-    `%USERPROFILE%\Documents\LrClassicLogs\Lumio.log` (Windows).
+    Thin wrapper around LrLogger. Writes to
+    `~/Library/Logs/Adobe/Lightroom/LrClassicLogs/Lumio.log` (macOS,
+    confirmed on LrC 15.5) resp.
+    `%USERPROFILE%\Documents\LrClassicLogs\Lumio.log` (Windows) --
+    LrLogger's log location has moved before across LrC versions, so
+    treat this as "check both if one is empty" rather than gospel.
 
-    Verwendung:
+    Usage:
         local log = require "Logger"
         log:trace("debug")
         log:info("info")

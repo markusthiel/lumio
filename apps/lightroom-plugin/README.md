@@ -7,9 +7,11 @@ Bidirektionale Brücke zwischen Lightroom Classic und Lumio:
 1. **Selection-Import** (Lumio → LR): Kunden-Auswahl aus einer Galerie
    landet als Pick-Flag, Sterne und Color-Label im Lightroom-Katalog.
 2. **Publish-Service** (LR → Lumio): Bilder aus LR direkt in eine
-   Lumio-Galerie hochladen. Pro Lumio-Galerie eine Veröffentlichte
-   Sammlung. Drag-and-Drop oder Smart-Collection-Regeln bestimmen den
-   Inhalt.
+   Lumio-Galerie hochladen. Eine einzelne Veröffentlichte Sammlung
+   ergibt eine **Simple Gallery** (1:1). Ein **Sammlungs-Set** ergibt
+   eine **Chapters Gallery** mit Kapiteln — jede zusätzliche Sammlung im
+   Set wird ein Kapitel (siehe „Kapitel" weiter unten). Drag-and-Drop
+   oder Smart-Collection-Regeln bestimmen den Inhalt.
 
 ## Voraussetzungen
 
@@ -72,8 +74,11 @@ umbenennen (oder per Rechtsklick → „Paketinhalt zeigen").
 2. **Veröffentlichte Sammlung erstellen** unter dem Lumio-Service.
 3. Im Dialog:
    - **Vorhandene Galerie** aus der Liste wählen, ODER
-   - **Neue anlegen** mit Titel + Modus (Auswahl/Proofing oder
-     Präsentation).
+   - **„— Neu anlegen —"** lassen: die neue Galerie bekommt automatisch
+     den Namen der Sammlung, den du gerade im Namensfeld von Lightroom
+     eingibst — kein separates Titelfeld, du gibst den Namen nur
+     einmal ein.
+   - **Modus** (Auswahl/Proofing oder Präsentation).
    - **Nach Upload automatisch auf 'live' schalten**: wenn an, wird
      die Galerie nach dem ersten erfolgreichen Upload sofort live —
      Kunden können die URL aufrufen.
@@ -84,8 +89,9 @@ umbenennen (oder per Rechtsklick → „Paketinhalt zeigen").
 6. **Veröffentlichen** klicken → Lightroom rendert die Bilder als
    JPEG (sRGB), lädt sie zu Lumio hoch. Pro Upload werden im Hintergrund
    Vorschau-, Thumbnail- und ggf. Watermark-Varianten erzeugt.
-7. **In Lumio anzeigen** (Rechtsklick auf Sammlung) öffnet die
-   Galerie im Browser.
+7. **In Lumio anzeigen** (Rechtsklick auf Sammlung) öffnet die Galerie
+   im Studio-Verwaltungsbereich im Browser (nicht die öffentliche
+   Kunden-Ansicht).
 
 ### Re-Publish
 
@@ -98,6 +104,47 @@ neue hochgeladen.
 
 Photo aus der Sammlung entfernen oder Sammlung löschen → Lumio
 löscht die entsprechenden Files automatisch.
+
+### Kapitel (Chapters Gallery als Sammlungs-Set)
+
+Statt einer einzelnen Veröffentlichten Sammlung kannst du unter dem
+Lumio-Service auch ein **Sammlungs-Set** anlegen:
+
+1. Rechtsklick auf den Lumio-Service → **Neues Sammlungs-Set…**,
+   Galerie wie gewohnt wählen oder neu anlegen — das Set selbst ist
+   die „Chapters Gallery". Verschachtelte Sets sind blockiert. Der
+   generische Lightroom-Eintrag „Veröffentlichte intelligente Sammlung
+   erstellen" bleibt im Rechtsklick-Menü sichtbar — Lightroom bietet
+   dafür keine Möglichkeit, ihn vollständig zu entfernen, nur ihn
+   umzubenennen; er heißt daher bewusst nicht „Lumio …", damit klar
+   ist, dass er keine Lumio-Funktion ist.
+2. Beim Speichern legt das Plugin sofort eine Sammlung namens
+   **„Default"** im Set an. Bilder, die du dort veröffentlichst,
+   landen im normalen, kapitellosen Bereich der Galerie — genau wie
+   im Simple-Gallery-Modus. Diese Sammlung kann umbenannt werden,
+   ohne ihre Sonderrolle zu verlieren.
+3. Jede **zusätzliche** Sammlung, die du im Set anlegst, wird beim
+   ersten Veröffentlichen zu einem echten **Kapitel** auf Lumio. Der
+   Kapitel-Titel folgt dem Namen der Sammlung in Lightroom — die
+   Sammlung umbenennen, um das Kapitel umzubenennen. (Der Menüeintrag
+   zum Anlegen heißt in Lightroom generisch „Veröffentlichte Sammlung
+   erstellen…", nicht „Simple Gallery" — dieser Text ist im
+   Set nicht separat anpassbar, siehe Kommentar bei
+   `titleForPublishedCollection` im Code.)
+4. Sammlung löschen → Lightroom fragt dabei, was mit den bereits
+   veröffentlichten Fotos passieren soll. **Nur bei „Delete"** (Fotos
+   vom Dienst entfernen) wird das zugehörige Kapitel auf Lumio
+   ebenfalls gelöscht — die Bilder selbst bleiben dabei erhalten und
+   fallen nur in den kapitellosen Bereich zurück, gelöscht wird nur
+   die Kapitel-Zuordnung. Bei **„Leave on Service"** passiert auf
+   Lumio-Seite nichts (Lightroom ruft in diesem Fall keinen Hook auf)
+   — nur die lokale Sammlung verschwindet, das Kapitel bleibt auf
+   Lumio bestehen und muss bei Bedarf manuell im Studio gelöscht
+   werden. Das ganze Set bzw. die Galerie zu löschen bleibt weiterhin
+   eine Aktion im Lumio Studio.
+
+Bestehende einzelne Veröffentlichte Sammlungen (**Simple Gallery**)
+funktionieren unverändert weiter — Kapitel sind rein optional.
 
 ## Aggregations-Logik (Selection-Import)
 
@@ -113,11 +160,18 @@ werden die Werte serverseitig zusammengefasst:
 
 ## Bekannte Einschränkungen
 
-- **Filename-Matching (Selection-Import)**: Wenn du Files in Lightroom
-  umbenannt hast, finden wir sie nicht. SHA-256-basiertes Matching ist
-  als zukünftige Verbesserung geplant.
+- **Filename-Matching (Selection-Import)**: Für Files, die mit dieser
+  Plugin-Version veröffentlicht wurden, wird zusätzlich ein MD5-Hash des
+  Original-Masters im hochgeladenen JPEG hinterlegt. Damit werden
+  mehrdeutige Treffer automatisch aufgelöst, und mit der Option
+  „Umbenannte Dateien per Hash wiederfinden" lassen sich auch umbenannte Files wiederfinden.
+  Für älter veröffentlichte Files (oder Uploads über Browser/Upload-Link)
+  gibt es diesen Hash nicht — dort gilt weiterhin: umbenannte Files werden
+  nicht gefunden.
 - **Doppelte Filenames**: Wenn dein Katalog mehrere Photos mit demselben
-  Dateinamen enthält (z.B. zwei Kameras), werden alle aktualisiert.
+  Dateinamen enthält (z.B. zwei Kameras), gilt der Treffer als mehrdeutig.
+  Ohne auflösbaren Hash wird für diese Files nichts geschrieben — lieber
+  überspringen als versehentlich das falsche Photo aktualisieren.
 - **Reject-Flag**: Lumio kennt aktuell nur „pick" und „none", kein
   „reject". Daher wird beim Import kein bestehender Reject-Flag
   überschrieben.
@@ -139,15 +193,18 @@ lumio.lrdevplugin/
 ├── ImportSelectionTask.lua        Eigentliche Import-Logik
 ├── LumioPublishService.lua        Publish-Service-Provider (Upload)
 ├── LumioApi.lua                   HTTP-Wrapper mit Bearer-Auth
+├── JpegXmp.lua                    Bettet Original-Hash als XMP ein
 ├── Json.lua                       JSON-Lib (MIT, rxi/json.lua)
-└── Logger.lua                     LrLogger-Wrapper
+├── Logger.lua                     LrLogger-Wrapper
+└── icon.png / icon@2x.png         Publish-Service-Icon
 ```
 
 ## Logs
 
 Plugin-Logs liegen unter:
-- macOS: `~/Documents/LrClassicLogs/Lumio.log`
+- macOS: `~/Library/Logs/Adobe/Lightroom/LrClassicLogs/Lumio.log` (bestätigt auf LrC 15.5)
 - Windows: `%USERPROFILE%\Documents\LrClassicLogs\Lumio.log`
+- Der Speicherort von LrLogger hat sich in der Vergangenheit schon zwischen LrC-Versionen verschoben — im Zweifel beide Pfade prüfen.
 
 ## Lizenz
 

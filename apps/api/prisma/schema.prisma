@@ -885,7 +885,7 @@ model File {
   mimeType        String
   sizeBytes       BigInt
   sha256          String?
-  
+
   width           Int?
   height          Int?
   durationMs      Int?     // bei Videos
@@ -894,7 +894,16 @@ model File {
   // Kategorisierung
   kind            String   // image | raw | video | other
   
-  // EXIF / Metadaten flexibel
+  // EXIF / Metadaten flexibel. Genutzt u.a. fuer
+  // exif.lumio.originalMd5 -- MD5 des ORIGINAL-Master-Files (RAW/JPEG in
+  // Lightroom), eingebettet vom Lightroom-Publish-Service-Plugin als
+  // custom XMP-Feld im hochgeladenen JPEG (siehe
+  // apps/lightroom-plugin/.../JpegXmp.lua) und vom Worker ausgelesen.
+  // Nicht zu verwechseln mit sha256 oben, der die hochgeladenen/
+  // gerenderten Bytes hasht (Dup-Detection) -- originalMd5 identifiziert
+  // stattdessen das Original-Foto unabhaengig vom aktuellen Dateinamen,
+  // fuer den Selection-Import (ImportSelectionTask.lua). Nur gesetzt fuer
+  // ueber das Plugin veroeffentlichte Files; sonst nicht vorhanden.
   exif            Json?
   takenAt         DateTime?
   

@@ -1,10 +1,10 @@
 --[[
     PluginManager.lua
 
-    Sektion im Lightroom Plug-in-Manager: Host + Token + Test-Button.
+    Section in the Lightroom Plug-in Manager: host + token + test button.
 
-    sectionsForTopOfDialog wird vom SDK aufgerufen, wenn der User in
-    Datei → Zusatzmodul-Manager auf das Lumio-Plugin klickt.
+    sectionsForTopOfDialog is called by the SDK when the user clicks the
+    Lumio plug-in under File -> Plug-in Manager.
 ]]
 
 local LrView           = import "LrView"
@@ -21,7 +21,7 @@ local prefs = LrPrefs.prefsForPlugin()
 
 local function testConnection(propertyTable)
     LrFunctionContext.callWithContext("testConnection", function()
-        -- Prefs flushen, damit getToken/getBase die aktuellen Werte sieht
+        -- Flush prefs so getToken/getBase see the current values
         prefs.host  = propertyTable.host
         prefs.token = propertyTable.token
 
@@ -56,7 +56,7 @@ return {
         bindable.token      = prefs.token or ""
         bindable.testStatus = ""
 
-        -- Prefs live synchronisieren — beim Schließen ist der Wert dann drin
+        -- Live-sync into prefs -- by the time the dialog closes, the value is in there
         bindable:addObserver("host",  function() prefs.host  = bindable.host  end)
         bindable:addObserver("token", function() prefs.token = bindable.token end)
 
