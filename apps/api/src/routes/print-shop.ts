@@ -54,6 +54,17 @@ import {
   getConnectStatus,
 } from "../services/print/stripe-connect.js";
 import { transitionOrder } from "../services/print/orders.js";
+import { buildOrderItemsCsv, type OrderExportRow } from "../services/print/order-export.js";
+import {
+  validateTierLadder,
+  deriveReferencePriceCents,
+  type PriceTierInput,
+} from "../services/print/pricing-tiers.js";
+import {
+  analyzeImport,
+  buildImportTemplate,
+  type ImportProductInput,
+} from "../services/print/catalog-import.js";
 import { logEvent } from "../services/audit.js";
 
 /** Guard: User muss eingeloggt sein und role owner|admin haben.
@@ -81,6 +92,21 @@ async function guard(req: FastifyRequest, reply: FastifyReply): Promise<{
     userId: user.id,
     userEmail: user.email,
   };
+}
+
+/** A tenant may only use a provider it has activated — except
+ *  manual_self_print, which is always available. Shared by manual
+ *  product creation and the bulk importer so both enforce the same
+ *  rule. Returns an error message to send as a 400, or null if OK. */
+async function providerActiveError(
+  tenantId: string,
+  providerKey: string
+): Promise<string | null> {
+  if (providerKey === "manual_self_print") return null;
+  const providerOk = await prisma.tenantPrintProvider.findUnique({
+    where: { tenantId_providerKey: { tenantId, providerKey } },
+  });
+  return providerOk ? null : "Diesen Provider hast du nicht aktiviert.";
 }
 
 export async function registerPrintShopRoutes(app: FastifyInstance) {
@@ -295,7 +321,13 @@ export async function registerPrintShopRoutes(app: FastifyInstance) {
       where: { tenantId: ctx.tenantId },
       orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
       include: {
-        variants: { orderBy: [{ displayOrder: "asc" }, { name: "asc" }] },
+        variants: {
+          orderBy: [{ displayOrder: "asc" }, { name: "asc" }],
+          include: {
+            priceTiers: { orderBy: { minQty: "asc" } },
+            finishOptions: { orderBy: { displayOrder: "asc" } },
+          },
+        },
       },
     });
     return { products };
@@ -325,20 +357,9 @@ export async function registerPrintShopRoutes(app: FastifyInstance) {
     if (!ctx) return;
     const body = productCreateSchema.parse(req.body);
 
-    // Provider muss vom Tenant aktiviert sein
-    const providerOk = await prisma.tenantPrintProvider.findUnique({
-      where: {
-        tenantId_providerKey: {
-          tenantId: ctx.tenantId,
-          providerKey: body.providerKey,
-        },
-      },
-    });
-    if (!providerOk && body.providerKey !== "manual_self_print") {
-      return reply.status(400).send({
-        error: "provider_not_active",
-        message: "Diesen Provider hast du nicht aktiviert.",
-      });
+    const providerErr = await providerActiveError(ctx.tenantId, body.providerKey);
+    if (providerErr) {
+      return reply.status(400).send({ error: "provider_not_active", message: providerErr });
     }
 
     const product = await prisma.printProduct.create({
@@ -398,6 +419,25 @@ export async function registerPrintShopRoutes(app: FastifyInstance) {
   // VARIANTS
   // ============================================================================
 
+  // Quantity-break price tiers, as sent from the client. Validated as a
+  // whole ladder (see services/print/pricing-tiers.ts) before any write —
+  // the same validation the bulk importer uses, so manual editing and
+  // import can never disagree on what a valid ladder looks like.
+  const priceTierInputSchema = z.object({
+    minQty: z.number().int().min(1),
+    maxQty: z.number().int().min(1).nullable(),
+    unitPriceCents: z.number().int().min(0),
+  });
+
+  // Selectable variant options (e.g. frame color) — distinct from the
+  // scalar finishType field, see the schema comment on
+  // PrintProductVariantFinishOption for why they're a separate concept.
+  const finishOptionInputSchema = z.object({
+    name: z.string().min(1).max(100),
+    sku: z.string().max(200).nullable().optional(),
+    priceDeltaCents: z.number().int().default(0),
+  });
+
   const variantCreateSchema = z.object({
     name: z.string().min(1).max(200),
     widthMm: z.number().int().min(1).max(10000),
@@ -405,11 +445,35 @@ export async function registerPrintShopRoutes(app: FastifyInstance) {
     aspectRatio: z.number().positive().nullable().optional(),
     finishType: z.string().max(50).nullable().optional(),
     providerVariantRef: z.string().max(200).nullable().optional(),
+    // Required even for a tiered variant — the server overwrites it
+    // with the first tier's price on write, but the schema still wants
+    // a value up front (kept simple rather than making it conditional).
     priceCents: z.number().int().min(0),
     costCents: z.number().int().min(0).nullable().optional(),
     displayOrder: z.number().int().default(0),
     enabled: z.boolean().default(true),
+    // Absent = flat pricing. Present (even empty, on an update) = the
+    // client is explicitly setting the tier ladder for this variant.
+    priceTiers: z.array(priceTierInputSchema).max(20).optional(),
+    // Absent = no selectable finish options. Present (even empty, on an
+    // update) = the client is explicitly setting the finish-option list.
+    finishOptions: z.array(finishOptionInputSchema).max(20).optional(),
   });
+
+  /** Duplicate finish-option names within one request would violate the
+   *  @@unique([printProductVariantId, name]) constraint at write time —
+   *  checked here first for a clear 400 instead of a raw Prisma error. */
+  function findDuplicateFinishOptionName(
+    finishOptions: Array<{ name: string }>
+  ): string | null {
+    const seen = new Set<string>();
+    for (const fo of finishOptions) {
+      const trimmed = fo.name.trim();
+      if (seen.has(trimmed)) return trimmed;
+      seen.add(trimmed);
+    }
+    return null;
+  }
   app.post<{ Params: { id: string } }>(
     "/print-shop/products/:id/variants",
     async (req, reply) => {
@@ -422,10 +486,63 @@ export async function registerPrintShopRoutes(app: FastifyInstance) {
         select: { id: true },
       });
       if (!product) return reply.status(404).send({ error: "not_found" });
+
+      const { priceTiers, finishOptions, ...rest } = body;
+      let sortedTiers: PriceTierInput[] | null = null;
+      let priceCents = rest.priceCents;
+      if (priceTiers && priceTiers.length > 0) {
+        const validation = validateTierLadder(priceTiers);
+        if (!validation.ok) {
+          return reply
+            .status(400)
+            .send({ error: "invalid_price_tiers", message: validation.error });
+        }
+        sortedTiers = validation.sorted;
+        priceCents = deriveReferencePriceCents(validation.sorted);
+      }
+
+      if (finishOptions && finishOptions.length > 0) {
+        const dup = findDuplicateFinishOptionName(finishOptions);
+        if (dup) {
+          return reply.status(400).send({
+            error: "duplicate_finish_option_name",
+            message: `Finish option name "${dup}" is used more than once.`,
+          });
+        }
+      }
+
       const variant = await prisma.printProductVariant.create({
         data: {
           printProductId: req.params.id,
-          ...body,
+          ...rest,
+          priceCents,
+          ...(sortedTiers
+            ? {
+                priceTiers: {
+                  create: sortedTiers.map((t) => ({
+                    minQty: t.minQty,
+                    maxQty: t.maxQty,
+                    unitPriceCents: t.unitPriceCents,
+                  })),
+                },
+              }
+            : {}),
+          ...(finishOptions && finishOptions.length > 0
+            ? {
+                finishOptions: {
+                  create: finishOptions.map((fo, idx) => ({
+                    name: fo.name.trim(),
+                    sku: fo.sku?.trim() || null,
+                    priceDeltaCents: fo.priceDeltaCents,
+                    displayOrder: idx,
+                  })),
+                },
+              }
+            : {}),
+        },
+        include: {
+          priceTiers: { orderBy: { minQty: "asc" } },
+          finishOptions: { orderBy: { displayOrder: "asc" } },
         },
       });
       return { variant };
@@ -448,9 +565,70 @@ export async function registerPrintShopRoutes(app: FastifyInstance) {
         select: { id: true },
       });
       if (!variant) return reply.status(404).send({ error: "not_found" });
+
+      const { priceTiers, finishOptions, ...rest } = body;
+      const data: Record<string, unknown> = { ...rest };
+
+      if (finishOptions !== undefined) {
+        if (finishOptions.length > 0) {
+          const dup = findDuplicateFinishOptionName(finishOptions);
+          if (dup) {
+            return reply.status(400).send({
+              error: "duplicate_finish_option_name",
+              message: `Finish option name "${dup}" is used more than once.`,
+            });
+          }
+        }
+        data.finishOptions = {
+          deleteMany: {},
+          create: finishOptions.map((fo, idx) => ({
+            name: fo.name.trim(),
+            sku: fo.sku?.trim() || null,
+            priceDeltaCents: fo.priceDeltaCents,
+            displayOrder: idx,
+          })),
+        };
+      }
+
+      if (priceTiers !== undefined) {
+        if (priceTiers.length > 0) {
+          const validation = validateTierLadder(priceTiers);
+          if (!validation.ok) {
+            return reply
+              .status(400)
+              .send({ error: "invalid_price_tiers", message: validation.error });
+          }
+          data.priceCents = deriveReferencePriceCents(validation.sorted);
+          data.priceTiers = {
+            deleteMany: {},
+            create: validation.sorted.map((t) => ({
+              minQty: t.minQty,
+              maxQty: t.maxQty,
+              unitPriceCents: t.unitPriceCents,
+            })),
+          };
+        } else {
+          // Empty array = switch back to flat pricing. The server can
+          // no longer derive priceCents from a now-empty ladder, so the
+          // client must send one explicitly in the same request.
+          if (rest.priceCents === undefined) {
+            return reply.status(400).send({
+              error: "price_cents_required_for_flat",
+              message:
+                "Beim Wechsel auf festen Preis muss priceCents mitgeschickt werden.",
+            });
+          }
+          data.priceTiers = { deleteMany: {} };
+        }
+      }
+
       const updated = await prisma.printProductVariant.update({
         where: { id: req.params.id },
-        data: body,
+        data,
+        include: {
+          priceTiers: { orderBy: { minQty: "asc" } },
+          finishOptions: { orderBy: { displayOrder: "asc" } },
+        },
       });
       return { variant: updated };
     }
@@ -482,6 +660,114 @@ export async function registerPrintShopRoutes(app: FastifyInstance) {
       return { ok: true };
     }
   );
+
+  // ============================================================================
+  // BULK CATALOG IMPORT
+  // ============================================================================
+  // Loose on presence/nullability so a messy real-world price list can
+  // still be parsed and reported on row-by-row (see catalog-import.ts) —
+  // but strict on TYPES: a value that's the wrong JSON type (e.g. a
+  // string where a number is expected) fails the whole request rather
+  // than being silently coerced. The downloadable template shows the
+  // expected types, so this is a reasonable baseline contract.
+
+  // Deliberately type-only, no range constraints (.positive(), .min(), a
+  // tier-count cap): a value that's merely out of range — zero width,
+  // a negative tier price, a 25-tier ladder — must be reported and
+  // skipped as ONE broken row by catalog-import.ts, not fail this
+  // zod .parse() and 400/500 the entire request out from under every
+  // other valid row in the file. Range/ladder validation already lives
+  // in pricing-tiers.ts's validateTierLadder() and planVariant() —
+  // duplicating it here as a hard parse constraint would just reintroduce
+  // the whole-file failure this importer exists to avoid.
+  const importTierSchema = z.object({
+    minQty: z.number().int(),
+    maxQty: z.number().int().nullable(),
+    unitPriceEur: z.number(),
+  });
+  // .max(20) matches the manual variant editor's cap (MAX_FINISH_OPTIONS
+  // in products/page.tsx) and priceTierInputSchema's own .max(20) below —
+  // an import can't create a variant the Studio editor couldn't then open.
+  const importFinishOptionSchema = z.object({
+    name: z.string(),
+    sku: z.string().nullable().optional(),
+    priceDeltaEur: z.number().nullable().optional(),
+  });
+  const importVariantSchema = z.object({
+    name: z.string(),
+    widthMm: z.number().nullable().optional(),
+    heightMm: z.number().nullable().optional(),
+    finishType: z.string().nullable().optional(),
+    sku: z.string().nullable().optional(),
+    priceEur: z.number().nullable().optional(),
+    costEur: z.number().nullable().optional(),
+    priceTiers: z.array(importTierSchema).optional(),
+    finishOptions: z.array(importFinishOptionSchema).max(20).optional(),
+  });
+  const importProductSchema = z.object({
+    name: z.string(),
+    description: z.string().nullable().optional(),
+    category: z.string().nullable().optional(),
+    sku: z.string().nullable().optional(),
+    variants: z.array(importVariantSchema),
+  });
+  const importBodySchema = z.object({
+    providerKey: z.string().min(1),
+    // No .min(1): an empty file is a valid (if pointless) import — it
+    // should produce a zero-row report, not a 400/500. .max(1000) stays:
+    // an overall request-size ceiling is a sanity guard against a
+    // pathological payload, not a per-row data-quality judgment.
+    products: z.array(importProductSchema).max(1000),
+  });
+
+  app.get("/print-shop/import/template", async (req, reply) => {
+    const ctx = await guard(req, reply);
+    if (!ctx) return;
+    reply.header("Content-Type", "application/json; charset=utf-8");
+    reply.header(
+      "Content-Disposition",
+      'attachment; filename="lumio-print-catalog-template.json"'
+    );
+    return reply.send(JSON.stringify(buildImportTemplate(), null, 2));
+  });
+
+  async function runImport(
+    req: FastifyRequest,
+    reply: FastifyReply,
+    dryRun: boolean
+  ) {
+    const ctx = await guard(req, reply);
+    if (!ctx) return;
+    const body = importBodySchema.parse(req.body);
+
+    const providerErr = await providerActiveError(ctx.tenantId, body.providerKey);
+    if (providerErr) {
+      return reply.status(400).send({ error: "provider_not_active", message: providerErr });
+    }
+
+    const report = await analyzeImport({
+      tenantId: ctx.tenantId,
+      providerKey: body.providerKey,
+      products: body.products as ImportProductInput[],
+      dryRun,
+    });
+
+    if (!dryRun) {
+      await logEvent({
+        tenantId: ctx.tenantId,
+        actorType: "user",
+        actorId: ctx.userId,
+        action: "print_shop.catalog_import.commit",
+        payload: { providerKey: body.providerKey, summary: report.summary },
+        ipAddress: req.ip,
+      });
+    }
+
+    return { report };
+  }
+
+  app.post("/print-shop/import/preview", (req, reply) => runImport(req, reply, true));
+  app.post("/print-shop/import/commit", (req, reply) => runImport(req, reply, false));
 
   // ============================================================================
   // SHIPPING METHODS
@@ -634,6 +920,74 @@ export async function registerPrintShopRoutes(app: FastifyInstance) {
       });
       if (!order) return reply.status(404).send({ error: "not_found" });
       return { order };
+    }
+  );
+
+  // GET /print-shop/orders/:id/export.csv
+  // One row per order item — photo, format, quantity, SKU, price — so
+  // a studio doesn't have to retype order details by hand for invoicing.
+  app.get<{ Params: { id: string } }>(
+    "/print-shop/orders/:id/export.csv",
+    async (req, reply) => {
+      const ctx = await guard(req, reply);
+      if (!ctx) return;
+      const order = await prisma.printOrder.findFirst({
+        where: { id: req.params.id, tenantId: ctx.tenantId },
+        select: {
+          orderNumber: true,
+          currency: true,
+          items: {
+            select: {
+              quantity: true,
+              unitPriceCents: true,
+              totalPriceCents: true,
+              finishOptionName: true,
+              finishOptionSku: true,
+              printProductVariant: {
+                select: {
+                  name: true,
+                  widthMm: true,
+                  heightMm: true,
+                  providerVariantRef: true,
+                  printProduct: { select: { name: true, providerProductRef: true } },
+                },
+              },
+              file: { select: { id: true, originalFilename: true } },
+            },
+          },
+        },
+      });
+      if (!order) return reply.status(404).send({ error: "not_found" });
+
+      const rows: OrderExportRow[] = order.items.map((it) => ({
+        fileId: it.file.id,
+        filename: it.file.originalFilename,
+        productName: it.printProductVariant.printProduct.name,
+        variantName: it.printProductVariant.name,
+        widthMm: it.printProductVariant.widthMm,
+        heightMm: it.printProductVariant.heightMm,
+        finishName: it.finishOptionName,
+        // Finish SKU (if the selected finish has its own) takes priority
+        // over the variant's — same reasoning a differently-stocked frame
+        // color needs its own line for invoicing. Then variant, then
+        // product (e.g. a bulk-imported family sharing one provider ref).
+        sku:
+          it.finishOptionSku ??
+          it.printProductVariant.providerVariantRef ??
+          it.printProductVariant.printProduct.providerProductRef ??
+          null,
+        quantity: it.quantity,
+        unitPriceCents: it.unitPriceCents,
+        totalPriceCents: it.totalPriceCents,
+      }));
+
+      const csv = buildOrderItemsCsv(order.orderNumber, order.currency, rows);
+      reply.header("Content-Type", "text/csv; charset=utf-8");
+      reply.header(
+        "Content-Disposition",
+        `attachment; filename="${order.orderNumber}.csv"`
+      );
+      return reply.send(csv);
     }
   );
 

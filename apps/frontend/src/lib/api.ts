@@ -1942,6 +1942,8 @@ export const api = {
   studioZipDownloadUrl: (galleryId: string, zipId: string) =>
     `${API_URL}/api/v1/galleries/${galleryId}/download/zip/${zipId}?download=1`,
 
+  studioFileDownloadUrl: (fileId: string) => `${API_URL}/api/v1/files/${fileId}/download`,
+
   getStudioZipShareUrl: (galleryId: string, zipId: string) =>
     request<{
       url: string;
@@ -3235,6 +3237,8 @@ export const api = {
           costCents: number | null;
           displayOrder: number;
           enabled: boolean;
+          priceTiers: PrintPriceTier[];
+          finishOptions: PrintFinishOption[];
         }>;
       }>;
     }>("/print-shop/products"),
@@ -3268,6 +3272,20 @@ export const api = {
 
   deletePrintVariant: (id: string) =>
     request<{ ok: true }>(`/print-shop/variants/${id}`, { method: "DELETE" }),
+
+  printImportTemplateUrl: () => `${API_URL}/api/v1/print-shop/import/template`,
+
+  previewPrintImport: (input: PrintImportRequest) =>
+    request<{ report: PrintImportReport }>("/print-shop/import/preview", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
+  commitPrintImport: (input: PrintImportRequest) =>
+    request<{ report: PrintImportReport }>("/print-shop/import/commit", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
 
   listShippingMethods: () =>
     request<{
@@ -3343,6 +3361,9 @@ export const api = {
       order: PrintOrderDetail;
     }>(`/print-shop/orders/${id}`),
 
+  printOrderExportCsvUrl: (id: string) =>
+    `${API_URL}/api/v1/print-shop/orders/${id}/export.csv`,
+
   transitionPrintOrder: (
     id: string,
     body: {
@@ -3405,6 +3426,8 @@ export const api = {
           aspectRatio: number | null;
           finishType: string | null;
           priceCents: number;
+          priceTiers: PrintPriceTier[];
+          finishOptions: Array<{ id: string; name: string; priceDeltaCents: number }>;
         }>;
       }>;
       shipping: Array<{
@@ -3425,6 +3448,7 @@ export const api = {
         fileId: string;
         quantity: number;
         crop?: { x: number; y: number; width: number; height: number } | null;
+        finishOptionId?: string | null;
       }>;
       shippingMethodId: string | null;
     }
@@ -3450,6 +3474,7 @@ export const api = {
         fileId: string;
         quantity: number;
         crop?: { x: number; y: number; width: number; height: number } | null;
+        finishOptionId?: string | null;
       }>;
       shippingMethodId: string;
       guestName: string;
@@ -3506,6 +3531,7 @@ export const api = {
         productName: string;
         widthMm: number;
         heightMm: number;
+        finishName: string | null;
         totalPriceCents: number;
       }>;
       shippingMethod: string | null;
@@ -3737,6 +3763,9 @@ export interface PrintOrderDetail {
     unitPriceCents: number;
     totalPriceCents: number;
     crop: { x: number; y: number; width: number; height: number } | null;
+    finishOptionId: string | null;
+    finishOptionName: string | null;
+    finishOptionSku: string | null;
     printProductVariant: {
       name: string;
       widthMm: number;
@@ -3780,6 +3809,28 @@ export interface PrintProductCreateInput {
   enabled?: boolean;
 }
 
+/** One quantity-break price tier. See apps/api's pricing-tiers.ts for
+ *  the ladder rules (first tier minQty=1, last tier maxQty=null,
+ *  contiguous, no gaps/overlaps) — enforced server-side, mirrored
+ *  client-side in lib/print-pricing.ts for live previews. */
+export interface PrintPriceTier {
+  minQty: number;
+  maxQty: number | null;
+  unitPriceCents: number;
+}
+
+/** Selectable variant option (e.g. frame color) — distinct from the
+ *  scalar finishType field, which is just a descriptive material
+ *  label. sku is Studio-only (not exposed on the public catalog). */
+export interface PrintFinishOption {
+  id: string;
+  name: string;
+  sku: string | null;
+  priceDeltaCents: number;
+  displayOrder: number;
+  enabled: boolean;
+}
+
 export interface PrintVariantCreateInput {
   name: string;
   widthMm: number;
@@ -3791,6 +3842,95 @@ export interface PrintVariantCreateInput {
   costCents?: number | null;
   displayOrder?: number;
   enabled?: boolean;
+  /** Absent = flat pricing (priceCents applies to any quantity).
+   *  Present (even []) on an update = explicitly setting the ladder;
+   *  [] switches the variant back to flat pricing. */
+  priceTiers?: PrintPriceTier[];
+  /** Absent = no selectable finishes. Present (even []) on an update =
+   *  explicitly setting the finish-option list. */
+  finishOptions?: Array<{ name: string; sku?: string | null; priceDeltaCents: number }>;
+}
+
+// =============================================================================
+// Print catalog import
+// =============================================================================
+
+export interface PrintImportVariantTier {
+  minQty: number;
+  maxQty: number | null;
+  unitPriceEur: number;
+}
+
+export interface PrintImportVariantFinishOption {
+  name: string;
+  sku?: string | null;
+  priceDeltaEur?: number | null;
+}
+
+export interface PrintImportVariant {
+  name: string;
+  widthMm?: number | null;
+  heightMm?: number | null;
+  finishType?: string | null;
+  sku?: string | null;
+  priceEur?: number | null;
+  costEur?: number | null;
+  priceTiers?: PrintImportVariantTier[];
+  finishOptions?: PrintImportVariantFinishOption[];
+}
+
+export interface PrintImportProduct {
+  name: string;
+  description?: string | null;
+  category?: string | null;
+  sku?: string | null;
+  variants: PrintImportVariant[];
+}
+
+export interface PrintImportRequest {
+  providerKey: string;
+  products: PrintImportProduct[];
+}
+
+export type PrintImportRowStatus =
+  | "created"
+  | "updated"
+  | "would_create"
+  | "would_update"
+  | "skipped_error";
+
+export interface PrintImportVariantResult {
+  rowIndex: number;
+  name: string;
+  status: PrintImportRowStatus;
+  matchedExistingId?: string;
+  errors: string[];
+  warnings: string[];
+}
+
+export interface PrintImportProductResult {
+  rowIndex: number;
+  name: string;
+  status: PrintImportRowStatus;
+  matchedExistingId?: string;
+  errors: string[];
+  warnings: string[];
+  variants: PrintImportVariantResult[];
+}
+
+export interface PrintImportReport {
+  summary: {
+    totalProducts: number;
+    totalVariants: number;
+    productsCreated: number;
+    productsUpdated: number;
+    productsSkipped: number;
+    variantsCreated: number;
+    variantsUpdated: number;
+    variantsSkipped: number;
+    warnings: number;
+  };
+  products: PrintImportProductResult[];
 }
 
 export interface ShippingMethodCreateInput {

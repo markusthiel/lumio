@@ -104,7 +104,11 @@ export default function PrintProvidersPage() {
 
   async function remove(p: Mine) {
     if (
-      !(await confirm({ message: t("providers.confirmRemove", { name: p.providerLabel }) }))
+      !(await confirm({
+        message: t("providers.confirmRemove", {
+          name: ct("Provider", p.providerKey, "Label", p.providerLabel),
+        }),
+      }))
     ) {
       return;
     }
@@ -172,7 +176,9 @@ export default function PrintProvidersPage() {
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                    <strong className="text-sm">{p.providerLabel}</strong>
+                    <strong className="text-sm">
+                      {ct("Provider", p.providerKey, "Label", p.providerLabel)}
+                    </strong>
                     {p.isDefault && (
                       <span className="text-xs px-1.5 py-0.5 rounded bg-accent/15 text-accent">{t("providers.defaultBadge")}</span>
                     )}
@@ -235,7 +241,9 @@ export default function PrintProvidersPage() {
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                    <strong className="text-sm">{p.label}</strong>
+                    <strong className="text-sm">
+                      {ct("Provider", p.key, "Label", p.label)}
+                    </strong>
                     <StageBadge stage={p.stage} />
                     <span className="text-xs text-ink-tertiary">
                       {p.market}

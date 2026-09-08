@@ -9,6 +9,7 @@
 import { prisma } from "../../db.js";
 import { logger } from "../../logger.js";
 import { sendMail } from "../mail.js";
+import { resolveUnitPriceForQuantity, type PriceTierInput } from "./pricing-tiers.js";
 import {
   tmplPrintOrderConfirmGuest,
   tmplPrintOrderNotifyStudio,
@@ -41,6 +42,9 @@ export interface CartItemInput {
   quantity: number;
   crop?: { x: number; y: number; width: number; height: number } | null;
   fileId: string;
+  /** Required when the variant has enabled finish options, rejected
+   *  when it has none. */
+  finishOptionId?: string | null;
 }
 
 export interface PricingResult {
@@ -60,7 +64,81 @@ export interface PricingResult {
     unitPriceCents: number;
     totalPriceCents: number;
     crop: CartItemInput["crop"] | null;
+    finishOptionId: string | null;
+    finishOptionName: string | null;
+    finishOptionSku: string | null;
   }>;
+}
+
+export interface VariantFinishOptionInfo {
+  id: string;
+  name: string;
+  sku: string | null;
+  priceDeltaCents: number;
+}
+
+export interface VariantPricingInfo {
+  priceCents: number;
+  priceTiers: PriceTierInput[];
+  finishOptions: VariantFinishOptionInfo[];
+}
+
+/**
+ * Resolves the per-unit and line-total price for every cart line.
+ *
+ * Quantity-break tiers apply per FORMAT, not per photo: a customer
+ * ordering 15 different photos as one "10x15" print each has 15 units
+ * of that variant, not 15 separate lines that each individually only
+ * "see" a quantity of 1. So the tier lookup uses the quantity SUMMED
+ * across every cart line sharing the same variantId — each line's own
+ * `quantity` still only determines that line's own total.
+ *
+ * Pure and DB-free on purpose: priceCart() is just this plus the
+ * Prisma I/O (loading variants, verifying ownership) around it, kept
+ * separate so the pricing math itself is directly unit-testable.
+ */
+export function resolveCartItemPricing(
+  items: CartItemInput[],
+  variantInfo: Map<string, VariantPricingInfo>
+): PricingResult["items"] {
+  const quantityByVariant = new Map<string, number>();
+  for (const i of items) {
+    quantityByVariant.set(
+      i.variantId,
+      (quantityByVariant.get(i.variantId) ?? 0) + i.quantity
+    );
+  }
+
+  return items.map((i) => {
+    const v = variantInfo.get(i.variantId)!;
+    const totalQtyForVariant = quantityByVariant.get(i.variantId)!;
+    const tierUnit = resolveUnitPriceForQuantity(v.priceCents, v.priceTiers, totalQtyForVariant);
+
+    // Finish is required exactly when the variant offers any — no
+    // silent default, since a surcharge could otherwise be skipped.
+    let finishOption: VariantFinishOptionInfo | null = null;
+    if (v.finishOptions.length > 0) {
+      finishOption = v.finishOptions.find((f) => f.id === i.finishOptionId) ?? null;
+      if (!finishOption) {
+        throw new Error(`Finish option required for variant ${i.variantId}`);
+      }
+    } else if (i.finishOptionId) {
+      throw new Error(`Variant ${i.variantId} has no finish options`);
+    }
+    const unit = tierUnit + (finishOption?.priceDeltaCents ?? 0);
+
+    return {
+      variantId: i.variantId,
+      fileId: i.fileId,
+      quantity: i.quantity,
+      unitPriceCents: unit,
+      totalPriceCents: unit * i.quantity,
+      crop: i.crop ?? null,
+      finishOptionId: finishOption?.id ?? null,
+      finishOptionName: finishOption?.name ?? null,
+      finishOptionSku: finishOption?.sku ?? null,
+    };
+  });
 }
 
 export async function priceCart(opts: {
@@ -98,7 +176,11 @@ export async function priceCart(opts: {
       enabled: true,
       printProduct: { tenantId: opts.tenantId, enabled: true },
     },
-    include: { printProduct: { select: { vatBpsOverride: true } } },
+    include: {
+      printProduct: { select: { vatBpsOverride: true } },
+      priceTiers: { orderBy: { minQty: "asc" } },
+      finishOptions: { where: { enabled: true }, orderBy: { displayOrder: "asc" } },
+    },
   });
   const variantMap = new Map(variants.map((v) => [v.id, v]));
   if (variantMap.size !== new Set(variantIds).size) {
@@ -132,20 +214,16 @@ export async function priceCart(opts: {
     shippingCents = sm.priceCents;
   }
 
-  // Subtotal pro Item
-  const pricedItems = opts.items.map((i) => {
-    const v = variantMap.get(i.variantId)!;
-    const unit = v.priceCents;
-    const lineTotal = unit * i.quantity;
-    return {
-      variantId: i.variantId,
-      fileId: i.fileId,
-      quantity: i.quantity,
-      unitPriceCents: unit,
-      totalPriceCents: lineTotal,
-      crop: i.crop ?? null,
-    };
-  });
+  // Subtotal pro Item (Staffelpreis-Aufloesung: siehe resolveCartItemPricing)
+  const pricedItems = resolveCartItemPricing(
+    opts.items,
+    new Map(
+      variants.map((v) => [
+        v.id,
+        { priceCents: v.priceCents, priceTiers: v.priceTiers, finishOptions: v.finishOptions },
+      ])
+    )
+  );
   const subtotalCents = pricedItems.reduce((s, i) => s + i.totalPriceCents, 0);
 
   // Tax: vereinfacht — gemeinsamer VAT-Bps (Mischsteuern muessten pro Variante
@@ -255,6 +333,9 @@ export async function createOrder(input: CheckoutInput): Promise<{
           quantity: i.quantity,
           unitPriceCents: i.unitPriceCents,
           totalPriceCents: i.totalPriceCents,
+          finishOptionId: i.finishOptionId,
+          finishOptionName: i.finishOptionName,
+          finishOptionSku: i.finishOptionSku,
         })),
       },
       events: {

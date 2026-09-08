@@ -96,6 +96,7 @@ export default function PrintOrderConfirmationPage({
                   </strong>
                   <div className="text-xs text-ink-tertiary">
                     {it.productName} · {it.widthMm}×{it.heightMm} mm
+                    {it.finishName && ` · ${it.finishName}`}
                   </div>
                 </div>
                 <div className="tabular-nums">

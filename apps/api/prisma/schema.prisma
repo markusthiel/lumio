@@ -2099,12 +2099,82 @@ model PrintProductVariant {
   enabled         Boolean  @default(true)
 
   orderItems      PrintOrderItem[]
+  priceTiers      PrintProductVariantPriceTier[]
+  finishOptions   PrintProductVariantFinishOption[]
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   @@index([printProductId, enabled])
   @@map("print_product_variants")
+}
+
+/// Quantity-break pricing tiers for a variant. Empty = flat pricing
+/// (PrintProductVariant.priceCents applies to any quantity). When
+/// tiers exist, priceCents is a DERIVED, CACHED mirror of the first
+/// tier's (minQty=1) unit price — kept in sync only by the write paths
+/// that go through services/print/pricing-tiers.ts (manual variant
+/// CRUD, catalog import). Not a DB-enforced invariant.
+///
+/// Ladder shape enforced at the service layer (not by the DB): sorted
+/// by minQty ascending, first tier minQty=1, last tier maxQty=null
+/// (unbounded), contiguous with no gaps or overlaps.
+model PrintProductVariantPriceTier {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  printProductVariantId String   @db.Uuid
+  printProductVariant   PrintProductVariant @relation(fields: [printProductVariantId], references: [id], onDelete: Cascade)
+
+  /// Inclusive lower bound. First tier of a ladder must be 1.
+  minQty                Int
+  /// Inclusive upper bound. null = unbounded ("and above") — only
+  /// allowed on the last tier of a ladder.
+  maxQty                Int?
+  /// Price per single unit within this tier, in cents.
+  unitPriceCents        Int
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([printProductVariantId, minQty])
+  @@index([printProductVariantId])
+  @@map("print_product_variant_price_tiers")
+}
+
+/// Customer-selectable options on a variant that don't change its size
+/// (e.g. "black frame" / "white frame"). Distinct from the scalar
+/// finishType field above, which is a studio-facing material label
+/// (matte/gloss/...), not something a customer picks. Optional and
+/// additive: a variant with no rows here behaves exactly as before.
+/// A quantity-break tier ladder still resolves per variant across all
+/// finishes — priceDeltaCents is added to that resolved unit price, not
+/// folded into the tier lookup itself, since the finish doesn't change
+/// how many physical prints of that FORMAT were ordered.
+model PrintProductVariantFinishOption {
+  id                    String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  printProductVariantId String   @db.Uuid
+  printProductVariant   PrintProductVariant @relation(fields: [printProductVariantId], references: [id], onDelete: Cascade)
+
+  name                  String
+  /// Overrides the variant's own SKU on order-item exports when this
+  /// finish is selected, e.g. for invoicing a differently-stocked frame
+  /// color under its own line. Falls back to the variant/product SKU
+  /// chain when null.
+  sku                   String?
+  /// Added to the tier-resolved unit price. 0 = same price as the
+  /// variant's base finish (e.g. a color choice with no surcharge).
+  priceDeltaCents       Int      @default(0)
+
+  displayOrder          Int      @default(0)
+  enabled               Boolean  @default(true)
+
+  orderItems            PrintOrderItem[]
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@unique([printProductVariantId, name])
+  @@index([printProductVariantId])
+  @@map("print_product_variant_finish_options")
 }
 
 /// Versandmethoden pro Tenant. Bei API-Lab-Providern oft vom Lab
@@ -2265,6 +2335,15 @@ model PrintOrderItem {
   ///   { x, y, width, height } in [0..1] Bild-Koordinaten
   /// null = ganzes Bild
   crop                  Json?
+
+  /// Selected finish option (e.g. frame color), if the variant offers
+  /// any. finishOptionName/finishOptionSku are a snapshot at order time
+  /// — kept even if the option is later renamed or removed, same
+  /// reasoning as the rest of this row being a priced snapshot.
+  finishOptionId        String?  @db.Uuid
+  finishOption          PrintProductVariantFinishOption? @relation(fields: [finishOptionId], references: [id], onDelete: SetNull)
+  finishOptionName      String?
+  finishOptionSku       String?
 
   quantity              Int      @default(1)
   unitPriceCents        Int
