@@ -9,6 +9,7 @@
 import { prisma } from "../../db.js";
 import { logger } from "../../logger.js";
 import { sendMail } from "../mail.js";
+import { resolveUnitPriceForQuantity, type PriceTierInput } from "./pricing-tiers.js";
 import {
   tmplPrintOrderConfirmGuest,
   tmplPrintOrderNotifyStudio,
@@ -63,6 +64,52 @@ export interface PricingResult {
   }>;
 }
 
+export interface VariantPricingInfo {
+  priceCents: number;
+  priceTiers: PriceTierInput[];
+}
+
+/**
+ * Resolves the per-unit and line-total price for every cart line.
+ *
+ * Quantity-break tiers apply per FORMAT, not per photo: a customer
+ * ordering 15 different photos as one "10x15" print each has 15 units
+ * of that variant, not 15 separate lines that each individually only
+ * "see" a quantity of 1. So the tier lookup uses the quantity SUMMED
+ * across every cart line sharing the same variantId — each line's own
+ * `quantity` still only determines that line's own total.
+ *
+ * Pure and DB-free on purpose: priceCart() is just this plus the
+ * Prisma I/O (loading variants, verifying ownership) around it, kept
+ * separate so the pricing math itself is directly unit-testable.
+ */
+export function resolveCartItemPricing(
+  items: CartItemInput[],
+  variantInfo: Map<string, VariantPricingInfo>
+): PricingResult["items"] {
+  const quantityByVariant = new Map<string, number>();
+  for (const i of items) {
+    quantityByVariant.set(
+      i.variantId,
+      (quantityByVariant.get(i.variantId) ?? 0) + i.quantity
+    );
+  }
+
+  return items.map((i) => {
+    const v = variantInfo.get(i.variantId)!;
+    const totalQtyForVariant = quantityByVariant.get(i.variantId)!;
+    const unit = resolveUnitPriceForQuantity(v.priceCents, v.priceTiers, totalQtyForVariant);
+    return {
+      variantId: i.variantId,
+      fileId: i.fileId,
+      quantity: i.quantity,
+      unitPriceCents: unit,
+      totalPriceCents: unit * i.quantity,
+      crop: i.crop ?? null,
+    };
+  });
+}
+
 export async function priceCart(opts: {
   tenantId: string;
   galleryId: string;
@@ -98,7 +145,10 @@ export async function priceCart(opts: {
       enabled: true,
       printProduct: { tenantId: opts.tenantId, enabled: true },
     },
-    include: { printProduct: { select: { vatBpsOverride: true } } },
+    include: {
+      printProduct: { select: { vatBpsOverride: true } },
+      priceTiers: { orderBy: { minQty: "asc" } },
+    },
   });
   const variantMap = new Map(variants.map((v) => [v.id, v]));
   if (variantMap.size !== new Set(variantIds).size) {
@@ -132,20 +182,13 @@ export async function priceCart(opts: {
     shippingCents = sm.priceCents;
   }
 
-  // Subtotal pro Item
-  const pricedItems = opts.items.map((i) => {
-    const v = variantMap.get(i.variantId)!;
-    const unit = v.priceCents;
-    const lineTotal = unit * i.quantity;
-    return {
-      variantId: i.variantId,
-      fileId: i.fileId,
-      quantity: i.quantity,
-      unitPriceCents: unit,
-      totalPriceCents: lineTotal,
-      crop: i.crop ?? null,
-    };
-  });
+  // Subtotal pro Item (Staffelpreis-Aufloesung: siehe resolveCartItemPricing)
+  const pricedItems = resolveCartItemPricing(
+    opts.items,
+    new Map(
+      variants.map((v) => [v.id, { priceCents: v.priceCents, priceTiers: v.priceTiers }])
+    )
+  );
   const subtotalCents = pricedItems.reduce((s, i) => s + i.totalPriceCents, 0);
 
   // Tax: vereinfacht — gemeinsamer VAT-Bps (Mischsteuern muessten pro Variante

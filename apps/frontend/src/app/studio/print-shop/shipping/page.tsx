@@ -13,6 +13,7 @@ import { Button, Input } from "@/components/ui";
 import { useT, useFormat} from "@/lib/i18n";
 import type { Formatters } from "@/lib/i18n/format";
 import { useErrorText } from "@/lib/error-i18n";
+import { useCatalogText } from "@/lib/catalog-i18n";
 import { useConfirm } from "@/components/ui/dialogs";
 
 type Method = Awaited<
@@ -27,6 +28,7 @@ export default function ShippingMethodsPage() {
   const errText = useErrorText();
   const fmt = useFormat();
   const t = useT();
+  const ct = useCatalogText();
   const [methods, setMethods] = useState<Method[] | null>(null);
   const [providers, setProviders] = useState<ProviderMine[] | null>(null);
   const [editing, setEditing] = useState<Method | "new" | null>(null);
@@ -137,8 +139,12 @@ export default function ShippingMethodsPage() {
                   )}
                   {m.countries.length > 0 && ` · ${m.countries.join(", ")}`}
                   {" · "}
-                  {providers.find((p) => p.providerKey === m.providerKey)
-                    ?.providerLabel ?? m.providerKey}
+                  {(() => {
+                    const pr = providers.find((p) => p.providerKey === m.providerKey);
+                    return pr
+                      ? ct("Provider", pr.providerKey, "Label", pr.providerLabel)
+                      : m.providerKey;
+                  })()}
                 </div>
               </div>
               <Button
@@ -191,6 +197,7 @@ function ShippingDialog({
 }) {
   const errText = useErrorText();
   const t = useT();
+  const ct = useCatalogText();
   const [name, setName] = useState(existing?.name ?? "DHL Standard");
   const [providerKey, setProviderKey] = useState(
     existing?.providerKey ?? enabledProviders[0]?.providerKey ?? ""
@@ -283,7 +290,7 @@ function ShippingDialog({
             >
               {enabledProviders.map((p) => (
                 <option key={p.providerKey} value={p.providerKey}>
-                  {p.providerLabel}
+                  {ct("Provider", p.providerKey, "Label", p.providerLabel)}
                 </option>
               ))}
             </select>

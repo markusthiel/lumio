@@ -266,7 +266,17 @@ export default function OrderDetailPage({
       )}
 
       {/* Items */}
-      <Section title={t("orderDetail.secItems", { n: order.items.length })}>
+      <Section
+        title={t("orderDetail.secItems", { n: order.items.length })}
+        action={
+          <a
+            href={api.printOrderExportCsvUrl(id)}
+            className="text-xs text-accent hover:underline whitespace-nowrap"
+          >
+            {t("orderDetail.downloadCsv")}
+          </a>
+        }
+      >
         <ul className="divide-y divide-line-subtle">
           {order.items.map((it) => (
             <li key={it.id} className="py-2 flex items-center gap-3 flex-wrap">
@@ -284,7 +294,13 @@ export default function OrderDetailPage({
                     ` · ${it.printProductVariant.finishType}`}
                 </div>
                 <div className="text-xs text-ink-tertiary mt-0.5">
-                  {t("orderDetail.imageLabel")} {it.file.originalFilename}
+                  {t("orderDetail.imageLabel")}{" "}
+                  <a
+                    href={api.studioFileDownloadUrl(it.file.id)}
+                    className="text-accent hover:underline"
+                  >
+                    {it.file.originalFilename}
+                  </a>
                 </div>
               </div>
               <div className="text-sm tabular-nums">
@@ -495,14 +511,19 @@ function ShippingDialog({
 
 function Section({
   title,
+  action,
   children,
 }: {
   title: string;
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <section className="rounded-md border border-line-subtle bg-surface-raised p-4">
-      <h2 className="text-sm font-semibold mb-2">{title}</h2>
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <h2 className="text-sm font-semibold">{title}</h2>
+        {action}
+      </div>
       {children}
     </section>
   );

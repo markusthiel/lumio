@@ -97,6 +97,14 @@ export async function registerPrintShopPublicRoutes(app: FastifyInstance) {
             variants: {
               where: { enabled: true },
               orderBy: [{ displayOrder: "asc" }, { widthMm: "asc" }],
+              include: {
+                // Price only, never cost — same deliberate split as the
+                // response mapping below for the flat priceCents field.
+                priceTiers: {
+                  select: { minQty: true, maxQty: true, unitPriceCents: true },
+                  orderBy: { minQty: "asc" },
+                },
+              },
             },
           },
         }),
@@ -133,6 +141,11 @@ export async function registerPrintShopPublicRoutes(app: FastifyInstance) {
             aspectRatio: v.aspectRatio,
             finishType: v.finishType,
             priceCents: v.priceCents,
+            priceTiers: v.priceTiers.map((t) => ({
+              minQty: t.minQty,
+              maxQty: t.maxQty,
+              unitPriceCents: t.unitPriceCents,
+            })),
           })),
         }));
 
@@ -181,7 +194,9 @@ export async function registerPrintShopPublicRoutes(app: FastifyInstance) {
         z.object({
           variantId: z.string().uuid(),
           fileId: z.string().uuid(),
-          quantity: z.number().int().min(1).max(99),
+          // Deep quantity-break tiers (e.g. "400 and above") need a
+          // generous ceiling — 99 was too low to ever reach them.
+          quantity: z.number().int().min(1).max(999),
           crop: z
             .object({
               x: z.number().min(0).max(1),
