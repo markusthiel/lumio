@@ -1,15 +1,15 @@
 --
 -- Json.lua
 --
--- JSON-Encoder/Decoder, basierend auf rxi/json.lua (MIT-Lizenz,
--- https://github.com/rxi/json.lua). Eingedampft auf das, was wir
--- im Lumio-Plugin brauchen: encode(value) und decode(string).
+-- JSON encoder/decoder, based on rxi/json.lua (MIT license,
+-- https://github.com/rxi/json.lua). Trimmed down to what the Lumio
+-- plug-in needs: encode(value) and decode(string).
 --
--- Lightrooms Lua-Sandbox erlaubt keine `module`-Calls und kein Require
--- aus globalen Pfaden — das hier ist eine selbstständige Lib, die per
--- `require "Json"` aus anderen Plug-in-Files geladen wird.
+-- Lightroom's Lua sandbox allows no `module` calls and no require from
+-- global paths -- this is a self-contained lib, loaded via
+-- `require "Json"` from other plug-in files.
 --
--- Lizenz:
+-- License:
 --   Copyright (c) 2020 rxi
 --   Permission is hereby granted, free of charge, to any person obtaining
 --   a copy of this software and associated documentation files (the
@@ -64,7 +64,7 @@ local function encode_table(val, stack)
 
     stack[val] = true
 
-    -- Array vs Object: wir gucken, ob es Nicht-Integer-Keys gibt
+    -- Array vs object: check whether there are any non-integer keys
     local n = 0
     local is_array = true
     for k in pairs(val) do
@@ -76,7 +76,7 @@ local function encode_table(val, stack)
     end
 
     if is_array and n > 0 then
-        -- Check sequenz
+        -- Check sequence
         local seq_n = 0
         for _ in pairs(val) do seq_n = seq_n + 1 end
         for i = 1, seq_n do
