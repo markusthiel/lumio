@@ -14,6 +14,11 @@
  * Reservierte Slugs sind Subdomains die wir für System-Zwecke
  * verwenden (studio = Login-Apex, api = API-Host etc.) oder die per
  * Konvention nicht für User reserviert sein sollten.
+ *
+ * Also reused for gallery slugs (the /g/<slug> path segment): same
+ * charset/reserved-word rules, but a longer max length since a gallery
+ * slug is just a path segment, not a DNS label — see
+ * validateGallerySlugFormat below.
  */
 
 export const RESERVED_SLUGS = new Set<string>([
@@ -59,12 +64,25 @@ export interface SlugValidationResult {
  * Synchrone Format- und Reserviert-Prüfung. Sagt NICHT ob der Slug
  * in der DB schon vergeben ist — dafür siehe isSlugAvailable.
  */
-export function validateSlugFormat(slug: string): SlugValidationResult {
-  if (slug.length < 3) {
-    return { ok: false, error: "too_short", message: "Mindestens 3 Zeichen." };
+export function validateSlugFormat(
+  slug: string,
+  opts: { minLength?: number; maxLength?: number } = {}
+): SlugValidationResult {
+  const minLength = opts.minLength ?? 3;
+  const maxLength = opts.maxLength ?? 30;
+  if (slug.length < minLength) {
+    return {
+      ok: false,
+      error: "too_short",
+      message: `Mindestens ${minLength} Zeichen.`,
+    };
   }
-  if (slug.length > 30) {
-    return { ok: false, error: "too_long", message: "Maximal 30 Zeichen." };
+  if (slug.length > maxLength) {
+    return {
+      ok: false,
+      error: "too_long",
+      message: `Maximal ${maxLength} Zeichen.`,
+    };
   }
   if (!/^[a-z0-9-]+$/.test(slug)) {
     return {
@@ -95,6 +113,18 @@ export function validateSlugFormat(slug: string): SlugValidationResult {
     };
   }
   return { ok: true };
+}
+
+/**
+ * Gallery slugs are just a /g/<slug> path segment, not a DNS label like
+ * the tenant subdomain — so they get a longer max length. Charset,
+ * hyphen and reserved-word rules stay identical (same RESERVED_SLUGS
+ * set, for brand-safety consistency across both use cases).
+ */
+export const GALLERY_SLUG_MAX_LENGTH = 60;
+
+export function validateGallerySlugFormat(slug: string): SlugValidationResult {
+  return validateSlugFormat(slug, { maxLength: GALLERY_SLUG_MAX_LENGTH });
 }
 
 /**

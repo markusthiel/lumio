@@ -19,6 +19,7 @@ import { randomBytes, createHash } from "node:crypto";
 import { prisma } from "../db.js";
 import { config } from "../config.js";
 import { generateGallerySlug } from "../services/ids.js";
+import { validateGallerySlugFormat, GALLERY_SLUG_MAX_LENGTH } from "../services/slugs.js";
 import { presignGet, presignPut, getObjectStream } from "../services/storage.js";
 import { verifyPassword, hashPassword } from "../services/auth.js";
 import { isTenantPubliclyVisible } from "../services/tenant.js";
@@ -177,6 +178,12 @@ const HEX_RGB_OR_RGBA = /^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 
 const updateGallerySchema = createGallerySchema.partial().extend({
   status: z.enum(["draft", "live", "archived"]).optional(),
+  // Custom gallery slug (the /g/<slug> path segment). Max length matches
+  // GALLERY_SLUG_MAX_LENGTH so the schema fails fast on oversized input;
+  // format/reserved-word/uniqueness checks still happen in the route
+  // handler via validateGallerySlugFormat, same pattern as the tenant
+  // slug in routes/settings.ts.
+  slug: z.string().max(GALLERY_SLUG_MAX_LENGTH).optional(),
   // Passwortschutz: String = setzen, null = entfernen, weglassen =
   // unverändert. Wird serverseitig gehasht.
   password: z.string().min(1).max(200).nullable().optional(),
@@ -877,6 +884,46 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
       });
       if (!existing) return reply.status(404).send({ error: "not_found" });
 
+      // Custom slug: owner or admin, not member. Changing it breaks any
+      // link already shared with clients (same tradeoff as the tenant
+      // subdomain change in routes/settings.ts), but the REACH is already
+      // limited by galleryAccessWhere() above — an admin only ever gets
+      // here for a gallery they own or collaborate on, an owner for any
+      // gallery in the studio. Same "not a member" rule as canDeleteGallery.
+      let newGallerySlug: string | undefined;
+      if (body.slug !== undefined) {
+        if (s.user.role !== "owner" && s.user.role !== "admin") {
+          return reply.status(403).send({
+            error: "gallery_slug_forbidden",
+            message: "Nur Owner oder Admin können die Galerie-URL ändern.",
+          });
+        }
+        const candidate = body.slug.trim().toLowerCase();
+        const fmt = validateGallerySlugFormat(candidate);
+        if (!fmt.ok) {
+          return reply.status(400).send({
+            error: "invalid_gallery_slug",
+            message: fmt.message ?? "Ungültige Galerie-URL.",
+          });
+        }
+        if (candidate !== existing.slug) {
+          // Global uniqueness, no tenantId filter — slugs are shared
+          // across all tenants (see the create-flow comment above on
+          // generateGallerySlug's collision-retry loop).
+          const taken = await prisma.gallery.findFirst({
+            where: { slug: candidate, NOT: { id: existing.id } },
+            select: { id: true },
+          });
+          if (taken) {
+            return reply.status(409).send({
+              error: "gallery_slug_taken",
+              message: "Diese Galerie-URL ist bereits vergeben.",
+            });
+          }
+        }
+        newGallerySlug = candidate;
+      }
+
       const turningOnWatermark =
         body.watermarkEnabled === true && !existing.watermarkEnabled;
       const goingLive = body.status === "live" && existing.status !== "live";
@@ -891,108 +938,130 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         };
       }
 
-      const gallery = await prisma.gallery.update({
-        where: { id: existing.id },
-        data: {
-          ...(passwordHashUpdate ?? {}),
-          ...(body.title !== undefined ? { title: body.title } : {}),
-          ...(body.description !== undefined
-            ? { description: body.description }
-            : {}),
-          ...(body.mode !== undefined ? { mode: body.mode } : {}),
-          ...(body.status !== undefined ? { status: body.status } : {}),
-          ...(body.brandingId !== undefined
-            ? { brandingId: body.brandingId }
-            : {}),
-          ...(body.downloadEnabled !== undefined
-            ? { downloadEnabled: body.downloadEnabled }
-            : {}),
-          ...(body.downloadOriginalsEnabled !== undefined
-            ? { downloadOriginalsEnabled: body.downloadOriginalsEnabled }
-            : {}),
-          ...(body.watermarkEnabled !== undefined
-            ? { watermarkEnabled: body.watermarkEnabled }
-            : {}),
-          ...(body.commentsEnabled !== undefined
-            ? { commentsEnabled: body.commentsEnabled }
-            : {}),
-          ...(body.ratingsEnabled !== undefined
-            ? { ratingsEnabled: body.ratingsEnabled }
-            : {}),
-          ...(body.customerTagFilterEnabled !== undefined
-            ? { customerTagFilterEnabled: body.customerTagFilterEnabled }
-            : {}),
-          ...(body.customerLabelMode !== undefined
-            ? { customerLabelMode: body.customerLabelMode }
-            : {}),
-          ...(body.customerLabelToggleEnabled !== undefined
-            ? { customerLabelToggleEnabled: body.customerLabelToggleEnabled }
-            : {}),
-          ...(body.publicAccess !== undefined
-            ? { publicAccess: body.publicAccess }
-            : {}),
-          ...(body.selectionLimit !== undefined
-            ? { selectionLimit: body.selectionLimit }
-            : {}),
-          ...(body.expiresAt !== undefined
-            ? {
-                expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
-              }
-            : {}),
-          // Header-Customization — durchreichen wenn explizit gesetzt
-          // (auch null → Feld leeren ist erlaubt).
-          ...(body.heroFileId !== undefined ? { heroFileId: body.heroFileId } : {}),
-          ...(body.heroUrl !== undefined ? { heroUrl: body.heroUrl } : {}),
-          ...(body.heroOverlayColor !== undefined
-            ? { heroOverlayColor: body.heroOverlayColor }
-            : {}),
-          ...(body.heroOverlayBlur !== undefined
-            ? { heroOverlayBlur: body.heroOverlayBlur }
-            : {}),
-          ...(body.heroBackgroundColor !== undefined
-            ? { heroBackgroundColor: body.heroBackgroundColor }
-            : {}),
-          ...(body.eventLogoUrl !== undefined
-            ? { eventLogoUrl: body.eventLogoUrl }
-            : {}),
-          ...(body.eventLogoSize !== undefined
-            ? { eventLogoSize: body.eventLogoSize }
-            : {}),
-          ...(body.welcomeMarkdown !== undefined
-            ? { welcomeMarkdown: body.welcomeMarkdown }
-            : {}),
-          ...(body.heroLayout !== undefined
-            ? { heroLayout: body.heroLayout }
-            : {}),
-          ...(body.fontHeading !== undefined
-            ? { fontHeading: body.fontHeading }
-            : {}),
-          ...(body.fontBody !== undefined
-            ? { fontBody: body.fontBody }
-            : {}),
-          ...(body.gridLayout !== undefined
-            ? { gridLayout: body.gridLayout }
-            : {}),
-          ...(body.slideshowTransition !== undefined
-            ? { slideshowTransition: body.slideshowTransition }
-            : {}),
-          ...(body.slideshowAudioUrl !== undefined
-            ? { slideshowAudioUrl: body.slideshowAudioUrl }
-            : {}),
-          ...(body.footerMarkdown !== undefined
-            ? { footerMarkdown: body.footerMarkdown }
-            : {}),
-          ...(body.colorBackground !== undefined
-            ? { colorBackground: body.colorBackground }
-            : {}),
-          ...(body.colorAccent !== undefined
-            ? { colorAccent: body.colorAccent }
-            : {}),
-          ...(body.printShopEnabled !== undefined
-            ? { printShopEnabled: body.printShopEnabled }
-            : {}),
-        },
-      });
+      // findFirst above and this update aren't atomic — two concurrent
+      // PATCHes claiming the same slug can both pass the availability
+      // check and race to the DB unique index. Catch that as P2002 and
+      // report it the same way as the pre-check above, instead of a 500.
+      let gallery;
+      try {
+        gallery = await prisma.gallery.update({
+          where: { id: existing.id },
+          data: {
+            ...(passwordHashUpdate ?? {}),
+            ...(newGallerySlug !== undefined ? { slug: newGallerySlug } : {}),
+            ...(body.title !== undefined ? { title: body.title } : {}),
+            ...(body.description !== undefined
+              ? { description: body.description }
+              : {}),
+            ...(body.mode !== undefined ? { mode: body.mode } : {}),
+            ...(body.status !== undefined ? { status: body.status } : {}),
+            ...(body.brandingId !== undefined
+              ? { brandingId: body.brandingId }
+              : {}),
+            ...(body.downloadEnabled !== undefined
+              ? { downloadEnabled: body.downloadEnabled }
+              : {}),
+            ...(body.downloadOriginalsEnabled !== undefined
+              ? { downloadOriginalsEnabled: body.downloadOriginalsEnabled }
+              : {}),
+            ...(body.watermarkEnabled !== undefined
+              ? { watermarkEnabled: body.watermarkEnabled }
+              : {}),
+            ...(body.commentsEnabled !== undefined
+              ? { commentsEnabled: body.commentsEnabled }
+              : {}),
+            ...(body.ratingsEnabled !== undefined
+              ? { ratingsEnabled: body.ratingsEnabled }
+              : {}),
+            ...(body.customerTagFilterEnabled !== undefined
+              ? { customerTagFilterEnabled: body.customerTagFilterEnabled }
+              : {}),
+            ...(body.customerLabelMode !== undefined
+              ? { customerLabelMode: body.customerLabelMode }
+              : {}),
+            ...(body.customerLabelToggleEnabled !== undefined
+              ? { customerLabelToggleEnabled: body.customerLabelToggleEnabled }
+              : {}),
+            ...(body.publicAccess !== undefined
+              ? { publicAccess: body.publicAccess }
+              : {}),
+            ...(body.selectionLimit !== undefined
+              ? { selectionLimit: body.selectionLimit }
+              : {}),
+            ...(body.expiresAt !== undefined
+              ? {
+                  expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
+                }
+              : {}),
+            // Header-Customization — durchreichen wenn explizit gesetzt
+            // (auch null → Feld leeren ist erlaubt).
+            ...(body.heroFileId !== undefined ? { heroFileId: body.heroFileId } : {}),
+            ...(body.heroUrl !== undefined ? { heroUrl: body.heroUrl } : {}),
+            ...(body.heroOverlayColor !== undefined
+              ? { heroOverlayColor: body.heroOverlayColor }
+              : {}),
+            ...(body.heroOverlayBlur !== undefined
+              ? { heroOverlayBlur: body.heroOverlayBlur }
+              : {}),
+            ...(body.heroBackgroundColor !== undefined
+              ? { heroBackgroundColor: body.heroBackgroundColor }
+              : {}),
+            ...(body.eventLogoUrl !== undefined
+              ? { eventLogoUrl: body.eventLogoUrl }
+              : {}),
+            ...(body.eventLogoSize !== undefined
+              ? { eventLogoSize: body.eventLogoSize }
+              : {}),
+            ...(body.welcomeMarkdown !== undefined
+              ? { welcomeMarkdown: body.welcomeMarkdown }
+              : {}),
+            ...(body.heroLayout !== undefined
+              ? { heroLayout: body.heroLayout }
+              : {}),
+            ...(body.fontHeading !== undefined
+              ? { fontHeading: body.fontHeading }
+              : {}),
+            ...(body.fontBody !== undefined
+              ? { fontBody: body.fontBody }
+              : {}),
+            ...(body.gridLayout !== undefined
+              ? { gridLayout: body.gridLayout }
+              : {}),
+            ...(body.slideshowTransition !== undefined
+              ? { slideshowTransition: body.slideshowTransition }
+              : {}),
+            ...(body.slideshowAudioUrl !== undefined
+              ? { slideshowAudioUrl: body.slideshowAudioUrl }
+              : {}),
+            ...(body.footerMarkdown !== undefined
+              ? { footerMarkdown: body.footerMarkdown }
+              : {}),
+            ...(body.colorBackground !== undefined
+              ? { colorBackground: body.colorBackground }
+              : {}),
+            ...(body.colorAccent !== undefined
+              ? { colorAccent: body.colorAccent }
+              : {}),
+            ...(body.printShopEnabled !== undefined
+              ? { printShopEnabled: body.printShopEnabled }
+              : {}),
+          },
+        });
+      } catch (err) {
+        if (
+          newGallerySlug !== undefined &&
+          err &&
+          typeof err === "object" &&
+          "code" in err &&
+          err.code === "P2002"
+        ) {
+          return reply.status(409).send({
+            error: "gallery_slug_taken",
+            message: "Diese Galerie-URL ist bereits vergeben.",
+          });
+        }
+        throw err;
+      }
 
       // Watermark gerade eingeschaltet → für alle Files Watermark-Rendition
       // generieren (fire-and-forget — der Worker macht den Rest)
@@ -1038,7 +1107,10 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           eventType: "gallery.live",
           payload: {
             galleryId: gallery.id,
-            slug: existing.slug,
+            // gallery.slug, not existing.slug: a single PATCH can change
+            // the slug and flip status to live at the same time, and the
+            // webhook should report the slug the gallery now actually has.
+            slug: gallery.slug,
             title: gallery.title,
           },
         });

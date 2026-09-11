@@ -16,6 +16,7 @@ import { useShowFilenames } from "@/lib/useShowFilenames";
 import { VideoPlayer } from "@/components/gallery/VideoPlayer";
 import { SharePanel } from "@/components/studio/SharePanel";
 import { GalleryHeaderEditor } from "@/components/studio/GalleryHeaderEditor";
+import { GallerySlugEditor } from "@/components/studio/GallerySlugEditor";
 import { GalleryShareSection } from "@/components/studio/GalleryShareSection";
 import { SectionsEditor } from "@/components/studio/SectionsEditor";
 import { UploadLinksSection } from "@/components/studio/UploadLinksSection";
@@ -129,12 +130,19 @@ export default function GalleryDetailPage() {
   // ob optionale UI-Bereiche (z.B. Print-Shop-Override-Toggle) gerendert
   // werden. Wenn null: noch nicht geladen, Toggle erstmal versteckt.
   const [tenantFeatures, setTenantFeatures] = useState<string[] | null>(null);
+  // Current user's tenant-wide role, fetched alongside tenantFeatures on
+  // the same api.me() call — used to gate the gallery-slug editor to
+  // owners only (changing it breaks previously shared links).
+  const [role, setRole] = useState<string | null>(null);
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const r = await api.me();
-        if (!cancelled) setTenantFeatures(r.features ?? []);
+        if (!cancelled) {
+          setTenantFeatures(r.features ?? []);
+          setRole(r.user?.role ?? null);
+        }
       } catch {
         if (!cancelled) setTenantFeatures([]);
       }
@@ -1267,12 +1275,27 @@ export default function GalleryDetailPage() {
         )}
 
         {tab === "share" && (
-          <SharePanel
-            galleryId={gallery.id}
-            gallerySlug={gallery.slug}
-            initialPublicAccess={gallery.publicAccess ?? true}
-            initialHasPassword={gallery.hasPassword ?? false}
-          />
+          <>
+        {/* Custom gallery URL (/g/<slug>) — owner or admin. Shown before
+            SharePanel since the slug is the base the share links build
+            on top of. */}
+        <GallerySlugEditor
+          galleryId={gallery.id}
+          slug={gallery.slug}
+          canEdit={role === "owner" || role === "admin"}
+          publicAccess={gallery.publicAccess ?? true}
+          hasPassword={gallery.hasPassword ?? false}
+          onChanged={async () => {
+            await load();
+          }}
+        />
+        <SharePanel
+          galleryId={gallery.id}
+          gallerySlug={gallery.slug}
+          initialPublicAccess={gallery.publicAccess ?? true}
+          initialHasPassword={gallery.hasPassword ?? false}
+        />
+          </>
         )}
 
         {tab === "settings" && (

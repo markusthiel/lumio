@@ -114,6 +114,16 @@ The first tenant, created via `npm run create-admin`, has slug=`default`. If you
 
 ---
 
+## Custom gallery slugs and guessability
+
+Studio owners and admins can replace a gallery's random share slug (`/g/<random>`) with a readable one (`/g/mueller-hochzeit`) from the gallery's Share tab. Worth knowing before you tell clients about it:
+
+For a gallery with public access enabled and no password, the slug *is* the access control — anyone who has (or guesses) it gets in. The default random slug is cryptographically unguessable; a readable one, especially for a named event like a wedding, is not. This matters most on a shared/SaaS instance, where more people could plausibly be guessing than on a single-tenant self-host.
+
+The studio UI shows a warning in the slug editor whenever the gallery is both public and passwordless. There's no hard restriction on setting a custom slug there anyway — a clean URL is a legitimate ask, and it's the studio's call — but if you build your own client against the API, keep the same disclosure rather than dropping it.
+
+---
+
 ## Which method for what
 
 | For what                            | Method                            |

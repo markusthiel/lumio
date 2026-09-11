@@ -167,6 +167,30 @@ trägt tenantId, nicht slug).
 
 ---
 
+## Individuelle Galerie-Slugs und Erratbarkeit
+
+Owner und Admins können den zufälligen Share-Slug einer Galerie
+(`/g/<zufällig>`) über den Share-Tab der Galerie durch einen lesbaren
+ersetzen (`/g/mueller-hochzeit`). Bevor du das Kunden erzählst, ist
+Folgendes wichtig:
+
+Bei einer Galerie mit aktiviertem öffentlichen Zugriff und ohne
+Passwort *ist* der Slug der Zugriffsschutz — wer ihn kennt (oder errät),
+kommt rein. Der zufällige Standard-Slug ist kryptografisch nicht
+erratbar; ein lesbarer, besonders für ein benanntes Ereignis wie eine
+Hochzeit, ist es nicht. Das fällt auf einer geteilten/SaaS-Instanz am
+meisten ins Gewicht, wo plausibel mehr Leute raten könnten als auf
+einem Single-Tenant-Self-Host.
+
+Die Studio-Oberfläche zeigt im Slug-Editor eine Warnung, sobald die
+Galerie sowohl öffentlich als auch passwortlos ist. Eine harte
+Einschränkung beim Setzen eines individuellen Slugs gibt es trotzdem
+nicht — eine saubere URL ist ein legitimer Wunsch, und das ist die
+Entscheidung des Studios — aber wer einen eigenen Client gegen die API
+baut, sollte denselben Hinweis beibehalten statt ihn wegzulassen.
+
+---
+
 ## Welches Verfahren wofür
 
 | Wofür                            | Verfahren                            |

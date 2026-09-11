@@ -114,6 +114,16 @@ Il primo tenant, creato tramite `npm run create-admin`, ha slug=`default`. Se ge
 
 ---
 
+## Slug personalizzati della galleria e prevedibilità
+
+Owner e admin possono sostituire lo slug di condivisione casuale di una galleria (`/g/<casuale>`) con uno leggibile (`/g/mueller-hochzeit`) dalla tab Condividi della galleria. Prima di parlarne ai clienti, è utile sapere quanto segue:
+
+Per una galleria con accesso pubblico attivo e senza password, lo slug *è* il controllo d'accesso: chiunque lo conosca (o lo indovini) entra. Lo slug casuale predefinito è crittograficamente impossibile da indovinare; uno leggibile, specialmente per un evento con un nome come un matrimonio, non lo è. Questo pesa di più su un'istanza condivisa/SaaS, dove è plausibile che più persone possano tentare di indovinarlo rispetto a un self-host single-tenant.
+
+L'interfaccia dello studio mostra un avviso nell'editor dello slug ogni volta che la galleria è sia pubblica che senza password. Non c'è comunque una restrizione rigida all'impostazione di uno slug personalizzato — un URL pulito è una richiesta legittima, ed è una scelta dello studio — ma chi costruisce un proprio client contro l'API dovrebbe mantenere lo stesso avviso invece di ometterlo.
+
+---
+
 ## Quale metodo per cosa
 
 | Per cosa                            | Metodo                            |

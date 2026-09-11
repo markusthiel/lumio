@@ -69,6 +69,8 @@ export const en = {
       "CAPTCHA check failed. Please reload the page and try again.",
     customerMismatch: "This session does not belong to this tenant.",
     emailTaken: "That email address is already in use in this studio.",
+    gallerySlugForbidden: "Only the studio owner or an admin can change the gallery URL.",
+    gallerySlugTaken: "That gallery URL is already taken.",
     inUse:
       "There are orders using this variant. Deactivate it instead.",
     invalidChallenge: "Please sign in again.",
@@ -589,6 +591,14 @@ export const en = {
     activeUploads: "Active uploads",
     galleryTags: "Gallery tags",
     galleryTagsDesc: "Categorize the whole gallery in the overview (not to be confused with tags on individual images).",
+    gallerySlugHeading: "Gallery URL",
+    gallerySlugDesc:
+      "The public link clients use to reach this gallery (/g/…). Shared links update automatically once you save here.",
+    gallerySlugWarnPre: "After changing it, the previous link",
+    gallerySlugWarnPost: "is no longer reachable.",
+    gallerySlugWarnGuessable:
+      "This gallery is public and has no password — the URL itself is what keeps it private. A readable slug is easier to guess than a random one.",
+    gallerySlugSaveError: "The gallery URL could not be changed",
     selected: "Selected",
     secSyncTitle: "Files with the tag into the section, others out",
     secSyncing: "Sync…",
