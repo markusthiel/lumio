@@ -103,6 +103,7 @@ export async function registerZipRoutes(app: FastifyInstance) {
         tenantId: gallery.tenantId,
         galleryId: gallery.id,
         accessId: null, // öffentlich/anonym → keine Auswahl-Zuordnung
+        source: "customer",
         fileIds: null, // alle
         label: variant === "web" ? "all_web" : "all",
         variant,
@@ -186,6 +187,7 @@ export async function registerZipRoutes(app: FastifyInstance) {
         tenantId: gallery.tenantId,
         galleryId: gallery.id,
         accessId: visitor.accessId,
+        source: "customer",
         fileIds,
         label: `selection_${visitor.accessId.slice(0, 8)}${
           variant === "web" ? "_web" : ""
@@ -299,6 +301,7 @@ export async function registerZipRoutes(app: FastifyInstance) {
         tenantId: gallery.tenantId,
         galleryId: gallery.id,
         accessId: visitor.accessId ?? null,
+        source: "customer",
         fileIds: validIds,
         label: `picked${variant === "web" ? "_web" : ""}`,
         variant,
@@ -413,6 +416,7 @@ export async function registerZipRoutes(app: FastifyInstance) {
         tenantId: gallery.tenantId,
         galleryId: gallery.id,
         accessId: visitor.accessId ?? null,
+        source: "customer",
         fileIds: files.map((f) => f.id),
         // Label: 'tags_<sorted-ids>' damit der Cache pro Filter-Auswahl
         // dedupliziert (zweiter Klick auf gleichen Filter → kein
@@ -452,6 +456,8 @@ export async function registerZipRoutes(app: FastifyInstance) {
           sizeBytes: true,
           fileCount: true,
           accessId: true,
+          source: true,
+          variant: true,
           errorMessage: true,
           expiresAt: true,
           partCount: true,
@@ -465,14 +471,35 @@ export async function registerZipRoutes(app: FastifyInstance) {
             },
             orderBy: { partIndex: "asc" },
           },
+          gallery: {
+            select: { downloadEnabled: true, downloadOriginalsEnabled: true },
+          },
         },
       });
       if (!zip) return reply.status(404).send({ error: "not_found" });
+
+      // Studio-Artefakte (Tag-Export, Print-Order-Bundle) sind über die
+      // Kunden-Route nie lesbar, unabhängig von accessId/variant — sonst
+      // kann eine durchgesickerte zipId Originale aus einer Galerie mit
+      // deaktiviertem Original-Download zurückgeben. Siehe #45.
+      if (zip.source !== "customer") {
+        return reply.status(403).send({ error: "forbidden" });
+      }
 
       // Wenn die ZIP einem Access-Token zugeordnet ist (Auswahl), darf nur
       // dieser Visitor sie sehen.
       if (zip.accessId && zip.accessId !== visitor.accessId) {
         return reply.status(403).send({ error: "forbidden" });
+      }
+
+      // Live geprüft statt nur zum Erstellzeitpunkt: falls das Studio
+      // Downloads/Originale nach dem Erstellen dieser ZIP deaktiviert hat,
+      // darf das spätere Polling/Redirect sie trotzdem nicht mehr ausliefern.
+      if (!zip.gallery.downloadEnabled) {
+        return reply.status(403).send({ error: "downloads_disabled" });
+      }
+      if (zip.variant === "original" && !zip.gallery.downloadOriginalsEnabled) {
+        return reply.status(403).send({ error: "originals_disabled" });
       }
 
       // Wenn fertig und Download via Query-Param ?download=1: zum
@@ -648,6 +675,7 @@ export async function registerZipRoutes(app: FastifyInstance) {
         tenantId: gallery.tenantId,
         galleryId: gallery.id,
         accessId: null,
+        source: "studio",
         fileIds,
         label,
         variant,

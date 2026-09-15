@@ -30,10 +30,18 @@ export function hashFileIds(fileIds: string[] | null): string | null {
 
 export type DownloadVariant = "original" | "web";
 
+// "customer" = über einen /g/:slug-Endpoint, dort gelten
+// downloadEnabled/downloadOriginalsEnabled. "studio" = über einen
+// authentifizierten Studio-Endpoint — internes Artefakt, das die
+// Kunden-Route (GET /g/:slug/download/zip/:zipId) nie zurückgeben darf.
+// Kein Default: jeder Aufrufer muss das bewusst setzen (siehe #45).
+export type ZipDownloadSource = "customer" | "studio";
+
 export interface RequestZipOptions {
   tenantId: string;
   galleryId: string;
   accessId: string | null;
+  source: ZipDownloadSource;
   fileIds: string[] | null;
   label: string; // "all" | "selection_<accessId>" | ...
   variant?: DownloadVariant; // default "original"
@@ -64,6 +72,7 @@ export async function requestZipDownload(opts: RequestZipOptions) {
     where: {
       galleryId: opts.galleryId,
       accessId: opts.accessId,
+      source: opts.source,
       fileIdsHash,
       variant,
     },
@@ -108,6 +117,7 @@ export async function requestZipDownload(opts: RequestZipOptions) {
         data: {
           galleryId: opts.galleryId,
           accessId: opts.accessId,
+          source: opts.source,
           fileIdsHash,
           fileCount,
           variant,
