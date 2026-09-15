@@ -769,7 +769,8 @@ export const fi = {
     loadError: "Latausvirhe",
     expired: "Tämä galleria on vanhentunut.",
     // Grid + Filter
-    files: "Tiedostot",
+    filesSg: "Tiedosto",
+    filesPl: "Tiedostoa",
     liked: "suosikkia",
     filterAll: "Kaikki ({count})",
     sortLabel: "Järjestys",

@@ -769,7 +769,8 @@ export const de: LocaleDict = {
     loadError: "Fehler beim Laden",
     expired: "Diese Galerie ist abgelaufen.",
     // Grid + Filter
-    files: "Files",
+    filesSg: "Datei",
+    filesPl: "Dateien",
     liked: "liked",
     filterAll: "Alle ({count})",
     sortLabel: "Sortieren",

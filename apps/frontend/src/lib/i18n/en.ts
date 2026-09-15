@@ -769,7 +769,8 @@ export const en = {
     loadError: "Loading error",
     expired: "This gallery has expired.",
     // Grid + Filter
-    files: "Files",
+    filesSg: "File",
+    filesPl: "Files",
     liked: "liked",
     filterAll: "All ({count})",
     sortLabel: "Sort",

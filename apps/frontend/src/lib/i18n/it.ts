@@ -768,7 +768,8 @@ export const it: LocaleDict = {
     loadError: "Errore di caricamento",
     expired: "Questa galleria è scaduta.",
     // Griglia + Filtro
-    files: "File",
+    filesSg: "File",
+    filesPl: "File",
     liked: "Mi piace",
     filterAll: "Tutti ({count})",
     sortLabel: "Ordina",

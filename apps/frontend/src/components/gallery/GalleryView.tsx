@@ -342,7 +342,8 @@ export function GalleryView({
       <GalleryHero meta={meta}>
         <div className="text-ui-xs opacity-50 mt-6 flex items-center gap-3 flex-wrap uppercase tracking-[0.12em]">
           <span>
-            {stats.total} {t("gallery.files")}
+            {stats.total}{" "}
+            {t(stats.total === 1 ? "gallery.filesSg" : "gallery.filesPl")}
           </span>
           {/* "Liked"-Counter — zeigt entweder nur den Stand oder, wenn der
               Photograph ein Auswahllimit gesetzt hat, "X von Y". Bei

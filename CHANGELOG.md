@@ -29,6 +29,10 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 
 ## [Unreleased]
 
+### Fixed
+
+- A client gallery containing exactly one file said "1 FILES" in the header. The count now picks the singular or plural wording, the way the rest of the interface already does. The German wording for it was also still the English "Files", and the Finnish was in a form that does not follow a number, so both are corrected.
+
 ## [0.75.4] - 2026-09-11
 
 A pull is enough. Only the main server is affected.
