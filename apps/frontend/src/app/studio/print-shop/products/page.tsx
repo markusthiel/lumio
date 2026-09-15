@@ -11,15 +11,18 @@
  * State-Wirrwarr.
  */
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { api } from "@/lib/api";
 import { useT, useFormat} from "@/lib/i18n";
 import type {
   PrintProductCreateInput,
   PrintVariantCreateInput,
+  PrintPriceTier,
 } from "@/lib/api";
 import { Button, Input, Select, Textarea } from "@/components/ui";
 import type { Formatters } from "@/lib/i18n/format";
 import { useErrorText } from "@/lib/error-i18n";
+import { useCatalogText } from "@/lib/catalog-i18n";
 import { useConfirm } from "@/components/ui/dialogs";
 
 type Product = Awaited<
@@ -29,6 +32,11 @@ type Variant = Product["variants"][number];
 type ProviderMine = Awaited<
   ReturnType<typeof api.listTenantPrintProviders>
 >["providers"][number];
+
+// Must match MAX_TIERS in apps/api's pricing-tiers.ts — capped client-
+// side too so a studio can't build a ladder the server will reject at
+// submit time after filling in 20+ rows by hand.
+const MAX_PRICE_TIERS = 20;
 
 const CATEGORIES = [
   { value: "print", label: "printProducts.catPrint" },
@@ -44,6 +52,7 @@ export default function PrintProductsPage() {
   const errText = useErrorText();
   const fmt = useFormat();
   const t = useT();
+  const ct = useCatalogText();
   const [products, setProducts] = useState<Product[] | null>(null);
   const [providers, setProviders] = useState<ProviderMine[] | null>(null);
   const [editing, setEditing] = useState<
@@ -146,7 +155,11 @@ export default function PrintProductsPage() {
         </div>
       )}
 
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <Link
+          href="/studio/print-shop/import"
+          className="inline-flex items-center px-3 py-1.5 text-sm rounded border border-line-subtle hover:bg-surface-sunken"
+        >{t("printImport.navButton")}</Link>
         <Button
           onClick={() => setEditing({ mode: "create-product" })}
           disabled={busy}
@@ -177,9 +190,13 @@ export default function PrintProductsPage() {
                     )}
                   </div>
                   <div className="text-xs text-ink-tertiary">
-                    Anbieter:{" "}
-                    {providers.find((pr) => pr.providerKey === p.providerKey)
-                      ?.providerLabel ?? p.providerKey}
+                    {t("printProducts.providerPrefix")}{" "}
+                    {(() => {
+                      const pr = providers.find((pr) => pr.providerKey === p.providerKey);
+                      return pr
+                        ? ct("Provider", pr.providerKey, "Label", pr.providerLabel)
+                        : p.providerKey;
+                    })()}
                     {p.providerProductRef &&
                       ` · SKU: ${p.providerProductRef}`}
                   </div>
@@ -240,7 +257,16 @@ export default function PrintProductsPage() {
                           </span>
                         </span>
                         <span className="text-sm tabular-nums">
-                          {formatPrice(fmt, v.priceCents)}
+                          {v.priceTiers.length > 0 ? (
+                            <span title={tierLadderSummary(fmt, v.priceTiers)}>
+                              {t("printProducts.tieredBadge", {
+                                price: formatPrice(fmt, v.priceCents),
+                                n: v.priceTiers.length,
+                              })}
+                            </span>
+                          ) : (
+                            formatPrice(fmt, v.priceCents)
+                          )}
                           {v.costCents !== null && (
                             <span className="text-ink-tertiary text-xs ml-1">
                               {t("printProducts.costNote", { price: formatPrice(fmt, v.costCents) })}
@@ -311,6 +337,18 @@ function formatPrice(fmt: Formatters, cents: number): string {
   return fmt.currencyFromMinor(cents);
 }
 
+/** Plain-text summary of a full tier ladder for a hover tooltip, e.g.
+ *  "1–19: 0,35 € · 20–99: 0,30 € · 400+: 0,16 €". */
+function tierLadderSummary(fmt: Formatters, tiers: PrintPriceTier[]): string {
+  return tiers
+    .map((t) =>
+      t.maxQty === null
+        ? `${t.minQty}+: ${formatPrice(fmt, t.unitPriceCents)}`
+        : `${t.minQty}–${t.maxQty}: ${formatPrice(fmt, t.unitPriceCents)}`
+    )
+    .join(" · ");
+}
+
 function ProductDialog({
   enabledProviders,
   existing,
@@ -324,6 +362,7 @@ function ProductDialog({
 }) {
   const errText = useErrorText();
   const t = useT();
+  const ct = useCatalogText();
   const [name, setName] = useState(existing?.name ?? "");
   const [description, setDescription] = useState(existing?.description ?? "");
   const [providerKey, setProviderKey] = useState(
@@ -388,7 +427,7 @@ function ProductDialog({
           >
             {enabledProviders.map((p) => (
               <option key={p.providerKey} value={p.providerKey}>
-                {p.providerLabel}
+                {ct("Provider", p.providerKey, "Label", p.providerLabel)}
               </option>
             ))}
           </Select>
@@ -451,9 +490,32 @@ function VariantDialog({
   const [aspectMode, setAspectMode] = useState<"free" | "fixed">(
     existing?.aspectRatio ? "fixed" : "free"
   );
+  const [pricingMode, setPricingMode] = useState<"flat" | "tiered">(
+    existing && existing.priceTiers.length > 0 ? "tiered" : "flat"
+  );
+  const [tierRows, setTierRows] = useState<TierRow[]>(() =>
+    existing && existing.priceTiers.length > 0
+      ? existing.priceTiers.map((tier) => ({
+          minQty: String(tier.minQty),
+          maxQty: tier.maxQty === null ? "" : String(tier.maxQty),
+          priceEuros: (tier.unitPriceCents / 100).toFixed(2),
+        }))
+      : [{ minQty: "1", maxQty: "", priceEuros: "" }]
+  );
   const [enabled, setEnabled] = useState(existing?.enabled ?? true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function addTierRow() {
+    if (tierRows.length >= MAX_PRICE_TIERS) return;
+    setTierRows([...tierRows, { minQty: "", maxQty: "", priceEuros: "" }]);
+  }
+  function removeTierRow(idx: number) {
+    setTierRows(tierRows.filter((_, i) => i !== idx));
+  }
+  function updateTierRow(idx: number, field: keyof TierRow, value: string) {
+    setTierRows(tierRows.map((r, i) => (i === idx ? { ...r, [field]: value } : r)));
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -462,25 +524,40 @@ function VariantDialog({
     try {
       const w = parseInt(widthMm, 10);
       const h = parseInt(heightMm, 10);
-      const price = Math.round(parseFloat(priceEuros) * 100);
-      const cost = costEuros.trim()
-        ? Math.round(parseFloat(costEuros) * 100)
-        : null;
       if (!Number.isFinite(w) || w <= 0 || !Number.isFinite(h) || h <= 0) {
         throw new Error(t("printProducts.errWidthHeight"));
       }
-      if (!Number.isFinite(price) || price < 0) {
-        throw new Error(t("printProducts.errPrice"));
+      const cost = costEuros.trim()
+        ? Math.round(parseFloat(costEuros) * 100)
+        : null;
+
+      let priceCents: number;
+      let priceTiers: PrintPriceTier[] = [];
+      if (pricingMode === "tiered") {
+        const result = validateTierRows(tierRows);
+        if (!result.ok) throw new Error(tierLadderErrorMessage(t, result.error));
+        priceTiers = result.tiers;
+        // Mirrors the server's own derivation (first tier = reference
+        // price) — the server recomputes and overwrites this anyway.
+        priceCents = priceTiers[0].unitPriceCents;
+      } else {
+        const price = Math.round(parseFloat(priceEuros) * 100);
+        if (!Number.isFinite(price) || price < 0) {
+          throw new Error(t("printProducts.errPrice"));
+        }
+        priceCents = price;
       }
+
       const payload: PrintVariantCreateInput = {
         name: name.trim(),
         widthMm: w,
         heightMm: h,
         aspectRatio: aspectMode === "fixed" ? w / h : null,
         finishType: finishType.trim() || null,
-        priceCents: price,
+        priceCents,
         costCents: cost,
         enabled,
+        priceTiers,
       };
       if (existing) {
         await api.updatePrintVariant(existing.id, payload);
@@ -544,28 +621,102 @@ function VariantDialog({
             <option value="fixed">{t("printProducts.aspectFixed")}</option>
           </Select>
         </FormRow>
-        <div className="grid grid-cols-2 gap-3">
-          <FormRow label={t("printProducts.priceEur")}>
-            <Input
-              type="number"
-              step="0.01"
-              value={priceEuros}
-              onChange={(e) => setPriceEuros(e.target.value)}
-              required
-              min={0}
-            />
-          </FormRow>
-          <FormRow label={t("printProducts.costEur")}>
-            <Input
-              type="number"
-              step="0.01"
-              value={costEuros}
-              onChange={(e) => setCostEuros(e.target.value)}
-              min={0}
-              placeholder={t("printProducts.costPlaceholder")}
-            />
-          </FormRow>
-        </div>
+        <FormRow label={t("printProducts.pricingMode")}>
+          <Select
+            value={pricingMode}
+            onChange={(e) => setPricingMode(e.target.value as "flat" | "tiered")}
+          >
+            <option value="flat">{t("printProducts.pricingModeFlat")}</option>
+            <option value="tiered">{t("printProducts.pricingModeTiered")}</option>
+          </Select>
+        </FormRow>
+
+        {pricingMode === "flat" ? (
+          <div className="grid grid-cols-2 gap-3">
+            <FormRow label={t("printProducts.priceEur")}>
+              <Input
+                type="number"
+                step="0.01"
+                value={priceEuros}
+                onChange={(e) => setPriceEuros(e.target.value)}
+                required
+                min={0}
+              />
+            </FormRow>
+            <FormRow label={t("printProducts.costEur")}>
+              <Input
+                type="number"
+                step="0.01"
+                value={costEuros}
+                onChange={(e) => setCostEuros(e.target.value)}
+                min={0}
+                placeholder={t("printProducts.costPlaceholder")}
+              />
+            </FormRow>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            <FormRow label={t("printProducts.costEur")}>
+              <Input
+                type="number"
+                step="0.01"
+                value={costEuros}
+                onChange={(e) => setCostEuros(e.target.value)}
+                min={0}
+                placeholder={t("printProducts.costPlaceholder")}
+              />
+            </FormRow>
+            <span className="block text-xs text-ink-tertiary">
+              {t("printProducts.priceTiersLabel")}
+            </span>
+            {tierRows.map((row, idx) => (
+              <div key={idx} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end">
+                <FormRow label={t("printProducts.tierMinQty")}>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={row.minQty}
+                    onChange={(e) => updateTierRow(idx, "minQty", e.target.value)}
+                  />
+                </FormRow>
+                <FormRow label={t("printProducts.tierMaxQty")}>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={row.maxQty}
+                    onChange={(e) => updateTierRow(idx, "maxQty", e.target.value)}
+                    placeholder={t("printProducts.tierMaxQtyUnbounded")}
+                  />
+                </FormRow>
+                <FormRow label={t("printProducts.tierUnitPrice")}>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    value={row.priceEuros}
+                    onChange={(e) => updateTierRow(idx, "priceEuros", e.target.value)}
+                  />
+                </FormRow>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => removeTierRow(idx)}
+                  disabled={tierRows.length <= 1}
+                >✕</Button>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={addTierRow}
+              disabled={tierRows.length >= MAX_PRICE_TIERS}
+            >
+              {t("printProducts.addTier")}
+            </Button>
+          </div>
+        )}
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -578,6 +729,96 @@ function VariantDialog({
       </form>
     </Modal>
   );
+}
+
+interface TierRow {
+  minQty: string;
+  maxQty: string;
+  priceEuros: string;
+}
+
+type TierLadderErrorCode =
+  | "empty_ladder"
+  | "invalid_min_qty"
+  | "invalid_max_qty"
+  | "invalid_unit_price"
+  | "first_tier_must_start_at_1"
+  | "last_tier_must_be_unbounded"
+  | "only_last_tier_may_be_unbounded"
+  | "gap_or_overlap_between_tiers";
+
+/** Client-side mirror of apps/api's validateTierLadder(), for immediate
+ *  feedback before submit — the server re-validates authoritatively. */
+/** parseInt() truncates/accepts non-integer input ("1.5" -> 1, silently
+ *  dropping the fraction). Tier quantities must be whole numbers, so
+ *  this rejects anything Number.isInteger() wouldn't accept instead of
+ *  quietly coercing it — NaN propagates to the invalid_min/max_qty
+ *  checks below the same way a parseInt() failure already did. */
+function parseIntStrict(s: string): number {
+  const n = Number(s);
+  return Number.isInteger(n) ? n : NaN;
+}
+
+function validateTierRows(
+  rows: TierRow[]
+): { ok: true; tiers: PrintPriceTier[] } | { ok: false; error: TierLadderErrorCode } {
+  if (rows.length === 0) return { ok: false, error: "empty_ladder" };
+
+  const parsed = rows.map((r) => ({
+    minQty: parseIntStrict(r.minQty),
+    maxQty: r.maxQty.trim() === "" ? null : parseIntStrict(r.maxQty),
+    unitPriceCents: Math.round(parseFloat(r.priceEuros) * 100),
+  }));
+
+  for (const p of parsed) {
+    if (!Number.isFinite(p.minQty) || p.minQty < 1) {
+      return { ok: false, error: "invalid_min_qty" };
+    }
+    if (p.maxQty !== null && (!Number.isFinite(p.maxQty) || p.maxQty < p.minQty)) {
+      return { ok: false, error: "invalid_max_qty" };
+    }
+    if (!Number.isFinite(p.unitPriceCents) || p.unitPriceCents < 0) {
+      return { ok: false, error: "invalid_unit_price" };
+    }
+  }
+
+  const sorted = [...parsed].sort((a, b) => a.minQty - b.minQty);
+  if (sorted[0].minQty !== 1) {
+    return { ok: false, error: "first_tier_must_start_at_1" };
+  }
+  const last = sorted[sorted.length - 1];
+  if (last.maxQty !== null) {
+    return { ok: false, error: "last_tier_must_be_unbounded" };
+  }
+  for (let i = 0; i < sorted.length - 1; i++) {
+    if (sorted[i].maxQty === null) {
+      return { ok: false, error: "only_last_tier_may_be_unbounded" };
+    }
+    if (sorted[i].maxQty! + 1 !== sorted[i + 1].minQty) {
+      return { ok: false, error: "gap_or_overlap_between_tiers" };
+    }
+  }
+
+  return { ok: true, tiers: sorted };
+}
+
+function tierLadderErrorMessage(t: ReturnType<typeof useT>, code: TierLadderErrorCode): string {
+  switch (code) {
+    case "empty_ladder":
+      return t("printProducts.tierLadderErrorEmpty");
+    case "invalid_min_qty":
+    case "invalid_max_qty":
+      return t("printProducts.tierLadderErrorRange");
+    case "invalid_unit_price":
+      return t("printProducts.errPrice");
+    case "first_tier_must_start_at_1":
+      return t("printProducts.tierLadderErrorStart");
+    case "last_tier_must_be_unbounded":
+    case "only_last_tier_may_be_unbounded":
+      return t("printProducts.tierLadderErrorEnd");
+    case "gap_or_overlap_between_tiers":
+      return t("printProducts.tierLadderErrorGap");
+  }
 }
 
 // =============================================================================
