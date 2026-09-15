@@ -177,6 +177,13 @@ const HEX_RGB_OR_RGBA = /^#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/;
 
 const updateGallerySchema = createGallerySchema.partial().extend({
   status: z.enum(["draft", "live", "archived"]).optional(),
+  // Nullable only on update, where null means "remove the expiry date".
+  // The update mapping below has always written `body.expiresAt ? … : null`,
+  // so clearing was the intended behaviour; the schema inherited from
+  // createGallerySchema just never allowed null through, which made an expiry
+  // date impossible to remove once set. Left non-nullable on create, where
+  // null and omitted would mean the same thing anyway.
+  expiresAt: z.string().datetime().nullable().optional(),
   // Passwortschutz: String = setzen, null = entfernen, weglassen =
   // unverändert. Wird serverseitig gehasht.
   password: z.string().min(1).max(200).nullable().optional(),
