@@ -28,13 +28,17 @@ import {
   tenantMailLocale,
   userMailLocale, localeTag} from "./mail-i18n.js";
 import { studioNotifyEnabled } from "./notifications.js";
+import { tenantPublicOrigin } from "./tenant.js";
 
 function studioUrl(galleryId: string): string {
   return `${config.PUBLIC_URL}/studio/${galleryId}`;
 }
 
-function publicUrl(slug: string): string {
-  return `${config.PUBLIC_URL}/g/${slug}`;
+function publicUrl(
+  tenant: { slug: string; customDomain: string | null },
+  slug: string
+): string {
+  return `${tenantPublicOrigin(tenant)}/g/${slug}`;
 }
 
 /**
@@ -199,7 +203,14 @@ export async function notifyZipReadyOnce(opts: {
         id: true,
         fileCount: true,
         accessId: true,
-        gallery: { select: { slug: true, title: true, tenantId: true } },
+        gallery: {
+          select: {
+            slug: true,
+            title: true,
+            tenantId: true,
+            tenant: { select: { slug: true, customDomain: true } },
+          },
+        },
       },
     });
     if (!zip || !zip.accessId) return true; // ohne Access = keine Email-Adresse
@@ -210,7 +221,7 @@ export async function notifyZipReadyOnce(opts: {
     });
     if (!access || access.emails.length === 0) return true;
 
-    const downloadUrl = `${config.PUBLIC_URL}/g/${zip.gallery.slug}` +
+    const downloadUrl = `${publicUrl(zip.gallery.tenant, zip.gallery.slug)}` +
       `?zip=${zip.id}`;
     const tpl = tmplZipReady({
       galleryTitle: zip.gallery.title,
@@ -287,6 +298,8 @@ export async function sendGalleryInvitation(opts: {
               select: {
                 name: true,
                 displayName: true,
+                slug: true,
+                customDomain: true,
               },
             },
           },
@@ -311,7 +324,7 @@ export async function sendGalleryInvitation(opts: {
       return false;
     }
 
-    const shareUrl = `${publicUrl(access.gallery.slug)}?t=${access.token}`;
+    const shareUrl = `${publicUrl(access.gallery.tenant, access.gallery.slug)}?t=${access.token}`;
     const tenant = access.gallery.tenant;
     const studioDisplayName = tenant.displayName ?? tenant.name;
 
