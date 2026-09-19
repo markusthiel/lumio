@@ -29,6 +29,35 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 
 ## [Unreleased]
 
+A pull + regular redeploy is enough for the server/worker -- no schema
+migration involved, the new hash reuses the existing (previously unused)
+`exif` JSON field. **Anyone using the Lightroom plug-in has to reinstall
+it:** the plug-in-side changes live only in the folder loaded into
+Lightroom, which is not updated along with the server. Re-add
+`apps/lightroom-plugin/lumio.lrdevplugin` in Lightroom, and check that a
+`icon.png` now shows for the Lumio publish service where it used to be
+blank/broken.
+
+### Added
+
+- Lightroom plug-in: the Publish-Service now embeds the MD5 hash of the original master file into a custom XMP field of the uploaded JPEG, and the Selection-Import side uses it to automatically resolve ambiguous filename matches (e.g. the same shot published as both `.NEF` and `.DNG`) and, with a new opt-in option, to recover files that were renamed in Lightroom after publishing. Only available for files published from this plug-in version onward.
+
+### Changed
+
+- Lightroom plug-in: "Show in Lumio" (right-click a published collection) now opens the gallery's Studio management view instead of the public customer-facing gallery link. A new per-photo "Show public gallery" entry (right-click a published photo) covers the case where you do want the customer's view.
+
+### Fixed
+
+- Lightroom plug-in: the publish service's icon was referenced but never shipped, so it showed up blank/broken in Lightroom's Publishing Services panel.
+- Lightroom plug-in: re-publishing a photo (after an edit, or via "Republish") uploaded a new file without ever removing the previous one, so the online gallery accumulated several versions of the same photo. The plug-in now deletes the old remote file before uploading the new one.
+- Lightroom plug-in: the embedded original-file hash could land before a leading JFIF (APP0) segment in the uploaded JPEG, which some strict readers (print lab intake, some third-party tools) don't tolerate. It's now inserted after APP0 when one is present.
+- Lightroom plug-in: the renamed-file recovery pass could silently skip files when several Lumio uploads shared the same original-file hash (e.g. virtual copies of one master) — only one of them was ever attempted. All of them are now resolved.
+- Worker: processing a file with no original-file hash to report (i.e. almost every file, since only the Lightroom plug-in ever produces one) was quietly turning `exif` from `NULL` into `{}`. The `exif` column is now left untouched when there's nothing to write into it.
+- Lightroom plug-in: the per-photo "Show public gallery" entry always failed ("Gallery slug or host is missing"), because the collection info Lightroom actually hands to that hook has no `collectionSettings` field to read from. Fixed by fetching the collection's settings through the photo instead (credit: [@canja006](https://github.com/canja006), tested against a real Lightroom Classic install).
+- Lightroom plug-in: a published collection bound to an *existing* Lumio gallery (picked from the dropdown, rather than created from the plug-in) never had its gallery slug saved, leaving the public-gallery link dependent on a cache that goes stale as soon as the gallery is edited in Studio. It now self-heals on the next publish.
+- Lightroom plug-in: recovering renamed files by content hash took over 4 minutes on a 2774-photo catalog (the default search scope), with Lightroom visibly sluggish throughout — measured on real hardware. The pass now stops as soon as every renamed file has been found, skips photos already matched by filename, and, most importantly, embeds the original file's byte size alongside its hash so most catalog photos can be ruled out with a plain file-size check instead of being fully read into memory just to be hashed.
+- Lightroom plug-in: the log-file location documented for macOS was wrong for current Lightroom Classic versions (confirmed on 15.5: `~/Library/Logs/Adobe/Lightroom/LrClassicLogs/Lumio.log`, not `~/Documents/LrClassicLogs/`).
+
 ## [0.80.1] - 2026-09-19
 
 A pull is enough. Affects the port-check script only — nothing in the running application.

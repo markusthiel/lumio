@@ -1,19 +1,19 @@
 """
 Lumio Worker — process_file
 
-Standard-Bildverarbeitung für JPEG, PNG, WebP, AVIF, TIFF, GIF, HEIC und PSD
-(PSD via Composite-Extraktion mit Pillow, siehe psd.py — libvips kann PSD
-nicht direkt lesen).
+Standard image processing for JPEG, PNG, WebP, AVIF, TIFF, GIF, HEIC and PSD
+(PSD via composite extraction with Pillow, see psd.py -- libvips cannot
+read PSD directly).
 
-Generiert drei Renditions pro Bild:
-  - thumb        ( 400 px lange Kante, WebP, q75)
-  - preview      (1600 px lange Kante, WebP, q82)
-  - web          (2560 px lange Kante, WebP, q85)
+Generates three renditions per image:
+  - thumb        ( 400 px long edge, WebP, q75)
+  - preview      (1600 px long edge, WebP, q82)
+  - web          (2560 px long edge, WebP, q85)
 
-Engine: libvips via pyvips. ~4–8x schneller als Pillow/ImageMagick und
-geringer Speicherbedarf, weil sequenziell verarbeitet wird.
+Engine: libvips via pyvips. ~4-8x faster than Pillow/ImageMagick and a
+lower memory footprint, because processing is sequential.
 
-Aufruf (von Celery via app.send_task oder direkt):
+Invocation (from Celery via app.send_task, or directly):
   generate_renditions.delay(file_id)
 """
 from __future__ import annotations
@@ -25,7 +25,7 @@ import structlog
 
 from app import app
 from db import fetch_file, mark_file_ready, mark_file_failed, upsert_rendition, set_taken_at, reconcile_original_size
-from exif_meta import extract_taken_at
+from exif_meta import extract_metadata
 from hashing import sha256_file
 from imaging import render_image_sizes
 from psd import is_psd, flatten_psd_to_png
@@ -39,21 +39,20 @@ from storage import (
 log = structlog.get_logger(__name__)
 
 
-# Renditions, die der Worker erzeugt. Tupel: (kind, max_long_edge, quality, format).
+# Renditions the worker generates. Tuple: (kind, max_long_edge, quality, format).
 #
-# Warum web_jpeg zusätzlich zu web? Die Customer-Download-Variante "Web-
-# Version" wurde ursprünglich gegen die web.webp ausgespielt. Webp
-# öffnet in modernen Browsern und macOS Preview, aber nicht in
-# klassischer Bildverwaltung (Lightroom-Import, ältere Photoshop-
-# Versionen, viele Druckereien). Eine zusätzliche JPEG-Variante mit
-# leicht höherer Quality (88 vs 85) kompensiert das Größenwachstum
-# durch das ineffizientere Format teilweise; die resultierende Datei
-# ist ca 30-40% größer als das webp aber kleiner als das Original und
-# überall einfach öffenbar.
+# Why web_jpeg in addition to web? The customer-download variant "Web
+# version" originally served web.webp. WebP opens in modern browsers and
+# macOS Preview, but not in classic image management tools (Lightroom
+# import, older Photoshop versions, many print shops). An additional
+# JPEG variant with slightly higher quality (88 vs 85) partially
+# compensates for the size growth from the less efficient format; the
+# resulting file is about 30-40% larger than the webp but smaller than
+# the original and opens easily everywhere.
 #
-# Storage-Overhead: pro File ~1-2 MB extra (ein 2560px-JPEG-Bild). Bei
-# einer 100-Files-Galerie also +100-200 MB Storage. Vertretbar gegenüber
-# dem Original (typisch 5-15 MB pro RAW oder hochauflösendem JPEG).
+# Storage overhead: ~1-2 MB extra per file (a 2560px JPEG image). So for
+# a 100-file gallery, +100-200 MB storage. Acceptable compared to the
+# original (typically 5-15 MB per RAW or high-resolution JPEG).
 RENDITION_SPECS: list[tuple[str, int, int, str]] = [
     ("thumb", 400, 75, "webp"),
     ("preview", 1600, 82, "webp"),
@@ -86,13 +85,13 @@ def generate_renditions(self, file_id: str) -> dict:
             _publish_status(file_row["gallery_id"], file_id, "failed")
         except Exception:
             pass
-        # Retry, falls noch Versuche übrig
+        # Retry, if attempts remain
         raise self.retry(exc=err)
 
 
 def _process(file_row: dict) -> None:
-    """Lädt das Original, generiert die Renditions, schreibt sie nach S3
-    und in die DB."""
+    """Downloads the original, generates the renditions, writes them to S3
+    and the DB."""
     file_id = file_row["id"]
     tenant_id = file_row["tenant_id"]
     gallery_id = file_row["gallery_id"]
@@ -101,24 +100,25 @@ def _process(file_row: dict) -> None:
     with tempfile.TemporaryDirectory(prefix="lumio_") as tmp:
         src_path = os.path.join(tmp, "source")
         download_to_file(storage_key, src_path)
-        # Echte Original-Groesse zurueckschreiben (Client-Wert war
-        # ungeprueft; schuetzt Quota/Abrechnung vor Unterlaufen).
+        # Write the ACTUAL original size back (the client-reported value
+        # was unchecked; protects quota/billing from being undercut).
         reconcile_original_size(file_id, os.path.getsize(src_path))
         log.info("process_file.downloaded", file_id=file_id,
                  size=os.path.getsize(src_path))
 
-        # SHA-256 vom Original-File berechnen. ~1 s für 50 MB Foto;
-        # vernachlaessigbar gegenueber dem Decode + Resize-Aufwand.
-        # Wir machen das hier oben statt am Ende, damit ein
-        # Encoding-Fehler den Hash nicht versehentlich verhindert —
-        # das Original ist die einzige Quelle der Wahrheit fuer den
-        # Hash, alle Renditions kommen erst danach.
+        # Compute SHA-256 of the original file. ~1s for a 50 MB photo;
+        # negligible compared to the decode + resize cost. We do this up
+        # here rather than at the end, so an encoding error doesn't
+        # accidentally prevent the hash -- the original is the sole
+        # source of truth for the hash, all renditions come only after.
         src_sha = sha256_file(src_path)
 
-        # Aufnahmezeitpunkt aus EXIF des Originals lesen (best-effort,
-        # wirft nie). Vom ORIGINAL, nicht vom PSD-Composite o.ä. — nur
-        # das Original trägt die Kamera-EXIF.
-        taken_at = extract_taken_at(src_path)
+        # Read capture timestamp + original hash/size from the original's
+        # EXIF (best-effort, never throws). From the ORIGINAL, not the
+        # PSD composite etc. -- only the original carries the camera EXIF
+        # (and any hash/size embedded by the Lightroom plug-in). A single
+        # exiftool call for all three values instead of several.
+        taken_at, original_md5, original_size = extract_metadata(src_path)
 
         def _persist(
             kind: str, out_path: str, w: int, h: int, fmt: str
@@ -133,10 +133,9 @@ def _process(file_row: dict) -> None:
             log.info("process_file.rendition_done", file_id=file_id,
                      kind=kind, fmt=fmt, width=w, height=h, size=size_bytes)
 
-        # PSD: libvips kann das Format nicht direkt dekodieren. Wir
-        # extrahieren das flachgerechnete Composite via Pillow als PNG
-        # und lassen die Pipeline darauf laufen. Alle anderen Formate
-        # gehen unverändert durch.
+        # PSD: libvips cannot decode the format directly. We extract the
+        # flattened composite via Pillow as PNG and run the pipeline on
+        # that. Every other format passes through unchanged.
         render_src = src_path
         if is_psd(src_path):
             render_src = os.path.join(tmp, "psd_composite.png")
@@ -150,17 +149,19 @@ def _process(file_row: dict) -> None:
             on_rendition=_persist,
         )
 
-        mark_file_ready(file_id, final_w, final_h, sha256=src_sha)
+        mark_file_ready(file_id, final_w, final_h, sha256=src_sha,
+                        original_md5=original_md5, original_size=original_size)
         set_taken_at(file_id, taken_at)
         _publish_status(gallery_id, file_id, "ready",
                         width=final_w, height=final_h)
         log.info("process_file.complete", file_id=file_id,
-                 width=final_w, height=final_h, sha256=src_sha)
+                 width=final_w, height=final_h, sha256=src_sha,
+                 original_md5=original_md5, original_size=original_size)
 
-        # Auto-Tagging anstossen — eigener Celery-Task, asynchron.
-        # Der Task selbst checkt das Feature-Flag und skipped wenn aus.
-        # Fehler im enqueue sind tolerant: wenn Celery/Redis ein Problem
-        # hat, ist das Bild trotzdem fertig — Tags fehlen halt.
+        # Kick off auto-tagging -- a separate Celery task, asynchronous.
+        # The task itself checks the feature flag and skips if it's off.
+        # Enqueue errors are tolerated: if Celery/Redis has a problem, the
+        # image is still done -- it just lacks tags.
         try:
             app.send_task("tasks.auto_tag.tag_image", args=[file_id])
         except Exception as err:

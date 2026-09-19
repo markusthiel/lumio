@@ -1,23 +1,24 @@
 --[[
     Lumio Lightroom Classic Plugin — Info.lua
 
-    Zwei Richtungen:
-      1. Selection-Import: Kunden-Picks aus Lumio in den LR-Katalog
-         (Bibliothek → Zusatzmoduloptionen → "Import Lumio selection…")
-      2. Publish-Service: Bilder aus LR in Lumio-Galerien hochladen
-         (Bibliothek → Veroeffentlichungsdienste → "Lumio")
+    Two directions:
+      1. Selection-Import: bring customer picks from Lumio into the LR
+         catalog (Library -> Plug-in Extras -> "Import Lumio selection…")
+      2. Publish-Service: upload photos from LR into Lumio galleries
+         (Library -> Publishing Services -> "Lumio")
 
-    Voraussetzungen:
-      - Lightroom Classic >= 9.0 (SDK 9 ist seit 2020 stabil)
-      - API-Token im Lumio Studio unter Einstellungen → API-Tokens erzeugen
+    Requirements:
+      - Lightroom Classic >= 9.0 (SDK 9 has been stable since 2020)
+      - API token, created in Lumio Studio under Settings -> API tokens
 
     Installation:
-      1. Diesen Ordner irgendwohin auf die Platte legen (umbenennbar nach
-         "lumio.lrplugin", falls .lrdevplugin in Finder als Bundle hindert)
-      2. In Lightroom: Datei → Zusatzmodul-Manager → Hinzufügen
-      3. In den Plugin-Optionen Host + Token eingeben
-      4a. Selection-Import: Bibliothek → Zusatzmoduloptionen → "Import Lumio selection…"
-      4b. Publish:          Bibliothek → Veroeffentlichungsdienste → "Lumio einrichten…"
+      1. Put this folder anywhere on disk (can be renamed to
+         "lumio.lrplugin" if .lrdevplugin gets in the way in Finder as a
+         bundle)
+      2. In Lightroom: File -> Plug-in Manager -> Add
+      3. Enter host + token in the plug-in options
+      4a. Selection-Import: Library -> Plug-in Extras -> "Import Lumio selection…"
+      4b. Publish:          Library -> Publishing Services -> "Set up Lumio…"
 
     Author: Lumio
     License: FSL-1.1-ALv2
@@ -31,10 +32,10 @@ return {
     LrPluginName        = "Lumio",
     LrPluginInfoUrl     = "https://github.com/markusthiel/lumio",
 
-    -- Sektion im Plug-in-Manager: Host + Token + Test-Button
+    -- Section in the Plug-in Manager: host + token + test button
     LrPluginInfoProvider = "PluginManager.lua",
 
-    -- Menü-Eintrag in Bibliothek → Zusatzmoduloptionen
+    -- Menu entry under Library -> Plug-in Extras
     LrLibraryMenuItems = {
         {
             title = "Import Lumio selection…",
@@ -42,7 +43,7 @@ return {
         },
     },
 
-    -- Publish-Service: erscheint unter „Veröffentlichungsdienste" in LR
+    -- Publish service: appears under "Publishing Services" in LR
     LrExportServiceProvider = {
         title    = "Lumio",
         file     = "LumioPublishService.lua",
@@ -51,7 +52,7 @@ return {
 
     VERSION = {
         major    = 0,
-        minor    = 2,
+        minor    = 3,
         revision = 0,
     },
 }

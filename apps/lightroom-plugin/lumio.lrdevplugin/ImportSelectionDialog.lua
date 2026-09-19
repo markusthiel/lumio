@@ -1,13 +1,13 @@
 --[[
     ImportSelectionDialog.lua
 
-    Wird vom Menüpunkt "Lumio-Auswahl importieren…" aufgerufen.
+    Invoked from the "Import Lumio selection…" menu item.
 
     Flow:
-      1. Galerie-Liste vom Server holen
-      2. Modal: User wählt eine Galerie aus + Optionen (was anwenden:
-         Pick-Flag, Sterne, Color-Label)
-      3. ImportSelectionTask.run() startet die eigentliche Anwendung
+      1. Fetch the gallery list from the server
+      2. Modal: the user picks a gallery + options (what to apply:
+         pick flag, stars, colour label)
+      3. ImportSelectionTask.run() starts the actual application
 ]]
 
 local LrTasks          = import "LrTasks"
@@ -24,7 +24,7 @@ local log      = require "Logger"
 LrTasks.startAsyncTask(function()
     LrFunctionContext.callWithContext("ImportSelectionDialog", function(context)
 
-        -- Galerien laden, mit User-friendly Error
+        -- Load galleries, with a user-friendly error
         local ok, galleries = LrTasks.pcall(LumioApi.listGalleries)
         if not ok then
             LrDialogs.message(
@@ -43,11 +43,11 @@ LrTasks.startAsyncTask(function()
             return
         end
 
-        -- View bauen
+        -- Build the view
         local props = LrBinding.makePropertyTable(context)
         local prefs = LrPrefs.prefsForPlugin()
 
-        -- Galerien-Optionen für popup_menu
+        -- Gallery options for the popup_menu
         local galleryItems = {}
         for _, g in ipairs(galleries) do
             table.insert(galleryItems, {
@@ -62,6 +62,12 @@ LrTasks.startAsyncTask(function()
         props.applyRating    = prefs.applyRating    ~= false
         props.applyColor     = prefs.applyColor     ~= false
         props.matchScope     = prefs.matchScope     or "library"
+        -- HASH-MATCHING (opt-in, off by default): only present for files
+        -- published via the plug-in's Publish-Service from this version
+        -- onward (see JpegXmp.lua) -- older uploads have no hash to match
+        -- against, so this is a slower, best-effort recovery pass rather
+        -- than something to turn on unconditionally.
+        props.matchByHash    = prefs.matchByHash    or false
 
         local f = LrView.osFactory()
 
@@ -120,12 +126,18 @@ LrTasks.startAsyncTask(function()
                 value    = LrView.bind("matchScope"),
                 checked_value = "collection",
             },
+            f:checkbox {
+                title = "Also try to recover renamed files by content hash (slower)",
+                value = LrView.bind("matchByHash"),
+            },
 
             f:static_text {
                 title = "Note: Lumio matches on the original filename. If you have renamed " ..
-                        "the files, they cannot be found.",
+                        "the files, they cannot be found -- unless the content-hash option " ..
+                        "above is enabled AND the file was published with a plug-in version " ..
+                        "that embeds the original hash.",
                 width_in_chars = 70,
-                height_in_lines = 2,
+                height_in_lines = 3,
                 size = "small",
             },
         }
@@ -137,13 +149,14 @@ LrTasks.startAsyncTask(function()
         }
         if result ~= "ok" then return end
 
-        -- Auswahl in Prefs für nächstes Mal merken
+        -- Remember the choices in prefs for next time
         prefs.lastGalleryId = props.galleryId
         prefs.applyPick     = props.applyPick
         prefs.applyLikes    = props.applyLikes
         prefs.applyRating   = props.applyRating
         prefs.applyColor    = props.applyColor
         prefs.matchScope    = props.matchScope
+        prefs.matchByHash   = props.matchByHash
 
         log:info("starting import for gallery " .. tostring(props.galleryId))
         Task.run({
@@ -153,6 +166,7 @@ LrTasks.startAsyncTask(function()
             applyRating = props.applyRating,
             applyColor  = props.applyColor,
             matchScope  = props.matchScope,
+            matchByHash = props.matchByHash,
         })
     end)
 end)

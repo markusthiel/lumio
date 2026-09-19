@@ -1,44 +1,49 @@
 --[[
     LumioPublishService.lua
 
-    Lightroom Publish-Service-Provider fuer Lumio.
+    Lightroom Publish-Service provider for Lumio.
 
-    Was es macht
+    What it does
     ============
-    Der Fotograf legt im Lightroom-Modul „Bibliothek" → „Veroeffentlichungs-
-    dienste" einen „Lumio"-Publish-Service an. Pro Lumio-Galerie eine
-    Published-Collection. Drag-and-Drop oder Smart-Collection-Regeln
-    bestimmen, welche Fotos in die Galerie kommen. Klick auf
-    „Veroeffentlichen" rendert Lightroom die Fotos zu JPEGs (Export-
-    Engine), wir laden sie zu Lumio hoch.
+    The photographer creates a "Lumio" publish service in the Lightroom
+    "Library" module under "Publishing Services". One published collection
+    per Lumio gallery. Drag-and-drop or Smart Collection rules decide which
+    photos go into the gallery. Clicking "Publish" makes Lightroom render
+    the photos to JPEGs (export engine), and we upload them to Lumio.
 
-    Lightroom-Hooks-Cheatsheet
-    ==========================
-    Service-Level (= alle Collections):
-      - startDialog / endDialog               : Service-Setup
-      - sectionsForTopOfDialog                : Auth-Check + Token-Hinweis
+    Lightroom hooks cheat sheet
+    ============================
+    Service level (= all collections):
+      - startDialog / endDialog               : service setup
+      - sectionsForTopOfDialog                : auth check + token hint
 
-    Collection-Level (= eine Lumio-Galerie):
-      - viewForCollectionSettings             : Galerie waehlen / anlegen,
-                                                Status-Schalter
-      - updateCollectionSettings              : nach Settings-Save
+    Collection level (= one Lumio gallery):
+      - viewForCollectionSettings             : pick/create gallery,
+                                                 status toggle
+      - updateCollectionSettings              : after settings save
 
-    Photo-Level (= Upload + Delete):
-      - processRenderedPhotos                 : pro Veroeffentlichen-Batch
-      - deletePhotosFromPublishedCollection   : Fotos aus LR-Coll. entfernt
+    Photo level (= upload + delete):
+      - processRenderedPhotos                 : per publish batch
+      - deletePhotosFromPublishedCollection   : photos removed from LR coll.
 
-    Metadaten-getriggert:
-      - metadataThatTriggersRepublish         : was muss sich aendern damit
-                                                LR den Knopf 'Republish' setzt
+    "Go to" menu entries:
+      - goToPublishedCollection                : right-click a collection ->
+                                                  Studio management view
+      - goToPublishedPhoto                     : right-click a photo ->
+                                                  public customer-facing gallery
 
-    Datenflow
+    Metadata-triggered:
+      - metadataThatTriggersRepublish         : what has to change for LR
+                                                 to show the 'Republish' button
+
+    Data flow
     =========
-    1. LR rendert Photo → temp JPEG
-    2. processRenderedPhotos bekommt jedes gerenderte Photo
-    3. Wir initUpload(gallery, [{ filename, sizeBytes, mimeType }])
-    4. S3-PUT zu der presigned URL
+    1. LR renders photo -> temp JPEG
+    2. processRenderedPhotos receives each rendered photo
+    3. We call initUpload(gallery, [{ filename, sizeBytes, mimeType }])
+    4. S3 PUT to the presigned URL
     5. completeUpload(fileId)
-    6. rendition:recordPublishedPhotoId(fileId) - LR merkt sich die Lumio-ID
+    6. rendition:recordPublishedPhotoId(fileId) -- LR remembers the Lumio ID
 ]]
 
 local LrApplication        = import "LrApplication"
@@ -46,6 +51,7 @@ local LrBinding            = import "LrBinding"
 local LrColor              = import "LrColor"
 local LrDate               = import "LrDate"
 local LrDialogs            = import "LrDialogs"
+local LrMD5                = import "LrMD5"
 local LrFunctionContext    = import "LrFunctionContext"
 local LrPathUtils          = import "LrPathUtils"
 local LrPrefs              = import "LrPrefs"
@@ -53,26 +59,27 @@ local LrTasks              = import "LrTasks"
 local LrView               = import "LrView"
 local LrFileUtils          = import "LrFileUtils"
 
-local api  = require "LumioApi"
-local log  = require "Logger"
-local json = require "Json"
+local api     = require "LumioApi"
+local log     = require "Logger"
+local json    = require "Json"
+local jpegXmp = require "JpegXmp"
 
 local exportServiceProvider = {}
 
 -- ============================================================================
--- Plugin-Metadaten
+-- Plug-in metadata
 -- ============================================================================
 exportServiceProvider.supportsIncrementalPublish = "only"
 exportServiceProvider.exportPresetFields = {
-    -- Service-weite Defaults (kommen aus Plugin-Manager-Section)
+    -- Service-wide defaults (come from the Plugin Manager section)
 }
 exportServiceProvider.hideSections = {
-    -- Default-Export-Sektionen die wir NICHT anzeigen wollen
-    "exportLocation",  -- Lumio kennt keine 'Where to save' — geht direkt online
-    "fileNaming",       -- wir nutzen den Original-Filename
-    "video",            -- aktuell kein Video-Upload
-    "watermarking",     -- Watermark macht Lumio server-side
-    "postProcessing",   -- macht Lumio (Renditions/Watermark/HLS)
+    -- Default export sections we do NOT want to show
+    "exportLocation",  -- Lumio has no 'Where to save' -- goes straight online
+    "fileNaming",       -- we use the original filename
+    "video",            -- no video upload yet
+    "watermarking",     -- watermarking happens server-side in Lumio
+    "postProcessing",   -- handled by Lumio (renditions/watermark/HLS)
 }
 exportServiceProvider.allowFileFormats = { "JPEG" }
 exportServiceProvider.allowColorSpaces = { "sRGB" }
@@ -81,7 +88,7 @@ exportServiceProvider.titleForPublishedCollection_standalone = "Lumio Gallery"
 exportServiceProvider.titleForPublishedSmartCollection      = "Lumio Smart Gallery"
 exportServiceProvider.titleForPublishedSmartCollection_standalone = "Lumio Smart Gallery"
 exportServiceProvider.titleForGoToPublishedCollection       = "Show in Lumio"
-exportServiceProvider.titleForGoToPublishedPhoto            = "Show in Lumio"
+exportServiceProvider.titleForGoToPublishedPhoto            = "Show public gallery"
 exportServiceProvider.small_icon = "icon.png"
 exportServiceProvider.supportsCustomSortOrder = false
 exportServiceProvider.disableRenamePublishedCollection      = false
@@ -102,10 +109,10 @@ function exportServiceProvider.getCollectionBehaviorInfo(publishSettings)
     }
 end
 
--- Republish-Trigger: nur Datei-Inhalt, nicht Metadaten. Lightroom-Filename-
--- Aenderungen wuerden zwar einen Republish triggern, sind aber selten — wir
--- listen 'default = false' damit der Republish-Knopf nicht standardmaessig
--- nach jedem Edit angeht. Photographer muss explizit auf 'Republish' klicken.
+-- Republish trigger: file content only, not metadata. Lightroom filename
+-- changes WOULD trigger a republish, but that's rare -- we list
+-- 'default = false' so the Republish button doesn't light up by default
+-- after every edit. The photographer has to click 'Republish' explicitly.
 function exportServiceProvider.metadataThatTriggersRepublish(publishSettings)
     return {
         default = false,
@@ -113,10 +120,10 @@ function exportServiceProvider.metadataThatTriggersRepublish(publishSettings)
 end
 
 -- ============================================================================
--- Service-Setup-Dialog (im Plug-in-Manager)
+-- Service setup dialog (in the Plug-in Manager)
 -- ============================================================================
--- Das Plug-in-Manager-UI (PluginManager.lua) hat schon Host + Token.
--- Hier zeigen wir nur einen Hinweis im Publish-Service-Sektion.
+-- The Plug-in Manager UI (PluginManager.lua) already has host + token.
+-- Here we just show a hint in the publish service section.
 
 function exportServiceProvider.sectionsForTopOfDialog(viewFactory, propertyTable)
     return {
@@ -141,16 +148,16 @@ function exportServiceProvider.sectionsForTopOfDialog(viewFactory, propertyTable
 end
 
 -- ============================================================================
--- Collection-Settings (pro Lumio-Galerie)
+-- Collection settings (per Lumio gallery)
 -- ============================================================================
--- Hier waehlt der Fotograf, welche Lumio-Galerie zu dieser LR-Sammlung
--- gehoert. Wenn keine existiert: neu anlegen.
+-- Here the photographer picks which Lumio gallery belongs to this LR
+-- collection. If none exists yet: create one.
 
 function exportServiceProvider.viewForCollectionSettings(viewFactory, publishSettings, info)
     local f = viewFactory
     local props = info.collectionSettings
 
-    -- Defaults setzen — sonst sind die Property-Felder nil und LR meckert
+    -- Set defaults -- otherwise the property fields are nil and LR complains
     props.galleryId = props.galleryId or ""
     props.galleryTitle = props.galleryTitle or ""
     props.galleryMode = props.galleryMode or "collaboration"
@@ -193,7 +200,7 @@ function exportServiceProvider.viewForCollectionSettings(viewFactory, publishSet
         if okDecode and type(decoded) == "table" then cached = decoded end
     end
 
-    -- 1) heti näkyviin: viimeksi haettu lista (tyhjä vasta ensimmäisellä kerralla)
+    -- 1) show immediately: the last fetched list (empty only on the very first run)
     props.availableGalleries = buildGalleryItems(cached)
 
     -- If the collection already has a gallery but the cache is empty (the first
@@ -214,7 +221,7 @@ function exportServiceProvider.viewForCollectionSettings(viewFactory, publishSet
         end
     end
 
-    -- 2) taustalla tuore haku: päivittää välimuistin ja yrittää myös elävää sidontaa
+    -- 2) fresh fetch in the background: refreshes the cache and also tries live binding
     LrTasks.startAsyncTask(function()
         local ok, galleries = LrTasks.pcall(api.listGalleries)
         if not ok then
@@ -317,51 +324,149 @@ function exportServiceProvider.viewForCollectionSettings(viewFactory, publishSet
 end
 
 -- ============================================================================
--- Upload-Helper (forward-declared damit processRenderedPhotos zugreifen kann)
+-- Upload helper (forward-declared so processRenderedPhotos can reach it)
 -- ============================================================================
--- uploadOnePhoto: schickt EINE Rendition zu Lumio. Wirft bei Fehler.
--- rendition:recordPublishedPhotoId(fileId) wird gesetzt damit LR sich
--- merkt welches Lumio-File diesem LR-Photo entspricht.
+-- uploadOnePhoto: sends ONE rendition to Lumio. Throws on failure.
+-- rendition:recordPublishedPhotoId(fileId) is set so LR remembers which
+-- Lumio file corresponds to this photo.
+--
+-- HASH-MATCHING. Filename-only matching in ImportSelectionTask.lua breaks
+-- the moment a photo is renamed in LR, or when several masters share one
+-- basename (documented as a known limitation). Fix: hash the ORIGINAL
+-- master file (not the JPEG render) with LrMD5 -- a native SDK API
+-- (stable since SDK 1.3), no external dependency -- and stamp it into the
+-- uploaded JPEG via
+-- JpegXmp so the server (and later the Selection-Import) can identify the
+-- photo by content, independent of its current filename.
+-- Best-effort: reading the whole master into RAM to hash it can be slow
+-- for very large files (medium-format RAW, 150+ MP), and the master may be
+-- offline (external/network drive). Neither should ever block a publish,
+-- so failures here are logged and swallowed -- the upload proceeds without
+-- the hash, exactly like publishing did before this feature existed.
+--
+-- Also returns the master's byte size, at zero extra cost (the file is
+-- already fully in RAM to hash it). Selection-Import uses this as a cheap
+-- pre-filter -- an OS stat call, no file content read -- before hashing a
+-- rename-recovery candidate, instead of hashing every candidate in the
+-- catalog. See ImportSelectionTask.lua.
+local function computeOriginalMd5(photo)
+    local path = photo:getRawMetadata("path")
+    if not path then return nil end
+    local f, ferr = io.open(path, "rb")
+    if not f then
+        log:warn("original hash: cannot open master (" .. tostring(path) .. "): " .. tostring(ferr))
+        return nil
+    end
+    local data = f:read("*all")
+    f:close()
+    if not data or #data == 0 then
+        log:warn("original hash: master is empty or unreadable: " .. tostring(path))
+        return nil
+    end
+    return LrMD5.digest(data):lower(), #data
+end
+
+-- RE-PUBLISH. Before: every re-publish (edit -> "Republish", or a manual
+-- "Republish" click) uploaded a brand-new file and never touched the
+-- previous one. rendition.publishedPhotoId, set by LR from the ID we
+-- recorded on the LAST publish of this exact photo (nil on the very first
+-- publish), was never read. Result: the online gallery accumulated one
+-- extra copy of the same photo per re-publish cycle.
+-- Now: if this photo was published before, we delete the old remote file
+-- FIRST, then upload the new one -- matching the delete+recreate workflow
+-- already documented server-side (routes/plugin.ts, DELETE
+-- /plugin/galleries/:id/files/:fileId). This trades a small window (old
+-- file gone, new upload not yet done) for never leaving two copies behind;
+-- see the loud failure message below for why that window is acceptable.
 local function uploadOnePhoto(rendition, filepath, galleryId)
-    -- Original-Filename aus dem LR-Photo lesen (NICHT vom Renderpfad,
-    -- der ist eine temp.jpg)
+    -- Read the original filename from the LR photo (NOT from the render
+    -- path, which is a temp.jpg)
     local photo = rendition.photo
     local origName = photo:getFormattedMetadata("fileName") or LrPathUtils.leafName(filepath)
-    -- Endung anpassen: wir rendern als JPEG, also .jpg
+    -- Fix the extension: we render as JPEG, so .jpg
     local nameNoExt = LrPathUtils.removeExtension(origName)
     local filename = nameNoExt .. ".jpg"
 
-    -- Filesize
+    -- Compute + embed the original hash BEFORE measuring the file size --
+    -- embedding changes the file size, and initUpload needs the actual
+    -- (final) size for the S3 presign.
+    local okHash, hashResult, sizeResult = LrTasks.pcall(computeOriginalMd5, photo)
+    local originalMd5 = okHash and hashResult or nil
+    if not okHash then
+        log:warn("original hash: computation failed: " .. tostring(hashResult))
+    elseif originalMd5 then
+        local okEmbed, embedErr = LrTasks.pcall(jpegXmp.embedOriginalMd5, filepath, originalMd5, sizeResult)
+        if not okEmbed then
+            log:warn("original hash: embedding into JPEG failed: " .. tostring(embedErr))
+        end
+    end
+
+    -- File size (measure AFTER embedding, see above)
     local sizeBytes = LrFileUtils.fileAttributes(filepath).fileSize or 0
     if sizeBytes == 0 then
-        error("Datei ist leer: " .. filepath)
+        error("File is empty: " .. filepath)
     end
 
-    -- Init-Call: bekommt presigned PUT-URL zurueck
-    local uploads = api.initUpload(galleryId, {
-        {
-            filename = filename,
-            sizeBytes = sizeBytes,
-            mimeType = "image/jpeg",
-        },
-    })
-    if not uploads or not uploads[1] then
-        error("init: keine Upload-Anweisung erhalten")
+    -- Re-publish: remove the old Lumio file first. Best-effort -- a 404
+    -- (e.g. already deleted manually in Lumio) or any other error is
+    -- logged but does NOT block uploading the new version. If the upload
+    -- fails afterwards, the error message below makes that explicit,
+    -- instead of letting it vanish silently into the log.
+    local previousRemoteId = rendition.publishedPhotoId
+    local deletedPrevious = false
+    if previousRemoteId then
+        local okDel, delErr = LrTasks.pcall(api.deleteGalleryFile, galleryId, previousRemoteId)
+        if okDel then
+            deletedPrevious = true
+        else
+            log:warn("re-publish: could not delete old file (" ..
+                tostring(previousRemoteId) .. "): " .. tostring(delErr))
+        end
     end
-    local u = uploads[1]
-    if u.method ~= "single" then
-        error("multipart-Upload aktuell nicht unterstuetzt (Photo > 100 MB)")
+
+    -- Init call: returns a presigned PUT URL
+    local okUpload, uploadErr = LrTasks.pcall(function()
+        local uploads = api.initUpload(galleryId, {
+            {
+                filename = filename,
+                sizeBytes = sizeBytes,
+                mimeType = "image/jpeg",
+            },
+        })
+        if not uploads or not uploads[1] then
+            error("init: no upload instructions received")
+        end
+        local u = uploads[1]
+        if u.method ~= "single" then
+            error("multipart upload not currently supported (photo > 100 MB)")
+        end
+
+        -- S3 PUT
+        api.uploadFileToS3(u.uploadUrl, filepath, "image/jpeg")
+
+        -- Complete: kicks off worker processing
+        api.completeUpload(u.fileId, nil)
+
+        -- LR remembers the Lumio file ID. On a later republish/delete, LR
+        -- hands this ID to deletePhotosFromPublishedCollection.
+        rendition:recordPublishedPhotoId(u.fileId)
+    end)
+
+    if not okUpload then
+        if deletedPrevious then
+            -- The old remote file is already gone at this point -- unlike a
+            -- first-time publish failure, the photo is now genuinely MISSING
+            -- from the online gallery, not just "not yet uploaded". Make that
+            -- loud instead of letting it read like an ordinary upload error.
+            error("WARNING: the previous version was removed from Lumio but the new " ..
+                "upload failed -- this photo is NO LONGER visible in the online " ..
+                "gallery, republish as soon as possible: " .. tostring(uploadErr))
+        else
+            -- Level 0: uploadErr already carries a "file:line:" prefix from
+            -- the inner error() call, re-adding one would just double it up.
+            error(uploadErr, 0)
+        end
     end
-
-    -- S3-PUT
-    api.uploadFileToS3(u.uploadUrl, filepath, "image/jpeg")
-
-    -- Complete: Worker-Verarbeitung anstossen
-    api.completeUpload(u.fileId, nil)
-
-    -- LR merkt sich die Lumio-File-ID. Bei spaeterem Republish/Delete
-    -- liefert LR diese ID an deletePhotosFromPublishedCollection.
-    rendition:recordPublishedPhotoId(u.fileId)
     -- This was `rendition:recordPublishedPhotoUrl(nil)`. LR requires a string
     -- and failed every photo with
     -- "AgExportRendition:recordRemotePhotoUrl: URL must be a string".
@@ -370,20 +475,46 @@ local function uploadOnePhoto(rendition, filepath, galleryId)
     -- and would have been uploaded again on every publish = duplicates.
     -- The URL call is optional in the SDK and the upload response carries no
     -- viewable address (only a presigned PUT), so it is removed.
-    -- "Show in Lumio" at gallery level still works (host + /g/<slug>).
+    -- "Show in Lumio" at gallery level still works (host + /studio/<id>).
+end
+
+-- Looks up a gallery's public slug: prefer the value already stored on the
+-- collection (only set when the gallery was CREATED from this plug-in, or
+-- self-healed on an existing one -- see the self-heal branch in
+-- processRenderedPhotos below), falling back to the background-refreshed
+-- gallery list cache built in viewForCollectionSettings. Returns nil if it
+-- cannot be determined. Used both by that self-heal branch and by
+-- goToPublishedPhoto further below.
+local function resolveGallerySlug(collSettings)
+    local slug = collSettings.gallerySlug
+    if slug and slug ~= "" then return slug end
+    if not collSettings.galleryId or collSettings.galleryId == "" then return nil end
+
+    local prefs = LrPrefs.prefsForPlugin()
+    if type(prefs.galleryCacheJson) ~= "string" or prefs.galleryCacheJson == "" then
+        return nil
+    end
+    local okDecode, cached = pcall(json.decode, prefs.galleryCacheJson)
+    if not (okDecode and type(cached) == "table") then return nil end
+    for _, g in ipairs(cached) do
+        if g.id == collSettings.galleryId then return g.slug end
+    end
+    return nil
 end
 
 -- ============================================================================
--- processRenderedPhotos — Upload-Schleife
+-- processRenderedPhotos — upload loop
 -- ============================================================================
--- Lightroom hat die Photos zu temp-JPEGs gerendert und uebergibt uns
--- den exportContext. Wir iterieren ueber alle Renditions und laden hoch.
+-- Lightroom has rendered the photos to temp JPEGs and hands us the
+-- exportContext. We iterate over all renditions and upload them.
 
 function exportServiceProvider.processRenderedPhotos(functionContext, exportContext)
     local exportSession = exportContext.exportSession
 
-    -- Galerie-ID aus den Collection-Settings holen. Wenn keine: Galerie
-    -- jetzt anlegen (User hatte "neue Galerie" + Titel angegeben).
+    -- Get the gallery ID from the collection settings. If there is none:
+    -- create the gallery now (the user gave a "new gallery" title).
+    -- gallerySlug is only used by goToPublishedPhoto (public gallery link,
+    -- see below) -- goToPublishedCollection itself now uses galleryId.
     local galleryId, gallerySlug, collProps
     if exportContext.publishedCollection then
         local collInfo = exportContext.publishedCollection:getCollectionInfoSummary()
@@ -395,7 +526,7 @@ function exportServiceProvider.processRenderedPhotos(functionContext, exportCont
     end
 
     if (not galleryId or galleryId == "") and collProps then
-        -- Neue Galerie anlegen
+        -- Create a new gallery
         local title = (collProps.galleryTitle or ""):gsub("^%s+", ""):gsub("%s+$", "")
         if title == "" then
             LrDialogs.message(
@@ -414,16 +545,45 @@ function exportServiceProvider.processRenderedPhotos(functionContext, exportCont
         end
         galleryId = created.id
         gallerySlug = created.slug
-        -- In den Collection-Settings persistieren — LR speichert das beim
-        -- naechsten Dialog-Open. Direkter Schreibzugriff auf
-        -- publishedCollection-Settings ist via catalog:withWriteAccessDo.
+        -- Persist into the collection settings -- LR saves this on the
+        -- next dialog open. Direct write access to the published
+        -- collection's settings goes through catalog:withWriteAccessDo.
         local catalog = LrApplication.activeCatalog()
-        catalog:withWriteAccessDo("Lumio: Galerie zuordnen", function()
+        catalog:withWriteAccessDo("Lumio: assign gallery", function()
             local current = exportContext.publishedCollection:getCollectionInfoSummary().collectionSettings or {}
             current.galleryId = galleryId
             current.gallerySlug = gallerySlug
             exportContext.publishedCollection:setCollectionSettings(current)
         end)
+    elseif collProps and (not gallerySlug or gallerySlug == "") then
+        -- SELF-HEAL. gallerySlug is only ever captured above, when a NEW
+        -- gallery is created from this dialog. A collection bound to an
+        -- EXISTING gallery (picked from the dropdown in
+        -- viewForCollectionSettings) never gets one, leaving
+        -- goToPublishedPhoto dependent entirely on the gallery-list cache
+        -- -- which only refreshes when "Edit Lumio Gallery" is reopened,
+        -- so it goes stale as soon as a gallery is created/renamed in
+        -- Studio instead. Resolve it here (same cache-fallback lookup
+        -- used for the public-gallery link) and persist it the same
+        -- proven way used above for a newly created gallery, so it
+        -- self-heals on the very next publish to any collection bound to
+        -- an existing gallery. Best-effort: unlike gallery creation this
+        -- must never fail the publish itself, so it's wrapped in pcall.
+        local resolvedSlug = resolveGallerySlug(collProps)
+        if resolvedSlug and resolvedSlug ~= "" then
+            gallerySlug = resolvedSlug
+            local okHeal, healErr = LrTasks.pcall(function()
+                local catalog = LrApplication.activeCatalog()
+                catalog:withWriteAccessDo("Lumio: repair gallery slug", function()
+                    local current = exportContext.publishedCollection:getCollectionInfoSummary().collectionSettings or {}
+                    current.gallerySlug = gallerySlug
+                    exportContext.publishedCollection:setCollectionSettings(current)
+                end)
+            end)
+            if not okHeal then
+                log:warn("gallerySlug self-heal failed: " .. tostring(healErr))
+            end
+        end
     end
 
     if not galleryId or galleryId == "" then
@@ -434,8 +594,8 @@ function exportServiceProvider.processRenderedPhotos(functionContext, exportCont
     local nPhotos = exportSession:countRenditions()
     local progressScope = exportContext:configureProgress {
         title = nPhotos > 1
-            and (nPhotos .. " Photos nach Lumio hochladen")
-            or "1 Photo nach Lumio hochladen",
+            and (nPhotos .. " photos uploading to Lumio")
+            or "1 photo uploading to Lumio",
     }
 
     local uploaded = 0
@@ -450,8 +610,8 @@ function exportServiceProvider.processRenderedPhotos(functionContext, exportCont
     for i, rendition in exportContext:renditions { stopIfCanceled = true } do
         progressScope:setPortionComplete((i - 1) / nPhotos)
 
-        -- Render abwarten — LR rendert in Threads, wir bekommen den
-        -- fertigen Pfad per waitForRender.
+        -- Wait for the render -- LR renders on background threads, we get
+        -- the finished path via waitForRender.
         local success, pathOrMessage = rendition:waitForRender()
         if progressScope:isCanceled() then break end
 
@@ -476,7 +636,7 @@ function exportServiceProvider.processRenderedPhotos(functionContext, exportCont
                 log:warn("Upload failed for " .. fname .. ": " .. tostring(errMsg))
                 rendition:uploadFailed(tostring(errMsg))
             end
-            -- Temp-File aufraeumen
+            -- Clean up the temp file
             if pathOrMessage and LrFileUtils.exists(pathOrMessage) then
                 LrFileUtils.delete(pathOrMessage)
             end
@@ -485,7 +645,7 @@ function exportServiceProvider.processRenderedPhotos(functionContext, exportCont
         progressScope:setPortionComplete(i / nPhotos)
     end
 
-    -- Status auf 'live' setzen wenn gewuenscht
+    -- Set status to 'live' if requested.
     -- A failure here used to surface only in the log, so the photographer
     -- believed the gallery was published and sent the client a link to a
     -- gallery that was still a draft. This actually happened at 14:15 (HTTP 429).
@@ -534,26 +694,26 @@ end
 -- ============================================================================
 -- deletePhotosFromPublishedCollection
 -- ============================================================================
--- Wird gerufen wenn der Photographer Photos aus der Published-Collection
--- entfernt oder die Collection insgesamt loescht. Wir loeschen die
--- entsprechenden Lumio-Files via API.
+-- Called when the photographer removes photos from the published
+-- collection, or deletes the collection entirely. We delete the
+-- corresponding Lumio files via the API.
 
 function exportServiceProvider.deletePhotosFromPublishedCollection(
     publishSettings, arrayOfPhotoIds, deletedCallback, localCollectionId
 )
-    -- Lumio-Galerie ermitteln: aus der publishedCollection-Property,
-    -- die LR an der publishSettings nicht direkt durchgibt. Wir muessen
-    -- es ueber LrApplication.activeCatalog():getPublishedCollectionByLocalIdentifier.
+    -- Resolve the Lumio gallery: from the publishedCollection property,
+    -- which LR does not hand to publishSettings directly. We have to go
+    -- through LrApplication.activeCatalog():getPublishedCollectionByLocalIdentifier.
     local catalog = LrApplication.activeCatalog()
     local publishedColl = catalog:getPublishedCollectionByLocalIdentifier(localCollectionId)
     if not publishedColl then
-        log:warn("delete: publishedCollection nicht gefunden")
+        log:warn("delete: publishedCollection not found")
         return
     end
     local collInfo = publishedColl:getCollectionInfoSummary()
     local galleryId = collInfo and collInfo.collectionSettings and collInfo.collectionSettings.galleryId
     if not galleryId or galleryId == "" then
-        log:warn("delete: galleryId nicht gesetzt")
+        log:warn("delete: galleryId not set")
         return
     end
 
@@ -571,41 +731,104 @@ end
 -- ============================================================================
 -- goToPublishedCollection
 -- ============================================================================
--- Wird vom "Show in Lumio"-Menueeintrag gerufen. Oeffnet die
--- Galerie im Browser.
+-- Called from the "Show in Lumio" menu entry (right-click a published
+-- collection). Opens the gallery's STUDIO management page (photographer-
+-- facing: branding, status, files) -- NOT the public customer-facing
+-- gallery. A photographer right-clicking the COLLECTION wants to manage
+-- it, not see what the customer sees; goToPublishedPhoto below (right-
+-- click a PHOTO) covers the "show me the public link" case instead.
+-- The Studio route is keyed by galleryId, not slug, so this does not need
+-- resolveGallerySlug.
 function exportServiceProvider.goToPublishedCollection(publishSettings, info)
     local LrHttp = import "LrHttp"
     local collInfo = info.publishedCollection and info.publishedCollection:getCollectionInfoSummary()
     if not collInfo then return end
     local collSettings = collInfo.collectionSettings or {}
-    local slug = collSettings.gallerySlug
+    local galleryId = collSettings.galleryId
     -- Was `publishSettings.host`, which does not exist -- the host is set in
     -- the plug-in's own settings (PluginManager), not in the publish service
     -- settings. That is why "Show in Lumio" could never have worked.
     local host = (LrPrefs.prefsForPlugin().host or ""):gsub("/+$", "")
 
-    -- The slug is missing if the gallery was picked from the dropdown (it was
-    -- only stored when creating a new one). Look it up in the cache by galleryId.
-    if (not slug or slug == "") and collSettings.galleryId then
-        local prefs = LrPrefs.prefsForPlugin()
-        if type(prefs.galleryCacheJson) == "string" and prefs.galleryCacheJson ~= "" then
-            local okDecode, cached = pcall(json.decode, prefs.galleryCacheJson)
-            if okDecode and type(cached) == "table" then
-                for _, g in ipairs(cached) do
-                    if g.id == collSettings.galleryId then slug = g.slug break end
-                end
-            end
-        end
-    end
-
-    if not slug or slug == "" or host == "" then
+    if not galleryId or galleryId == "" or host == "" then
         LrDialogs.message("Lumio",
-            "Gallery slug or host is missing. Publish the collection once, " ..
+            "Gallery ID or host is missing. Publish the collection once, " ..
             "or set the server address in Plug-in Manager.", "warning")
         return
     end
-    -- Public-Galerie-URL
-    LrHttp.openUrlInBrowser(host:gsub("/+$", "") .. "/g/" .. slug)
+    -- Studio gallery management URL
+    LrHttp.openUrlInBrowser(host .. "/studio/" .. galleryId)
+end
+
+-- ============================================================================
+-- goToPublishedPhoto
+-- ============================================================================
+-- Called from the per-photo "Show public gallery" menu entry (right-click
+-- a single published photo). Complements goToPublishedCollection: that one
+-- opens the Studio management view, this one opens the PUBLIC customer-
+-- facing gallery link -- for the times a photographer genuinely wants to
+-- see what the client sees, which a Studio-only link can't cover (it also
+-- needs an active Studio browser session, unlike the public link).
+-- Opens the whole gallery, not a link anchored to this one photo -- the
+-- public gallery view has no per-photo deep link today.
+--
+-- REAL-DEVICE FIX (credit: @canja006, tested against a real LrC install,
+-- see PR #27). The first version assumed info.publishedCollectionInfo had
+-- the same shape as getCollectionInfoSummary() elsewhere in this file (in
+-- particular a .collectionSettings field) -- wrong. Logged on a real
+-- install, info.publishedCollectionInfo only ever carries
+-- {isDefaultCollection, name, parents}, and LrPublishedPhoto has no
+-- getPublishedCollection() either. The only route to the collection's
+-- settings is via the PHOTO: photo:getContainedPublishedCollections().
+-- That call reads the catalog and therefore yields, so it cannot run
+-- inside a plain pcall ("Yielding is not allowed within a C or metamethod
+-- call") -- hence the LrTasks.startAsyncTask wrapper.
+function exportServiceProvider.goToPublishedPhoto(publishSettings, info)
+    local LrHttp = import "LrHttp"
+    info = info or {}
+
+    LrTasks.startAsyncTask(function()
+        -- publishedCollectionInfo.name is the one usable hint for WHICH
+        -- collection we want, in case the photo is published to more than
+        -- one Lumio gallery at once.
+        local wantedName = (type(info.publishedCollectionInfo) == "table")
+                           and info.publishedCollectionInfo.name or nil
+
+        local collSettings = {}
+        if info.photo then
+            local ok, colls = LrTasks.pcall(function()
+                return info.photo:getContainedPublishedCollections()
+            end)
+            if ok and type(colls) == "table" then
+                local fallback
+                for _, coll in ipairs(colls) do
+                    local okName, name = LrTasks.pcall(function() return coll:getName() end)
+                    local okSummary, summary = LrTasks.pcall(function()
+                        return coll:getCollectionInfoSummary()
+                    end)
+                    local settings = okSummary and summary and summary.collectionSettings or nil
+                    if type(settings) == "table" and settings.galleryId and settings.galleryId ~= "" then
+                        if okName and wantedName and name == wantedName then
+                            collSettings = settings
+                            break
+                        end
+                        fallback = fallback or settings
+                    end
+                end
+                if next(collSettings) == nil and fallback then collSettings = fallback end
+            end
+        end
+
+        local host = (LrPrefs.prefsForPlugin().host or ""):gsub("/+$", "")
+        local slug = resolveGallerySlug(collSettings)
+        if not slug or slug == "" or host == "" then
+            LrDialogs.message("Lumio",
+                "Gallery slug or host is missing. Publish the collection once, " ..
+                "or set the server address in Plug-in Manager.", "warning")
+            return
+        end
+        LrHttp.openUrlInBrowser(host .. "/g/" .. slug)
+    end)
 end
 
 return exportServiceProvider
