@@ -14,7 +14,9 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
-import { useT } from "@/lib/i18n";
+import type { FieldMode, InvoiceSettings } from "@/lib/api";
+import { E_ADDRESS_TYPE_OPTIONS, TAX_ID_TYPE_OPTIONS } from "@/lib/invoice-settings";
+import { useT, useFormat } from "@/lib/i18n";
 import { Button, Input, Select } from "@/components/ui";
 import { useErrorText } from "@/lib/error-i18n";
 import { useConfirm } from "@/components/ui/dialogs";
@@ -43,6 +45,10 @@ function SettingsInner() {
   const confirm = useConfirm();
   const errText = useErrorText();
   const t = useT();
+  const fmt = useFormat();
+  // Country names in the interface language.
+  const regionNames = new Intl.DisplayNames([fmt.bcp47], { type: "region" });
+  const regionName = (code: string) => regionNames.of(code) ?? code;
   const params = useSearchParams();
   const [config, setConfig] = useState<Config | null>(null);
   const [connect, setConnect] = useState<Connect | null>(null);
@@ -345,6 +351,19 @@ function SettingsInner() {
         />
       </Section>
 
+      {/* What the checkout asks customers for beyond name, address and phone */}
+      <Section
+        title={t("printSettings.invoicingTitle")}
+        description={t("printSettings.invoicingDesc")}
+      >
+        <InvoiceSettingsForm
+          value={config.invoiceSettings}
+          regionName={regionName}
+          saving={saving}
+          onSave={(invoiceSettings) => save({ invoiceSettings })}
+        />
+      </Section>
+
       {/* AGB / Privacy */}
       <Section
         title={t("printSettings.termsTitle")}
@@ -518,6 +537,235 @@ function SaveForm({
       </div>
       <div className="flex justify-end">
         <Button type="submit" disabled={!dirty || saving} size="sm">{t("common.save")}</Button>
+      </div>
+    </form>
+  );
+}
+
+// -----------------------------------------------------------------------------
+// Invoice settings — what the checkout asks for beyond name, address and phone
+// -----------------------------------------------------------------------------
+
+const MODES: FieldMode[] = ["off", "optional", "required"];
+
+/** off / optional / required — at module level, so it keeps its identity (and
+ *  the browser its focus) while the rest of the form re-renders. */
+function ModeSelect({
+  value,
+  onChange,
+}: {
+  value: FieldMode;
+  onChange: (m: FieldMode) => void;
+}) {
+  const t = useT();
+  const label = (m: FieldMode) =>
+    m === "off"
+      ? t("printSettings.modeOff")
+      : m === "optional"
+        ? t("printSettings.modeOptional")
+        : t("printSettings.modeRequired");
+  return (
+    <Select value={value} onChange={(e) => onChange(e.target.value as FieldMode)}>
+      {MODES.map((m) => (
+        <option key={m} value={m}>
+          {label(m)}
+        </option>
+      ))}
+    </Select>
+  );
+}
+
+function InvoiceSettingsForm({
+  value,
+  regionName,
+  saving,
+  onSave,
+}: {
+  value: InvoiceSettings;
+  regionName: (code: string) => string;
+  saving: boolean;
+  onSave: (next: InvoiceSettings) => void | Promise<void>;
+}) {
+  const t = useT();
+  const [draft, setDraft] = useState<InvoiceSettings>(value);
+  // Reload after a save (or when the page is opened): show what is stored.
+  const stored = JSON.stringify(value);
+  useEffect(() => {
+    setDraft(value);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stored]);
+  const dirty = JSON.stringify(draft) !== stored;
+
+  // "Codice fiscale (Italy)" — the type's national name and its country.
+  const typeLabel = (o: { name: string | null; country: string | null }) =>
+    o.name && o.country
+      ? `${o.name} (${regionName(o.country)})`
+      : t("printSettings.checkGeneric");
+
+  const card = "rounded-md border border-line-subtle p-3 space-y-3";
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        void onSave(draft);
+      }}
+      className="space-y-4"
+    >
+      <div className={card}>
+        <label className="block max-w-xs">
+          <span className="block text-sm font-medium mb-1">
+            {t("printSettings.checkoutTaxId")}
+          </span>
+          <ModeSelect
+            value={draft.checkoutTaxId}
+            onChange={(m) => setDraft({ ...draft, checkoutTaxId: m })}
+          />
+        </label>
+        <p className="text-xs text-ink-tertiary">{t("printSettings.checkoutTaxIdHint")}</p>
+      </div>
+
+      {/* VAT number — checked by its country prefix, no type to choose */}
+      <div className={card}>
+        <h3 className="text-sm font-medium">{t("printSettings.fieldVatNumber")}</h3>
+        <div className="grid sm:grid-cols-3 gap-3">
+          <label className="block">
+            <span className="block text-xs text-ink-tertiary mb-1">{t("printSettings.forPrivate")}</span>
+            <ModeSelect
+              value={draft.vatNumber.private}
+              onChange={(m) => setDraft({ ...draft, vatNumber: { ...draft.vatNumber, private: m } })}
+            />
+          </label>
+          <label className="block">
+            <span className="block text-xs text-ink-tertiary mb-1">{t("printSettings.forBusiness")}</span>
+            <ModeSelect
+              value={draft.vatNumber.business}
+              onChange={(m) => setDraft({ ...draft, vatNumber: { ...draft.vatNumber, business: m } })}
+            />
+          </label>
+          <label className="block">
+            <span className="block text-xs text-ink-tertiary mb-1">{t("printSettings.fieldLabel")}</span>
+            <Input
+              value={draft.vatNumber.label ?? ""}
+              maxLength={60}
+              placeholder={t("printSettings.labelDefault")}
+              onChange={(e) =>
+                setDraft({ ...draft, vatNumber: { ...draft.vatNumber, label: e.target.value || null } })
+              }
+            />
+          </label>
+        </div>
+        <p className="text-xs text-ink-tertiary">{t("printSettings.vatCheckHint")}</p>
+      </div>
+
+      {/* Tax ID */}
+      <div className={card}>
+        <h3 className="text-sm font-medium">{t("printSettings.fieldTaxId")}</h3>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <label className="block">
+            <span className="block text-xs text-ink-tertiary mb-1">{t("printSettings.forPrivate")}</span>
+            <ModeSelect
+              value={draft.taxId.private}
+              onChange={(m) => setDraft({ ...draft, taxId: { ...draft.taxId, private: m } })}
+            />
+          </label>
+          <label className="block">
+            <span className="block text-xs text-ink-tertiary mb-1">{t("printSettings.forBusiness")}</span>
+            <ModeSelect
+              value={draft.taxId.business}
+              onChange={(m) => setDraft({ ...draft, taxId: { ...draft.taxId, business: m } })}
+            />
+          </label>
+          <label className="block">
+            <span className="block text-xs text-ink-tertiary mb-1">{t("printSettings.checkAs")}</span>
+            <Select
+              value={draft.taxId.type}
+              onChange={(e) =>
+                setDraft({ ...draft, taxId: { ...draft.taxId, type: e.target.value as InvoiceSettings["taxId"]["type"] } })
+              }
+            >
+              {TAX_ID_TYPE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {typeLabel(o)}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <label className="block">
+            <span className="block text-xs text-ink-tertiary mb-1">{t("printSettings.fieldLabel")}</span>
+            <Input
+              value={draft.taxId.label ?? ""}
+              maxLength={60}
+              placeholder={
+                TAX_ID_TYPE_OPTIONS.find((o) => o.value === draft.taxId.type)?.name ??
+                t("printSettings.labelDefault")
+              }
+              onChange={(e) =>
+                setDraft({ ...draft, taxId: { ...draft.taxId, label: e.target.value || null } })
+              }
+            />
+          </label>
+        </div>
+      </div>
+
+      {/* E-invoice address */}
+      <div className={card}>
+        <h3 className="text-sm font-medium">{t("printSettings.fieldEAddress")}</h3>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <label className="block">
+            <span className="block text-xs text-ink-tertiary mb-1">{t("printSettings.forPrivate")}</span>
+            <ModeSelect
+              value={draft.eAddress.private}
+              onChange={(m) => setDraft({ ...draft, eAddress: { ...draft.eAddress, private: m } })}
+            />
+          </label>
+          <label className="block">
+            <span className="block text-xs text-ink-tertiary mb-1">{t("printSettings.forBusiness")}</span>
+            <ModeSelect
+              value={draft.eAddress.business}
+              onChange={(m) => setDraft({ ...draft, eAddress: { ...draft.eAddress, business: m } })}
+            />
+          </label>
+          <label className="block">
+            <span className="block text-xs text-ink-tertiary mb-1">{t("printSettings.checkAs")}</span>
+            <Select
+              value={draft.eAddress.type}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  eAddress: { ...draft.eAddress, type: e.target.value as InvoiceSettings["eAddress"]["type"] },
+                })
+              }
+            >
+              {E_ADDRESS_TYPE_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {typeLabel(o)}
+                </option>
+              ))}
+            </Select>
+          </label>
+          <label className="block">
+            <span className="block text-xs text-ink-tertiary mb-1">{t("printSettings.fieldLabel")}</span>
+            <Input
+              value={draft.eAddress.label ?? ""}
+              maxLength={60}
+              placeholder={
+                E_ADDRESS_TYPE_OPTIONS.find((o) => o.value === draft.eAddress.type)?.name ??
+                t("printSettings.labelDefault")
+              }
+              onChange={(e) =>
+                setDraft({ ...draft, eAddress: { ...draft.eAddress, label: e.target.value || null } })
+              }
+            />
+          </label>
+        </div>
+      </div>
+
+      <p className="text-xs text-ink-tertiary">{t("printSettings.checkHint")}</p>
+      <div className="flex justify-end">
+        <Button type="submit" disabled={!dirty || saving} size="sm">
+          {t("common.save")}
+        </Button>
       </div>
     </form>
   );

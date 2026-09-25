@@ -11,6 +11,13 @@ import { logger } from "../../logger.js";
 import { sendMail } from "../mail.js";
 import { resolveUnitPriceForQuantity, type PriceTierInput } from "./pricing-tiers.js";
 import {
+  normalizeCheckoutCustomer,
+  requirePhoneForDelivery,
+  type CheckoutAddressInput,
+  type CheckoutCustomerInput,
+} from "./customer-data.js";
+import { getInvoiceSettings } from "./shop.js";
+import {
   tmplPrintOrderConfirmGuest,
   tmplPrintOrderNotifyStudio,
   tmplPrintOrderShippedGuest,
@@ -272,17 +279,15 @@ export async function priceCart(opts: {
 // =============================================================================
 // Order-Creation
 // =============================================================================
-export interface CheckoutInput {
+export interface CheckoutInput extends CheckoutCustomerInput {
   tenantId: string;
   galleryId: string;
   items: CartItemInput[];
   shippingMethodId: string;
   guestEmail: string;
-  guestName: string;
   /** Null only allowed when the resolved shipping method is a pickup
    *  method — enforced below, after priceCart() resolves it. */
-  shippingAddress: Record<string, unknown> | null;
-  billingAddress?: Record<string, unknown> | null;
+  shippingAddress: CheckoutAddressInput | null;
   paymentMode: "stripe_connect" | "offline_invoice";
   guestNote?: string | null;
 }
@@ -296,6 +301,14 @@ export async function createOrder(input: CheckoutInput): Promise<{
   orderNumber: string;
   totals: PricingResult;
 }> {
+  // Customer data first, before pricing: what it has to contain follows the
+  // studio's invoice settings, and a typo in a tax code should not cost a
+  // pricing round trip.
+  const customer = normalizeCheckoutCustomer(
+    input,
+    await getInvoiceSettings(input.tenantId)
+  );
+
   const totals = await priceCart({
     tenantId: input.tenantId,
     galleryId: input.galleryId,
@@ -305,6 +318,19 @@ export async function createOrder(input: CheckoutInput): Promise<{
   if (!totals.isPickupDelivery && !input.shippingAddress) {
     throw new Error("Lieferadresse erforderlich fuer diese Versandmethode");
   }
+  // A courier needs a phone number; pickup does not. Only known now, once
+  // priceCart() has resolved the shipping method.
+  requirePhoneForDelivery(customer.guestPhone, totals.isPickupDelivery);
+  // The phone is collected once, with the customer's details — put it on
+  // the shipping address too, since the lab adapters, the mails and the
+  // studio's address block all read the phone from there.
+  const shippingAddress =
+    !totals.isPickupDelivery && input.shippingAddress
+      ? {
+          ...input.shippingAddress,
+          ...(customer.guestPhone ? { phone: customer.guestPhone } : {}),
+        }
+      : null;
 
   // Provider-Resolve: erste Variante reicht — alle Items eines Carts
   // muessen denselben Provider haben (sonst splitten wir spaeter).
@@ -323,9 +349,20 @@ export async function createOrder(input: CheckoutInput): Promise<{
       tenantId: input.tenantId,
       galleryId: input.galleryId,
       guestEmail: input.guestEmail.toLowerCase().trim(),
-      guestName: input.guestName.trim(),
-      shippingAddress: input.shippingAddress as never,
-      billingAddress: (input.billingAddress ?? null) as never,
+      guestName: customer.guestName,
+      guestFirstName: customer.guestFirstName,
+      guestLastName: customer.guestLastName,
+      guestPhone: customer.guestPhone,
+      guestTaxCode: customer.guestTaxCode,
+      customerAddress: customer.customerAddress as never,
+      shippingAddress: shippingAddress as never,
+      billingAddress: customer.billingAddress as never,
+      invoiceRequested: customer.invoiceRequested,
+      invoiceKind: customer.invoiceKind,
+      invoiceName: customer.invoiceName,
+      invoiceVatNumber: customer.invoiceVatNumber,
+      invoiceTaxCode: customer.invoiceTaxCode,
+      invoiceEAddress: customer.invoiceEAddress,
       paymentMode: input.paymentMode,
       subtotalCents: totals.subtotalCents,
       shippingCents: totals.shippingCents,

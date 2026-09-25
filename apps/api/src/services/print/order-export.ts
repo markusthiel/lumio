@@ -154,6 +154,21 @@ export interface OrderSummaryHeader {
   status: string;
   guestName: string;
   guestEmail: string;
+  /** Customer registry (anagrafica). Absent/null on orders placed before
+   *  the full registry was collected. */
+  guestPhone?: string | null;
+  guestTaxCode?: string | null;
+  customerAddress?: OrderSummaryAddress | null;
+  /** Set only when the customer asked for an invoice. Which identifiers
+   *  are present depends on what the studio's invoice settings asked for. */
+  invoice?: {
+    kind?: string | null;
+    name: string | null;
+    vatNumber: string | null;
+    taxCode: string | null;
+    eAddress?: string | null;
+    address: OrderSummaryAddress | null;
+  } | null;
   paymentMode: string;
   currency: string;
   subtotalCents: number;
@@ -170,6 +185,12 @@ export interface OrderSummaryHeader {
   /** ISO timestamp, printed as-is — no timezone conversion, this is a
    *  server-generated file, not a locale-aware UI. */
   createdAt: string;
+}
+
+function addressLine(a: OrderSummaryAddress): string {
+  return [a.street, a.street2, `${a.postalCode} ${a.city}`, a.region, a.countryCode]
+    .filter(Boolean)
+    .join(", ");
 }
 
 /** Pipes and newlines break a Markdown table cell — escape/strip them. */
@@ -193,25 +214,33 @@ export function buildOrderSummaryMarkdown(
   lines.push(`- **Status:** ${header.status}`);
   lines.push(`- **Placed:** ${header.createdAt}`);
   lines.push(`- **Customer:** ${header.guestName} <${header.guestEmail}>`);
+  if (header.guestTaxCode) {
+    lines.push(`- **Tax code:** ${header.guestTaxCode}`);
+  }
+  if (header.guestPhone) lines.push(`- **Phone:** ${header.guestPhone}`);
+  if (header.customerAddress) {
+    lines.push(`- **Customer address:** ${addressLine(header.customerAddress)}`);
+  }
   lines.push(`- **Payment mode:** ${header.paymentMode}`);
   if (header.shippingMethodName) {
     lines.push(`- **Shipping method:** ${header.shippingMethodName}`);
   }
   if (header.shippingAddress) {
     const a = header.shippingAddress;
-    const addressLine = [
-      a.street,
-      a.street2,
-      `${a.postalCode} ${a.city}`,
-      a.region,
-      a.countryCode,
-    ]
-      .filter(Boolean)
-      .join(", ");
-    lines.push(`- **Shipping address:** ${addressLine}`);
-    if (a.phone) lines.push(`- **Phone:** ${a.phone}`);
+    lines.push(`- **Shipping address:** ${addressLine(a)}`);
+    // Orders from before the customer registry only have the phone here.
+    if (a.phone && !header.guestPhone) lines.push(`- **Phone:** ${a.phone}`);
   } else {
     lines.push(`- **Shipping:** in-store pickup — no address collected`);
+  }
+  if (header.invoice) {
+    const inv = header.invoice;
+    lines.push(`- **Invoice requested:** yes${inv.kind ? ` (${inv.kind})` : ""}`);
+    if (inv.name) lines.push(`  - Invoice to: ${mdEscape(inv.name)}`);
+    if (inv.vatNumber) lines.push(`  - VAT number: ${inv.vatNumber}`);
+    if (inv.taxCode) lines.push(`  - Tax code: ${inv.taxCode}`);
+    if (inv.eAddress) lines.push(`  - E-invoice address: ${inv.eAddress}`);
+    if (inv.address) lines.push(`  - Invoice address: ${addressLine(inv.address)}`);
   }
   if (header.trackingNumber || header.trackingUrl) {
     const trackingBits = [header.trackingCarrier, header.trackingNumber]

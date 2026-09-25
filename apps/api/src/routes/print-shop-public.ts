@@ -27,6 +27,12 @@ import { isFeatureEnabled } from "../services/feature-flags.js";
 import { resolveGalleryBySlug } from "../services/gallery-lookup.js";
 import { loadVisitor } from "./galleries.js";
 import { createOrder, priceCart } from "../services/print/orders.js";
+import { CheckoutValidationError } from "../services/print/customer-data.js";
+import { describeInvoiceSettings } from "../services/print/invoice-settings.js";
+import {
+  getInvoiceSettings,
+  resolveDefaultCountry,
+} from "../services/print/shop.js";
 import { createPaymentIntentForOrder } from "../services/print/payment.js";
 import { getPrintProvider } from "../services/print/providers.js";
 
@@ -86,7 +92,8 @@ export async function registerPrintShopPublicRoutes(app: FastifyInstance) {
       );
       if (!visitor) return reply.status(401).send({ error: "unauthorized" });
 
-      const [cfg, connect, products, shipping] = await Promise.all([
+      const [cfg, connect, products, shipping, invoiceSettings, defaultCountry] =
+        await Promise.all([
         prisma.tenantPrintShopConfig.findUnique({
           where: { tenantId: gal.tenantId },
         }),
@@ -122,6 +129,8 @@ export async function registerPrintShopPublicRoutes(app: FastifyInstance) {
           where: { tenantId: gal.tenantId, enabled: true },
           orderBy: [{ displayOrder: "asc" }, { priceCents: "asc" }],
         }),
+        getInvoiceSettings(gal.tenantId),
+        resolveDefaultCountry(gal.tenantId),
       ]);
 
       // Pro Provider den Tenant-Eintrag prüfen — falls Provider in DB
@@ -186,6 +195,13 @@ export async function registerPrintShopPublicRoutes(app: FastifyInstance) {
             : null,
         },
         products: filteredProducts,
+        // What the checkout asks for beyond name, address and phone: the
+        // studio's own invoice settings. The server enforces the same rules
+        // in createOrder().
+        invoicing: describeInvoiceSettings(invoiceSettings),
+        // The country the address fields start on (from the studio's legal
+        // details), or null.
+        defaultCountry,
         shipping: shipping.map((s) => ({
           id: s.id,
           name: s.name,
@@ -269,34 +285,46 @@ export async function registerPrintShopPublicRoutes(app: FastifyInstance) {
   // ----------------------------------------------------------------------
   // Erstellt eine Order. Bei stripe_connect: zusaetzlich PaymentIntent
   // erzeugen und client_secret zurueckgeben.
+  const addressSchema = z.object({
+    street: z.string().trim().min(1).max(200),
+    street2: z.string().trim().max(200).optional(),
+    postalCode: z.string().trim().min(1).max(20),
+    city: z.string().trim().min(1).max(100),
+    region: z.string().trim().max(100).optional(),
+    countryCode: z.string().length(2).toUpperCase(),
+  });
   const checkoutSchema = z.object({
     items: priceSchema.shape.items,
     shippingMethodId: z.string().uuid(),
-    guestName: z.string().min(1).max(200),
+    // Customer registry (anagrafica). Name, email and the residence address
+    // are always mandatory. Phone is required for a courier order and
+    // optional for pickup, and the tax ID and the invoice identifiers are
+    // asked for only as far as the studio's invoice settings say — all of
+    // that is checked in createOrder(), which is where the shipping method
+    // and the settings are known.
+    guestFirstName: z.string().trim().min(1).max(100),
+    guestLastName: z.string().trim().min(1).max(100),
     guestEmail: z.string().email().max(200),
+    guestPhone: z.string().trim().max(50).nullish(),
+    guestTaxCode: z.string().trim().max(40).nullish(),
+    // Residence address — always collected, pickup orders included.
+    customerAddress: addressSchema,
     // Required unless the chosen shipping method is a pickup method —
     // that depends on a DB lookup, so it's enforced in createOrder(),
     // not here.
-    shippingAddress: z
+    shippingAddress: addressSchema.optional(),
+    // Present = the customer asked for an invoice; its address becomes the
+    // order's billingAddress. Absent/null = no invoice.
+    invoice: z
       .object({
-        street: z.string().min(1).max(200),
-        street2: z.string().max(200).optional(),
-        postalCode: z.string().min(1).max(20),
-        city: z.string().min(1).max(100),
-        region: z.string().max(100).optional(),
-        countryCode: z.string().length(2).toUpperCase(),
-        phone: z.string().max(50).optional(),
-      })
-      .optional(),
-    billingAddress: z
-      .object({
-        street: z.string().min(1).max(200),
-        street2: z.string().max(200).optional(),
-        postalCode: z.string().min(1).max(20),
-        city: z.string().min(1).max(100),
-        region: z.string().max(100).optional(),
-        countryCode: z.string().length(2).toUpperCase(),
-        phone: z.string().max(50).optional(),
+        kind: z.enum(["private", "business"]),
+        /** The company name, or first + last name for a private person. */
+        name: z.string().trim().min(1).max(200),
+        // Which of these are asked for or required is the studio's setting.
+        vatNumber: z.string().trim().max(30).nullish(),
+        taxCode: z.string().trim().max(40).nullish(),
+        eAddress: z.string().trim().max(254).nullish(),
+        address: addressSchema,
       })
       .nullable()
       .optional(),
@@ -348,10 +376,14 @@ export async function registerPrintShopPublicRoutes(app: FastifyInstance) {
             finishOptionId: i.finishOptionId ?? null,
           })),
           shippingMethodId: body.shippingMethodId,
-          guestName: body.guestName,
+          guestFirstName: body.guestFirstName,
+          guestLastName: body.guestLastName,
           guestEmail: body.guestEmail,
+          guestPhone: body.guestPhone ?? null,
+          guestTaxCode: body.guestTaxCode ?? null,
+          customerAddress: body.customerAddress,
           shippingAddress: body.shippingAddress ?? null,
-          billingAddress: body.billingAddress ?? null,
+          invoice: body.invoice ?? null,
           paymentMode: body.paymentMode,
           guestNote: body.guestNote ?? null,
         });
@@ -376,6 +408,16 @@ export async function registerPrintShopPublicRoutes(app: FastifyInstance) {
           payment: { mode: "offline_invoice" },
         };
       } catch (err) {
+        // A value that fails validation carries its own stable code and the
+        // field concerned, so the frontend can translate it; everything else
+        // stays the generic checkout_failed.
+        if (err instanceof CheckoutValidationError) {
+          return reply.status(400).send({
+            error: err.code,
+            message: err.message,
+            ...(err.field ? { field: err.field } : {}),
+          });
+        }
         return reply.status(400).send({
           error: "checkout_failed",
           message: err instanceof Error ? err.message : "Fehler",

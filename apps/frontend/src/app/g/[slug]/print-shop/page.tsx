@@ -36,6 +36,20 @@ import {
   buildQuantityByVariantMap,
   willDowngradeTier,
 } from "@/lib/print-pricing";
+import {
+  buildCheckoutCustomerPayload,
+  checkoutTaxCodeMode,
+  emptyCheckoutForm,
+  fieldLabel,
+  isCheckoutFormComplete,
+  isValidEmail,
+  isValidPhone,
+} from "@/lib/print-checkout";
+import {
+  AddressFields,
+  FieldRow,
+  InvoiceSection,
+} from "@/components/print-shop/CheckoutFields";
 
 // Deep quantity-break tiers (e.g. "400 and above") need a generous
 // ceiling — must match the server-side cap in print-shop-public.ts.
@@ -742,18 +756,22 @@ function CartStep({
   const [shippingMethodId, setShippingMethodId] = useState<string>(
     catalog.shipping[0]?.id ?? ""
   );
-  const isPickup =
-    catalog.shipping.find((m) => m.id === shippingMethodId)?.isPickup ?? false;
-  const [guestName, setGuestName] = useState("");
-  const [guestEmail, setGuestEmail] = useState("");
-  const [addr, setAddr] = useState({
-    street: "",
-    street2: "",
-    postalCode: "",
-    city: "",
-    countryCode: "DE",
-    phone: "",
-  });
+  const selectedShipping = catalog.shipping.find((m) => m.id === shippingMethodId);
+  const isPickup = selectedShipping?.isPickup ?? false;
+  // Default country of the address fields: the one in the studio's legal
+  // details, else the first one a shipping method is limited to, else Germany
+  // (the project's default market).
+  const [form, setForm] = useState(() =>
+    emptyCheckoutForm(
+      catalog.defaultCountry ??
+        catalog.shipping.find((m) => m.countries.length > 0)?.countries[0] ??
+        "DE"
+    )
+  );
+  // Whether the checkout asks for a tax ID, and if it must be given: the
+  // studio's setting, and a typed one (a codice fiscale) is only required of
+  // customers living in its country.
+  const taxCodeMode = checkoutTaxCodeMode(catalog.invoicing, form);
   const [guestNote, setGuestNote] = useState("");
   const [paymentMode, setPaymentMode] = useState<
     "stripe_connect" | "offline_invoice"
@@ -854,20 +872,7 @@ function CartStep({
           finishOptionId: c.finishOptionId,
         })),
         shippingMethodId,
-        guestName,
-        guestEmail,
-        ...(isPickup
-          ? {}
-          : {
-              shippingAddress: {
-                street: addr.street,
-                ...(addr.street2 ? { street2: addr.street2 } : {}),
-                postalCode: addr.postalCode,
-                city: addr.city,
-                countryCode: addr.countryCode,
-                ...(addr.phone ? { phone: addr.phone } : {}),
-              },
-            }),
+        ...buildCheckoutCustomerPayload(catalog.invoicing, form, isPickup),
         paymentMode,
         guestNote: guestNote || undefined,
         acceptedTerms,
@@ -1018,6 +1023,77 @@ function CartStep({
         </ul>
       </section>
 
+      {/* Dati cliente (Anagrafica) */}
+      <section className="rounded-md border border-line-subtle bg-surface-raised p-4">
+        <h2 className="text-sm font-semibold mb-3">{t("printShop.customerData")}</h2>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <FieldRow
+            label={t("printShop.firstName")}
+            required
+            value={form.firstName}
+            onChange={(v) => setForm({ ...form, firstName: v })}
+            autoComplete="given-name"
+          />
+          <FieldRow
+            label={t("printShop.lastName")}
+            required
+            value={form.lastName}
+            onChange={(v) => setForm({ ...form, lastName: v })}
+            autoComplete="family-name"
+          />
+          <FieldRow
+            label={t("printShop.email")}
+            type="email"
+            required
+            value={form.email}
+            onChange={(v) => setForm({ ...form, email: v })}
+            autoComplete="email"
+            error={
+              form.email.trim() && !isValidEmail(form.email)
+                ? t("printShop.emailInvalid")
+                : undefined
+            }
+          />
+          {/* A courier needs a phone number; pickup does not. */}
+          <FieldRow
+            label={
+              isPickup
+                ? `${t("printShop.phone")} (${t("printShop.optional")})`
+                : t("printShop.phone")
+            }
+            type="tel"
+            required={!isPickup}
+            value={form.phone}
+            onChange={(v) => setForm({ ...form, phone: v })}
+            autoComplete="tel"
+            error={
+              form.phone.trim() && !isValidPhone(form.phone)
+                ? t("printShop.phoneInvalid")
+                : undefined
+            }
+          />
+          {taxCodeMode !== "off" && (
+            <FieldRow
+              label={
+                fieldLabel(catalog.invoicing.taxId.label, t("printShop.taxCode")) +
+                (taxCodeMode === "optional" ? ` (${t("printShop.optional")})` : "")
+              }
+              required={taxCodeMode === "required"}
+              value={form.taxCode}
+              onChange={(v) => setForm({ ...form, taxCode: v.toUpperCase() })}
+              className="sm:col-span-2"
+            />
+          )}
+        </div>
+        <h3 className="text-xs font-semibold text-ink-secondary mt-4 mb-2">
+          {t("printShop.residenceAddress")}
+        </h3>
+        <AddressFields
+          value={form.address}
+          onChange={(address) => setForm({ ...form, address })}
+        />
+      </section>
+
       {/* Versand */}
       <section className="rounded-md border border-line-subtle bg-surface-raised p-4">
         <h2 className="text-sm font-semibold mb-3">{t("printShop.shipping")}</h2>
@@ -1036,69 +1112,12 @@ function CartStep({
         </select>
       </section>
 
-      {/* Lieferadresse */}
-      <section className="rounded-md border border-line-subtle bg-surface-raised p-4">
-        <h2 className="text-sm font-semibold mb-3">{t("printShop.shippingAddress")}</h2>
-        <div className="grid sm:grid-cols-2 gap-3">
-          <FieldRow
-            label={t("printShop.fullName")}
-            required
-            value={guestName}
-            onChange={setGuestName}
-          />
-          <FieldRow
-            label={t("printShop.email")}
-            type="email"
-            required
-            value={guestEmail}
-            onChange={setGuestEmail}
-          />
-          {isPickup ? (
-            <div className="sm:col-span-2 rounded-md border border-line-subtle bg-surface-sunken px-3 py-2 text-sm text-ink-secondary">
-              {t("printShop.pickupNote")}
-            </div>
-          ) : (
-            <>
-              <FieldRow
-                label={t("printShop.street")}
-                required
-                value={addr.street}
-                onChange={(v) => setAddr({ ...addr, street: v })}
-                className="sm:col-span-2"
-              />
-              <FieldRow
-                label={t("printShop.addressExtra")}
-                value={addr.street2}
-                onChange={(v) => setAddr({ ...addr, street2: v })}
-                className="sm:col-span-2"
-              />
-              <FieldRow
-                label={t("printShop.postalCode")}
-                required
-                value={addr.postalCode}
-                onChange={(v) => setAddr({ ...addr, postalCode: v })}
-              />
-              <FieldRow
-                label={t("printShop.city")}
-                required
-                value={addr.city}
-                onChange={(v) => setAddr({ ...addr, city: v })}
-              />
-              <FieldRow
-                label={t("printShop.country")}
-                required
-                value={addr.countryCode}
-                onChange={(v) => setAddr({ ...addr, countryCode: v.toUpperCase() })}
-              />
-            </>
-          )}
-          <FieldRow
-            label={t("printShop.phone")}
-            value={addr.phone}
-            onChange={(v) => setAddr({ ...addr, phone: v })}
-          />
-        </div>
-      </section>
+      {/* Fattura — what it asks depends on the studio's country */}
+      <InvoiceSection
+        form={form}
+        setForm={setForm}
+        invoicing={catalog.invoicing}
+      />
 
       {/* Notiz */}
       <section className="rounded-md border border-line-subtle bg-surface-raised p-4">
@@ -1254,7 +1273,11 @@ function CartStep({
       <button
         type="button"
         onClick={submit}
-        disabled={busy || !acceptedTerms || !guestName || !guestEmail}
+        disabled={
+          busy ||
+          !acceptedTerms ||
+          !isCheckoutFormComplete(catalog.invoicing, form, isPickup)
+        }
         className="w-full px-4 py-3 rounded bg-accent text-white font-medium disabled:opacity-50"
       >
         {busy
@@ -1264,37 +1287,6 @@ function CartStep({
             : t("printShop.submitOrder")}
       </button>
     </div>
-  );
-}
-
-function FieldRow({
-  label,
-  type = "text",
-  required,
-  value,
-  onChange,
-  className,
-}: {
-  label: string;
-  type?: string;
-  required?: boolean;
-  value: string;
-  onChange: (v: string) => void;
-  className?: string;
-}) {
-  return (
-    <label className={`block ${className ?? ""}`}>
-      <span className="block text-xs text-ink-tertiary mb-1">
-        {label} {required && <span className="text-semantic-danger">*</span>}
-      </span>
-      <input
-        type={type}
-        required={required}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded border border-line-subtle bg-surface-raised px-2 py-1.5 text-sm"
-      />
-    </label>
   );
 }
 

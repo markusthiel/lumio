@@ -20,6 +20,40 @@ import {
   listPrintProviders,
   type PrintProviderDef,
 } from "./providers.js";
+import { inferCountryFromName } from "./country.js";
+import {
+  parseInvoiceSettings,
+  type InvoiceSettings,
+} from "./invoice-settings.js";
+
+/** What the checkout asks customers for beyond name, address and phone —
+ *  the studio's own setting; everything off until it is set. */
+export async function getInvoiceSettings(
+  tenantId: string
+): Promise<InvoiceSettings> {
+  const row = await prisma.tenantPrintShopConfig.findUnique({
+    where: { tenantId },
+    select: { invoiceSettings: true },
+  });
+  return parseInvoiceSettings(row?.invoiceSettings);
+}
+
+/**
+ * The country the checkout's address fields start on: the one in the
+ * tenant's legal details (free text there — "Italia", "Deutschland" — so it
+ * is resolved to a country code), or null if there is none or it is not
+ * recognised. The legal details are edited on the DPA page, which exists only
+ * on the hosted cloud; a self-hosted installation has none.
+ */
+export async function resolveDefaultCountry(
+  tenantId: string
+): Promise<string | null> {
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { legalCountry: true },
+  });
+  return inferCountryFromName(tenant?.legalCountry);
+}
 
 /** Komplett-Check: darf dieser Tenant gerade ueberhaupt den Print-Shop
  *  sehen? Drei Gates muessen gruen sein:
@@ -57,6 +91,7 @@ export async function getTenantPrintConfig(tenantId: string) {
       vatHandling: "inclusive" as "inclusive" | "exclusive",
       defaultVatBps: 1900,
       currency: "EUR",
+      invoiceSettings: parseInvoiceSettings(null),
       termsUrl: null as string | null,
       privacyUrl: null as string | null,
       applicationFeeBpsOverride: null as number | null,
@@ -71,6 +106,7 @@ export async function getTenantPrintConfig(tenantId: string) {
     vatHandling: row.vatHandling as "inclusive" | "exclusive",
     defaultVatBps: row.defaultVatBps,
     currency: row.currency,
+    invoiceSettings: parseInvoiceSettings(row.invoiceSettings),
     termsUrl: row.termsUrl,
     privacyUrl: row.privacyUrl,
     applicationFeeBpsOverride: row.applicationFeeBpsOverride,
@@ -88,13 +124,16 @@ export async function upsertTenantPrintConfig(
     vatHandling?: "inclusive" | "exclusive";
     defaultVatBps?: number;
     currency?: string;
+    invoiceSettings?: InvoiceSettings;
     termsUrl?: string | null;
     privacyUrl?: string | null;
   }
 ) {
   await prisma.tenantPrintShopConfig.upsert({
     where: { tenantId },
-    update: patch,
+    // The settings are a typed object stored as JSON — same `as never` the
+    // order service uses for its JSON columns.
+    update: { ...patch, invoiceSettings: patch.invoiceSettings as never },
     create: {
       tenantId,
       enabled: patch.enabled ?? false,
@@ -103,6 +142,7 @@ export async function upsertTenantPrintConfig(
       vatHandling: patch.vatHandling ?? "inclusive",
       defaultVatBps: patch.defaultVatBps ?? 1900,
       currency: patch.currency ?? "EUR",
+      invoiceSettings: patch.invoiceSettings as never,
       termsUrl: patch.termsUrl,
       privacyUrl: patch.privacyUrl,
     },

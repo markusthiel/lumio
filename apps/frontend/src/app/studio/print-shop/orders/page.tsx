@@ -115,6 +115,11 @@ export default function PrintOrdersPage() {
                           ? t("orders.online")
                           : t("orders.offline")}
                       </span>
+                      {o.invoiceRequested && (
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-accent/10 text-accent">
+                          {t("orders.invoiceBadge")}
+                        </span>
+                      )}
                     </div>
                     <div className="text-sm text-ink-secondary">
                       {o.guestName} &lt;{o.guestEmail}&gt;

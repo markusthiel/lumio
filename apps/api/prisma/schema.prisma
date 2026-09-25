@@ -1981,6 +1981,14 @@ model TenantPrintShopConfig {
   defaultVatBps   Int      @default(1900)
   currency        String   @default("EUR")
 
+  /// What the checkout asks customers for on top of name, address and
+  /// phone: a VAT number, a tax ID and an e-invoice address, each off /
+  /// optional / required for private and business customers, with labels
+  /// and an optional check type — plus whether every customer is asked for
+  /// the tax ID. Shape and defaults: services/print/invoice-settings.ts.
+  /// null = the defaults (nothing asked).
+  invoiceSettings Json?
+
   /// Pfad zu Tenant-eigenen AGB (auf seiner Website). Wird im Endkunden-
   /// Checkout verlinkt. Pflicht in DE — Endkunde muss zustimmen.
   termsUrl        String?
@@ -2281,8 +2289,24 @@ model PrintOrder {
   /// Endkunden-Daten. Nicht als FK auf eine User-Tabelle — Endkunden
   /// sind keine User in unserem Sinne. Email ist Pflicht fuer Order-
   /// Bestaetigung.
+  ///
+  /// guestName is always "<first name> <last name>" — kept as the composed
+  /// display name because mails, exports and lists read it.
+  /// guestFirstName/guestLastName/guestPhone/guestTaxCode are null on orders
+  /// placed before the full registry was collected. guestPhone is also null
+  /// on a pickup order that left it out, and guestTaxCode wherever the
+  /// studio's invoice settings do not ask for one.
   guestEmail      String
   guestName       String
+  guestFirstName  String?
+  guestLastName   String?
+  guestPhone      String?
+  guestTaxCode    String?
+
+  /// The customer's residence address (registry), ALWAYS collected — for
+  /// pickup orders too, where shippingAddress stays null. Same schema as
+  /// shippingAddress.
+  customerAddress Json?
 
   /// Liefer- und Rechnungsadresse als JSON. Schema:
   ///   { street, street2?, postalCode, city, region?, countryCode,
@@ -2292,8 +2316,28 @@ model PrintOrder {
   /// wenn der Endkunde spaeter umzieht, soll die Order-Adresse
   /// historisch bleiben. Null bei isPickupDelivery — dort wird keine
   /// Adresse erhoben.
+  ///
+  /// billingAddress is the invoice address and only set when
+  /// invoiceRequested = true.
   shippingAddress Json?
   billingAddress  Json?
+
+  /// The customer's invoice request. When true, invoiceKind, invoiceName and
+  /// billingAddress are always set; the identifiers below are set only where
+  /// the studio's invoice settings (TenantPrintShopConfig.invoiceSettings)
+  /// asked for them, and were given. Whether the customer picked "same
+  /// details as above" is not stored — the values are a snapshot.
+  invoiceRequested     Boolean @default(false)
+  /// "private" | "business"
+  invoiceKind          String?
+  invoiceName          String?
+  invoiceVatNumber     String?
+  /// The "tax ID" field — a codice fiscale, a NIF, a SIREN… by the studio's
+  /// setting.
+  invoiceTaxCode       String?
+  /// The address an electronic invoice is sent to (e.g. an Italian
+  /// codice destinatario or PEC).
+  invoiceEAddress      String?
 
   /// Snapshot von shippingMethod.isPickup zum Bestellzeitpunkt (nicht
   /// live nachgeschlagen — dieselbe Audit-Snapshot-Begruendung wie bei

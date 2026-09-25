@@ -40,6 +40,7 @@ import { prisma } from "../db.js";
 import { config } from "../config.js";
 import { isFeatureEnabled } from "../services/feature-flags.js";
 import {
+  getInvoiceSettings,
   getTenantPrintConfig,
   upsertTenantPrintConfig,
   listAvailableProvidersForTenant,
@@ -54,6 +55,11 @@ import {
   getConnectStatus,
 } from "../services/print/stripe-connect.js";
 import { transitionOrder } from "../services/print/orders.js";
+import {
+  eAddressLabel,
+  invoiceSettingsSchema,
+  taxIdLabel,
+} from "../services/print/invoice-settings.js";
 import {
   buildOrderItemsCsv,
   buildOrderSummaryMarkdown,
@@ -137,6 +143,9 @@ export async function registerPrintShopRoutes(app: FastifyInstance) {
     vatHandling: z.enum(["inclusive", "exclusive"]).optional(),
     defaultVatBps: z.number().int().min(0).max(2500).optional(),
     currency: z.string().length(3).optional(),
+    // What the checkout asks customers for beyond name, address and phone —
+    // replaced as a whole. See services/print/invoice-settings.ts.
+    invoiceSettings: invoiceSettingsSchema.optional(),
     termsUrl: z.string().url().nullable().optional(),
     privacyUrl: z.string().url().nullable().optional(),
   });
@@ -929,6 +938,7 @@ export async function registerPrintShopRoutes(app: FastifyInstance) {
         status: true,
         paymentMode: true,
         isPickupDelivery: true,
+        invoiceRequested: true,
         providerKey: true,
         createdAt: true,
         paidAt: true,
@@ -996,7 +1006,17 @@ export async function registerPrintShopRoutes(app: FastifyInstance) {
           return { ...it, file: { ...file, previewUrl } };
         })
       );
-      return { order: { ...order, items } };
+      // The studio's own words for the invoice identifiers, so the order view
+      // says "Codice fiscale" where the studio asked for one.
+      const invoiceSettings = await getInvoiceSettings(ctx.tenantId);
+      return {
+        order: { ...order, items },
+        invoiceLabels: {
+          vatNumber: invoiceSettings.vatNumber.label,
+          taxId: taxIdLabel(invoiceSettings),
+          eAddress: eAddressLabel(invoiceSettings),
+        },
+      };
     }
   );
 
@@ -1091,6 +1111,16 @@ export async function registerPrintShopRoutes(app: FastifyInstance) {
           status: true,
           guestName: true,
           guestEmail: true,
+          guestPhone: true,
+          guestTaxCode: true,
+          customerAddress: true,
+          invoiceRequested: true,
+          invoiceKind: true,
+          invoiceName: true,
+          invoiceVatNumber: true,
+          invoiceTaxCode: true,
+          invoiceEAddress: true,
+          billingAddress: true,
           paymentMode: true,
           subtotalCents: true,
           shippingCents: true,
@@ -1156,6 +1186,23 @@ export async function registerPrintShopRoutes(app: FastifyInstance) {
           status: order.status,
           guestName: order.guestName,
           guestEmail: order.guestEmail,
+          guestPhone: order.guestPhone,
+          guestTaxCode: order.guestTaxCode,
+          customerAddress: isOrderSummaryAddress(order.customerAddress)
+            ? order.customerAddress
+            : null,
+          invoice: order.invoiceRequested
+            ? {
+                kind: order.invoiceKind,
+                name: order.invoiceName,
+                vatNumber: order.invoiceVatNumber,
+                taxCode: order.invoiceTaxCode,
+                eAddress: order.invoiceEAddress,
+                address: isOrderSummaryAddress(order.billingAddress)
+                  ? order.billingAddress
+                  : null,
+              }
+            : null,
           paymentMode: order.paymentMode,
           currency: order.currency,
           subtotalCents: order.subtotalCents,

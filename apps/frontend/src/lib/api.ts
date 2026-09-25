@@ -3131,6 +3131,8 @@ export const api = {
         vatHandling: "inclusive" | "exclusive";
         defaultVatBps: number;
         currency: string;
+        /** What the checkout asks customers for beyond name, address and phone. */
+        invoiceSettings: InvoiceSettings;
         termsUrl: string | null;
         privacyUrl: string | null;
         applicationFeeBpsOverride: number | null;
@@ -3154,6 +3156,7 @@ export const api = {
     vatHandling?: "inclusive" | "exclusive";
     defaultVatBps?: number;
     currency?: string;
+    invoiceSettings?: InvoiceSettings;
     termsUrl?: string | null;
     privacyUrl?: string | null;
   }) =>
@@ -3367,6 +3370,7 @@ export const api = {
         status: string;
         paymentMode: string;
         isPickupDelivery: boolean;
+        invoiceRequested: boolean;
         providerKey: string;
         createdAt: string;
         paidAt: string | null;
@@ -3380,6 +3384,12 @@ export const api = {
   getPrintOrder: (id: string) =>
     request<{
       order: PrintOrderDetail;
+      /** The studio's own wording of the invoice identifiers; null = generic. */
+      invoiceLabels: {
+        vatNumber: string | null;
+        taxId: string | null;
+        eAddress: string | null;
+      };
     }>(`/print-shop/orders/${id}`),
 
   printOrderExportCsvUrl: (id: string) =>
@@ -3449,6 +3459,10 @@ export const api = {
         stripePublishableKey: string | null;
         stripeAccountId: string | null;
       };
+      /** What the checkout asks for, by the country the studio sells from. */
+      invoicing: InvoicingConfig;
+      /** The country the address fields start on, or null. */
+      defaultCountry: string | null;
       products: Array<{
         id: string;
         name: string;
@@ -3516,19 +3530,26 @@ export const api = {
         finishOptionId?: string | null;
       }>;
       shippingMethodId: string;
-      guestName: string;
+      guestFirstName: string;
+      guestLastName: string;
       guestEmail: string;
+      /** Required for a courier order, optional for pickup. */
+      guestPhone?: string | null;
+      /** Asked only where the studio's invoice settings say so. */
+      guestTaxCode?: string | null;
+      /** Residence address, always collected (pickup orders too). */
+      customerAddress: CheckoutAddress;
       /** Omit for a pickup shipping method — no address is collected. */
-      shippingAddress?: {
-        street: string;
-        street2?: string;
-        postalCode: string;
-        city: string;
-        region?: string;
-        countryCode: string;
-        phone?: string;
-      };
-      billingAddress?: NonNullable<typeof input.shippingAddress> | null;
+      shippingAddress?: CheckoutAddress;
+      /** Present = the customer wants an invoice. */
+      invoice?: {
+        kind: InvoiceKind;
+        name: string;
+        vatNumber?: string | null;
+        taxCode?: string | null;
+        eAddress?: string | null;
+        address: CheckoutAddress;
+      } | null;
       paymentMode: "stripe_connect" | "offline_invoice";
       guestNote?: string;
       acceptedTerms: boolean;
@@ -3771,8 +3792,21 @@ export interface PrintOrderDetail {
   orderNumber: string;
   guestName: string;
   guestEmail: string;
+  /** Customer registry — null on orders placed before it was collected. */
+  guestFirstName: string | null;
+  guestLastName: string | null;
+  guestPhone: string | null;
+  guestTaxCode: string | null;
+  customerAddress: Record<string, string> | null;
   shippingAddress: Record<string, string> | null;
+  /** The invoice address; only set when invoiceRequested. */
   billingAddress: Record<string, string> | null;
+  invoiceRequested: boolean;
+  invoiceKind: InvoiceKind | null;
+  invoiceName: string | null;
+  invoiceVatNumber: string | null;
+  invoiceTaxCode: string | null;
+  invoiceEAddress: string | null;
   isPickupDelivery: boolean;
   paymentMode: string;
   stripePaymentIntentId: string | null;
@@ -3996,6 +4030,68 @@ export interface PrintImportReport {
     warnings: number;
   };
   products: PrintImportProductResult[];
+}
+
+export type InvoiceKind = "private" | "business";
+export type FieldMode = "off" | "optional" | "required";
+/** What a tax ID field can be checked as — see the API's tax-ids.ts. */
+export type TaxIdType =
+  | "generic"
+  | "it_codice_fiscale"
+  | "fr_siren"
+  | "es_nif"
+  | "pt_nif"
+  | "hr_oib";
+export type EAddressType = "generic" | "it_sdi_or_pec";
+
+/** The studio's invoice settings, as stored (edited on the settings page).
+ *  Mirrors InvoiceSettings in the API's invoice-settings.ts. */
+export interface InvoiceSettings {
+  /** Asked of every customer at checkout, invoice or not. */
+  checkoutTaxId: FieldMode;
+  vatNumber: { private: FieldMode; business: FieldMode; label: string | null };
+  taxId: {
+    private: FieldMode;
+    business: FieldMode;
+    label: string | null;
+    type: TaxIdType;
+  };
+  eAddress: {
+    private: FieldMode;
+    business: FieldMode;
+    label: string | null;
+    type: EAddressType;
+  };
+}
+
+/** What the customer-facing catalog exposes: the studio's settings with the
+ *  labels resolved, and the country each typed field belongs to (a typed
+ *  identifier is only *required* of customers living there). Mirrors
+ *  describeInvoiceSettings() in the API. */
+export interface InvoicingConfig {
+  checkoutTaxId: FieldMode;
+  taxId: {
+    private: FieldMode;
+    business: FieldMode;
+    label: string | null;
+    country: string | null;
+  };
+  vatNumber: { private: FieldMode; business: FieldMode; label: string | null };
+  eAddress: {
+    private: FieldMode;
+    business: FieldMode;
+    label: string | null;
+    country: string | null;
+  };
+}
+
+export interface CheckoutAddress {
+  street: string;
+  street2?: string;
+  postalCode: string;
+  city: string;
+  region?: string;
+  countryCode: string;
 }
 
 export interface ShippingMethodCreateInput {

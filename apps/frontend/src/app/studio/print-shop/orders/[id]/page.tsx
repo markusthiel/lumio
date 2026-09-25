@@ -33,6 +33,12 @@ export default function OrderDetailPage({
   const { id } = use(params);
   const t = useT();
   const [order, setOrder] = useState<PrintOrderDetail | null>(null);
+  // The studio's own wording of the invoice identifiers ("Codice fiscale"…).
+  const [invoiceLabels, setInvoiceLabels] = useState<{
+    vatNumber: string | null;
+    taxId: string | null;
+    eAddress: string | null;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<
     { kind: "success" | "danger"; text: string } | null
@@ -111,6 +117,7 @@ export default function OrderDetailPage({
     try {
       const r = await api.getPrintOrder(id);
       setOrder(r.order);
+      setInvoiceLabels(r.invoiceLabels);
       setNoteValue(r.order.studioNote ?? "");
     } catch (err) {
       setError(errText(err, t("common.error")));
@@ -538,6 +545,36 @@ export default function OrderDetailPage({
         </dl>
       </Section>
 
+      {/* Customer registry — empty on orders placed before it was collected */}
+      {(order.guestTaxCode || order.guestPhone || order.customerAddress) && (
+        <Section title={t("orderDetail.secCustomer")}>
+          <dl className="text-sm grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+            {order.guestTaxCode && (
+              <>
+                <dt className="text-ink-tertiary">
+                  {invoiceLabels?.taxId ?? t("orderDetail.taxCodeLabel")}
+                </dt>
+                <dd className="font-mono">{order.guestTaxCode}</dd>
+              </>
+            )}
+            {order.guestPhone && (
+              <>
+                <dt className="text-ink-tertiary">{t("orderDetail.phoneLabel")}</dt>
+                <dd>{order.guestPhone}</dd>
+              </>
+            )}
+          </dl>
+          {order.customerAddress && (
+            <div className="mt-3">
+              <div className="text-xs text-ink-tertiary mb-1">
+                {t("orderDetail.residenceLabel")}
+              </div>
+              <AddressBlock addr={order.customerAddress} />
+            </div>
+          )}
+        </Section>
+      )}
+
       {/* Adressen */}
       <Section title={t("orderDetail.secShippingAddr")}>
         {order.shippingAddress ? (
@@ -547,10 +584,65 @@ export default function OrderDetailPage({
         )}
       </Section>
 
-      {order.billingAddress && (
-        <Section title={t("orderDetail.secBillingAddr")}>
-          <AddressBlock addr={order.billingAddress} />
+      {order.invoiceRequested ? (
+        <Section title={t("orderDetail.secInvoice")}>
+          {/* Which identifiers exist depends on what the studio asked for —
+              show only the ones that were asked for and given. */}
+          <dl className="text-sm grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+            {order.invoiceKind && (
+              <>
+                <dt className="text-ink-tertiary">{t("orderDetail.invoiceKindLabel")}</dt>
+                <dd>
+                  {order.invoiceKind === "business"
+                    ? t("orderDetail.kindBusiness")
+                    : t("orderDetail.kindPrivate")}
+                </dd>
+              </>
+            )}
+            <dt className="text-ink-tertiary">{t("orderDetail.invoiceToLabel")}</dt>
+            <dd>{order.invoiceName ?? "—"}</dd>
+            {order.invoiceVatNumber && (
+              <>
+                <dt className="text-ink-tertiary">
+                  {invoiceLabels?.vatNumber ?? t("orderDetail.vatNumberLabel")}
+                </dt>
+                <dd className="font-mono">{order.invoiceVatNumber}</dd>
+              </>
+            )}
+            {order.invoiceTaxCode && (
+              <>
+                <dt className="text-ink-tertiary">
+                  {invoiceLabels?.taxId ?? t("orderDetail.taxCodeLabel")}
+                </dt>
+                <dd className="font-mono">{order.invoiceTaxCode}</dd>
+              </>
+            )}
+            {order.invoiceEAddress && (
+              <>
+                <dt className="text-ink-tertiary">
+                  {invoiceLabels?.eAddress ?? t("orderDetail.eAddressLabel")}
+                </dt>
+                <dd className="font-mono break-all">{order.invoiceEAddress}</dd>
+              </>
+            )}
+          </dl>
+          {order.billingAddress && (
+            <div className="mt-3">
+              <div className="text-xs text-ink-tertiary mb-1">
+                {t("orderDetail.secBillingAddr")}
+              </div>
+              <AddressBlock addr={order.billingAddress} />
+            </div>
+          )}
         </Section>
+      ) : (
+        // Orders from before the invoice request could already carry a
+        // billing address (an API field) without invoiceRequested.
+        order.billingAddress && (
+          <Section title={t("orderDetail.secBillingAddr")}>
+            <AddressBlock addr={order.billingAddress} />
+          </Section>
+        )
       )}
 
       {/* Kunden-Notiz */}

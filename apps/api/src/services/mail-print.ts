@@ -40,6 +40,10 @@ interface OrderLike {
   guestEmail: string;
   guestName: string;
   shippingAddress: unknown;
+  /** Optional: only the studio notification looks at these. */
+  invoiceRequested?: boolean;
+  invoiceVatNumber?: string | null;
+  invoiceTaxCode?: string | null;
   guestNote: string | null;
   trackingNumber: string | null;
   trackingCarrier: string | null;
@@ -266,6 +270,12 @@ const printStudioPhrases = {
     fi: "Tilausnumero",
   },
   customer: { de: "Kunde", en: "Customer", it: "Cliente", fi: "Asiakas" },
+  invoiceRequested: {
+    de: "Rechnung gewünscht",
+    en: "Invoice requested",
+    it: "Fattura richiesta",
+    fi: "Lasku pyydetty",
+  },
   paymentMode: { de: "Bezahlmodus", en: "Payment", it: "Pagamento", fi: "Maksutapa" },
   payOnline: {
     de: "Online (Stripe)",
@@ -409,13 +419,22 @@ export function tmplPrintOrderNotifyStudio(opts: {
     order.paymentMode === "stripe_connect"
       ? phrase(S.payOnline, l)
       : phrase(S.payOffline, l);
+  // Just the pointer that an invoice is due (with the first identifier that
+  // is there, for a quick glance) — the full invoice details live in the
+  // order in the studio. Which identifiers exist depends on what the studio
+  // asked for.
+  const invoiceValue =
+    order.invoiceVatNumber || order.invoiceTaxCode || "✓";
+  const invoiceLine = order.invoiceRequested
+    ? `${phrase(S.invoiceRequested, l)}: ${invoiceValue}`
+    : "";
 
   const text =
     `${phrase(S.intro, l)}
 
 ${phrase(S.orderNumber, l)}: ${order.orderNumber}
 ${phrase(S.customer, l)}: ${order.guestName} <${order.guestEmail}>
-${phrase(S.paymentMode, l)}: ${payLabel}
+${invoiceLine ? `${invoiceLine}\n` : ""}${phrase(S.paymentMode, l)}: ${payLabel}
 ${phrase(S.total, l)}: ${formatPrice(order.totalCents, order.currency, l)}
 
 ${phrase(S.items, l)}:
@@ -435,7 +454,12 @@ ${orderUrl}`;
   <p>${escapeHtml(phrase(S.intro, l))}</p>
   <table style="border-collapse:collapse;">
     <tr><td style="padding:4px 12px 4px 0;color:#888;">${escapeHtml(phrase(S.orderNumber, l))}:</td><td style="padding:4px 0;"><strong style="font-family:monospace;">${order.orderNumber}</strong></td></tr>
-    <tr><td style="padding:4px 12px 4px 0;color:#888;">${escapeHtml(phrase(S.customer, l))}:</td><td style="padding:4px 0;">${escapeHtml(order.guestName)} &lt;${escapeHtml(order.guestEmail)}&gt;</td></tr>
+    <tr><td style="padding:4px 12px 4px 0;color:#888;">${escapeHtml(phrase(S.customer, l))}:</td><td style="padding:4px 0;">${escapeHtml(order.guestName)} &lt;${escapeHtml(order.guestEmail)}&gt;</td></tr>${
+      invoiceLine
+        ? `
+    <tr><td style="padding:4px 12px 4px 0;color:#888;">${escapeHtml(phrase(S.invoiceRequested, l))}:</td><td style="padding:4px 0;">${escapeHtml(invoiceValue)}</td></tr>`
+        : ""
+    }
     <tr><td style="padding:4px 12px 4px 0;color:#888;">${escapeHtml(phrase(S.paymentMode, l))}:</td><td style="padding:4px 0;">${escapeHtml(payLabel)}</td></tr>
     <tr><td style="padding:4px 12px 4px 0;color:#888;">${escapeHtml(phrase(S.total, l))}:</td><td style="padding:4px 0;font-weight:600;">${formatPrice(order.totalCents, order.currency, l)}</td></tr>
   </table>
