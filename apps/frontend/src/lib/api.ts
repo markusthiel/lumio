@@ -3313,6 +3313,7 @@ export const api = {
         providerKey: string;
         name: string;
         priceCents: number;
+        freeShippingThresholdCents: number | null;
         estimatedDaysMin: number | null;
         estimatedDaysMax: number | null;
         countries: string[];
@@ -3475,6 +3476,8 @@ export const api = {
         estimatedDaysMax: number | null;
         countries: string[];
         isPickup: boolean;
+        /** Cart subtotal from which the method is free; null = never. */
+        freeShippingThresholdCents: number | null;
       }>;
     }>(`/g/${slug}/print-shop/catalog`),
 
@@ -4002,6 +4005,8 @@ export interface ShippingMethodCreateInput {
   providerKey: string;
   name: string;
   priceCents: number;
+  /** Cart subtotal from which the method is free. null clears it. */
+  freeShippingThresholdCents?: number | null;
   estimatedDaysMin?: number | null;
   estimatedDaysMax?: number | null;
   countries?: string[];

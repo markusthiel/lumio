@@ -75,6 +75,30 @@ export interface PricingResult {
   }>;
 }
 
+/**
+ * Shipping (or pickup) price for a cart, after the method's free-shipping
+ * threshold. The threshold is compared against the goods subtotal — never
+ * including shipping itself — and is inclusive: a subtotal exactly on the
+ * threshold already ships free. null threshold = never waived.
+ *
+ * Pure and DB-free on purpose, same as resolveCartItemPricing(): priceCart()
+ * only adds the Prisma lookup around it. The frontend mirrors this in
+ * lib/print-pricing.ts for the per-method price shown in the picker.
+ */
+export function resolveShippingCents(
+  priceCents: number,
+  freeShippingThresholdCents: number | null,
+  subtotalCents: number
+): number {
+  if (
+    freeShippingThresholdCents != null &&
+    subtotalCents >= freeShippingThresholdCents
+  ) {
+    return 0;
+  }
+  return priceCents;
+}
+
 export interface VariantFinishOptionInfo {
   id: string;
   name: string;
@@ -205,22 +229,6 @@ export async function priceCart(opts: {
     throw new Error("Ein Bild ist nicht in dieser Galerie verfuegbar");
   }
 
-  // Shipping
-  let shippingCents = 0;
-  let isPickupDelivery = false;
-  if (opts.shippingMethodId) {
-    const sm = await prisma.shippingMethod.findFirst({
-      where: {
-        id: opts.shippingMethodId,
-        tenantId: opts.tenantId,
-        enabled: true,
-      },
-    });
-    if (!sm) throw new Error("Versandmethode unbekannt");
-    shippingCents = sm.priceCents;
-    isPickupDelivery = sm.isPickup;
-  }
-
   // Subtotal pro Item (Staffelpreis-Aufloesung: siehe resolveCartItemPricing)
   const pricedItems = resolveCartItemPricing(
     opts.items,
@@ -232,6 +240,27 @@ export async function priceCart(opts: {
     )
   );
   const subtotalCents = pricedItems.reduce((s, i) => s + i.totalPriceCents, 0);
+
+  // Shipping — after the subtotal, because the method's free-shipping
+  // threshold is measured against it.
+  let shippingCents = 0;
+  let isPickupDelivery = false;
+  if (opts.shippingMethodId) {
+    const sm = await prisma.shippingMethod.findFirst({
+      where: {
+        id: opts.shippingMethodId,
+        tenantId: opts.tenantId,
+        enabled: true,
+      },
+    });
+    if (!sm) throw new Error("Versandmethode unbekannt");
+    shippingCents = resolveShippingCents(
+      sm.priceCents,
+      sm.freeShippingThresholdCents,
+      subtotalCents
+    );
+    isPickupDelivery = sm.isPickup;
+  }
 
   // Tax: vereinfacht — gemeinsamer VAT-Bps (Mischsteuern muessten pro Variante
   // gerechnet werden; sparen wir uns aktuell, default genuegt)

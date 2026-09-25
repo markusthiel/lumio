@@ -34,6 +34,7 @@ import {
   unitPriceForQuantity,
   aggregateQuantityForVariant,
   buildQuantityByVariantMap,
+  shippingPriceForSubtotal,
   willDowngradeTier,
 } from "@/lib/print-pricing";
 
@@ -742,8 +743,8 @@ function CartStep({
   const [shippingMethodId, setShippingMethodId] = useState<string>(
     catalog.shipping[0]?.id ?? ""
   );
-  const isPickup =
-    catalog.shipping.find((m) => m.id === shippingMethodId)?.isPickup ?? false;
+  const selectedShipping = catalog.shipping.find((m) => m.id === shippingMethodId);
+  const isPickup = selectedShipping?.isPickup ?? false;
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [addr, setAddr] = useState({
@@ -1026,14 +1027,44 @@ function CartStep({
           value={shippingMethodId}
           onChange={(e) => setShippingMethodId(e.target.value)}
         >
-          {catalog.shipping.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.name} — {formatPrice(fmt, m.priceCents, catalog.config.currency)}
-              {m.estimatedDaysMin &&
-                ` (${t("printShop.shippingDays", { min: m.estimatedDaysMin, max: m.estimatedDaysMax ?? m.estimatedDaysMin })})`}
-            </option>
-          ))}
+          {catalog.shipping.map((m) => {
+            const price = shippingPriceForSubtotal(m, totals?.subtotalCents ?? null);
+            return (
+              <option key={m.id} value={m.id}>
+                {m.name} —{" "}
+                {price === 0
+                  ? t("printShop.shippingFree")
+                  : formatPrice(fmt, price, catalog.config.currency)}
+                {m.estimatedDaysMin &&
+                  ` (${t("printShop.shippingDays", { min: m.estimatedDaysMin, max: m.estimatedDaysMax ?? m.estimatedDaysMin })})`}
+              </option>
+            );
+          })}
         </select>
+        {selectedShipping?.freeShippingThresholdCents != null && totals && (
+          <p className="text-xs text-ink-tertiary mt-2">
+            {totals.subtotalCents >= selectedShipping.freeShippingThresholdCents
+              ? t("printShop.freeShippingReached", {
+                  threshold: formatPrice(
+                    fmt,
+                    selectedShipping.freeShippingThresholdCents,
+                    catalog.config.currency
+                  ),
+                })
+              : t("printShop.freeShippingRemaining", {
+                  threshold: formatPrice(
+                    fmt,
+                    selectedShipping.freeShippingThresholdCents,
+                    catalog.config.currency
+                  ),
+                  remaining: formatPrice(
+                    fmt,
+                    selectedShipping.freeShippingThresholdCents - totals.subtotalCents,
+                    catalog.config.currency
+                  ),
+                })}
+          </p>
+        )}
       </section>
 
       {/* Lieferadresse */}
@@ -1170,7 +1201,9 @@ function CartStep({
             <div className="flex justify-between">
               <dt className="text-ink-tertiary">{t("printShop.shipping")}</dt>
               <dd className="tabular-nums">
-                {formatPrice(fmt, totals.shippingCents, totals.currency)}
+                {totals.shippingCents === 0
+                  ? t("printShop.shippingFree")
+                  : formatPrice(fmt, totals.shippingCents, totals.currency)}
               </dd>
             </div>
             <div className="flex justify-between">

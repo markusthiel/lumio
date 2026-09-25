@@ -132,6 +132,8 @@ export default function ShippingMethodsPage() {
                 </div>
                 <div className="text-xs text-ink-tertiary">
                   {formatPrice(fmt, m.priceCents)}
+                  {m.freeShippingThresholdCents != null &&
+                    ` (${t("shipping.freeFrom", { amount: formatPrice(fmt, m.freeShippingThresholdCents) })})`}
                   {(m.estimatedDaysMin || m.estimatedDaysMax) && (
                     <>
                       {" · "}
@@ -208,6 +210,11 @@ function ShippingDialog({
   const [priceEuros, setPriceEuros] = useState(
     existing ? (existing.priceCents / 100).toFixed(2) : "5.90"
   );
+  const [freeThresholdEuros, setFreeThresholdEuros] = useState(
+    existing?.freeShippingThresholdCents != null
+      ? (existing.freeShippingThresholdCents / 100).toFixed(2)
+      : ""
+  );
   const [daysMin, setDaysMin] = useState(
     existing?.estimatedDaysMin?.toString() ?? "3"
   );
@@ -231,6 +238,14 @@ function ShippingDialog({
       if (!Number.isFinite(price) || price < 0) {
         throw new Error(t("shipping.priceInvalid"));
       }
+      // Empty = no threshold (null clears an existing one on update).
+      let freeShippingThresholdCents: number | null = null;
+      if (freeThresholdEuros.trim()) {
+        freeShippingThresholdCents = Math.round(parseFloat(freeThresholdEuros) * 100);
+        if (!Number.isFinite(freeShippingThresholdCents) || freeShippingThresholdCents < 1) {
+          throw new Error(t("shipping.thresholdInvalid"));
+        }
+      }
       const countryList = countries
         .split(",")
         .map((c) => c.trim().toUpperCase())
@@ -239,6 +254,7 @@ function ShippingDialog({
         providerKey,
         name: name.trim(),
         priceCents: price,
+        freeShippingThresholdCents,
         estimatedDaysMin: daysMin.trim()
           ? parseInt(daysMin, 10)
           : null,
@@ -310,6 +326,18 @@ function ShippingDialog({
               required
               min={0}
             />
+          </label>
+          <label className="block">
+            <span className="block text-xs text-ink-tertiary mb-1">{t("shipping.labelFreeThreshold")}</span>
+            <Input
+              type="number"
+              step="0.01"
+              value={freeThresholdEuros}
+              onChange={(e) => setFreeThresholdEuros(e.target.value)}
+              min={0.01}
+              placeholder="50.00"
+            />
+            <span className="block text-xs text-ink-tertiary mt-0.5">{t("shipping.freeThresholdHint")}</span>
           </label>
           <div className="grid grid-cols-2 gap-3">
             <label className="block">

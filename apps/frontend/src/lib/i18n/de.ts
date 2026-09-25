@@ -1193,6 +1193,9 @@ export const de: LocaleDict = {
     dismissWarning: "Schließen",
     shipping: "Versand",
     shippingDays: "ca. {min}–{max} Tage",
+    shippingFree: "Kostenlos",
+    freeShippingRemaining: "Kostenlos ab {threshold} Bestellwert — noch {remaining} fehlen.",
+    freeShippingReached: "Kostenlos ab {threshold} Bestellwert — auf Ihre Bestellung angewendet.",
     shippingAddress: "Lieferadresse",
     pickupNote:
       "Hol deine Bestellung im Geschäft ab — wir melden uns, sobald sie bereit ist. Keine Lieferadresse nötig.",
@@ -2280,6 +2283,10 @@ export const de: LocaleDict = {
     isPickupHint:
       "Im Checkout wird keine Lieferadresse erhoben. Die Fulfillment-Checkliste der Bestellung zeigt „abholbereit“ statt „versandt“.",
     pickupBadge: "Abholung",
+    freeFrom: "kostenlos ab {amount}",
+    labelFreeThreshold: "Kostenlos ab Bestellwert (EUR, optional)",
+    freeThresholdHint: "Warenwert ohne Versand, ab dem diese Methode nichts kostet — gilt auch für Abholung. Leer lassen = keine Grenze.",
+    thresholdInvalid: "Ungültige Grenze für kostenlosen Versand.",
     active: "Aktiv",
   },
 

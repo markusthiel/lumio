@@ -2232,6 +2232,13 @@ model ShippingMethod {
 
   name          String   // z.B. 'DHL Standard', 'DHL Express', 'Pickup'
   priceCents    Int
+
+  /// From this goods value (subtotalCents, shipping excluded) the method is
+  /// free — for courier and pickup methods alike. The comparison is >=:
+  /// exactly the threshold is enough. null = no threshold, priceCents
+  /// always applies.
+  freeShippingThresholdCents Int?
+
   estimatedDaysMin Int?
   estimatedDaysMax Int?
 

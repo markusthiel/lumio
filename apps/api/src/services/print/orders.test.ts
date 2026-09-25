@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   resolveCartItemPricing,
+  resolveShippingCents,
   isMissingRequiredPaymentReference,
   allowedTransitionsFor,
   type CartItemInput,
@@ -287,5 +288,33 @@ describe("allowedTransitionsFor", () => {
 
   it("unknown status allows nothing", () => {
     expect(allowedTransitionsFor("bogus", false)).toEqual([]);
+  });
+});
+
+describe("resolveShippingCents", () => {
+  it("charges the method's price when it has no threshold", () => {
+    expect(resolveShippingCents(590, null, 1_000_000)).toBe(590);
+  });
+
+  it("charges the price below the threshold", () => {
+    expect(resolveShippingCents(590, 5000, 4999)).toBe(590);
+  });
+
+  it("is free exactly at the threshold (inclusive)", () => {
+    expect(resolveShippingCents(590, 5000, 5000)).toBe(0);
+  });
+
+  it("is free above the threshold", () => {
+    expect(resolveShippingCents(590, 5000, 12_000)).toBe(0);
+  });
+
+  it("applies to a paid pickup method the same way", () => {
+    expect(resolveShippingCents(300, 2000, 1500)).toBe(300);
+    expect(resolveShippingCents(300, 2000, 2000)).toBe(0);
+  });
+
+  it("leaves an already-free method free", () => {
+    expect(resolveShippingCents(0, 5000, 100)).toBe(0);
+    expect(resolveShippingCents(0, null, 100)).toBe(0);
   });
 });

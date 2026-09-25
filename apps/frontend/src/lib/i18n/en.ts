@@ -1182,6 +1182,9 @@ export const en = {
     dismissWarning: "Dismiss",
     shipping: "Shipping",
     shippingDays: "approx. {min}–{max} days",
+    shippingFree: "Free",
+    freeShippingRemaining: "Free for orders from {threshold} — add {remaining} more.",
+    freeShippingReached: "Free for orders from {threshold} — applied to your order.",
     shippingAddress: "Shipping address",
     pickupNote:
       "Pick up your order in store — we'll let you know as soon as it's ready. No shipping address needed.",
@@ -2266,6 +2269,10 @@ export const en = {
     isPickupHint:
       "No shipping address collected at checkout. The order's fulfillment checklist shows \"ready for pickup\" instead of \"shipped\".",
     pickupBadge: "Pickup",
+    freeFrom: "free from {amount}",
+    labelFreeThreshold: "Free from order value (EUR, optional)",
+    freeThresholdHint: "Goods subtotal, before shipping, from which this method costs nothing — pickup included. Leave empty for no threshold.",
+    thresholdInvalid: "Invalid free-shipping threshold.",
     active: "Active",
   },
 

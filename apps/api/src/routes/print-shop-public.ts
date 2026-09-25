@@ -194,6 +194,7 @@ export async function registerPrintShopPublicRoutes(app: FastifyInstance) {
           estimatedDaysMax: s.estimatedDaysMax,
           countries: s.countries,
           isPickup: s.isPickup,
+          freeShippingThresholdCents: s.freeShippingThresholdCents,
         })),
       };
     }

@@ -82,3 +82,26 @@ export function willDowngradeTier(
     unitPriceForQuantity(variant, quantityBefore)
   );
 }
+
+/**
+ * Client-side mirror of resolveShippingCents() in
+ * apps/api/src/services/print/orders.ts: a shipping (or pickup) method
+ * with a free-shipping threshold costs nothing once the goods subtotal
+ * (shipping excluded) reaches it — inclusive, so a subtotal exactly on
+ * the threshold is already free. Preview only; priceCart() is what
+ * charges. `subtotalCents` null = the cart hasn't been priced yet, so
+ * the method's list price is shown.
+ */
+export function shippingPriceForSubtotal(
+  method: { priceCents: number; freeShippingThresholdCents: number | null },
+  subtotalCents: number | null
+): number {
+  if (
+    method.freeShippingThresholdCents != null &&
+    subtotalCents != null &&
+    subtotalCents >= method.freeShippingThresholdCents
+  ) {
+    return 0;
+  }
+  return method.priceCents;
+}

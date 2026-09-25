@@ -29,6 +29,12 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 
 ## [Unreleased]
 
+A pull is enough — the database migrates automatically on start. Only the main server is affected.
+
+### Added
+
+- Print shop: every shipping method — pickup included — can have a free-shipping threshold ("free from order value"). Once the goods subtotal (shipping excluded) reaches it, the method costs nothing; exactly on the threshold already counts. The customer sees the method as "Free" and, below the threshold, how much is missing. Leave the field empty for no threshold.
+
 ## [0.84.0] - 2026-09-24
 
 A pull is enough for the server and the worker — the database migration (gallery slugs per studio) runs automatically on deploy. Self-hosters using the bundled MinIO get the new image on the next `docker compose pull`; nothing to change in `.env`. If you call `DELETE /galleries/:id` from your own scripts, see *Changed*.

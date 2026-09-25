@@ -1183,6 +1183,9 @@ export const fi = {
     dismissWarning: "Sulje",
     shipping: "Toimitus",
     shippingDays: "noin {min}–{max} päivää",
+    shippingFree: "Ilmainen",
+    freeShippingRemaining: "Ilmainen, kun tilaus on vähintään {threshold} — vielä {remaining} puuttuu.",
+    freeShippingReached: "Ilmainen, kun tilaus on vähintään {threshold} — otettu huomioon tilauksessasi.",
     shippingAddress: "Toimitusosoite",
     pickupNote:
       "Nouda tilauksesi myymälästä — ilmoitamme, kun se on valmis. Toimitusosoitetta ei tarvita.",
@@ -2268,6 +2271,10 @@ export const fi = {
     isPickupHint:
       "Kassalla ei kerätä toimitusosoitetta. Tilauksen toimituksen tarkistuslista näyttää \"noudettavissa\" eikä \"lähetetty\".",
     pickupBadge: "Nouto",
+    freeFrom: "ilmainen, kun tilaus ≥ {amount}",
+    labelFreeThreshold: "Ilmainen tilausarvosta alkaen (EUR, valinnainen)",
+    freeThresholdHint: "Tuotteiden yhteishinta ilman toimituskuluja, jonka jälkeen tämä tapa on ilmainen — koskee myös noutoa. Jätä tyhjäksi, jos rajaa ei ole.",
+    thresholdInvalid: "Virheellinen ilmaisen toimituksen raja.",
     active: "Käytössä",
   },
 

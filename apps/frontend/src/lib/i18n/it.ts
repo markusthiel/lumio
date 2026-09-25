@@ -1191,6 +1191,9 @@ export const it: LocaleDict = {
     dismissWarning: "Chiudi",
     shipping: "Spedizione",
     shippingDays: "circa {min}–{max} giorni",
+    shippingFree: "Gratis",
+    freeShippingRemaining: "Gratis per ordini da {threshold}: ti mancano {remaining}.",
+    freeShippingReached: "Gratis per ordini da {threshold}: applicato al tuo ordine.",
     shippingAddress: "Indirizzo di spedizione",
     pickupNote:
       "Ritira il tuo ordine in negozio — ti avviseremo appena è pronto. Nessun indirizzo di spedizione necessario.",
@@ -2276,6 +2279,10 @@ export const it: LocaleDict = {
     isPickupHint:
       "Nessun indirizzo di spedizione richiesto in checkout. La checklist di evasione dell'ordine mostra \"disponibile per il ritiro\" invece di \"spedito\".",
     pickupBadge: "Ritiro",
+    freeFrom: "gratis da {amount}",
+    labelFreeThreshold: "Gratis da un importo ordine di (EUR, opzionale)",
+    freeThresholdHint: "Importo dei prodotti, spedizione esclusa, a partire dal quale questo metodo è gratuito — vale anche per il ritiro. Lascia vuoto per nessuna soglia.",
+    thresholdInvalid: "Soglia di gratuità non valida.",
     active: "Attivo",
   },
 

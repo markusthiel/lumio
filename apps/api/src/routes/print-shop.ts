@@ -831,6 +831,10 @@ export async function registerPrintShopRoutes(app: FastifyInstance) {
     providerKey: z.string().min(1),
     name: z.string().min(1).max(200),
     priceCents: z.number().int().min(0),
+    // Cart subtotal from which this method is free. null = no threshold
+    // (an explicit null on PUT clears an existing one). Min 1: a 0 threshold
+    // would mean "always free", which is what priceCents = 0 is for.
+    freeShippingThresholdCents: z.number().int().min(1).nullable().optional(),
     estimatedDaysMin: z.number().int().min(0).nullable().optional(),
     estimatedDaysMax: z.number().int().min(0).nullable().optional(),
     countries: z.array(z.string().length(2).toUpperCase()).optional(),
