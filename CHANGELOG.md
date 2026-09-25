@@ -29,7 +29,9 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 
 ## [Unreleased]
 
-A pull is enough — the database migrates automatically on start. Only the main server is affected.
+## [0.85.0] - 2026-09-26
+
+A pull is enough — the database migrates automatically on start. Only the main server (API and frontend) is affected.
 
 ### Added
 
