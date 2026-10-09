@@ -619,7 +619,7 @@ export const en = {
     galleryTagsDesc: "Categorize the whole gallery in the overview (not to be confused with tags on individual images).",
     galleryDetailsHeading: "Name and description",
     galleryDetailsDesc:
-      "Clients see the name at the top of the gallery. The description appears below it when there is no welcome text, on the password screen and in link previews. Renaming does not change the gallery's link.",
+      "Clients see the name at the top of the gallery. The description appears below it when there is no welcome text, on the password screen, in link previews and on pages that list the gallery. Renaming does not change the gallery's link.",
     galleryDetailsSaveError: "The name and description could not be saved",
     gallerySlugHeading: "Gallery URL",
     gallerySlugDesc:

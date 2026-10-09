@@ -619,7 +619,7 @@ export const fi = {
     galleryTagsDesc: "Luokittele koko galleria yleiskatsauksessa (älä sekoita yksittäisten kuvien tunnisteisiin).",
     galleryDetailsHeading: "Nimi ja kuvaus",
     galleryDetailsDesc:
-      "Asiakkaat näkevät nimen gallerian yläosassa. Kuvaus näkyy sen alla, jos tervetulotekstiä ei ole, sekä salasanasivulla ja linkkien esikatseluissa. Nimen muuttaminen ei muuta gallerian linkkiä.",
+      "Asiakkaat näkevät nimen gallerian yläosassa. Kuvaus näkyy sen alla, jos tervetulotekstiä ei ole, sekä salasanasivulla, linkkien esikatseluissa ja sivuilla, joilla galleria näkyy. Nimen muuttaminen ei muuta gallerian linkkiä.",
     galleryDetailsSaveError: "Nimeä ja kuvausta ei voitu tallentaa",
     gallerySlugHeading: "Gallerian URL",
     gallerySlugDesc:

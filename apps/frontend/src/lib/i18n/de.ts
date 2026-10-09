@@ -619,7 +619,7 @@ export const de: LocaleDict = {
     galleryTagsDesc: "Ordnen die ganze Galerie in der Übersicht ein (nicht zu verwechseln mit Tags auf einzelnen Bildern).",
     galleryDetailsHeading: "Name und Beschreibung",
     galleryDetailsDesc:
-      "Den Namen sehen Kunden oben in der Galerie. Die Beschreibung erscheint darunter, wenn es keine Begrüßung gibt, sowie auf der Passwortseite und in Link-Vorschauen. Umbenennen ändert den Link der Galerie nicht.",
+      "Den Namen sehen Kunden oben in der Galerie. Die Beschreibung erscheint darunter, wenn es keine Begrüßung gibt, sowie auf der Passwortseite, in Link-Vorschauen und auf Seiten, die die Galerie zeigen. Umbenennen ändert den Link der Galerie nicht.",
     galleryDetailsSaveError: "Name und Beschreibung konnten nicht gespeichert werden",
     gallerySlugHeading: "Galerie-URL",
     gallerySlugDesc:
