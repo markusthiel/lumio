@@ -194,6 +194,10 @@ const updateGallerySchema = createGallerySchema.partial().extend({
   // date impossible to remove once set. Left non-nullable on create, where
   // null and omitted would mean the same thing anyway.
   expiresAt: z.string().datetime().nullable().optional(),
+  // Nullable on update for the same reason: the studio's settings tab
+  // clears the description with null, so the client header and the
+  // og:description fall back to nothing instead of an empty string.
+  description: z.string().max(2000).nullable().optional(),
   // Passwortschutz: String = setzen, null = entfernen, weglassen =
   // unverändert. Wird serverseitig gehasht.
   password: z.string().min(1).max(200).nullable().optional(),

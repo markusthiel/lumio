@@ -617,6 +617,10 @@ export const it: LocaleDict = {
     activeUploads: "Caricamenti attivi",
     galleryTags: "Tag della galleria",
     galleryTagsDesc: "Classifica l'intera galleria nella panoramica (da non confondere con i tag sulle singole immagini).",
+    galleryDetailsHeading: "Nome e descrizione",
+    galleryDetailsDesc:
+      "I clienti vedono il nome in cima alla galleria. La descrizione appare sotto quando non c'è un testo di benvenuto, nella pagina della password e nelle anteprime dei link. Rinominarla non cambia il link della galleria.",
+    galleryDetailsSaveError: "Non è stato possibile salvare nome e descrizione",
     gallerySlugHeading: "URL della galleria",
     gallerySlugDesc:
       "Il link pubblico con cui i clienti raggiungono questa galleria (/g/…). I link condivisi si aggiornano automaticamente al salvataggio.",

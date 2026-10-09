@@ -617,6 +617,10 @@ export const de: LocaleDict = {
     activeUploads: "Aktive Uploads",
     galleryTags: "Galerie-Tags",
     galleryTagsDesc: "Ordnen die ganze Galerie in der Übersicht ein (nicht zu verwechseln mit Tags auf einzelnen Bildern).",
+    galleryDetailsHeading: "Name und Beschreibung",
+    galleryDetailsDesc:
+      "Den Namen sehen Kunden oben in der Galerie. Die Beschreibung erscheint darunter, wenn es keine Begrüßung gibt, sowie auf der Passwortseite und in Link-Vorschauen. Umbenennen ändert den Link der Galerie nicht.",
+    galleryDetailsSaveError: "Name und Beschreibung konnten nicht gespeichert werden",
     gallerySlugHeading: "Galerie-URL",
     gallerySlugDesc:
       "Der öffentliche Link, unter dem Kunden diese Galerie erreichen (/g/…). Geteilte Links aktualisieren sich automatisch, sobald du hier speicherst.",

@@ -17,6 +17,7 @@ import { VideoPlayer } from "@/components/gallery/VideoPlayer";
 import { SharePanel } from "@/components/studio/SharePanel";
 import { GalleryHeaderEditor } from "@/components/studio/GalleryHeaderEditor";
 import { GallerySlugEditor } from "@/components/studio/GallerySlugEditor";
+import { GalleryDetailsEditor } from "@/components/studio/GalleryDetailsEditor";
 import { GalleryShareSection } from "@/components/studio/GalleryShareSection";
 import { GalleryPagesSection } from "@/components/studio/GalleryPagesSection";
 import { SectionsEditor } from "@/components/studio/SectionsEditor";
@@ -1309,6 +1310,15 @@ export default function GalleryDetailPage() {
 
         {tab === "settings" && (
           <>
+        <GalleryDetailsEditor
+          galleryId={gallery.id}
+          title={gallery.title}
+          description={gallery.description}
+          onChanged={async () => {
+            await load();
+          }}
+        />
+
         {/* Galerie-Tags — zur Organisation/Filterung in der Übersicht. */}
         <section className="rounded-md border border-line-subtle bg-surface-raised p-5 space-y-3">
           <h2 className="text-ui-md font-medium text-ink-primary">

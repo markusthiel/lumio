@@ -29,6 +29,9 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 
 ## [Unreleased]
 
+### Added
+- **Galleries: rename and edit the description.** The gallery's *Settings* tab starts with a *Name and description* section. Until now both could only be set when creating a gallery. Renaming does not change the gallery's link. Clearing the description removes it (also from link previews).
+
 ## [0.90.0] - 2026-10-06
 
 A pull is enough. The database migration (new columns for page design) runs automatically on start; existing pages look as before.

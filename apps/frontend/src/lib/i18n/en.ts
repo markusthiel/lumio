@@ -617,6 +617,10 @@ export const en = {
     activeUploads: "Active uploads",
     galleryTags: "Gallery tags",
     galleryTagsDesc: "Categorize the whole gallery in the overview (not to be confused with tags on individual images).",
+    galleryDetailsHeading: "Name and description",
+    galleryDetailsDesc:
+      "Clients see the name at the top of the gallery. The description appears below it when there is no welcome text, on the password screen and in link previews. Renaming does not change the gallery's link.",
+    galleryDetailsSaveError: "The name and description could not be saved",
     gallerySlugHeading: "Gallery URL",
     gallerySlugDesc:
       "The public link clients use to reach this gallery (/g/…). Shared links update automatically once you save here.",
