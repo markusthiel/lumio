@@ -29,6 +29,10 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 
 ## [Unreleased]
 
+## [0.91.0] - 2026-10-09
+
+A pull is enough, no manual step.
+
 ### Added
 - **Galleries: rename and edit the description.** The gallery's *Settings* tab starts with a *Name and description* section. Until now both could only be set when creating a gallery. Renaming does not change the gallery's link. Clearing the description removes it (also from link previews). The hint next to it mentions that the description is also public on pages that list the gallery.
 
