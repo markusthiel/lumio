@@ -29,8 +29,12 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 
 ## [Unreleased]
 
+## [0.93.1] - 2026-11-01
+
+A pull is enough. No database migration, no configuration change.
+
 ### Fixed
-- **Gallery order after uploads** (#71). New uploads all started at the same sort position, so the order of a gallery was not guaranteed after a Lightroom publish or a batch upload and could even change between page loads. New files are now appended at the end in upload order, and galleries without a manual order show their files in upload order consistently. Manually arranged galleries are unaffected.
+- **Gallery order after uploads** (#71). New uploads all started at the same sort position, so the order of a gallery was not guaranteed after a Lightroom publish or a batch upload and could even change between page loads. New files are now appended at the end in upload order, and galleries without a manual order show their files in upload order consistently. Existing manual orders are kept.
 
 ## [0.93.0] - 2026-10-19
 
