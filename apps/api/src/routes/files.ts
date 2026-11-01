@@ -45,6 +45,7 @@ import { publish } from "../services/events.js";
 import { logEvent } from "../services/audit.js";
 import { checkStorageLimit } from "../services/usage.js";
 import { galleryAccessWhere, canAccessGallery } from "../lib/gallery-access.js";
+import { nextFileSortIndex } from "../services/file-order.js";
 
 const MAX_FILES_PER_INIT = 1000;
 
@@ -152,6 +153,8 @@ export async function registerFileRoutes(app: FastifyInstance) {
 
     // Per File: Record anlegen + Presigned URL(s) erzeugen
     const uploads = [];
+    // Neue Files hinten anhängen, in der Reihenfolge des Init-Calls (#71).
+    let nextSortIndex = await nextFileSortIndex(prisma, gallery.id);
     for (const f of body.files) {
       const kind = detectFileKind(f.filename, f.mimeType);
 
@@ -160,6 +163,7 @@ export async function registerFileRoutes(app: FastifyInstance) {
       const fileRow = await prisma.file.create({
         data: {
           galleryId: gallery.id,
+          sortIndex: nextSortIndex++,
           originalFilename: f.filename,
           storageKey: "", // wird im nächsten Schritt gesetzt
           mimeType: f.mimeType,

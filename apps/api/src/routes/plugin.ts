@@ -37,6 +37,7 @@ import { logEvent } from "../services/audit.js";
 import { deleteObject } from "../services/storage.js";
 import { invalidateZipCacheForGallery } from "../services/zip-cache.js";
 import { galleryAccessWhere } from "../lib/gallery-access.js";
+import { FILE_ORDER_BY } from "../services/file-order.js";
 
 const API_VERSION = "1";
 
@@ -231,7 +232,7 @@ export async function registerPluginRoutes(app: FastifyInstance) {
       if (!gallery) return reply.status(404).send({ error: "not_found" });
       const files = await prisma.file.findMany({
         where: { galleryId: gallery.id },
-        orderBy: { sortIndex: "asc" },
+        orderBy: FILE_ORDER_BY,
         select: {
           id: true,
           originalFilename: true,
@@ -339,7 +340,7 @@ export async function registerPluginRoutes(app: FastifyInstance) {
       // sinnvolle Entscheidung geben, auch wenn 3 Kunden uneins waren.
       const files = await prisma.file.findMany({
         where: { galleryId: gallery.id, status: "ready" },
-        orderBy: { sortIndex: "asc" },
+        orderBy: FILE_ORDER_BY,
         select: {
           id: true,
           originalFilename: true,
