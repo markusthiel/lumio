@@ -1,18 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import { api, type TenantSettings, type BillingUsage, type UploadLimits } from "@/lib/api";
-import { TwoFactorSection } from "@/components/studio/TwoFactorSection";
-import { PasskeysSection } from "@/components/studio/PasskeysSection";
 import { ApiTokensSection } from "@/components/studio/ApiTokensSection";
 import { MotionSection } from "@/components/studio/MotionSection";
 import { NotificationSettings } from "@/components/studio/NotificationSettings";
 import { PageHeader } from "@/components/studio/PageHeader";
-import { useT, useLocale } from "@/lib/i18n";
-import { useErrorText } from "@/lib/error-i18n";
+import { PasskeysSection } from "@/components/studio/PasskeysSection";
+import { TwoFactorSection } from "@/components/studio/TwoFactorSection";
 import { useConfirm } from "@/components/ui/dialogs";
+import { api, type BillingUsage, type TenantSettings, type UploadLimits } from "@/lib/api";
+import { useErrorText } from "@/lib/error-i18n";
+import { useLocale, useT } from "@/lib/i18n";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 /** Kleine Status-Zeile mit farbigem Punkt + Label + Detail-Text.
  *  Für Custom-Domain DNS- und TLS-Status. */
@@ -589,7 +589,7 @@ export default function StudioSettingsPage() {
           <select
             value={locale}
             onChange={(e) => {
-              const next = e.target.value as "en" | "de" | "it" | "fi";
+              const next = e.target.value as "en" | "de" | "it" | "fi" | "fr";
               setLocale(next);
               // Write-through fuer den Mailversand. Die Oberflaeche haengt
               // weiterhin am Cookie — dieser Wert entscheidet nur, in
@@ -597,7 +597,7 @@ export default function StudioSettingsPage() {
               // entstehen serverseitig, wenn kein Browser beteiligt ist.
               // Best-effort: ein Fehler darf die Umstellung nicht
               // blockieren, das Cookie ist bereits gesetzt.
-              void api.updateMyMailLocale(next).catch(() => {});
+                 void api.updateMyMailLocale(next).catch(() => {});
             }}
             className="text-sm rounded-md border border-line-subtle px-2 py-1 bg-surface-raised"
           >
@@ -605,6 +605,7 @@ export default function StudioSettingsPage() {
             <option value="de">Deutsch</option>
             <option value="it">Italiano</option>
             <option value="fi">Suomi</option>
+            <option value="fr">Français</option>
           </select>
         </section>
 
@@ -625,7 +626,7 @@ export default function StudioSettingsPage() {
               value={settings.locale ?? ""}
               onChange={async (e) => {
                 const raw = e.target.value;
-                const next = raw === "" ? null : (raw as "en" | "de" | "it" | "fi");
+                const next = raw === "" ? null : (raw as "en" | "de" | "it" | "fi" | "fr");
                 // Optimistisch setzen, damit das Feld nicht zurueckspringt.
                 setSettings({ ...settings, locale: next });
                 try {
@@ -646,6 +647,7 @@ export default function StudioSettingsPage() {
               <option value="en">English</option>
               <option value="it">Italiano</option>
               <option value="fi">Suomi</option>
+              <option value="fr">Français</option>
             </select>
           </section>
         )}

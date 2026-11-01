@@ -372,8 +372,8 @@ function LocaleSwitcher({
   supported,
 }: {
   locale: string;
-  setLocale: (l: "en" | "de" | "it" | "fi") => void;
-  supported: readonly ("en" | "de" | "it" | "fi")[];
+  setLocale: (l: "en" | "de" | "it" | "fi" | "fr") => void;
+  supported: readonly ("en" | "de" | "it" | "fi" | "fr")[];
 }) {
   return (
     <div className="flex items-center gap-1 text-[11px]">
@@ -390,7 +390,7 @@ function LocaleSwitcher({
             }
             aria-current={l === locale ? "true" : undefined}
           >
-            {l === "de" ? "Deutsch" : l === "it" ? "Italiano" : l === "fi" ? "Suomi" : "English"}
+            {l === "de" ? "Deutsch" : l === "it" ? "Italiano" : l === "fi" ? "Suomi" : l === "fr" ? "Français" : "English"}
           </button>
         </span>
       ))}

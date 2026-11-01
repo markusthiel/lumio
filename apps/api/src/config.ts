@@ -105,7 +105,7 @@ const envSchema = z.object({
   // Literal-Liste statt Import aus mail-i18n.ts (das wuerde config.ts
   // <-> mail-i18n.ts zirkulaer machen, mail-i18n.ts importiert config
   // bereits) — MUSS mit MAIL_LOCALES dort synchron gehalten werden.
-  DEFAULT_MAIL_LOCALE: z.enum(["de", "en", "it", "fi"]).default("de"),
+  DEFAULT_MAIL_LOCALE: z.enum(["de", "en", "it", "fi", "fr"]).default("de"),
 
   /**
    * Fusszeile der Mails: "Verschickt von Lumio".

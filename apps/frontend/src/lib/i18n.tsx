@@ -17,6 +17,8 @@
  *   - 'en' (default)
  *   - 'de'
  *   - 'it'
+ *   - 'fi'
+ *   - 'fr'
  *
  * Strings live in lib/i18n/<locale>.ts.
  */
@@ -26,7 +28,7 @@ import { createFormatters, type Formatters } from "./i18n/format";
 
 const LOCALE_COOKIE = "lumio_locale";
 const DEFAULT_LOCALE: Locale = "en";
-const SUPPORTED: Locale[] = ["en", "de", "it", "fi"];
+const SUPPORTED: Locale[] = ["en", "de", "it", "fi", "fr"];
 
 function readCookie(name: string): string | null {
   if (typeof document === "undefined") return null;
