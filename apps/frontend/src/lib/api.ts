@@ -1682,6 +1682,13 @@ export const api = {
       body: JSON.stringify(input),
     }),
 
+  /** Sortiert die ganze Galerie einmalig serverseitig (#71). */
+  sortFiles: (input: { galleryId: string; by: "filename" | "takenAt" }) =>
+    request<{ affected: number }>(`/files/sort`, {
+      method: "PUT",
+      body: JSON.stringify(input),
+    }),
+
   // Access Tokens (Studio)
   listAccesses: (galleryId: string) =>
     request<{ accesses: GalleryAccess[] }>(

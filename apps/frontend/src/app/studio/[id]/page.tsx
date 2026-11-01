@@ -409,6 +409,40 @@ export default function GalleryDetailPage() {
     }
   }, [gallery, pushActivity, t, load]);
 
+  // Ganze Galerie einmalig nach Dateiname / Aufnahmedatum sortieren
+  // (#71). Überschreibt die manuelle Reihenfolge, daher vorher fragen.
+  // Danach bleibt man im Sortier-Modus und kann per Drag nachjustieren.
+  const [sortingBy, setSortingBy] = useState<"filename" | "takenAt" | null>(
+    null
+  );
+  const sortGalleryBy = useCallback(
+    async (by: "filename" | "takenAt") => {
+      if (!gallery) return;
+      if (
+        !(await confirm({
+          message:
+            by === "filename"
+              ? t("studio.sortByFilenameConfirm")
+              : t("studio.sortByTakenConfirm"),
+        }))
+      ) {
+        return;
+      }
+      setSortingBy(by);
+      try {
+        await api.sortFiles({ galleryId: gallery.id, by });
+        await load();
+        pushActivity(t("studio.sortDone"));
+      } catch (err) {
+        console.error("sort failed:", err);
+        pushActivity(t("studio.sortFailed"));
+      } finally {
+        setSortingBy(null);
+      }
+    },
+    [gallery, confirm, pushActivity, t, load]
+  );
+
   // Reject-Dialog State. dialogTarget kann sein:
   //   { type: 'single', fileId }   → ein File ablehnen
   //   { type: 'bulk', fileIds: [] } → mehrere mit gemeinsamem Grund
@@ -1730,6 +1764,20 @@ export default function GalleryDetailPage() {
                 ) : gridMode === "sort" ? (
                   <>
                     <span className="text-ui-sm text-ink-tertiary mr-1">{t("studio.dragToSort")}</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => sortGalleryBy("filename")}
+                      disabled={sortingBy !== null}
+                      title={t("studio.sortByFilenameTitle")}
+                    >{t("studio.sortByFilename")}</Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => sortGalleryBy("takenAt")}
+                      disabled={sortingBy !== null}
+                      title={t("studio.sortByTakenTitle")}
+                    >{t("studio.sortByTaken")}</Button>
                     <Button
                       size="sm"
                       variant="primary"

@@ -41,3 +41,53 @@ export async function nextFileSortIndex(
   const max = agg._max.sortIndex;
   return max === null || max === undefined ? 0 : max + 1;
 }
+
+// ---------------------------------------------------------------------------
+// Einmalige Sortierung einer Galerie (Studio, Sortier-Modus)
+// ---------------------------------------------------------------------------
+
+export const FILE_SORT_KEYS = ["filename", "takenAt"] as const;
+export type FileSortKey = (typeof FILE_SORT_KEYS)[number];
+
+export interface SortableFile {
+  id: string;
+  originalFilename: string;
+  takenAt: Date | null;
+}
+
+// Natürlich-numerisch ("IMG_2" vor "IMG_10"), Groß/Klein egal — dieselbe
+// Logik wie die kundenseitige Ansichts-Sortierung in GalleryView.
+const nameCollator = new Intl.Collator(undefined, {
+  numeric: true,
+  sensitivity: "base",
+});
+
+/**
+ * Liefert die neue Reihenfolge. `files` muss in der aktuellen
+ * Galerie-Reihenfolge kommen (FILE_ORDER_BY): Array.prototype.sort ist
+ * stabil, Gleichstände und Files ohne Aufnahmedatum behalten also ihre
+ * bisherige relative Position. Files ohne Aufnahmedatum landen am Ende.
+ */
+export function sortFilesBy<T extends SortableFile>(
+  files: readonly T[],
+  by: FileSortKey
+): T[] {
+  const copy = [...files];
+  if (by === "filename") {
+    copy.sort((a, b) =>
+      nameCollator.compare(a.originalFilename, b.originalFilename)
+    );
+    return copy;
+  }
+  copy.sort((a, b) => {
+    const ta = a.takenAt ? a.takenAt.getTime() : NaN;
+    const tb = b.takenAt ? b.takenAt.getTime() : NaN;
+    const na = Number.isNaN(ta);
+    const nb = Number.isNaN(tb);
+    if (na && nb) return 0;
+    if (na) return 1;
+    if (nb) return -1;
+    return ta - tb;
+  });
+  return copy;
+}

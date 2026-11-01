@@ -29,6 +29,9 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 
 ## [Unreleased]
 
+### Added
+- **Sort a gallery by filename or capture date** (#71). In the studio's sort mode, two new buttons sort the whole gallery once by filename (natural order, so IMG_2 comes before IMG_10) or by capture date (files without a date go to the end). The result is a normal manual order that can be fine-tuned by dragging afterwards. The current order is replaced, so Lumio asks before sorting.
+
 ## [0.93.1] - 2026-11-01
 
 A pull is enough. No database migration, no configuration change.
