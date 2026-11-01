@@ -49,6 +49,7 @@ import { publish } from "../services/events.js";
 import { checkStorageLimit } from "../services/usage.js";
 import { logEvent } from "../services/audit.js";
 import { galleryAccessWhere } from "../lib/gallery-access.js";
+import { nextFileSortIndex } from "../services/file-order.js";
 
 const MAX_FILES_PER_INIT = 100; // bewusst niedriger als bei /uploads/init
                                  // weil die UX einer Drag-Drop-Page anders ist
@@ -935,12 +936,15 @@ export async function registerUploadLinkRoutes(app: FastifyInstance) {
       // File-Records anlegen + Presigned URLs erzeugen.
       // uploadedVia='upload_link', publicVisibility='hidden'.
       const uploads = [];
+      // Hinten anhängen statt sortIndex 0 (#71).
+      let nextSortIndex = await nextFileSortIndex(prisma, link.galleryId);
       for (const f of body.files) {
         const kind = detectFileKind(f.filename, f.mimeType);
 
         const fileRow = await prisma.file.create({
           data: {
             galleryId: link.galleryId,
+            sortIndex: nextSortIndex++,
             originalFilename: f.filename,
             storageKey: "",
             mimeType: f.mimeType,

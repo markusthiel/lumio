@@ -29,6 +29,20 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 
 ## [Unreleased]
 
+## [0.94.0] - 2026-11-01
+
+A pull is enough. No database migration, no configuration change.
+
+### Added
+- **Sort a gallery by filename or capture date** (#71). In the studio's sort mode, two new buttons sort the whole gallery once by filename (natural order, so IMG_2 comes before IMG_10) or by capture date (files without a date go to the end). The result is a normal manual order that can be fine-tuned by dragging afterwards. The current order is replaced, so Lumio asks before sorting.
+
+## [0.93.1] - 2026-11-01
+
+A pull is enough. No database migration, no configuration change.
+
+### Fixed
+- **Gallery order after uploads** (#71). New uploads all started at the same sort position, so the order of a gallery was not guaranteed after a Lightroom publish or a batch upload and could even change between page loads. New files are now appended at the end in upload order, and galleries without a manual order show their files in upload order consistently. Existing manual orders are kept.
+
 ## [0.93.0] - 2026-10-19
 
 A pull is enough. The database migration (one new setting for galleries and templates) runs automatically on start; existing galleries keep offering what they offered before.

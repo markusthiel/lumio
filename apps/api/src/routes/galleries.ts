@@ -46,6 +46,7 @@ import {
   parseDownloadVariant,
   resolveDownloadFlags,
 } from "../services/download-policy.js";
+import { FILE_ORDER_BY } from "../services/file-order.js";
 
 // ---------------------------------------------------------------------------
 // Customer-Download: Variant-Auflösung (geteilt)
@@ -679,7 +680,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         },
         include: {
           files: {
-            orderBy: { sortIndex: "asc" },
+            orderBy: FILE_ORDER_BY,
             select: {
               id: true,
               originalFilename: true,
@@ -2251,7 +2252,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           // Customer-Galerie raus. Studio sieht sie weiterhin.
           publicVisibility: "visible",
         },
-        orderBy: { sortIndex: "asc" },
+        orderBy: FILE_ORDER_BY,
         select: {
           id: true,
           originalFilename: true,

@@ -45,6 +45,13 @@ import { publish } from "../services/events.js";
 import { logEvent } from "../services/audit.js";
 import { checkStorageLimit } from "../services/usage.js";
 import { galleryAccessWhere, canAccessGallery } from "../lib/gallery-access.js";
+import {
+  FILE_ORDER_BY,
+  FILE_SORT_KEYS,
+  nextFileSortIndex,
+  sortFilesBy,
+  type FileSortKey,
+} from "../services/file-order.js";
 
 const MAX_FILES_PER_INIT = 1000;
 
@@ -152,6 +159,8 @@ export async function registerFileRoutes(app: FastifyInstance) {
 
     // Per File: Record anlegen + Presigned URL(s) erzeugen
     const uploads = [];
+    // Neue Files hinten anhängen, in der Reihenfolge des Init-Calls (#71).
+    let nextSortIndex = await nextFileSortIndex(prisma, gallery.id);
     for (const f of body.files) {
       const kind = detectFileKind(f.filename, f.mimeType);
 
@@ -160,6 +169,7 @@ export async function registerFileRoutes(app: FastifyInstance) {
       const fileRow = await prisma.file.create({
         data: {
           galleryId: gallery.id,
+          sortIndex: nextSortIndex++,
           originalFilename: f.filename,
           storageKey: "", // wird im nächsten Schritt gesetzt
           mimeType: f.mimeType,
@@ -870,5 +880,68 @@ export async function registerFileRoutes(app: FastifyInstance) {
       )
     );
     return { affected: body.order.length };
+  });
+
+  // -------------------------------------------------------------------------
+  // PUT /files/sort
+  // -------------------------------------------------------------------------
+  // Sortiert eine ganze Galerie EINMALIG nach Dateiname oder Aufnahmedatum
+  // und schreibt das Ergebnis als sortIndex (#71). Danach ist es wieder
+  // eine ganz normale manuelle Reihenfolge, die per Drag weiter angepasst
+  // werden kann. Läuft serverseitig statt über /files/reorder, damit auch
+  // Galerien jenseits des 5000er-Limits dort funktionieren.
+  app.put<{
+    Body: { galleryId: string; by: string };
+  }>("/files/sort", async (req, reply) => {
+    const s = req.requireAuth();
+    const body = req.body;
+    if (
+      !body ||
+      typeof body.galleryId !== "string" ||
+      !(FILE_SORT_KEYS as readonly string[]).includes(body.by)
+    ) {
+      return reply.status(400).send({ error: "bad_request" });
+    }
+    const by = body.by as FileSortKey;
+
+    const gallery = await prisma.gallery.findFirst({
+      where: {
+        id: body.galleryId,
+        tenantId: req.tenantId,
+        ...galleryAccessWhere(s),
+      },
+      select: { id: true },
+    });
+    if (!gallery) {
+      return reply.status(404).send({ error: "not_found" });
+    }
+
+    const files = await prisma.file.findMany({
+      where: { galleryId: gallery.id },
+      orderBy: FILE_ORDER_BY,
+      select: {
+        id: true,
+        originalFilename: true,
+        takenAt: true,
+        sortIndex: true,
+      },
+    });
+    const sorted = sortFilesBy(files, by);
+
+    // Nur geänderte Zeilen schreiben.
+    const updates = sorted
+      .map((f, i) => ({ id: f.id, from: f.sortIndex, to: i }))
+      .filter((u) => u.from !== u.to);
+    if (updates.length > 0) {
+      await prisma.$transaction(
+        updates.map((u) =>
+          prisma.file.update({
+            where: { id: u.id },
+            data: { sortIndex: u.to },
+          })
+        )
+      );
+    }
+    return { affected: updates.length };
   });
 }

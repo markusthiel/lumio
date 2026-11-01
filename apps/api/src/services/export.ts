@@ -19,6 +19,7 @@
  *     Token in der UI.
  */
 import { prisma } from "../db.js";
+import { FILE_ORDER_BY } from "./file-order.js";
 
 export interface FileExportRow {
   fileId: string;
@@ -49,7 +50,7 @@ export async function loadProofingExport(
 ): Promise<FileExportRow[]> {
   const files = await prisma.file.findMany({
     where: { galleryId, status: "ready" },
-    orderBy: { sortIndex: "asc" },
+    orderBy: FILE_ORDER_BY,
     select: {
       id: true,
       originalFilename: true,
