@@ -29,6 +29,10 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 
 ## [Unreleased]
 
+## [0.95.0] - 2026-11-02
+
+A pull is enough. The new feature is opt-in via `.env`; without it nothing changes.
+
 ### Added
 - **Automatic certificates for studios' custom domains (opt-in).** If your Lumio Caddy faces the internet directly, set `LUMIO_CUSTOM_DOMAIN_TLS_HOST=https://` in `.env` and Caddy fetches a certificate for a studio's own domain on its first request, with no Caddyfile block per domain. Before that, Caddy asks the API whether the domain belongs to a studio, so foreign domains pointed at your server get no certificate. Without the variable nothing changes. Don't enable it behind an external reverse proxy. Details in `docs/MULTI_TENANT.md`.
 
