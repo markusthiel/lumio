@@ -1813,6 +1813,23 @@ export const api = {
       body: JSON.stringify(input ?? {}),
     }),
 
+  /** Meldet einen endgültig gescheiterten Browser-Upload, damit er im
+   *  API-Log sichtbar wird. Best-effort, Antwort ist leer (204). */
+  reportUploadFailure: (
+    fileId: string,
+    input: {
+      kind: string;
+      httpStatus?: number;
+      targetHost?: string;
+      pageHost?: string;
+      message?: string;
+    }
+  ) =>
+    request<void>(`/uploads/${fileId}/failed`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+
   // Duplicate Detection
   /** Startet einen SHA-256-Scan für die Galerie. Liefert
    *  scanRequired=false wenn alle Files schon einen Hash haben

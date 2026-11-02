@@ -82,6 +82,34 @@ const uploadCompleteSchema = z.object({
     .optional(),
 });
 
+const uploadFailureSchema = z.object({
+  kind: z.enum(["network", "http", "stall", "etag", "other"]),
+  httpStatus: z.number().int().min(100).max(599).optional(),
+  targetHost: z.string().max(255).optional(),
+  pageHost: z.string().max(255).optional(),
+  message: z.string().max(300).optional(),
+});
+
+/** Kurzer Diagnose-Hinweis fürs Log, damit man nicht raten muss. */
+export function uploadFailureHint(f: {
+  kind: string;
+  httpStatus?: number;
+  targetHost?: string;
+  pageHost?: string;
+}): string | undefined {
+  if (f.kind === "network") {
+    return `Browser blocked or lost the request to ${f.targetHost ?? "storage"}. Most common cause: the bucket's CORS rule doesn't allow the origin https://${f.pageHost ?? "?"} (see docs/STORAGE.md).`;
+  }
+  if (f.kind === "etag") {
+    return "Storage did not expose the ETag header — add ETag to the bucket's CORS ExposeHeaders.";
+  }
+  if (f.kind === "http" && (f.httpStatus === 403 || f.httpStatus === 400)) {
+    return "Storage rejected the signed URL — check S3 credentials, clock skew and S3_PUBLIC_URL.";
+  }
+  if (f.kind === "stall") return "No upload progress for 30 s — slow or interrupted connection.";
+  return undefined;
+}
+
 export async function registerFileRoutes(app: FastifyInstance) {
   // -------------------------------------------------------------------------
   // POST /uploads/init
@@ -354,6 +382,63 @@ export async function registerFileRoutes(app: FastifyInstance) {
   // Browser-Memory, nicht in der DB), Backend signiert dieselben
   // Parts neu. Wenn Client nur einzelne Parts retryen will, kann er
   // `partNumbers` mitschicken — sonst kriegt er für alle Parts neue URLs.
+  // -------------------------------------------------------------------------
+  // POST /uploads/:fileId/failed
+  // -------------------------------------------------------------------------
+  // Der Browser meldet einen endgültig gescheiterten Upload. Die Datei geht
+  // direkt vom Browser zum Storage — blockt der Browser den PUT (typisch:
+  // CORS-Regel am Bucket kennt die Origin nicht, z.B. eine Custom-Domain),
+  // kommt weder bei Lumio noch beim Storage eine Anfrage an. Ohne diese
+  // Meldung wäre der Fehler nur in den DevTools des Nutzers sichtbar.
+  // Reines Logging: der File-Status bleibt unverändert, ein Retry über
+  // /resign ist weiterhin möglich.
+  app.post<{ Params: { fileId: string } }>(
+    "/uploads/:fileId/failed",
+    { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } },
+    async (req, reply) => {
+      const s = req.requireAuth();
+      const body = uploadFailureSchema.safeParse(req.body ?? {});
+      if (!body.success) return reply.status(400).send({ error: "invalid_body" });
+
+      const file = await prisma.file.findFirst({
+        where: { id: req.params.fileId },
+        select: {
+          id: true,
+          originalFilename: true,
+          sizeBytes: true,
+          galleryId: true,
+          gallery: { select: { tenantId: true, ownerId: true, collaborators: { select: { userId: true } } } },
+        },
+      });
+      if (
+        !file ||
+        file.gallery.tenantId !== req.tenantId ||
+        !canAccessGallery(s, file.gallery)
+      ) {
+        return reply.status(404).send({ error: "not_found" });
+      }
+
+      const b = body.data;
+      req.log.warn(
+        {
+          tenantId: req.tenantId,
+          galleryId: file.galleryId,
+          fileId: file.id,
+          filename: file.originalFilename,
+          sizeBytes: Number(file.sizeBytes),
+          kind: b.kind,
+          httpStatus: b.httpStatus,
+          targetHost: b.targetHost,
+          pageHost: b.pageHost,
+          clientMessage: b.message,
+          hint: uploadFailureHint(b),
+        },
+        "upload failed in browser",
+      );
+      return reply.status(204).send();
+    },
+  );
+
   app.post<{ Params: { fileId: string } }>(
     "/uploads/:fileId/resign",
     async (req, reply) => {

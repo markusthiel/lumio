@@ -313,7 +313,18 @@ Standard CORS rule for all providers:
 }
 ```
 
-Multiple origins (production + staging) as an array. Wildcards (`*`) work but are insecure.
+Multiple origins (production + staging) as an array.
+
+**Studios with their own domain (custom domains):** every domain a studio
+works from has to be in `AllowedOrigins`. Otherwise the browser blocks the
+upload: files stay at "queued" and then turn "failed", and neither Lumio
+nor the storage receives a request. If your studios bring their own domains,
+`"AllowedOrigins": ["*"]` is the practical choice: access to the bucket is
+protected by the signature of the upload and download URLs (valid for about
+an hour), not by CORS, and browsers send no cookies to the storage. Since
+v0.96.0 Lumio logs such failures in the API log
+(`docker logs lumio_api | grep "upload failed in browser"`), including the
+blocked origin.
 
 If the provider has no web UI for it:
 

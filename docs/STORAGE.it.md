@@ -354,8 +354,18 @@ Regola CORS standard per tutti i provider:
 }
 ```
 
-Più origin (produzione + staging) come array. I wildcard (`*`) funzionano
-ma non sono sicuri.
+Più origin (produzione + staging) come array.
+
+**Studi con un proprio dominio (domini personalizzati):** ogni dominio da cui
+lavora uno studio deve comparire in `AllowedOrigins`. Altrimenti il browser
+blocca l'upload: i file restano su "queued" e poi passano a "failed", e né
+Lumio né lo storage ricevono una richiesta. Se i tuoi studi usano domini
+propri, `"AllowedOrigins": ["*"]` è la scelta pratica: l'accesso al bucket è
+protetto dalla firma degli URL di upload e download (validi circa un'ora),
+non dal CORS, e il browser non invia cookie allo storage. Da v0.96.0 Lumio
+registra questi errori nel log dell'API
+(`docker logs lumio_api | grep "upload failed in browser"`), compresa
+l'origin bloccata.
 
 Se il provider non ha una UI web per questo:
 

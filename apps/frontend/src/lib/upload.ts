@@ -177,6 +177,7 @@ export async function uploadFiles(
           progress: 1,
         });
       } catch (err) {
+        reportFailure(w.init.fileId, err);
         onProgress({
           fileId: w.init.fileId,
           filename: w.file.name,
@@ -398,12 +399,51 @@ async function uploadMultipart(
 /** Fehler aus putWithProgress / putPartWithProgress. Trägt den HTTP-Status
  *  als Feld (falls vorhanden), damit der Caller "expired" von "transient
  *  network glitch" unterscheiden kann. */
+type PutErrorKind = "network" | "http" | "stall" | "etag";
+
 class PutError extends Error {
   httpStatus?: number;
-  constructor(message: string, httpStatus?: number) {
+  kind: PutErrorKind;
+  /** Host der Upload-URL (ohne Pfad/Query — die Query trägt die Signatur
+   *  und darf nie in Logs landen). */
+  targetHost?: string;
+  constructor(
+    message: string,
+    httpStatus?: number,
+    kind: PutErrorKind = httpStatus ? "http" : "network",
+    url?: string
+  ) {
     super(message);
     this.httpStatus = httpStatus;
+    this.kind = kind;
+    this.targetHost = hostOf(url);
   }
+}
+
+function hostOf(url?: string): string | undefined {
+  if (!url) return undefined;
+  try {
+    return new URL(url).host;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Meldet einen endgültig gescheiterten Upload an die API, damit er im
+ *  API-Log auftaucht. Ein blockierter Browser-Upload (z.B. CORS am Bucket)
+ *  erreicht weder Lumio noch den Storage — ohne diese Meldung sieht ihn
+ *  nur der Browser des Nutzers. Best-effort: Fehler hier werden geschluckt. */
+function reportFailure(fileId: string, err: unknown) {
+  const pe = err instanceof PutError ? err : null;
+  void api
+    .reportUploadFailure(fileId, {
+      kind: pe?.kind ?? "other",
+      httpStatus: pe?.httpStatus,
+      targetHost: pe?.targetHost,
+      pageHost: typeof location !== "undefined" ? location.host : undefined,
+      message: (err instanceof Error ? err.message : String(err)).slice(0, 300),
+    })
+    .catch(() => {});
 }
 
 function putWithProgress(
@@ -452,19 +492,22 @@ function putWithProgress(
         onProgress(1);
         resolve();
       } else {
-        reject(new PutError(`upload failed: HTTP ${xhr.status}`, xhr.status));
+        reject(new PutError(`upload failed: HTTP ${xhr.status}`, xhr.status, "http", url));
       }
     };
     xhr.onerror = () => {
       cleanup();
-      reject(new PutError("network error during upload"));
+      reject(new PutError("network error during upload", undefined, "network", url));
     };
     xhr.onabort = () => {
       cleanup();
       const sinceProgress = Date.now() - lastProgressAt;
       reject(
         new PutError(
-          `upload stalled (no progress for ${Math.round(sinceProgress / 1000)}s)`
+          `upload stalled (no progress for ${Math.round(sinceProgress / 1000)}s)`,
+          undefined,
+          "stall",
+          url
         )
       );
     };
@@ -515,7 +558,10 @@ function putPartWithProgress(
         if (!eTag) {
           reject(
             new PutError(
-              "S3 did not return ETag — check CORS ExposedHeaders"
+              "S3 did not return ETag — check CORS ExposedHeaders",
+              undefined,
+              "etag",
+              url
             )
           );
           return;
@@ -524,20 +570,23 @@ function putPartWithProgress(
         resolve(eTag.replace(/"/g, ""));
       } else {
         reject(
-          new PutError(`part upload failed: HTTP ${xhr.status}`, xhr.status)
+          new PutError(`part upload failed: HTTP ${xhr.status}`, xhr.status, "http", url)
         );
       }
     };
     xhr.onerror = () => {
       cleanup();
-      reject(new PutError("network error during part upload"));
+      reject(new PutError("network error during part upload", undefined, "network", url));
     };
     xhr.onabort = () => {
       cleanup();
       const sinceProgress = Date.now() - lastProgressAt;
       reject(
         new PutError(
-          `part upload stalled (no progress for ${Math.round(sinceProgress / 1000)}s)`
+          `part upload stalled (no progress for ${Math.round(sinceProgress / 1000)}s)`,
+          undefined,
+          "stall",
+          url
         )
       );
     };

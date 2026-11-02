@@ -29,6 +29,12 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 
 ## [Unreleased]
 
+### Added
+- **Failed uploads now show up in the API log.** When the browser can't upload a file to the storage (for example because the bucket's CORS rule doesn't know a studio's custom domain), the request never reached Lumio before, so the failure was only visible in the user's browser. Now `docker logs lumio_api | grep "upload failed in browser"` shows studio, file, the storage host, the page's domain and a hint at the likely cause.
+
+### Changed
+- `docs/STORAGE.md`: studios with their own domain need that domain in the bucket's CORS rule, or `"AllowedOrigins": ["*"]`. The docs explain why `*` is acceptable there.
+
 ## [0.95.0] - 2026-11-02
 
 A pull is enough. The new feature is opt-in via `.env`; without it nothing changes.
