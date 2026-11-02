@@ -65,6 +65,28 @@ The internal Caddy (`infra/caddy/Caddyfile`) is configured to contain an `http:/
 
 **You don't need to change anything per client on the internal Caddy.** The tenant resolution code in `apps/api/src/plugins/auth.ts` matches against `tenants.customDomain` via the Host header. If the domain is entered there, everything runs automatically.
 
+### Without an external proxy: automatic certificates (on-demand TLS)
+
+If the Lumio Caddy itself faces the internet (ports 80/443, no external
+proxy in front), it can obtain certificates for custom domains on its own,
+without a Caddyfile block per client. In `.env`:
+
+```
+LUMIO_CUSTOM_DOMAIN_TLS_HOST=https://
+```
+
+then `docker compose up -d caddy` (or your usual deploy command). From
+then on: the client sets the A record (or CNAME), enters the domain in the
+studio, and Caddy fetches the certificate on the first request (1–2 minutes).
+
+Before that, Caddy asks the API (`/internal/tls-ask`, reachable only inside
+the Docker network) whether the domain belongs to a studio. Foreign domains
+someone points at your IP get no certificate. Main domain, wildcard and
+marketing sites keep their existing certificates.
+
+**Don't enable this behind an external reverse proxy** — there the external
+proxy does TLS and the `http://` catch-all is enough.
+
 ### If you don't have a custom domain yet
 
 A nice subdomain under your own brand per client is also fine — e.g. `mueller.lumio-cloud.de` as an "interim" until the client decides on a custom domain. Each such subdomain is its own Caddyfile block with its own cert. With 5-10 clients completely fine.

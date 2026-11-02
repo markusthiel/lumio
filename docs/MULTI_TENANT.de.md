@@ -102,6 +102,28 @@ Tenant-Auflösungs-Code in `apps/api/src/plugins/auth.ts` matcht
 über den Host-Header gegen `tenants.customDomain`. Wenn die Domain
 dort eingetragen ist, läuft alles automatisch.
 
+### Ohne externen Proxy: Zertifikate automatisch (On-Demand-TLS)
+
+Steht der Lumio-Caddy selbst im Internet (Port 80/443, kein externer
+Proxy davor), kann er Zertifikate für Custom-Domains selbst holen —
+ohne Caddyfile-Block pro Kunde. In der `.env`:
+
+```
+LUMIO_CUSTOM_DOMAIN_TLS_HOST=https://
+```
+
+danach `docker compose up -d caddy` (bzw. dein üblicher Deploy-Befehl).
+Ab dann gilt: Kunde setzt den A-Record (oder CNAME), trägt die Domain
+im Studio ein, beim ersten Aufruf holt Caddy das Zertifikat (1–2 Minuten).
+
+Caddy fragt vorher die API (`/internal/tls-ask`, nur im Docker-Netz
+erreichbar), ob die Domain einem Studio gehört. Fremde Domains, die
+jemand auf deine IP zeigen lässt, bekommen kein Zertifikat. Hauptdomain,
+Wildcard und Marketing-Sites behalten ihre bisherigen Zertifikate.
+
+**Nicht aktivieren hinter einem externen Reverse-Proxy** — dort macht
+der externe Proxy TLS, und der `http://`-Catch-All reicht.
+
 ### Wenn du noch keine Custom-Domain hast
 
 Pro Kunde eine schöne Subdomain unter deiner eigenen Marke ist auch

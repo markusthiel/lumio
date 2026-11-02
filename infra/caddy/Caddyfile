@@ -6,6 +6,8 @@
 #   1. LUMIO_HOST         → Haupt-App-Domain (Frontend + API + WS)
 #   2. LUMIO_WILDCARD_HOST → Tenant-Subdomains (opt-in, default leer)
 #   3. http://             → Catch-All für Custom-Domains der Kunden
+#   3b. LUMIO_CUSTOM_DOMAIN_TLS_HOST → HTTPS-Catch-All mit On-Demand-TLS
+#       für Custom-Domains (opt-in, default tot)
 #
 # Und einen vierten Block für S3:
 #   4. LUMIO_S3_HOST       → MinIO / S3
@@ -41,6 +43,19 @@
 	admin off
 	servers {
 		trusted_proxies static private_ranges
+	}
+
+	# On-Demand-TLS für Custom-Domains der Kunden (siehe Block
+	# "Custom-Domains — automatisches TLS" weiter unten). Bevor Caddy für
+	# einen unbekannten Hostnamen ein Zertifikat holt, fragt er die API,
+	# ob die Domain einem Studio gehört (tenants.customDomain). Nur bei
+	# 200 wird ein Cert geholt — sonst könnte jeder, der eine Domain auf
+	# unsere IP zeigen lässt, Let's-Encrypt-Rate-Limits verbrauchen.
+	# Steht hier immer, wirkt aber nur, wenn der On-Demand-Block per
+	# LUMIO_CUSTOM_DOMAIN_TLS_HOST aktiviert ist. Der Endpoint liegt
+	# außerhalb von /api/* und ist von außen nicht erreichbar.
+	on_demand_tls {
+		ask http://api:3001/internal/tls-ask
 	}
 }
 
@@ -192,6 +207,31 @@
 {$LUMIO_UMAMI_HOST:127.0.0.3:9} {
 	reverse_proxy lumio_umami:3000
 	encode zstd gzip
+}
+
+# -----------------------------------------------------------------------------
+# Custom-Domains — automatisches TLS (opt-in via LUMIO_CUSTOM_DOMAIN_TLS_HOST)
+# -----------------------------------------------------------------------------
+# Für Setups, in denen DIESER Caddy direkt im Internet steht (Port 443) und
+# Kunden ihre eigene Domain (z.B. galerie.foto-kunde.de) per A-Record oder
+# CNAME auf den Server zeigen lassen. Aktivieren in .env mit:
+#   LUMIO_CUSTOM_DOMAIN_TLS_HOST=https://
+# `https://` ohne Host ist ein HTTPS-Catch-All: jede Domain, die keinen
+# spezifischeren Block oben hat, landet hier. Das Zertifikat holt Caddy beim
+# ersten Aufruf (On-Demand), aber nur, wenn die API die Domain bestätigt
+# (on_demand_tls/ask im globalen Block). Hauptdomain, Wildcard und
+# Marketing-Sites behalten ihre eigenen Zertifikate unverändert.
+#
+# Nicht aktivieren hinter einem externen Reverse-Proxy — dort macht der
+# externe Proxy TLS, und der http://-Catch-All darunter reicht.
+#
+# Default: tote Loopback-Adresse (127.0.0.8:9), Block matcht nichts, es wird
+# nie ein Cert geholt.
+{$LUMIO_CUSTOM_DOMAIN_TLS_HOST:127.0.0.8:9} {
+	tls {
+		on_demand
+	}
+	import lumio_app
 }
 
 # -----------------------------------------------------------------------------

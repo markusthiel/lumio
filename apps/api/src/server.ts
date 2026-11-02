@@ -18,6 +18,7 @@ import { prisma } from "./db.js";
 
 import authPlugin from "./plugins/auth.js";
 import { registerHealthRoute } from "./routes/health.js";
+import { registerTlsAskRoute } from "./routes/tls-ask.js";
 import { registerAuthRoutes } from "./routes/auth.js";
 import { registerGalleryRoutes } from "./routes/galleries.js";
 import { registerAccessRoutes } from "./routes/access.js";
@@ -192,6 +193,7 @@ async function buildServer() {
 
   // Routen
   await registerHealthRoute(app);
+  await registerTlsAskRoute(app);
   await app.register(
     async (api) => {
       // Read-only-Enforcement-Hook — greift für alle Schreibmethoden

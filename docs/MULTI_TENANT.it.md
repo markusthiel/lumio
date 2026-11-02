@@ -65,6 +65,29 @@ Il Caddy interno (`infra/caddy/Caddyfile`) è configurato per contenere un blocc
 
 **Non devi cambiare nulla per cliente sul Caddy interno.** Il codice di risoluzione del tenant in `apps/api/src/plugins/auth.ts` confronta tramite l'header Host con `tenants.customDomain`. Se il dominio è inserito lì, tutto gira automaticamente.
 
+### Senza proxy esterno: certificati automatici (TLS on-demand)
+
+Se il Caddy di Lumio è esposto direttamente su internet (porte 80/443,
+nessun proxy esterno davanti), può ottenere da solo i certificati per i
+domini personalizzati, senza un blocco nel Caddyfile per ogni cliente.
+Nel `.env`:
+
+```
+LUMIO_CUSTOM_DOMAIN_TLS_HOST=https://
+```
+
+poi `docker compose up -d caddy` (o il tuo solito comando di deploy). Da
+quel momento il cliente imposta il record A (o CNAME), inserisce il dominio
+nello studio e Caddy ottiene il certificato alla prima richiesta (1–2 minuti).
+
+Prima Caddy chiede all'API (`/internal/tls-ask`, raggiungibile solo nella
+rete Docker) se il dominio appartiene a uno studio. Domini estranei puntati
+sul tuo IP non ricevono alcun certificato. Dominio principale, wildcard e
+siti marketing mantengono i loro certificati.
+
+**Non attivarlo dietro un reverse proxy esterno**: lì il TLS lo fa il proxy
+esterno e basta il catch-all `http://`.
+
 ### Se non hai ancora un dominio personalizzato
 
 Va bene anche un bel sottodominio sotto il tuo brand per ogni cliente — es. `mueller.lumio-cloud.de` come "interim" finché il cliente non decide per un dominio personalizzato. Ogni sottodominio del genere è un proprio blocco Caddyfile con un proprio certificato. Con 5-10 clienti va benissimo.
