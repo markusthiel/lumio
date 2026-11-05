@@ -115,7 +115,7 @@ const layoutPhrases = {
     en: "Sent via {link}",
     it: "Inviato tramite {link}",
     fi: "Lähetetty palvelulla {link}",
-  },
+  fr: "Envoyé via {link}" },
 } satisfies Record<string, Phrase>;
 
 export interface RenderMailOpts {

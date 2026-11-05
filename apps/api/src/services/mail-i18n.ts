@@ -41,7 +41,7 @@ import { logger } from "../logger.js";
  * nicht uebersetzten Template zu. Das ist Absicht — eine halb uebersetzte
  * Mail ist schlimmer als eine, die ehrlich in der Default-Sprache kommt.
  */
-export const MAIL_LOCALES = ["de", "en", "it", "fi"] as const;
+export const MAIL_LOCALES = ["de", "en", "it", "fi", "fr"] as const;
 
 export type MailLocale = (typeof MAIL_LOCALES)[number];
 
@@ -61,6 +61,7 @@ export function localeTag(locale: MailLocale): string {
     en: "en-GB",
     it: "it-IT",
     fi: "fi-FI",
+    fr: "fr-FR",
   };
   return TAGS[locale];
 }
@@ -151,17 +152,17 @@ export function phrase(
  * Lesen nicht suchen muss.
  */
 export const common = {
-  signature: { de: "— Lumio", en: "— Lumio", it: "— Lumio", fi: "— Lumio" },
+  signature: { de: "— Lumio", en: "— Lumio", it: "— Lumio", fi: "— Lumio" , fr: "— Lumio" },
   openGallery: {
     de: "Galerie öffnen",
     en: "Open gallery",
     it: "Apri galleria",
     fi: "Avaa galleria",
-  },
+  fr: "Ouvrir la galerie" },
   viewGallery: {
     de: "Galerie ansehen",
     en: "View gallery",
     it: "Visualizza galleria",
     fi: "Katso galleria",
-  },
+  fr: "Voir la galerie" },
 } satisfies Record<string, Phrase>;

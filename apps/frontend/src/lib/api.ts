@@ -2292,8 +2292,8 @@ export const api = {
 
   /** Persoenliche Mail-Sprache. Best-effort: Fehler duerfen die
    *  Sprachumstellung der Oberflaeche nicht blockieren. */
-  updateMyMailLocale: (locale: "de" | "en" | "it" | "fi" | null) =>
-    request<{ locale: "de" | "en" | "it" | "fi" | null }>("/settings/my-locale", {
+  updateMyMailLocale: (locale: "de" | "en" | "it" | "fi" | "fr" | null) =>
+    request<{ locale: "de" | "en" | "it" | "fi" | "fr" | null }>("/settings/my-locale", {
       method: "PUT",
       body: JSON.stringify({ locale }),
     }),
@@ -2358,7 +2358,7 @@ export const api = {
   updateTenantSettings: (patch: {
     displayName?: string | null;
     /** Sprache der Mails an die Kunden. Null = Instanz-Default. */
-    mailLocale?: "de" | "en" | "it" | "fi" | null;
+    mailLocale?: "de" | "en" | "it" | "fi" | "fr" | null;
     slug?: string;
     watermarkText?: string | null;
     customDomain?: string | null;
@@ -4783,7 +4783,7 @@ export interface TenantSettings {
    *  fallen alle Caller auf 'name' zurueck. */
   displayName: string | null;
   /** Sprache der Mails an die Kunden dieses Studios. Null = Instanz-Default. */
-  locale: "de" | "en" | "it" | "fi" | null;
+  locale: "de" | "en" | "it" | "fi" | "fr" | null;
   watermarkText: string | null;
   watermarkImageKey: string | null;
   customDomain?: string | null;
