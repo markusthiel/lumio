@@ -266,7 +266,7 @@ const newCommentPhrases = {
     en: '{author} commented in "{title}"',
     it: '{author} ha commentato in "{title}"',
     fi: "{author} kommentoi galleriaa ”{title}”",
-  fr: "{author} commenté dans \"{title}\"" },
+  fr: "{author} a commenté dans \"{title}\"" },
   heading: {
     de: "Neuer Kommentar in „{title}“",
     en: "New comment in “{title}”",
@@ -327,7 +327,7 @@ const selectionFinishedPhrases = {
     en: "{who} selected {files}",
     it: "{who} ha selezionato {files}",
     fi: "{who} valitsi {files}",
-  fr: "{who} sélectionné {files}" },
+  fr: "{who} a sélectionné {files}" },
   heading: {
     de: "Auswahl abgeschlossen",
     en: "Selection finished",
@@ -345,7 +345,7 @@ const selectionFinishedPhrases = {
     en: "{who} finished the selection in “{title}” — {files} marked.",
     it: "{who} ha completato la selezione in «{title}» — {files} contrassegnati.",
     fi: "{who} sai valinnan valmiiksi galleriassa ”{title}” — {files} merkitty.",
-  fr: "{who} a terminé la sélection dans « {title} » — {files} marqué." },
+  fr: "{who} a terminé la sélection dans « {title} » — {files} marqué(s)." },
   button: {
     de: "Auswahl ansehen",
     en: "View selection",
@@ -353,7 +353,7 @@ const selectionFinishedPhrases = {
     fi: "Katso valinta",
   fr: "Voir la sélection" },
   fileOne: { de: "1 Datei", en: "1 file", it: "1 file", fi: "1 tiedosto" , fr: "1 fichier" },
-  fileMany: { de: "{n} Dateien", en: "{n} files", it: "{n} file", fi: "{n} tiedostoa" , fr: "Fichiers {n}" },
+  fileMany: { de: "{n} Dateien", en: "{n} files", it: "{n} file", fi: "{n} tiedostoa" , fr: "{n} fichiers" },
 } satisfies Record<string, Phrase>;
 
 export function tmplSelectionFinished(opts: {
@@ -432,7 +432,7 @@ const zipReadyPhrases = {
     fi: "Linkki on voimassa 7 päivää.",
   fr: "Le lien est valable 7 jours." },
   fileOne: { de: "1 Datei", en: "1 file", it: "1 file", fi: "1 tiedosto" , fr: "1 fichier" },
-  fileMany: { de: "{n} Dateien", en: "{n} files", it: "{n} file", fi: "{n} tiedostoa" , fr: "Fichiers {n}" },
+  fileMany: { de: "{n} Dateien", en: "{n} files", it: "{n} file", fi: "{n} tiedostoa" , fr: "{n} fichiers" },
 } satisfies Record<string, Phrase>;
 
 export function tmplZipReady(opts: {
@@ -480,13 +480,13 @@ const storageWarningPhrases = {
     en: "Storage almost full: {percent}% used",
     it: "Spazio quasi esaurito: {percent}% utilizzato",
     fi: "Tallennustila lähes täynnä: {percent} % käytössä",
-  fr: "Stockage presque plein : {percent}% utilisé" },
+  fr: "Stockage presque plein : {percent} % utilisé" },
   preheader: {
     de: "Dein Speicher ist zu {percent}% belegt",
     en: "Your storage is {percent}% used",
     it: "Il tuo spazio è utilizzato al {percent}%",
     fi: "Tallennustilastasi on käytössä {percent} %",
-  fr: "Votre espace de stockage est utilisé {percent} %" },
+  fr: "Votre espace de stockage est utilisé à {percent} %" },
   heading: {
     de: "Speicher fast voll",
     en: "Storage almost full",
@@ -498,20 +498,20 @@ const storageWarningPhrases = {
     en: "Your Lumio storage is {percent}% used ({used} of {limit} GB).",
     it: "Il tuo spazio Lumio è utilizzato al {percent}% ({used} di {limit} GB).",
     fi: "Lumio-tallennustilastasi on käytössä {percent} % ({used} / {limit} Gt).",
-  fr: "Votre stockage Lumio est utilisé avec {percent}% ({used} ou {limit} Go)." },
+  fr: "Votre stockage Lumio est utilisé à {percent} % ({used} sur {limit} Go)." },
   bodyHtml: {
     de: "Dein belegter Speicher liegt bei {percent}% — {used} von {limit} GB.",
     en: "Your used storage is at {percent}% — {used} of {limit} GB.",
     it: "Il tuo spazio utilizzato è al {percent}% — {used} di {limit} GB.",
     fi: "Käytössä oleva tallennustilasi on {percent} % — {used} / {limit} Gt.",
-  fr: "Votre stockage utilisé est à {percent}% — {used} ou {limit} Go." },
+  fr: "Votre stockage est utilisé à {percent} % — {used} sur {limit} Go." },
   consequence: {
     de: "Ist das Limit erreicht, sind keine neuen Uploads mehr möglich. Du kannst alte Galerien aufräumen oder deinen Speicher erweitern.",
     en: "Once the limit is reached, no new uploads are possible. You can clear out old galleries or increase your storage.",
     it: "Una volta raggiunto il limite, non sarà più possibile caricare nuovi file. Puoi eliminare vecchie gallerie o aumentare il tuo spazio.",
     fi: "Kun raja täyttyy, et voi enää lisätä uusia tiedostoja. Voit siivota vanhoja gallerioita tai laajentaa tallennustilaa.",
-  fr: "Une fois la limite atteinte, aucun nouveau téléchargement n'est possible. Vous pouvez supprimer les anciennes galeries ou augmenter votre stockage." },
-  button: { de: "Speicher & Tarif", en: "Storage & plan", it: "Spazio e piano", fi: "Tallennustila ja paketti" , fr: "Rangement & planification" },
+  fr: "Une fois la limite atteinte, aucun nouvel import n'est possible. Vous pouvez supprimer les anciennes galeries ou augmenter votre stockage." },
+  button: { de: "Speicher & Tarif", en: "Storage & plan", it: "Spazio e piano", fi: "Tallennustila ja paketti" , fr: "Stockage & forfait" },
 } satisfies Record<string, Phrase>;
 
 export function tmplStorageWarning(opts: {
@@ -580,7 +580,7 @@ const ownerSetupPhrases = {
     en: "The link is valid for {hours} hours. If it expires, get in touch with {by}.",
     it: "Il link è valido per {hours} ore. Se scade, contatta {by}.",
     fi: "Linkki on voimassa {hours} tuntia. Jos se ehtii vanhentua, ota yhteyttä: {by}.",
-  fr: "Le lien est valable pour les heures {hours}. S'il expire, contactez {by}." },
+  fr: "Le lien est valable pendant {hours} heures. S'il expire, contactez {by}." },
 } satisfies Record<string, Phrase>;
 
 export function tmplOwnerSetup(opts: {
@@ -656,7 +656,7 @@ const passwordResetPhrases = {
     en: "The link is valid for {hours} hours.",
     it: "Il link è valido per {hours} ore.",
     fi: "Linkki on voimassa {hours} tuntia.",
-  fr: "Le lien est valable pour les heures {hours}." },
+  fr: "Le lien est valable pendant {hours} heures." },
   requestedFromIp: {
     de: "Angefordert von IP-Adresse: {ip}",
     en: "Requested from IP address: {ip}",
@@ -736,7 +736,7 @@ const emailChangeConfirmPhrases = {
     en: "Confirm the change to {newEmail}",
     it: "Conferma il cambio verso {newEmail}",
     fi: "Vahvista vaihto osoitteeseen {newEmail}",
-  fr: "Confirmez le changement en {newEmail}" },
+  fr: "Confirmez le changement pour {newEmail}" },
   greeting: { de: "Hallo {name},", en: "Hello {name},", it: "Ciao {name},", fi: "Hei {name}," , fr: "Bonjour {name}," },
   body: {
     de: "Du hast deine E-Mail-Adresse für dein Lumio-Studio „{tenant}“ geändert:",
@@ -749,7 +749,7 @@ const emailChangeConfirmPhrases = {
     en: "  from: {old}\n  to:   {new}",
     it: "  da: {old}\n  a:  {new}",
     fi: "  vanha: {old}\n  uusi:  {new}",
-  fr: "de : {old}\n  à : {new}" },
+  fr: "  de : {old}\n  à :  {new}" },
   instruction: {
     de: "Klick auf den folgenden Link, um die Änderung zu bestätigen:",
     en: "Use the link below to confirm the change:",
@@ -767,7 +767,7 @@ const emailChangeConfirmPhrases = {
     en: "The link is valid for {hours} hours. Until you click it, your old address stays active.",
     it: "Il link è valido per {hours} ore. Fino a quando non lo clicchi, il tuo vecchio indirizzo resta attivo.",
     fi: "Linkki on voimassa {hours} tuntia. Vanha osoitteesi pysyy käytössä, kunnes klikkaat linkkiä.",
-  fr: "Le lien est valable pour les heures {hours}. Jusqu'à ce que vous cliquiez dessus, votre ancienne adresse reste active." },
+  fr: "Le lien est valable pendant {hours} heures. Jusqu'à ce que vous cliquiez dessus, votre ancienne adresse reste active." },
   notYou: {
     de: "Bis du den Link klickst, bleibt deine alte E-Mail-Adresse aktiv. Falls du diesen Wechsel NICHT angefordert hast, ignoriere die Mail einfach.",
     en: "Until you click the link, your old address stays active. If you did NOT request this change, simply ignore this email.",
@@ -850,7 +850,7 @@ const emailChangeNoticePhrases = {
     en: "We sent a confirmation link to the new address. The change only takes effect once it is clicked.",
     it: "Abbiamo inviato un link di conferma al nuovo indirizzo. La modifica avrà effetto solo dopo averlo cliccato.",
     fi: "Lähetimme uuteen osoitteeseen vahvistuslinkin. Vaihto astuu voimaan vasta, kun linkkiä on klikattu.",
-  fr: "Nous avons envoyé un lien de confirmation à la nouvelle adresse. Le changement ne prend effet qu'une fois cliqué dessus." },
+  fr: "Nous avons envoyé un lien de confirmation à la nouvelle adresse. Le changement ne prend effet qu'une fois le lien cliqué." },
   ifNotYouText: {
     de: "Wenn du das selbst angefordert hast, brauchst du nichts weiter zu tun. Wenn NICHT, melde dich umgehend beim Studio-Owner und ändere dein Passwort — möglicherweise hat jemand Fremdes Zugriff auf deinen Account.",
     en: "If you requested this yourself, there is nothing more to do. If NOT, contact the studio owner immediately and change your password — someone else may have access to your account.",
@@ -1088,7 +1088,7 @@ const welcomePhrases = {
     en: "Welcome to Lumio",
     it: "Benvenuto su Lumio",
     fi: "Tervetuloa Lumioon",
-  fr: "Bienvenue à Lumio" },
+  fr: "Bienvenue sur Lumio" },
   bodyText: {
     de: "dein Lumio-Studio „{studio}“ ist angelegt und einsatzbereit. Du bist im {plan}-Plan mit einem 14-tägigen Trial — kostenlos bis zum {date}, kein Risiko.",
     en: "your Lumio studio “{studio}” is set up and ready. You are on the {plan} plan with a 14-day trial — free until {date}, no risk.",
@@ -1130,14 +1130,14 @@ const welcomePhrases = {
     en: "Create a first gallery and upload a few photos",
     it: "Crea una prima galleria e carica alcune foto",
     fi: "Luo ensimmäinen galleria ja lisää siihen muutama kuva",
-  fr: "Créez une première galerie et téléchargez quelques photos" },
+  fr: "Créez une première galerie et importez quelques photos" },
   step3: {
     de: "Test-Share-Link an dich selbst schicken, um den Endkunden-Workflow zu durchlaufen",
     en: "Send yourself a test share link to walk through the customer flow",
     it: "Invia a te stesso un link di condivisione di prova per seguire il flusso del cliente",
     fi: "Lähetä itsellesi jakolinkki testiksi ja käy asiakkaan polku läpi",
   fr: "Envoyez-vous un lien de partage test pour parcourir le flux client" },
-  button: { de: "Studio öffnen", en: "Open studio", it: "Apri studio", fi: "Avaa studio" , fr: "Atelier ouvert" },
+  button: { de: "Studio öffnen", en: "Open studio", it: "Apri studio", fi: "Avaa studio" , fr: "Ouvrir le studio" },
   seeYouSoon: { de: "Bis bald", en: "See you soon", it: "A presto", fi: "Nähdään pian" , fr: "À bientôt" },
 } satisfies Record<string, Phrase>;
 
@@ -1213,7 +1213,7 @@ const deletionRequestedPhrases = {
     en: "Permanent deletion on {date} — reversible until then",
     it: "Cancellazione definitiva il {date} — revocabile fino ad allora",
     fi: "Lopullinen poisto {date} — siihen asti peruttavissa",
-  fr: "Suppression définitive sur {date} — réversible jusque-là" },
+  fr: "Suppression définitive le {date} — réversible jusque-là" },
   greetingNamed: { de: "Hallo {name},", en: "Hello {name},", it: "Ciao {name},", fi: "Hei {name}," , fr: "Bonjour {name}," },
   greetingPlain: { de: "Hallo,", en: "Hello,", it: "Ciao,", fi: "Hei," , fr: "Bonjour," },
   heading: {
@@ -1257,13 +1257,13 @@ const deletionRequestedPhrases = {
     en: "All galleries, share links and upload links are offline as of now. Your customers no longer have access.",
     it: "Tutte le gallerie, i link di condivisione e di caricamento sono offline a partire da ora. I tuoi clienti non hanno più accesso.",
     fi: "Kaikki galleriat sekä jako- ja lähetyslinkit ovat nyt poissa käytöstä. Asiakkaasi eivät enää pääse niihin.",
-  fr: "Toutes les galeries, liens de partage et liens de téléchargement sont désormais hors ligne. Vos clients n’y ont plus accès." },
+  fr: "Toutes les galeries, liens de partage et liens d'import sont désormais hors ligne. Vos clients n’y ont plus accès." },
   step2Html: {
     de: "Alle Galerien, Freigabe- und Upload-Links sind ab sofort offline — deine Kundinnen und Kunden haben keinen Zugriff mehr.",
     en: "All galleries, share links and upload links are offline as of now — your customers no longer have access.",
     it: "Tutte le gallerie, i link di condivisione e di caricamento sono offline a partire da ora — i tuoi clienti non hanno più accesso.",
     fi: "Kaikki galleriat sekä jako- ja lähetyslinkit ovat nyt poissa käytöstä — asiakkaasi eivät enää pääse niihin.",
-  fr: "Toutes les galeries, liens de partage et liens de téléchargement sont désormais hors ligne – vos clients n’y ont plus accès." },
+  fr: "Toutes les galeries, liens de partage et liens d'import sont désormais hors ligne – vos clients n’y ont plus accès." },
   step3Text: {
     de: "Das Studio bleibt für 60 Tage in der Karenzphase. Die Daten bleiben in dieser Zeit vollständig erhalten.",
     en: "The studio stays in a 60-day grace period. During that time all data is retained in full.",
@@ -1287,7 +1287,7 @@ const deletionRequestedPhrases = {
     en: "On {date} all data will be permanently deleted.",
     it: "Il {date} tutti i dati verranno cancellati definitivamente.",
     fi: "Kaikki tiedot poistetaan lopullisesti {date}.",
-  fr: "Sur {date}, toutes les données seront définitivement supprimées." },
+  fr: "Le {date}, toutes les données seront définitivement supprimées." },
   cancelLine: {
     de: "Löschung zurücknehmen:",
     en: "Reverse the deletion:",
@@ -1534,7 +1534,7 @@ const deletionExecutedPhrases = {
     en: "Audit logs (the tenant-specific ones only)",
     it: "Log di controllo (solo quelli specifici del tenant)",
     fi: "Tapahtumalokit (vain tämän studion omat)",
-  fr: "Journaux d'audit (ceux spécifiques au locataire uniquement)" },
+  fr: "Journaux d'audit (uniquement ceux propres au studio)" },
   keptHeading: {
     de: "Behalten",
     en: "What was kept",
@@ -1570,7 +1570,7 @@ const deletionExecutedPhrases = {
     en: "Sorry to see you go.",
     it: "Ci dispiace vederti andare via.",
     fi: "Harmi, että lähdet.",
-  fr: "Désolé de te voir partir." },
+  fr: "Nous sommes désolés de vous voir partir." },
   feedbackInvite: {
     de: "Falls es technische Gründe waren oder ein Feature gefehlt hat: {address} — wir lesen das.",
     en: "If it was for technical reasons or a missing feature: {address} — we do read it.",
@@ -1651,7 +1651,7 @@ const deletionReminderPhrases = {
     en: "Last 7 days — permanent deletion on {date}",
     it: "Ultimi 7 giorni — cancellazione definitiva il {date}",
     fi: "Viimeiset 7 päivää — lopullinen poisto {date}",
-  fr: "7 derniers jours – suppression définitive sur {date}" },
+  fr: "7 derniers jours – suppression définitive le {date}" },
   greetingNamed: { de: "Hallo {name},", en: "Hello {name},", it: "Ciao {name},", fi: "Hei {name}," , fr: "Bonjour {name}," },
   greetingPlain: { de: "Hallo,", en: "Hello,", it: "Ciao,", fi: "Hei," , fr: "Bonjour," },
   heading: {
@@ -1665,13 +1665,13 @@ const deletionReminderPhrases = {
     en: "on {date} we will permanently delete your Lumio studio “{studio}” — as you requested.",
     it: "il {date} cancelleremo definitivamente il tuo studio Lumio «{studio}» — come da te richiesto.",
     fi: "Poistamme Lumio-studiosi ”{studio}” lopullisesti {date} — kuten pyysit.",
-  fr: "sur {date}, nous supprimerons définitivement votre studio Lumio « {studio} » — comme vous l'avez demandé." },
+  fr: "le {date}, nous supprimerons définitivement votre studio Lumio « {studio} » — comme vous l'avez demandé." },
   bodyHtml: {
     de: "{greeting} — am {date} löschen wir dein Lumio-Studio „{studio}“ endgültig, wie von dir angefragt.",
     en: "{greeting} — on {date} we will permanently delete your Lumio studio “{studio}”, as you requested.",
     it: "{greeting} — il {date} cancelleremo definitivamente il tuo studio Lumio «{studio}», come da te richiesto.",
     fi: "{greeting} — poistamme Lumio-studiosi ”{studio}” lopullisesti {date}, kuten pyysit.",
-  fr: "{greeting} — sur {date}, nous supprimerons définitivement votre studio Lumio « {studio} », comme vous l'avez demandé." },
+  fr: "{greeting} — le {date}, nous supprimerons définitivement votre studio Lumio « {studio} », comme vous l'avez demandé." },
   lastChanceText: {
     de: "Das ist deine letzte Erinnerung. Wenn du es dir anders überlegt hast, kannst du die Löschung jetzt noch zurücknehmen:",
     en: "This is your final reminder. If you have changed your mind, you can still reverse the deletion now:",
@@ -1758,7 +1758,7 @@ const billingArchivedPhrases = {
     en: "Galleries offline — permanent deletion on {date}, reactivatable until then",
     it: "Gallerie offline — cancellazione definitiva il {date}, riattivabile fino ad allora",
     fi: "Galleriat poissa käytöstä — lopullinen poisto {date}, siihen asti aktivoitavissa uudelleen",
-  fr: "Galeries hors ligne — suppression définitive sur {date}, réactivable d'ici là" },
+  fr: "Galeries hors ligne — suppression définitive le {date}, réactivable d'ici là" },
   greetingNamed: { de: "Hallo {name},", en: "Hello {name},", it: "Ciao {name},", fi: "Hei {name}," , fr: "Bonjour {name}," },
   greetingPlain: { de: "Hallo,", en: "Hello,", it: "Ciao,", fi: "Hei," , fr: "Bonjour," },
   heading: {
@@ -1766,7 +1766,7 @@ const billingArchivedPhrases = {
     en: "Studio archived",
     it: "Studio archiviato",
     fi: "Studio arkistoitu",
-  fr: "Atelier archivé" },
+  fr: "Studio archivé" },
   introText: {
     de: "dein Lumio-Studio „{studio}“ war länger ohne aktives Abo und wurde jetzt archiviert.",
     en: "your Lumio studio “{studio}” has been without an active subscription for a while and has now been archived.",
@@ -1803,13 +1803,13 @@ const billingArchivedPhrases = {
     en: "Important: if you do not take out a subscription by {date}, all data will be permanently deleted on that day.",
     it: "Importante: se non attivi un abbonamento entro il {date}, tutti i dati verranno cancellati definitivamente in quella data.",
     fi: "Tärkeää: jos et tee tilausta {date} mennessä, kaikki tiedot poistetaan sinä päivänä lopullisesti.",
-  fr: "Important : si vous ne souscrivez pas d'abonnement auprès de {date}, toutes les données seront définitivement supprimées ce jour-là." },
+  fr: "Important : si vous ne souscrivez pas d'abonnement d'ici le {date}, toutes les données seront définitivement supprimées ce jour-là." },
   deadlineBox: {
     de: "Ohne neues Abo werden am {date} alle Daten endgültig gelöscht.",
     en: "Without a new subscription all data will be permanently deleted on {date}.",
     it: "Senza un nuovo abbonamento, tutti i dati verranno cancellati definitivamente il {date}.",
     fi: "Ilman uutta tilausta kaikki tiedot poistetaan lopullisesti {date}.",
-  fr: "Sans nouvel abonnement, toutes les données seront définitivement supprimées sur {date}." },
+  fr: "Sans nouvel abonnement, toutes les données seront définitivement supprimées le {date}." },
   reactivateLine: {
     de: "Studio reaktivieren:",
     en: "Reactivate studio:",
@@ -1869,13 +1869,13 @@ const billingPurgeReminderPhrases = {
     en: "Final reminder: “{studio}” will be deleted on {date}",
     it: "Ultimo promemoria: «{studio}» verrà cancellato il {date}",
     fi: "Viimeinen muistutus: ”{studio}” poistetaan {date}",
-  fr: "Dernier rappel : « {studio} » sera supprimé sur {date}" },
+  fr: "Dernier rappel : « {studio} » sera supprimé le {date}" },
   preheader: {
     de: "Endgültige Löschung am {date} — jetzt noch reaktivierbar",
     en: "Permanent deletion on {date} — still reactivatable now",
     it: "Cancellazione definitiva il {date} — ancora riattivabile ora",
     fi: "Lopullinen poisto {date} — voit vielä aktivoida uudelleen",
-  fr: "Suppression définitive sur {date} — toujours réactivable maintenant" },
+  fr: "Suppression définitive le {date} — toujours réactivable maintenant" },
   greetingNamed: { de: "Hallo {name},", en: "Hello {name},", it: "Ciao {name},", fi: "Hei {name}," , fr: "Bonjour {name}," },
   greetingPlain: { de: "Hallo,", en: "Hello,", it: "Ciao,", fi: "Hei," , fr: "Bonjour," },
   heading: {
@@ -1889,13 +1889,13 @@ const billingPurgeReminderPhrases = {
     en: "your archived Lumio studio “{studio}” will be permanently deleted on {date} — including all original files and galleries.",
     it: "il tuo studio Lumio archiviato «{studio}» verrà cancellato definitivamente il {date} — inclusi tutti i file originali e le gallerie.",
     fi: "Arkistoitu Lumio-studiosi ”{studio}” poistetaan lopullisesti {date} — mukaan lukien kaikki alkuperäiset tiedostot ja galleriat.",
-  fr: "votre studio Lumio archivé « {studio} » sera définitivement supprimé sur {date}, y compris tous les fichiers et galeries originaux." },
+  fr: "votre studio Lumio archivé « {studio} » sera définitivement supprimé le {date}, y compris tous les fichiers et galeries originaux." },
   bodyHtml: {
     de: "{greeting} — dein archiviertes Studio „{studio}“ wird am {date} endgültig gelöscht, inklusive aller Original-Dateien und Galerien.",
     en: "{greeting} — your archived studio “{studio}” will be permanently deleted on {date}, including all original files and galleries.",
     it: "{greeting} — il tuo studio archiviato «{studio}» verrà cancellato definitivamente il {date}, inclusi tutti i file originali e le gallerie.",
     fi: "{greeting} — arkistoitu studiosi ”{studio}” poistetaan lopullisesti {date}, mukaan lukien kaikki alkuperäiset tiedostot ja galleriat.",
-  fr: "{greeting} — votre studio archivé « {studio} » sera définitivement supprimé sur {date}, y compris tous les fichiers et galeries originaux." },
+  fr: "{greeting} — votre studio archivé « {studio} » sera définitivement supprimé le {date}, y compris tous les fichiers et galeries originaux." },
   keepData: {
     de: "Wenn du deine Daten behalten möchtest, schließe bis dahin ein Abo ab — dann wird alles wiederhergestellt:",
     en: "If you want to keep your data, take out a subscription before then — everything will be restored:",
@@ -1969,28 +1969,28 @@ const superNewTenantPhrases = {
     en: "New tenant: {name} ({plan})",
     it: "Nuovo tenant: {name} ({plan})",
     fi: "Uusi tenant: {name} ({plan})",
-  fr: "Nouveau locataire : {name} ({plan})" },
+  fr: "Nouveau studio : {name} ({plan})" },
   preheader: {
     de: "Neuer Tenant: {name}",
     en: "New tenant: {name}",
     it: "Nuovo tenant: {name}",
     fi: "Uusi tenant: {name}",
-  fr: "Nouveau locataire : {name}" },
+  fr: "Nouveau studio : {name}" },
   heading: {
     de: "Neuer Tenant registriert",
     en: "New tenant registered",
     it: "Nuovo tenant registrato",
     fi: "Uusi tenant rekisteröityi",
-  fr: "Nouveau locataire enregistré" },
+  fr: "Nouveau studio enregistré" },
   intro: {
     de: "Neuer Tenant registriert:",
     en: "New tenant registered:",
     it: "Nuovo tenant registrato:",
     fi: "Uusi tenant rekisteröityi:",
-  fr: "Nouveau locataire enregistré :" },
+  fr: "Nouveau studio enregistré :" },
   fieldName: { de: "Name", en: "Name", it: "Nome", fi: "Nimi" , fr: "Nom" },
-  fieldSlug: { de: "Slug", en: "Slug", it: "Slug", fi: "Slug" , fr: "Limace" },
-  fieldPlan: { de: "Plan", en: "Plan", it: "Piano", fi: "Paketti" , fr: "Plan" },
+  fieldSlug: { de: "Slug", en: "Slug", it: "Slug", fi: "Slug" , fr: "Slug" },
+  fieldPlan: { de: "Plan", en: "Plan", it: "Piano", fi: "Paketti" , fr: "Forfait" },
   fieldOwner: { de: "Owner", en: "Owner", it: "Titolare", fi: "Omistaja" , fr: "Propriétaire" },
   superAdmin: { de: "Super-Admin", en: "Super admin", it: "Super admin", fi: "Pääylläpito" , fr: "Super administrateur" },
   button: {
@@ -2043,13 +2043,13 @@ const superDigestPhrases = {
     en: "Lumio report {date} — {n} new tenant(s)",
     it: "Report Lumio {date} — {n} nuovi tenant",
     fi: "Lumio-raportti {date} — {n} uutta tenanttia",
-  fr: "Rapport Lumio {date} — Nouveau(x) locataire(s) {n}" },
+  fr: "Rapport Lumio {date} — {n} nouveau(x) studio(s)" },
   preheader: {
     de: "{n} neue Tenants · {gib} GB gesamt",
     en: "{n} new tenants · {gib} GB total",
     it: "{n} nuovi tenant · {gib} GB totali",
     fi: "{n} uutta tenanttia · {gib} Gt yhteensä",
-  fr: "{n} nouveaux locataires · {gib} Go total" },
+  fr: "{n} nouveaux studios · {gib} Go total" },
   titleText: {
     de: "Lumio Täglicher Report — {date}",
     en: "Lumio daily report — {date}",
@@ -2067,19 +2067,19 @@ const superDigestPhrases = {
     en: "New tenants (24h): {n}",
     it: "Nuovi tenant (24h): {n}",
     fi: "Uudet tenantit (24 h): {n}",
-  fr: "Nouveaux locataires (24h) : {n}" },
+  fr: "Nouveaux studios (24h) : {n}" },
   noNewTenants: {
     de: "Keine neuen Tenants in den letzten 24 Stunden.",
     en: "No new tenants in the last 24 hours.",
     it: "Nessun nuovo tenant nelle ultime 24 ore.",
     fi: "Ei uusia tenantteja viimeisen 24 tunnin aikana.",
-  fr: "Aucun nouveau locataire ces dernières 24 heures." },
+  fr: "Aucun nouveau studio ces dernières 24 heures." },
   activeTenants: {
     de: "Aktive Tenants: {n}",
     en: "Active tenants: {n}",
     it: "Tenant attivi: {n}",
     fi: "Aktiiviset tenantit: {n}",
-  fr: "Locataires actifs : {n}" },
+  fr: "Studios actifs : {n}" },
   totalUsers: {
     de: "User gesamt: {n}",
     en: "Users total: {n}",
@@ -2092,7 +2092,7 @@ const superDigestPhrases = {
     it: "Spazio totale: {n} GB",
     fi: "Tallennustila yhteensä: {n} Gt",
   fr: "Stockage total : {n} Go" },
-  topStorage: { de: "Top-Speicher:", en: "Top storage:", it: "Spazio maggiore:", fi: "Eniten tallennustilaa:" , fr: "Rangement supérieur :" },
+  topStorage: { de: "Top-Speicher:", en: "Top storage:", it: "Spazio maggiore:", fi: "Eniten tallennustilaa:" , fr: "Plus gros stockages :" },
   nearLimit: {
     de: "Nahe am Limit (>=90%): {n}",
     en: "Near the limit (>=90%): {n}",
@@ -2218,7 +2218,7 @@ const teamMemberJoinedPhrases = {
     en: "{who} ({email}) set up their account and joined your team as “{role}”.",
     it: "{who} ({email}) ha creato il proprio account ed è entrato a far parte del tuo team come «{role}».",
     fi: "{who} ({email}) on ottanut tilin käyttöön ja liittynyt tiimiisi roolilla ”{role}”.",
-  fr: "{who} ({email}) a créé son compte et a rejoint votre équipe sous le nom de « {role} »." },
+  fr: "{who} ({email}) a créé son compte et a rejoint votre équipe en tant que « {role} »." },
   button: { de: "Team verwalten", en: "Manage team", it: "Gestisci team", fi: "Hallitse tiimiä" , fr: "Gérer l'équipe" },
 } satisfies Record<string, Phrase>;
 
@@ -2258,7 +2258,7 @@ const galleryExpiringPhrases = {
     en: "Gallery expiring: “{title}” (in {days})",
     it: "Galleria in scadenza: «{title}» (tra {days})",
     fi: "Galleria vanhenee: ”{title}” ({days} kuluttua)",
-  fr: "Galerie expirant : « {title} » (dans {days})" },
+  fr: "Galerie bientôt expirée : « {title} » (dans {days})" },
   preheader: {
     de: "„{title}“ läuft in {days} ab",
     en: "“{title}” expires in {days}",
@@ -2282,9 +2282,9 @@ const galleryExpiringPhrases = {
     en: "If you want to keep it online for longer, you can change the expiry date in the gallery settings.",
     it: "Se vuoi mantenerla online più a lungo, puoi modificare la data di scadenza nelle impostazioni della galleria.",
     fi: "Jos haluat pitää sen esillä pidempään, voit muuttaa vanhenemispäivää gallerian asetuksista.",
-  fr: "Si vous souhaitez le conserver en ligne plus longtemps, vous pouvez modifier la date d'expiration dans les paramètres de la galerie." },
+  fr: "Si vous souhaitez la conserver en ligne plus longtemps, vous pouvez modifier la date d'expiration dans les paramètres de la galerie." },
   dayOne: { de: "1 Tag", en: "1 day", it: "1 giorno", fi: "1 päivän" , fr: "1 jour" },
-  dayMany: { de: "{n} Tagen", en: "{n} days", it: "{n} giorni", fi: "{n} päivän" , fr: "Jours {n}" },
+  dayMany: { de: "{n} Tagen", en: "{n} days", it: "{n} giorni", fi: "{n} päivän" , fr: "{n} jours" },
 } satisfies Record<string, Phrase>;
 
 export function tmplGalleryExpiring(opts: {
@@ -2331,31 +2331,31 @@ const uploadReceivedPhrases = {
     en: "New uploads: “{title}”",
     it: "Nuovi caricamenti: «{title}»",
     fi: "Uusia tiedostoja: ”{title}”",
-  fr: "Nouveaux téléchargements : « {title} »" },
+  fr: "Nouveaux imports : « {title} »" },
   preheader: {
     de: "Neue Uploads in „{title}“",
     en: "New uploads in “{title}”",
     it: "Nuovi caricamenti in «{title}»",
     fi: "Uusia tiedostoja galleriaan ”{title}”",
-  fr: "Nouveaux téléchargements dans « {title} »" },
+  fr: "Nouveaux imports dans « {title} »" },
   heading: {
     de: "Neue Uploads eingegangen",
     en: "New uploads received",
     it: "Nuovi caricamenti ricevuti",
     fi: "Uusia tiedostoja saapunut",
-  fr: "Nouveaux téléchargements reçus" },
+  fr: "Nouveaux imports reçus" },
   bodyText: {
     de: "Es sind neue Uploads über den Link „{link}“ in der Galerie „{title}“ eingegangen.",
     en: "New uploads arrived through the link “{link}” in the gallery “{title}”.",
     it: "Sono arrivati nuovi caricamenti tramite il link «{link}» nella galleria «{title}».",
     fi: "Linkin ”{link}” kautta on saapunut uusia tiedostoja galleriaan ”{title}”.",
-  fr: "Les nouveaux téléchargements sont arrivés via le lien « {link} » dans la galerie « {title} »." },
+  fr: "De nouveaux imports sont arrivés via le lien « {link} » dans la galerie « {title} »." },
   bodyHtml: {
     de: "Über den Upload-Link „{link}“ sind neue Dateien in „{title}“ eingegangen.",
     en: "New files arrived in “{title}” through the upload link “{link}”.",
     it: "Tramite il link di caricamento «{link}» sono arrivati nuovi file in «{title}».",
     fi: "Lähetyslinkin ”{link}” kautta on saapunut uusia tiedostoja galleriaan ”{title}”.",
-  fr: "De nouveaux fichiers sont arrivés dans « {title} » via le lien de téléchargement « {link} »." },
+  fr: "De nouveaux fichiers sont arrivés dans « {title} » via le lien d'import « {link} »." },
 } satisfies Record<string, Phrase>;
 
 export function tmplUploadReceived(opts: {
@@ -2414,7 +2414,7 @@ const trialReminderPhrases = {
   greetingNamed: { de: "Hallo {name},", en: "Hello {name},", it: "Ciao {name},", fi: "Hei {name}," , fr: "Bonjour {name}," },
   greetingPlain: { de: "Hallo,", en: "Hello,", it: "Ciao,", fi: "Hei," , fr: "Bonjour," },
   tomorrow: { de: "morgen", en: "tomorrow", it: "domani", fi: "huomenna" , fr: "demain" },
-  inDays: { de: "in {n} Tagen", en: "in {n} days", it: "tra {n} giorni", fi: "{n} päivän kuluttua" , fr: "en jours {n}" },
+  inDays: { de: "in {n} Tagen", en: "in {n} days", it: "tra {n} giorni", fi: "{n} päivän kuluttua" , fr: "dans {n} jours" },
   bodyText: {
     de: "Dein kostenloser Trial im {plan}-Plan läuft am {date} ab.",
     en: "Your free trial on the {plan} plan ends on {date}.",
@@ -2469,7 +2469,7 @@ const trialReminderPhrases = {
     it: "Se dopo la prova continui a restare su Lumio, il tuo abbonamento prosegue semplicemente — senza interruzioni, nessun dato viene perso.",
     fi: "Jos jäät kokeilujakson jälkeen Lumion käyttäjäksi, tilauksesi jatkuu automaattisesti — ei katkoja, mitään ei katoa.",
   fr: "Si vous restez avec Lumio après l'essai, votre abonnement continue simplement : pas d'interruption, pas de perte de données." },
-  openStudio: { de: "Studio öffnen", en: "Open studio", it: "Apri studio", fi: "Avaa studio" , fr: "Atelier ouvert" },
+  openStudio: { de: "Studio öffnen", en: "Open studio", it: "Apri studio", fi: "Avaa studio" , fr: "Ouvrir le studio" },
   unsubText: {
     de: "Diese Mail abbestellen:",
     en: "Unsubscribe from this email:",
@@ -2675,7 +2675,7 @@ const winbackPhrases = {
     en: "Your Lumio subscription for “{studio}” has ended. Sorry to see you go.",
     it: "Il tuo abbonamento Lumio per «{studio}» è terminato. Ci dispiace vederti andare via.",
     fi: "Studion ”{studio}” Lumio-tilaus on päättynyt. Harmi, että lähdit.",
-  fr: "Votre abonnement Lumio pour « {studio} » est terminé. Désolé de te voir partir." },
+  fr: "Votre abonnement Lumio pour « {studio} » est terminé. Nous sommes désolés de vous voir partir." },
   introExpired: {
     de: "Dein Lumio-Trial für „{studio}“ ist abgelaufen, ohne dass du ein Abo gestartet hast.",
     en: "Your Lumio trial for “{studio}” expired without a subscription being started.",
@@ -2687,7 +2687,7 @@ const winbackPhrases = {
     en: "Your data is still here — in case you come back.",
     it: "I tuoi dati sono ancora qui — nel caso tu voglia tornare.",
     fi: "Tietosi ovat yhä tallessa — siltä varalta, että palaat.",
-  fr: "Vos données sont toujours là, au cas où vous reviendrez." },
+  fr: "Vos données sont toujours là, au cas où vous reviendriez." },
   preheaderExpired: {
     de: "Dein Trial ist abgelaufen — du kannst jederzeit zurück.",
     en: "Your trial has expired — you can come back any time.",
@@ -2706,8 +2706,8 @@ const winbackPhrases = {
     it: "Se semplicemente il momento non era quello giusto — nessun problema. Puoi tornare quando vuoi, i tuoi dati sono ancora qui.",
     fi: "Jos ajankohta ei vain nyt sopinut — ei hätää. Voit palata milloin tahansa, tietosi ovat yhä tallessa.",
   fr: "Si le moment n’était tout simplement pas le bon, pas de problème. Vous pouvez revenir à tout moment, vos données sont toujours là." },
-  openStudio: { de: "Studio öffnen", en: "Open studio", it: "Apri studio", fi: "Avaa studio" , fr: "Atelier ouvert" },
-  button: { de: "Jetzt einsteigen", en: "Come back now", it: "Torna ora", fi: "Palaa mukaan" , fr: "Reviens maintenant" },
+  openStudio: { de: "Studio öffnen", en: "Open studio", it: "Apri studio", fi: "Avaa studio" , fr: "Ouvrir le studio" },
+  button: { de: "Jetzt einsteigen", en: "Come back now", it: "Torna ora", fi: "Palaa mukaan" , fr: "Revenir maintenant" },
   onlyOnce: {
     de: "Das ist die einzige Mail dieser Art, die du von uns bekommst.",
     en: "This is the only email of its kind you will get from us.",
@@ -2914,7 +2914,7 @@ const impersonationNoticePhrases = {
     en: 'Support access to your studio "{studio}"',
     it: 'Accesso di supporto al tuo studio "{studio}"',
     fi: "Tuen pääsy studioosi ”{studio}”",
-  fr: "Prise en charge de l'accès à votre studio \"{studio}\"" },
+  fr: "Accès du support à votre studio \"{studio}\"" },
   preheader: {
     de: "Ein Support-Mitglied hat auf „{studio}“ zugegriffen",
     en: "A support member accessed “{studio}”",
@@ -2928,7 +2928,7 @@ const impersonationNoticePhrases = {
     en: "Support access to your studio",
     it: "Accesso di supporto al tuo studio",
     fi: "Tuen pääsy studioosi",
-  fr: "Prise en charge de l'accès à votre studio" },
+  fr: "Accès du support à votre studio" },
   body: {
     de: 'ein Mitglied des Lumio-Supports ({admin}) hat sich gerade in dein Studio "{studio}" eingeloggt, um ein Problem zu untersuchen. Der Zugriff ist auf maximal 60 Minuten begrenzt und wird vollständig im Audit-Log dokumentiert.',
     en: 'a member of Lumio support ({admin}) has just signed in to your studio "{studio}" to investigate an issue. The access is limited to 60 minutes at most and is fully recorded in the audit log.',
@@ -2994,19 +2994,19 @@ const preArchivePhrases = {
     en: "Important: your Lumio account “{studio}” will be archived on {date}",
     it: "Importante: il tuo account Lumio «{studio}» verrà archiviato il {date}",
     fi: "Tärkeää: Lumio-tilisi ”{studio}” arkistoidaan {date}",
-  fr: "Important : votre compte Lumio « {studio} » sera archivé sur {date}" },
+  fr: "Important : votre compte Lumio « {studio} » sera archivé le {date}" },
   reminderSubject: {
     de: "Erinnerung: Dein Lumio-Konto „{studio}“ wird in {days} Tagen archiviert",
     en: "Reminder: your Lumio account “{studio}” will be archived in {days} days",
     it: "Promemoria: il tuo account Lumio «{studio}» verrà archiviato tra {days} giorni",
     fi: "Muistutus: Lumio-tilisi ”{studio}” arkistoidaan {days} päivän kuluttua",
-  fr: "Rappel : votre compte Lumio « {studio} » sera archivé dans les jours {days}" },
+  fr: "Rappel : votre compte Lumio « {studio} » sera archivé dans {days} jours" },
   noticePreheader: {
     de: "Archivierung am {date} — bitte Daten vorher exportieren",
     en: "Archiving on {date} — please export your data beforehand",
     it: "Archiviazione il {date} — esporta prima i tuoi dati",
     fi: "Arkistointi {date} — vie tietosi talteen ennen sitä",
-  fr: "Archivage sur {date} — veuillez exporter vos données au préalable" },
+  fr: "Archivage le {date} — veuillez exporter vos données au préalable" },
   reminderPreheader: {
     de: "Noch {days} Tage bis zur Archivierung",
     en: "{days} days until archiving",
@@ -3031,25 +3031,25 @@ const preArchivePhrases = {
     en: "we would like to inform you that your Lumio account “{studio}” will be archived on {date}.",
     it: "vogliamo informarti che il tuo account Lumio «{studio}» verrà archiviato il {date}.",
     fi: "Haluamme kertoa, että Lumio-tilisi ”{studio}” arkistoidaan {date}.",
-  fr: "nous tenons à vous informer que votre compte Lumio « {studio} » sera archivé sur {date}." },
+  fr: "nous tenons à vous informer que votre compte Lumio « {studio} » sera archivé le {date}." },
   reminderBody: {
     de: "dies ist eine Erinnerung: Dein Lumio-Konto „{studio}“ wird am {date} archiviert (in {days} Tagen).",
     en: "this is a reminder: your Lumio account “{studio}” will be archived on {date} (in {days} days).",
     it: "questo è un promemoria: il tuo account Lumio «{studio}» verrà archiviato il {date} (tra {days} giorni).",
     fi: "Tämä on muistutus: Lumio-tilisi ”{studio}” arkistoidaan {date} ({days} päivän kuluttua).",
-  fr: "ceci est un rappel : votre compte Lumio « {studio} » sera archivé sur {date} (en jours {days})." },
+  fr: "ceci est un rappel : votre compte Lumio « {studio} » sera archivé le {date} (dans {days} jours)." },
   meansHeading: {
     de: "Was bedeutet das?",
     en: "What does that mean?",
     it: "Cosa significa?",
     fi: "Mitä se tarkoittaa?",
-  fr: "Qu'est-ce que cela signifie?" },
+  fr: "Qu'est-ce que cela signifie ?" },
   means1: {
     de: "Ab diesem Datum kannst du dich nicht mehr einloggen",
     en: "From that date on you can no longer sign in",
     it: "Da questa data non potrai più accedere",
     fi: "Tuosta päivästä alkaen et voi enää kirjautua sisään",
-  fr: "A partir de cette date, vous ne pourrez plus vous connecter" },
+  fr: "À partir de cette date, vous ne pourrez plus vous connecter" },
   means2: {
     de: "Deine Daten bleiben 30 Tage in Karenz erhalten",
     en: "Your data is retained for a 30-day grace period",
@@ -3204,7 +3204,7 @@ const exportReadyPhrases = {
     en: "Data export ready",
     it: "Esportazione dati pronta",
     fi: "Tietojen vienti valmis",
-  fr: "Prêt pour l'exportation de données" },
+  fr: "Export de données prêt" },
   body: {
     de: "Dein Lumio-Konto „{studio}“ wurde archiviert und deine Daten werden in Kürze endgültig gelöscht. Du kannst deine Galerien (Originaldateien + Metadaten) als ZIP-Archiv unter folgendem Link herunterladen — der Link ist 30 Tage gültig:",
     en: "Your Lumio account “{studio}” has been archived and your data will be permanently deleted shortly. You can download your galleries (original files + metadata) as ZIP archives from the link below — the link is valid for 30 days:",

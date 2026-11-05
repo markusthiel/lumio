@@ -151,7 +151,7 @@ const printGuestPhrases = {
     en: "Your order {order} with {studio}",
     it: "Il tuo ordine {order} presso {studio}",
     fi: "Tilauksesi {order} studiolta {studio}",
-  fr: "Votre commande {order} avec {studio}" },
+  fr: "Votre commande {order} chez {studio}" },
   greeting: {
     de: "Hallo {name},",
     en: "Hello {name},",
@@ -163,7 +163,7 @@ const printGuestPhrases = {
     en: "thank you for your order with {studio}.",
     it: "grazie per il tuo ordine presso {studio}.",
     fi: "kiitos tilauksestasi studiolle {studio}.",
-  fr: "merci pour votre commande avec {studio}." },
+  fr: "merci pour votre commande chez {studio}." },
   orderNumber: {
     de: "Bestellnummer",
     en: "Order number",
@@ -171,9 +171,9 @@ const printGuestPhrases = {
     fi: "Tilausnumero",
   fr: "Numéro de commande" },
   items: { de: "Artikel", en: "Items", it: "Articoli", fi: "Tuotteet" , fr: "Articles" },
-  subtotal: { de: "Zwischensumme", en: "Subtotal", it: "Subtotale", fi: "Välisumma" , fr: "Total" },
+  subtotal: { de: "Zwischensumme", en: "Subtotal", it: "Subtotale", fi: "Välisumma" , fr: "Sous-total" },
   shipping: { de: "Versand", en: "Shipping", it: "Spedizione", fi: "Toimitus" , fr: "Expédition" },
-  tax: { de: "MwSt", en: "VAT", it: "IVA", fi: "ALV" , fr: "T.V.A." },
+  tax: { de: "MwSt", en: "VAT", it: "IVA", fi: "ALV" , fr: "TVA" },
   total: { de: "Gesamtsumme", en: "Total", it: "Totale", fi: "Yhteensä" , fr: "Total" },
   deliveryAddress: {
     de: "Lieferadresse",
@@ -192,13 +192,13 @@ const printGuestPhrases = {
     en: "We are preparing your order for production now. You will get another email once it ships.",
     it: "Stiamo preparando il tuo ordine per la produzione. Riceverai un'altra email non appena verrà spedito.",
     fi: "Valmistelemme tilaustasi tuotantoon. Saat uuden viestin heti kun se on lähetetty.",
-  fr: "Nous préparons votre commande pour la production maintenant. Vous recevrez un autre e-mail une fois expédié." },
+  fr: "Nous préparons votre commande pour la production maintenant. Vous recevrez un autre e-mail dès son expédition." },
   awaitingOnlinePayment: {
     de: "Sobald deine Zahlung bei {studio} eingegangen ist, bekommst du eine Bestätigung und deine Bestellung geht in die Produktion.",
     en: "Once your payment has reached {studio}, you will get a confirmation and your order goes into production.",
     it: "Non appena il tuo pagamento è arrivato a {studio}, riceverai una conferma e il tuo ordine andrà in produzione.",
     fi: "Kun maksusi on saapunut studiolle {studio}, saat vahvistuksen ja tilauksesi menee tuotantoon.",
-  fr: "Une fois votre paiement atteint {studio}, vous recevrez une confirmation et votre commande passera en production." },
+  fr: "Une fois votre paiement reçu par {studio}, vous recevrez une confirmation et votre commande passera en production." },
   paidSubject: {
     de: "Zahlung für deine Bestellung {order} erhalten",
     en: "Payment received for your order {order}",
@@ -210,7 +210,7 @@ const printGuestPhrases = {
     en: "we have received your payment for order {order}. Thank you!",
     it: "abbiamo ricevuto il tuo pagamento per l'ordine {order}. Grazie!",
     fi: "olemme vastaanottaneet maksusi tilaukselle {order}. Kiitos!",
-  fr: "nous avons reçu votre paiement pour la commande {order}. Merci!" },
+  fr: "nous avons reçu votre paiement pour la commande {order}. Merci !" },
   questions: {
     de: "Bei Fragen: {contact}",
     en: "Questions? {contact}",
@@ -240,7 +240,7 @@ const printGuestPhrases = {
     en: "Tracking:",
     it: "Tracciamento:",
     fi: "Seuranta:",
-  fr: "Suivi:" },
+  fr: "Suivi :" },
   trackPackage: {
     de: "Paket verfolgen",
     en: "Track package",
@@ -281,7 +281,7 @@ const printStudioPhrases = {
     en: "New order in the print shop:",
     it: "Nuovo ordine nel print shop:",
     fi: "Uusi tilaus print shopissa:",
-  fr: "Nouvelle commande à l'imprimerie :" },
+  fr: "Nouvelle commande dans la boutique de tirages :" },
   orderNumber: {
     de: "Bestellnummer",
     en: "Order number",
@@ -345,7 +345,7 @@ const printStudioPhrases = {
     en: "Open order",
     it: "Apri l'ordine",
     fi: "Avoin tilaus",
-  fr: "Commande ouverte" },
+  fr: "Ouvrir la commande" },
 } satisfies Record<string, Phrase>;
 
 export function tmplPrintOrderConfirmGuest(opts: {

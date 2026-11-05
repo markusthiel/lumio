@@ -48,7 +48,7 @@ export const fr = {
     close: "Fermer",
     reset: "Réinitialiser",
     remove: "Retirer",
-    upload: "Télécharger",
+    upload: "Importer",
     replace: "Remplacer",
       imprint: "Imprimer",
     privacy: "Confidentialité",
@@ -63,7 +63,7 @@ export const fr = {
     downloadVariantRequired: "Choisissez au moins une version à télécharger ou désactivez les téléchargements.",
     heroGalleryProtected: "Cette galerie a un mot de passe. Ses photos ne peuvent pas être utilisées comme image d’en-tête de la page.",
     heroFileInvalid: "Cette photo ne peut pas être utilisée comme image d'en-tête : sa galerie doit être sur cette page et y être affichée.",
-    invalidAssetKey: "Le téléchargement n'a pas pu être attribué à cette page. Veuillez le télécharger à nouveau.",
+    invalidAssetKey: "L'import n'a pas pu être associé à cette page. Veuillez l'importer à nouveau.",
     billingDisabled: "L'inscription en libre-service n'est pas disponible.",
     cannotDelete:
       "Les diffusions en cours d'envoi ou déjà envoyées ne peuvent pas être supprimées.",
@@ -71,7 +71,7 @@ export const fr = {
     cannotSelfDisable: "Vous ne pouvez pas vous désactiver.",
     captchaFailed:
       "La vérification CAPTCHA a échoué. Veuillez recharger la page et réessayer.",
-    customerMismatch: "Cette session n'appartient pas à ce locataire.",
+    customerMismatch: "Cette session n'appartient pas à ce studio.",
     deleteNotAllowed: "Vous n'êtes pas autorisé à supprimer cette galerie.",
     emailTaken: "Cette adresse e-mail est déjà utilisée dans ce studio.",
     galleryHasPrintOrders:
@@ -103,24 +103,24 @@ export const fr = {
     validationFailed: "Certains détails sont manquants ou invalides. Veuillez vérifier le formulaire et réessayer.",
     invalidToken: "Ce code n'est pas correct.",
     lastOwner:
-      "Il s'agit du dernier propriétaire actif du locataire et ne peut pas être rétrogradé ou désactivé.",
+      "Il s'agit du dernier propriétaire actif du studio et ne peut pas être rétrogradé ou désactivé.",
     mailSendFailed:
       "L'e-mail de confirmation n'a pas pu être envoyé. Veuillez réessayer.",
     noArchiveTimestamp:
-      "Le locataire est archivé mais n’a pas d’horodatage archivedAt (antérieur à la migration).",
+      "Le studio est archivé mais n’a pas d’horodatage archivedAt (antérieur à la migration).",
     noDeletedOriginals:
       "Aucun original supprimé restaurable trouvé (éventuellement en dehors de la fenêtre de 30 jours).",
-    noGalleries: "Ce locataire n'a aucune galerie à exporter.",
+    noGalleries: "Ce studio n'a aucune galerie à exporter.",
     noRecipients:
       "Aucun destinataire donné. Ajoutez d'abord des adresses à l'accès ou saisissez-les ici.",
     noStripeCustomer: "Pas encore de lien Stripe. Veuillez souscrire à un forfait.",
-    noSubscription: "Ce locataire n’a aucun abonnement pouvant être supprimé.",
+    noSubscription: "Ce studio n’a aucun abonnement pouvant être supprimé.",
     noValidFiles: "Aucun fichier valide dans la sélection.",
     notASmartSection:
       "Cette section n'a pas de balise automatique : la synchronisation ne fonctionne que pour les sections intelligentes.",
-    notActive: "Seuls les locataires actifs peuvent être pré-archivés.",
+    notActive: "Seuls les studios actifs peuvent être pré-archivés.",
     notInvited: "Le renvoi ne fonctionne que pour les utilisateurs ayant le statut « invité ».",
-    notPendingDeletion: "Ce locataire n'est pas en délai de grâce.",
+    notPendingDeletion: "Ce studio n'est pas en délai de grâce.",
     notScheduled: "Aucun archivage n'est prévu.",
     onlinePaymentUnavailable: "Le paiement en ligne est actuellement indisponible.",
     ownerOnly: "Seul le propriétaire peut modifier le nom du studio.",
@@ -133,16 +133,16 @@ export const fr = {
       "Ce compte est en mode lecture seule. Abonnez-vous à un forfait pour apporter à nouveau des modifications.",
     sameEmail: "La nouvelle adresse est la même que votre adresse actuelle.",
     selfPrintImmutable: "L’auto-impression ne peut pas être désactivée – elle est toujours disponible.",
-    sessionMissingMetadata: "Cette session n'est pas liée à un locataire Lumio.",
+    sessionMissingMetadata: "Cette session n'est pas liée à un studio Lumio.",
     slugMismatch:
-      "La confirmation du slug ne correspond pas. Veuillez saisir le slug exact du locataire.",
+      "La confirmation du slug ne correspond pas. Veuillez saisir le slug exact du studio.",
     slugTaken: "Ce nom de studio est déjà pris.",
     stripeManaged:
-      "Ce locataire dispose d'un abonnement Stripe. Changez le plan via Stripe.",
+      "Ce studio dispose d'un abonnement Stripe. Changez le plan via Stripe.",
     studioNameMismatch: "Le nom du studio que vous avez saisi ne correspond pas.",
-    tenantInactive: "Les invitations ne sont possibles que pour les locataires actifs.",
+    tenantInactive: "Les invitations ne sont possibles que pour les studios actifs.",
     tenantIsPaying:
-      "Ce locataire dispose d'un abonnement actif ou ouvert. La suppression immédiate concerne uniquement les locataires non payants.",
+      "Ce studio dispose d'un abonnement actif ou ouvert. La suppression immédiate concerne uniquement les studios non payants.",
     userNotFound: "Utilisateur introuvable ou inactif.",
     wrongCurrentPassword: "Votre mot de passe actuel n'est pas correct.",
       zipNoFiles:
@@ -355,7 +355,7 @@ export const fr = {
     downloadVersions_originals: "Originaux uniquement",
     downloadVersions_web: "Version Web uniquement",
     downloadVersions_bothDesc: "Les clients choisissent entre les fichiers originaux et une version Web plus petite (environ 2560 px JPEG, vidéos au format MP4).",
-    downloadVersions_originalsDesc: "Les clients reçoivent les fichiers exactement tels que vous les avez téléchargés, sans version Web plus petite. Pour les téléchargements RAW, cela signifie le fichier RAW.",
+    downloadVersions_originalsDesc: "Les clients reçoivent les fichiers exactement tels que vous les avez importés, sans version web réduite. Pour un import RAW, il s'agit du fichier RAW.",
     downloadVersions_webDesc: "Les clients n'obtiennent que la version Web plus petite (environ 2 560 px JPEG, vidéos au format MP4), pas les fichiers originaux.",
     settingWatermark: "Filigrane sur les aperçus",
     settingWatermarkDesc:
@@ -394,7 +394,7 @@ export const fr = {
     slideshowAudio: "Musique du diaporama",
     slideshowAudioHint:
       "Musique de fond pour le diaporama plein écran. MP3/AAC/OGG, maximum 30 Mo. Joue uniquement lorsque le client démarre le diaporama.",
-    slideshowAudioUpload: "Télécharger de la musique",
+    slideshowAudioUpload: "Importer une musique",
     sectionsHeading: "Chapitres",
     sectionsHint:
       "Les chapitres regroupent les images d'une longue galerie (par exemple Préparation, Cérémonie, Réception). Facultatif — sans chapitres, le client voit la grille unique classique.",
@@ -427,8 +427,8 @@ export const fr = {
       "Petit, affiché au-dessus du titre de la galerie. Par ex. monogramme de mariage ou marque d'événement. PNG avec fond transparent recommandé.",
     heroImage: "Image de héros",
     heroImageHint:
-      "Grande image dans l'en-tête. Choisissez-en un dans cette galerie ou téléchargez le vôtre.",
-    heroUpload: "Télécharger",
+      "Grande image dans l'en-tête. Choisissez-en une dans cette galerie ou importez la vôtre.",
+    heroUpload: "Importer",
     heroFromGallery: "De la galerie",
     removeHero: "Supprimer le héros",
     heroOverlay: "Couleur de superposition",
@@ -466,14 +466,14 @@ export const fr = {
     logoSize_small: "Petit",
     logoSize_medium: "Moyen",
     logoSize_large: "Grand",
-    uploadLogo: "Télécharger le logo",
+    uploadLogo: "Importer le logo",
     replace: "Remplacer",
     remove: "Retirer",
     edit: "Modifier",
     preview: "Aperçu",
     clear: "Clair",
 
-    noFiles: "Aucun fichier téléchargé pour l'instant.",
+    noFiles: "Aucun fichier importé pour l'instant.",
     selectFiles: "Sélectionner",
     selectedSuffix: "choisi",
     selectAll: "Tous",
@@ -520,24 +520,24 @@ export const fr = {
     webhookConfirmDelete: "Vraiment supprimer le webhook \"{label}\" ?",
 
     uploadLinks: {
-      heading: "Télécharger des liens",
+      heading: "Liens d'import",
       description:
-        "Glissez-déposez des URL publics à partager. Les destinataires téléchargent des photos sans se connecter. Les fichiers téléchargés apparaissent avec un badge et n'apparaissent dans la galerie client qu'après que vous les ayez approuvés.",
+        "Des liens publics à partager, avec glisser-déposer. Les destinataires importent des photos sans se connecter. Les fichiers importés sont signalés par un badge et n'apparaissent dans la galerie client qu'après votre validation.",
       newButton: "Nouveau lien",
       loading: "Chargement…",
-      empty: "Aucun lien de téléchargement pour l'instant.",
+      empty: "Aucun lien d'import pour l'instant.",
       copy: "Copie",
       copied: "Copié",
       enable: "Activer",
       disable: "Désactiver",
       delete: "Supprimer",
-      confirmDelete: "Vraiment supprimer ce lien de téléchargement ? Les fichiers déjà téléchargés resteront.",
+      confirmDelete: "Supprimer vraiment ce lien d'import ? Les fichiers déjà importés sont conservés.",
       passwordBadge: "Mot de passe",
       inactiveBadge: "Inactif",
       expiredBadge: "Expiré",
-      stats: "Téléchargements {count} · {mb} Mo",
+      stats: "{count} imports · {mb} Mo",
       expires: "Expire",
-      dialogHeading: "Créer un nouveau lien de téléchargement",
+      dialogHeading: "Créer un lien d'import",
       labelField: "Étiquette",
       labelPlaceholder: "par ex. Équipe d'enterrement de vie de garçon Müller",
       labelRequired: "Une étiquette est requise.",
@@ -571,7 +571,7 @@ export const fr = {
       rejectDialogHeadingSingle: "Rejeter la photo",
       rejectDialogHeadingBulk: "Rejeter les photos {count}",
       rejectDialogHint:
-        "Le fichier original sera supprimé définitivement. La raison apparaît dans le journal d'audit et sur la vignette (visible uniquement par vous — le téléchargeur n'est pas averti).",
+        "Le fichier original sera supprimé définitivement. Le motif apparaît dans le journal d'audit et sur la vignette (visible uniquement par vous — la personne qui l'a importé n'est pas prévenue).",
       rejectPresetBlurry: "Flou",
       rejectPresetInappropriate: "Inapproprié",
       rejectPresetDuplicate: "Double",
@@ -586,9 +586,9 @@ export const fr = {
     },
 
     uploadLimit: {
-      heading: "Taille maximale du fichier par téléchargement",
+      heading: "Taille maximale par fichier importé",
       description:
-        "S'applique à tous les téléchargements (studio + liens de téléchargement). Par défaut : {default} MiB. Limite matérielle de l'instance : {cap} MiB.",
+        "S'applique à tous les imports (studio et liens d'import). Par défaut : {default} Mio. Plafond de l'instance : {cap} Mio.",
       field: "Limite en MiB (vide = utiliser la valeur par défaut)",
       defaultPlaceholder: "Par défaut : {default}",
       effective: "Actuellement actif : {value} MiB",
@@ -610,7 +610,7 @@ export const fr = {
     uploadAllow: {
       heading: "Types de fichiers autorisés",
       description:
-        "Contrôle quels types de fichiers peuvent être téléchargés (studio + liens de téléchargement). Tout le reste est rejeté lors du téléchargement.",
+        "Définit quels types de fichiers peuvent être importés (studio et liens d'import). Tout le reste est refusé à l'import.",
       note: "Autoriser « Autres fichiers » désactive effectivement le filtre.",
       kindImage: "Images (JPEG, PNG, WebP, …)",
       kindHeic: "HEIC/HEIF (iPhone)",
@@ -619,7 +619,7 @@ export const fr = {
       kindPdf: "PDF",
       kindOther: "Autres fichiers",
     },
-    activeUploads: "Téléchargements actifs",
+    activeUploads: "Imports en cours",
     galleryTags: "Balises de la galerie",
     galleryTagsDesc: "Classez toute la galerie dans l’aperçu (à ne pas confondre avec les balises sur des images individuelles).",
     galleryDetailsHeading: "Nom et description",
@@ -644,7 +644,7 @@ export const fr = {
     tabMedia: "Médias",
     dropzone: "Déposez les fichiers ici ou cliquez pour sélectionner",
     statusProcessing: "Traitement…",
-    statusUploading: "Téléchargement…",
+    statusUploading: "Import…",
     statusHidden: "Caché",
     processingBadge: "traitement",
     processingBanner: "Traitement {count}",
@@ -664,8 +664,8 @@ export const fr = {
     zeroSizeTitleAll: "Les fichiers n'ont pas pu être lus",
     zeroSizeTitleSome: "Fichiers {count} ou {total} ignorés",
     zeroSizeMessage:
-      "Ces fichiers ne contenaient aucune donnée – cela se produit sur iPhone/iPad lorsque les photos sont toujours dans iCloud et ne sont pas chargées localement. Astuce : téléchargez-les via « Parcourir les fichiers » au lieu de « Photothèque », ou ouvrez brièvement les photos dans l'application Photos (pour qu'iOS télécharge l'original) et réessayez.",
-    tooLargeTitleAll: "Fichier trop volumineux pour être téléchargé",
+      "Ces fichiers ne contenaient aucune donnée — cela arrive sur iPhone/iPad quand les photos sont encore dans iCloud et pas chargées sur l'appareil. Astuce : importez-les via « Parcourir les fichiers » au lieu de « Photothèque », ou ouvrez brièvement les photos dans l'app Photos (pour qu'iOS télécharge l'original) et réessayez.",
+    tooLargeTitleAll: "Fichier trop volumineux pour être importé",
     tooLargeTitleSome: "Fichiers {count} ou {total} ignorés",
     tooLargeMessage:
       "Ces fichiers dépassent la limite par fichier de {limit} et ont été ignorés : {files}. Astuce : exportez des vidéos de Final Cut/Premiere au format H.264 ou HEVC au lieu de ProRes : c'est beaucoup plus petit et est lu dans le navigateur.",
@@ -673,17 +673,17 @@ export const fr = {
       "Au moins un fichier dépasse la taille limite autorisée par fichier et a été rejeté.",
     limitTitle: "Limite de stockage atteinte",
     limitMessageDefault:
-      "Votre forfait n'autorise plus de téléchargements. Passez à un forfait plus grand ou achetez un pack de stockage.",
-    uploadFailedTitle: "Échec du téléchargement",
+      "Votre forfait ne permet plus d'imports. Passez à un forfait supérieur ou achetez un pack de stockage.",
+    uploadFailedTitle: "Échec de l'import",
     uploadFailedMessage:
-      "Les fichiers n'ont pas pu être téléchargés. La cause la plus courante est une connexion interrompue, en particulier sur les téléphones/tablettes. Veuillez vérifier votre connexion Internet et réessayer. Pour les photos iPhone/iPad, il peut également être utile de les sélectionner via « Parcourir les fichiers » au lieu de la photothèque.",
+      "Les fichiers n'ont pas pu être importés. La cause la plus fréquente est une connexion interrompue, surtout sur téléphone ou tablette. Vérifiez votre connexion Internet et réessayez. Pour les photos d'iPhone/iPad, il peut aussi aider de les choisir via « Parcourir les fichiers » plutôt que dans la photothèque.",
     deleteFileTitleOne: "Supprimer le fichier ?",
     deleteFileTitleMany: "Supprimer les fichiers {count} ?",
     deleting: "Suppression…",
     deletingMany: "Suppression… (fichiers {count}, cela prend un moment)",
-    cleanupStuckTitle: "Nettoyer les téléchargements bloqués sur {count} ?",
+    cleanupStuckTitle: "Nettoyer {count} imports bloqués ?",
     cleanupStuckMessage:
-      "Les enregistrements de fichiers sont supprimés, ainsi que tous les objets S3 existants. Vous pourrez ensuite télécharger à nouveau les fichiers.",
+      "Les entrées de fichiers sont supprimées, ainsi que les objets S3 éventuels. Vous pourrez ensuite importer à nouveau les fichiers.",
     cleanup: "Nettoyer",
     cleaningUp: "Faire le ménage…",
     cleanupFailedTitle: "Supprimer les fichiers ayant échoué {count} ?",
@@ -731,15 +731,23 @@ export const fr = {
     findDuplicatesTitle: "Rechercher et nettoyer les médias avec un contenu identique",
     sortAction: "Trier",
     sortFilterHint: "Le tri n'est possible que sans filtre actif",
-    stuckUploadOne: "téléchargement bloqué",
-    stuckUploadMany: "téléchargements bloqués",
+    sortByFilename: "Par nom de fichier",
+    sortByFilenameTitle: "Trier toute la galerie par nom de fichier",
+    sortByTaken: "Par date de prise de vue",
+    sortByTakenTitle: "Trier toute la galerie par date de prise de vue",
+    sortByFilenameConfirm: "Trier toute la galerie par nom de fichier ? L'ordre actuel sera remplacé. Vous pourrez ensuite l'ajuster par glisser-déposer.",
+    sortByTakenConfirm: "Trier toute la galerie par date de prise de vue ? L'ordre actuel sera remplacé. Les fichiers sans date de prise de vue vont à la fin. Vous pourrez ensuite l'ajuster par glisser-déposer.",
+    sortDone: "Galerie triée",
+    sortFailed: "Échec du tri",
+    stuckUploadOne: "import bloqué",
+    stuckUploadMany: "imports bloqués",
     stuckBannerHint:
-      "– bloqué en « téléchargement » pendant plus de 5 minutes. Le téléchargement du navigateur a probablement planté. Vous pouvez les nettoyer et les télécharger à nouveau.",
+      "– bloqués en « import » depuis plus de 5 minutes. L'import dans le navigateur a très probablement échoué. Vous pouvez les nettoyer et les importer à nouveau.",
     cleanupCount: "Nettoyer {count}",
     failedFileOne: "fichier échoué",
     failedFileMany: "fichiers échoués",
     failedBannerHint:
-      "– le traitement n'a pas pu être effectué (format invalide, erreur du travailleur…). Vous pouvez les nettoyer et les télécharger à nouveau si nécessaire.",
+      "– le traitement a échoué (format invalide, erreur du worker…). Vous pouvez les nettoyer et les importer à nouveau si nécessaire.",
     deleteCount: "Supprimer {count}",
     lbClose: "Fermer",
     lbPrev: "Précédent",
@@ -799,7 +807,7 @@ export const fr = {
     downloadEmpty: "Rien de sélectionné.",
     downloadRetry: "Veuillez réessayer",
     downloadOriginal: "Original",
-    downloadOriginalHint: "Pleine résolution : le fichier téléchargé",
+    downloadOriginalHint: "Pleine résolution — le fichier d'origine",
     downloadWeb: "Web",
     downloadWebHint:
       "Taille réduite (~ 2 560 px JPEG), idéale pour la publication en ligne et le partage",
@@ -945,7 +953,7 @@ export const fr = {
       "Les modifications DNS peuvent prendre jusqu'à 48 heures pour se propager. Assurez-vous qu'un certificat TLS est disponible pour ce domaine.",
     watermarkText: "Filigrane — Texte",
     watermarkTextDesc:
-      "Utilisé comme motif répétitif en diagonale lorsqu'une galerie a watermarkEnabled et qu'aucun filigrane d'image n'est téléchargé. Vide = le nom du studio est utilisé.",
+      "Utilisé comme motif diagonal répété lorsqu'une galerie a le filigrane activé et qu'aucune image de filigrane n'est importée. Vide = le nom du studio est utilisé.",
     watermarkImage: "Filigrane — Image",
     watermarkImageDesc:
       "PNG ou JPEG, fond transparent recommandé. Composé avec une opacité de 35 % centrée sur l'aperçu – utilisé à la place du motif de texte lorsqu'il est défini.",
@@ -985,9 +993,9 @@ export const fr = {
     tlsPending: "Caddy obtient un certificat (cela peut prendre 1 à 2 minutes).",
     tlsInvalid: "Certificat pas encore valide ({detail}).",
     unknownError: "erreur inconnue",
-    uploading: "Téléchargement…",
+    uploading: "Import…",
     replaceImage: "Remplacer l'image",
-    uploadImage: "Télécharger une image",
+    uploadImage: "Importer une image",
     imageMaxHint: "Max 20 Mo · PNG/JPEG",
     noteLabel: "Note:",
     studioName: "Nom du studio",
@@ -1008,10 +1016,10 @@ export const fr = {
     dnsRecordLabel: "Enregistrement DNS chez votre fournisseur de domaine :",
     dnsValue: "Valeur:",
     dnsCnameAlt: "Alternativement, un CNAME vers votre domaine principal Lumio.",
-    noWatermarkImage: "Aucune image en filigrane téléchargée.",
+    noWatermarkImage: "Aucune image de filigrane importée.",
     watermarkHintPre:
       "Un changement ne prend effet que lorsque le filigrane d'une galerie est régénéré. Basculer",
-    watermarkHintPost: "éteindre et rallumer, ou attendre le prochain téléchargement.",
+    watermarkHintPost: "puis réactivez-le, ou attendez le prochain import.",
       notifTitle: "Notifications par courrier électronique",
     notifSubtitle:
       "Choisissez le sujet sur lequel Lumio vous envoie des e-mails. Le courrier est envoyé au propriétaire du studio.",
@@ -1033,9 +1041,9 @@ export const fr = {
     notifEventSelectionFinishedDesc: "Un client a fini de sélectionner ses photos.",
     notifEventPrintOrderLabel: "Nouvelle commande d'impression",
     notifEventPrintOrderDesc: "Un client a passé une commande d'impression.",
-    notifEventUploadReceivedLabel: "Téléchargements reçus",
+    notifEventUploadReceivedLabel: "Imports reçus",
     notifEventUploadReceivedDesc:
-      "Un client a téléchargé des fichiers via un lien de téléchargement (par lots).",
+      "Un client a importé des fichiers via un lien d'import (regroupés).",
     notifEventTeamMemberJoinedLabel: "Un membre de l'équipe a rejoint",
     notifEventTeamMemberJoinedDesc: "Un membre de l'équipe invité a créé son compte.",
     notifEventGalleryExpiringLabel: "Galerie qui expire bientôt",
@@ -1053,12 +1061,12 @@ export const fr = {
       "Les clients peuvent commander des tirages directement depuis une galerie (intégration d'un laboratoire allemand).",
     catalogFlagLightroomPluginName: "Plugin Lightroom",
     catalogFlagLightroomPluginDesc:
-      "Téléchargez directement depuis Adobe Lightroom Classic via le jeton API. Le plugin est distribué séparément.",
+      "Importez directement depuis Adobe Lightroom Classic via un jeton API. Le plugin est distribué séparément.",
     catalogFlagAdvancedAnalyticsName: "Analyses avancées",
     catalogFlagAdvancedAnalyticsDesc:
       "Cartes thermiques de sélection, suivi des conversions, statistiques d'engagement client.",
     catalogFlagAiTaggingName: "Marquage automatique par l'IA",
-    catalogFlagAiTaggingDesc: "Marquage automatique via CLIP/ImageBind. Utilise un travailleur GPU.",
+    catalogFlagAiTaggingDesc: "Marquage automatique via CLIP/ImageBind. Utilise un worker GPU.",
     catalogFlagLandingPagesName: "Pages de destination",
     catalogFlagLandingPagesDesc:
       "Pages organisées avec leur propre lien répertoriant plusieurs galeries ; éventuellement la page d'accueil du studio à l'adresse /.",
@@ -1160,20 +1168,20 @@ export const fr = {
 
   upload: {
     loading: "Chargement…",
-    notFound: "Ce lien de téléchargement n'existe pas ou a expiré.",
+    notFound: "Ce lien d'import n'existe pas ou a expiré.",
     notFoundHeading: "Lien introuvable",
     passwordHeading: "Veuillez entrer le mot de passe",
     passwordPlaceholder: "Mot de passe",
     wrongPassword: "Mauvais mot de passe.",
     forGallery: "pour « {title} »",
     dropHint: "Faites glisser les photos ici",
-    dropNow: "Libérer pour télécharger",
+    dropNow: "Relâchez pour importer",
     dropOrClick: "ou cliquez pour sélectionner",
     queued: "En file d'attente",
-    doneHeading: "{count} téléchargé",
+    doneHeading: "{count} importé(s)",
     doneHint: "Merci! Les photos sont actuellement en cours de traitement par le photographe.",
     doneFailed: "Échec du {count}",
-    limitReachedHeading: "Limite de téléchargement atteinte. Veuillez contacter le destinataire.",
+    limitReachedHeading: "Limite d'import atteinte. Veuillez contacter le destinataire.",
     limitReachedFiles: "Limite de fichiers atteinte pour ce lien.",
     limitRemainingFiles: "Fichiers {count} restants.",
     limitReachedBytes: "Limite de stockage atteinte pour ce lien.",
@@ -1494,7 +1502,7 @@ export const fr = {
     trialEndsOn: "L'essai se termine le",
     readOnlyTitle: "Compte en mode lecture seule",
     readOnlyInfo:
-      "En raison d'un paiement impayé, les téléchargements et les modifications sont désactivés. Les galeries existantes restent visibles pour vos clients. Veuillez mettre à jour votre carte.",
+      "En raison d'un paiement en souffrance, les imports et les modifications sont désactivés. Les galeries existantes restent visibles pour vos clients. Veuillez mettre à jour votre carte.",
     storage: "Stockage",
     usedOf: "{used} ou {limit}",
     originals: "Originaux :",
@@ -1634,7 +1642,7 @@ export const fr = {
     description:
       "Cela marque votre studio pour une suppression permanente. Vous disposez d'un délai de grâce de 60 jours pendant lequel vous pouvez annuler la suppression à tout moment. Après son expiration, toutes les images, galeries et données de compte sont supprimées de manière irréversible.",
     galleriesOfflineNote:
-      "Important : toutes les galeries, liens de partage et liens de téléchargement sont immédiatement hors ligne : vos clients perdent l'accès au moment où vous soumettez la demande. Les données sont conservées pendant le délai de grâce ; si vous annulez la suppression, chaque galerie redevient accessible sans modification.",
+      "Important : toutes les galeries, liens de partage et liens d'import sont immédiatement mis hors ligne — vos clients perdent l'accès dès l'envoi de la demande. Les données sont conservées pendant le délai de grâce ; si vous annulez la suppression, chaque galerie redevient accessible sans changement.",
     stripeNote:
       "Votre abonnement Stripe est immédiatement annulé – aucune autre facturation.",
     deleteButton: "Supprimer le studio…",
@@ -1655,7 +1663,7 @@ export const fr = {
     errorCancel: "Erreur lors de l'annulation",
     bannerTitle: "Votre studio est en cours de suppression.",
     bannerGalleriesOffline:
-      "Toutes les galeries et liens de téléchargement sont hors ligne. Si vous annulez la suppression, ils redeviennent immédiatement accessibles.",
+      "Toutes les galeries et tous les liens d'import sont hors ligne. Si vous annulez la suppression, ils redeviennent immédiatement accessibles.",
     bannerDaysOne: "Suppression définitive en 1 jour ({date}).",
     bannerDaysMany: "Suppression définitive dans les jours {days} ({date}).",
     bannerExecuting: "Une suppression définitive est en cours.",
@@ -1772,7 +1780,7 @@ export const fr = {
     navButton: "Importer le catalogue",
     title: "Importer un catalogue imprimé",
     intro:
-      "Téléchargez un fichier JSON pour créer ou mettre à jour en masse votre catalogue de produits. Téléchargez le modèle ci-dessous, remplissez-le et téléchargez-le ici.",
+      "Importez un fichier JSON pour créer ou mettre à jour votre catalogue de produits en masse. Téléchargez le modèle ci-dessous, remplissez-le et importez-le ici.",
     downloadTemplate: "Télécharger le modèle",
     providerLabel: "Fournisseur",
     chooseFile: "Choisir un fichier",
@@ -2128,9 +2136,9 @@ export const fr = {
     previewNote:
       "L'aperçu montre l'image de marque à peu près telle que les clients la voient. Les images et la mise en page s'adaptent à la vraie galerie.",
     colorPickerTitle: "Choisissez la couleur",
-    nothingUploaded: "Rien de téléchargé pour l'instant.",
+    nothingUploaded: "Rien d'importé pour l'instant.",
     replace: "Remplacer",
-    upload: "Télécharger",
+    upload: "Importer",
     removeBtn: "Retirer",
     previewLogo: "Logo",
     demoGallery: "Galerie de démonstration",
@@ -2201,12 +2209,12 @@ export const fr = {
       hint: "En-tête, polices, couleurs et affichage des galeries. Chaque modification est enregistrée immédiatement.",
       layoutHint: "Comment l'en-tête est organisé. Le titre et l'introduction proviennent des détails ci-dessus.",
       heroImage: "Image d'en-tête",
-      heroImageHint: "Téléchargez la vôtre ou prenez une photo à partir d'une galerie sur cette page. Seules les galeries sans mot de passe peuvent être utilisées.",
+      heroImageHint: "Importez la vôtre ou choisissez une photo d'une galerie de cette page. Seules les galeries sans mot de passe peuvent être utilisées.",
       heroFromGalleries: "D'une galerie",
       heroNoCandidates: "Aucune photo disponible. Les photos peuvent être prises uniquement à partir des galeries de cette page qui y sont affichées et n'ont pas de mot de passe.",
       heroProtectedSkipped: "Les galeries avec mot de passe ne sont pas proposées.",
-      heroProblemProtected: "La galerie de cette image d'en-tête dispose désormais d'un mot de passe, les visiteurs ne voient donc pas l'image. Choisissez-en un autre ou téléchargez le vôtre.",
-      heroProblemHidden: "La photo d'en-tête n'est actuellement pas montrée aux visiteurs : sa galerie n'est plus sur cette page, n'est plus en direct, ou la photo a disparu. Choisissez-en un autre ou téléchargez le vôtre.",
+      heroProblemProtected: "La galerie de cette image d'en-tête a désormais un mot de passe, les visiteurs ne voient donc pas l'image. Choisissez-en une autre ou importez la vôtre.",
+      heroProblemHidden: "La photo d'en-tête n'est actuellement pas visible : sa galerie n'est plus sur cette page, n'est pas en ligne, ou la photo a été supprimée. Choisissez-en une autre ou importez la vôtre.",
       logo: "Logo",
       logoHint: "Affiché dans l’en-tête au-dessus du titre. Un PNG avec un arrière-plan transparent fonctionne mieux.",
       cta: "Bouton d'en-tête",
@@ -2566,16 +2574,16 @@ export const fr = {
   superDash: {
     title: "Aperçu",
     subtitle: "Statut de la plateforme en un coup d'œil.",
-    statActive: "Locataires actifs",
-    statSuspended: "Locataires suspendus",
+    statActive: "Studios actifs",
+    statSuspended: "Studios suspendus",
     statGrace: "Délai de grâce (suppression)",
-    statArchived: "Locataires archivés",
+    statArchived: "Studios archivés",
     statUsers: "Nombre total d'utilisateurs",
     statGalleries: "Total des galeries",
     statFiles: "Total des dossiers",
     statComped: "Gratuit (compté)",
     ofWhichFree: "{n} gratuit",
-    graceTitle: "Locataires en délai de grâce",
+    graceTitle: "Studios en délai de grâce",
     graceDesc:
       "Ces studios sont marqués pour suppression définitive. Ils peuvent l'annuler eux-mêmes jusqu'à la date limite, ou vous le faites manuellement, par exemple. si le propriétaire ne peut plus se connecter.",
     ownerLabel: "Propriétaire:",
@@ -2591,8 +2599,8 @@ export const fr = {
     noPlan: "Aucun plan",
     planDistTitle: "Répartition des régimes",
     noSubs: "Aucun abonnement pour l'instant.",
-    tenant: "locataire",
-    tenants: "locataires",
+    tenant: "studio",
+    tenants: "studios",
     signupsTitle: "Inscriptions · 12 dernières semaines",
     totalSuffix: "total",
     weekOf: "Semaine de",
@@ -2614,11 +2622,11 @@ export const fr = {
   },
 
   slowConn: {
-    titleEnable: "Réduit le nombre de téléchargements parallèles pour les connexions lentes (par exemple réseau mobile).",
+    titleEnable: "Réduit le nombre d'imports simultanés pour les connexions lentes (par ex. réseau mobile).",
     trigger: "Connexion lente ?",
-    detectedAuto: "Connexion lente détectée : les téléchargements s'exécutent de manière séquentielle.",
-    activeManual: "Connexion lente active : les téléchargements s'exécutent de manière séquentielle.",
-    titleForceFast: "Remplacer la détection automatique et forcer les téléchargements rapides",
+    detectedAuto: "Connexion lente détectée — les imports se font un par un.",
+    activeManual: "Mode connexion lente actif — les imports se font un par un.",
+    titleForceFast: "Ignorer la détection automatique et forcer les imports rapides",
     titleResetAuto: "Réinitialiser à la détection automatique",
     forceFast: "Rapide quand même",
   },
@@ -2796,7 +2804,7 @@ export const fr = {
 
   storageBanner: {
     readonlyTitle: "Compte en mode lecture seule",
-    readonlyMsg: "En raison d'un paiement en attente, les téléchargements et les modifications sont désactivés. Veuillez mettre à jour votre carte.",
+    readonlyMsg: "En raison d'un paiement en attente, les imports et les modifications sont désactivés. Veuillez mettre à jour votre carte.",
     dangerTitle: "Stockage presque plein",
     dangerMsg: "Vous utilisez {pct} % de votre espace de stockage. Pack de stockage ou mise à niveau du plan nécessaire.",
     warnTitle: "Stockage faible",
@@ -2848,7 +2856,7 @@ export const fr = {
 
   super: {
     navOverview: "Aperçu",
-    navTenants: "Locataires",
+    navTenants: "Studios",
     navUsers: "Utilisateurs",
     navStorage: "Stockage",
     navMrr: "MRR",
@@ -2877,10 +2885,10 @@ export const fr = {
     invMailFailed: "L'envoi du courrier électronique a échoué. Veuillez transférer ce lien manuellement :",
     inviting: "Attrayant…",
     invite: "Inviter",
-    invEmailTaken: "Cet email est déjà enregistré dans ce locataire.",
-    invTenantInactive: "Le locataire n'est pas actif.",
-    ctTitle: "Nouveau locataire",
-    ctCreatedTitle: "Locataire « {name} » créé",
+    invEmailTaken: "Cet email est déjà enregistré dans ce studio.",
+    invTenantInactive: "Le studio n'est pas actif.",
+    ctTitle: "Nouveau studio",
+    ctCreatedTitle: "Studio « {name} » créé",
     ctMailSent: "Invitation envoyée à {email}.",
     ctMailFailed: "L'envoi du courrier électronique a échoué. Veuillez envoyer ce lien manuellement au propriétaire :",
     ctLinkValid: "Le lien est valable 72 heures. Après cela, un nouveau lien de configuration doit être demandé via la gestion du propriétaire.",
@@ -2892,7 +2900,7 @@ export const fr = {
     ctSlug: "Limace",
     ctSlugHint: "Lettres minuscules, chiffres, tirets. Devient une partie du sous-domaine.",
     ctDomain: "Domaine personnalisé (facultatif)",
-    ctDomainHint: "Si le locataire doit obtenir son propre domaine. Caddy doit être configuré séparément.",
+    ctDomainHint: "Si le studio doit obtenir son propre domaine. Caddy doit être configuré séparément.",
     ctEmailHint: "Reçoit un e-mail d'invitation avec un lien de configuration.",
     ctCreating: "Création…",
     ctSubmit: "Créer + inviter",
@@ -2900,8 +2908,8 @@ export const fr = {
     ctStudioNamePlaceholder: "Studio Miller",
     ctDisplayNamePlaceholder: "par ex. Photographie Miller",
     tenantsSubtitle: "Tous les studios de photographie sur cette plateforme.",
-    tenantsNew: "+ Nouveau locataire",
-    tenantsEmpty: "Aucun locataire pour l'instant : créez le premier.",
+    tenantsNew: "+ Nouveau studio",
+    tenantsEmpty: "Aucun studio pour l'instant : créez le premier.",
     tenantsPublicAs: "→ publiquement « {name} »",
     tenantsCounts: "Utilisateurs de {users} · Galeries {galleries}",
     statusActive: "Actif",
@@ -2913,7 +2921,7 @@ export const fr = {
     auditFrom: "Depuis",
     auditTo: "À",
     auditColTime: "Temps",
-    auditColTenant: "Locataire",
+    auditColTenant: "Studio",
     auditColActor: "Acteur",
     auditColAction: "Action",
     auditColTarget: "Cible",
@@ -2924,23 +2932,23 @@ export const fr = {
     auditEventId: "ID d'événement",
     auditPayload: "Charge utile",
     auditSubtitle:
-      "Historique complet des actions pour tous les locataires et le super administrateur.",
+      "Historique complet des actions pour tous les studios et le super administrateur.",
     auditActorType: "Type d'acteur",
     auditActionScope: "Portée des actions",
-    auditTenantId: "ID du locataire",
+    auditTenantId: "ID du studio",
     auditNoEntries: "Aucune entrée ne correspond à ces filtres.",
     auditLoadMore: "Charger plus",
 
     usersTitle: "Utilisateurs",
     usersSubtitle:
-      "Tous les utilisateurs de tous les locataires. La même adresse e-mail peut apparaître dans plusieurs locataires — le locataire est affiché à côté de chaque entrée.",
-    usersSearchPlaceholder: "Rechercher un e-mail, un nom ou un locataire…",
+      "Tous les utilisateurs de tous les studios. La même adresse e-mail peut apparaître dans plusieurs studios — le studio est affiché à côté de chaque entrée.",
+    usersSearchPlaceholder: "Rechercher un e-mail, un nom ou un studio…",
     usersAllRoles: "Tous les rôles",
     usersAllStatuses: "Tous les statuts",
-    usersAllTenants: "Tous les locataires",
+    usersAllTenants: "Tous les studios",
     usersNoneFound: "Aucun utilisateur trouvé.",
     usersColUser: "Utilisateur",
-    usersColTenant: "Locataire",
+    usersColTenant: "Studio",
     usersColRole: "Rôle",
     usersColStatus: "Statut",
     usersColAction: "Action",
@@ -2979,8 +2987,8 @@ export const fr = {
     usersCreateTitle: "Créer un nouvel utilisateur",
     usersCreateHint:
       "L'utilisateur est invité (statut « invité ») et reçoit un email de configuration pour choisir un mot de passe.",
-    usersCreateTenant: "Locataire",
-    usersCreateNoTenant: "— aucun locataire actif —",
+    usersCreateTenant: "Studio",
+    usersCreateNoTenant: "— aucun studio actif —",
     usersInvitedNote:
       "Statut : invité – devient actif dès que l'utilisateur utilise le lien de configuration.",
     usersResetLink: "Lien de réinitialisation (également envoyé par email) :",
@@ -2989,8 +2997,8 @@ export const fr = {
 
     storageTitle: "Présentation du stockage",
     storageSubtitle:
-      "Tous les locataires par utilisation. Les valeurs proviennent du cache d'utilisation, que le travailleur actualise périodiquement.",
-    storageColTenant: "Locataire",
+      "Tous les studios par utilisation. Les valeurs proviennent du cache d'utilisation, que le worker actualise périodiquement.",
+    storageColTenant: "Studio",
     storageColPlan: "Plan",
     storageColUsed: "Utilisé",
     storageColLimit: "Limite",
@@ -3001,7 +3009,7 @@ export const fr = {
 
     jobsTitle: "Échecs de travail",
     jobsSubtitle:
-      "Travaux asynchrones ayant échoué et bloqués sur tous les locataires : traitement des fichiers (vignettes, transcodage, marquage automatique), builds ZIP et webhooks sortants. « Coincé » signifie en cours de traitement pendant plus de 2 heures.",
+      "Travaux asynchrones ayant échoué et bloqués sur tous les studios : traitement des fichiers (vignettes, transcodage, marquage automatique), builds ZIP et webhooks sortants. « Coincé » signifie en cours de traitement pendant plus de 2 heures.",
     jobsAllClear: "Aucun échec de travail : tout fonctionne.",
     jobsFailedFiles: "Fichiers en échec",
     jobsStuckFiles: "Fichiers bloqués",
@@ -3054,23 +3062,23 @@ export const fr = {
 
     complianceTitle: "Conformité",
     complianceOnlyFlagged: "Marqué uniquement",
-    complianceColTenant: "Locataire",
+    complianceColTenant: "Studio",
     complianceColStatus: "Statut",
     complianceColDpa: "DPA",
     complianceColLifecycle: "Cycle de vie",
 
     printProvidersTitle: "Fournisseurs d'impression",
     printProvidersSubtitle:
-      "Activation globale des intégrations du laboratoire d'impression. Les fournisseurs activés ici peuvent être sélectionnés dans les paramètres du studio. L'auto-impression est toujours disponible — les locataires sans laboratoire API peuvent toujours utiliser l'imprimerie.",
+      "Activation globale des intégrations du laboratoire d'impression. Les fournisseurs activés ici peuvent être sélectionnés dans les paramètres du studio. L'auto-impression est toujours disponible — les studios sans laboratoire API peuvent toujours utiliser l'imprimerie.",
     printProvidersWebsite: "Site web",
     printProvidersApiSetup: "Configuration du API",
     printProvidersAlwaysOn: "toujours allumé",
     printProvidersPlannedWarning:
-      "Attention : ce fournisseur est marqué comme « planifié » — l'intégration API n'est pas encore implémentée. Les locataires peuvent sélectionner le fournisseur, mais les commandes échoueront lors de la soumission.",
+      "Attention : ce fournisseur est marqué comme « planifié » — l'intégration API n'est pas encore implémentée. Les studios peuvent sélectionner le fournisseur, mais les commandes échoueront lors de la soumission.",
 
     broadcastsTitle: "Diffusions",
     broadcastsSubtitle:
-      "Envois à tous les locataires propriétaires. Annonces de fonctionnalités, avis de maintenance, mises à jour des conditions.",
+      "Envois à tous les studios propriétaires. Annonces de fonctionnalités, avis de maintenance, mises à jour des conditions.",
     broadcastsNew: "+ Nouvelle diffusion",
     broadcastsEmpty: "Aucune diffusion pour l'instant.",
     broadcastsCreateFirst: "Créer la première diffusion →",
@@ -3079,7 +3087,7 @@ export const fr = {
     mailLogSkipped: "Sauté",
     mailLogSent: "Envoyé",
     mailLogFailed: "Échoué",
-    storageActiveTenants: "Locataires actifs",
+    storageActiveTenants: "Studios actifs",
     storageTotal: "Stockage total",
     securityFailedLogins24h: "Échec de connexion 24 h",
     securityFailedLogins7d: "Échec de connexion 7 jours",
@@ -3094,12 +3102,12 @@ export const fr = {
     usersMailMessage: "Message (marquage)",
     systemReleaseNotesLink: "↗ Notes de version",
     backupExportHint:
-      "Exporte toutes les galeries d'un locataire sous forme de fichiers ZIP (originaux + métadonnées.json), une archive par galerie. Les liens de téléchargement sont valables 30 jours.",
-    backupBackToTenants: "← Liste des locataires",
+      "Exporte toutes les galeries d'un studio sous forme de fichiers ZIP (originaux + métadonnées.json), une archive par galerie. Les liens de téléchargement sont valables 30 jours.",
+    backupBackToTenants: "← Liste des studios",
     backupDownloadZip: "Télécharger ZIP",
     backupFailed: "échoué",
 
-    tdBackToTenants: "Locataires",
+    tdBackToTenants: "Studios",
     tdSuspend: "Suspendre",
     tdReactivate: "Réactiver",
     tdSchedulePreArchive: "Archivage programmé",
@@ -3107,7 +3115,7 @@ export const fr = {
     tdDeleteNowTest: "Supprimer immédiatement (test)",
     tdDeleteFinal: "Supprimer définitivement",
     tdDeleteFinalHint:
-      "Vous pouvez désormais supprimer définitivement ce locataire. Toutes les données, galeries, fichiers et objets S3 seront supprimés – ceci est irréversible.",
+      "Vous pouvez désormais supprimer définitivement ce studio. Toutes les données, galeries, fichiers et objets S3 seront supprimés – ceci est irréversible.",
     tdTriggerExport: "Déclencher l'exportation des données",
     tdCancelGraceHint:
       "D'ici là, le propriétaire peut annuler lui-même cette décision. Si ce n'est pas le cas, vous pouvez annuler manuellement dans le tableau de bord.",
@@ -3123,23 +3131,23 @@ export const fr = {
     tdNoUsers: "Aucun utilisateur.",
     tdIrreversibleIntro: "Ce qui suit sera",
     tdIrreversible: "irréversible",
-    tdIrreversibleUsers: "Tous les comptes d'utilisateurs de ce locataire",
+    tdIrreversibleUsers: "Tous les comptes d'utilisateurs de ce studio",
     tdIrreversibleBranding: "Image de marque, modèles, webhooks, balises",
     tdSchedulePreArchiveTitle: "Archivage programmé",
     tdSchedulePreArchiveHint:
-      "Définit une date cible à laquelle vous archiverez le locataire manuellement. Le studio montre au locataire une bannière de compte à rebours avec un lien vers l'export des données. Nous envoyons un premier e-mail maintenant et un rappel 7 jours avant la date cible à tous les propriétaires actifs.",
+      "Définit une date cible à laquelle vous archiverez le studio manuellement. Le studio montre au studio une bannière de compte à rebours avec un lien vers l'export des données. Nous envoyons un premier e-mail maintenant et un rappel 7 jours avant la date cible à tous les propriétaires actifs.",
     tdTargetDate: "Date cible",
     tdPreArchiveScheduled: "Archivage programmé",
     tdExportTitle: "Déclencher l'exportation de données ?",
     tdExportArchivedHint:
-      "Étant donné que le locataire est archivé, un lien de jeton est généré et envoyé par courrier électronique à tous les propriétaires actifs. Le locataire peut y accéder sans se connecter (valable 30 jours).",
+      "Étant donné que le studio est archivé, un lien de jeton est généré et envoyé par courrier électronique à tous les propriétaires actifs. Le studio peut y accéder sans se connecter (valable 30 jours).",
     tdExportStarted: "L'exportation a commencé",
     tdExportNoOwners:
       "Le jeton a été créé, mais il n’y a aucun propriétaire actif à qui envoyer un e-mail. Vous pouvez trouver le lien dans les journaux d'audit.",
     tdPreArchiveOverdue:
-      "La date prévue est passée. Cliquez sur « Archiver maintenant » pour déclencher l'archivage manuellement (démarre l'annulation du Stripe et le délai de grâce de 30 jours). Tant que vous ne faites rien, le locataire peut continuer à travailler.",
+      "La date prévue est passée. Cliquez sur « Archiver maintenant » pour déclencher l'archivage manuellement (démarre l'annulation du Stripe et le délai de grâce de 30 jours). Tant que vous ne faites rien, le studio peut continuer à travailler.",
     tdPreArchiveInfo:
-      "Le locataire a reçu un premier email. Un rappel suit automatiquement 7 jours avant la date cible. Dans le studio, le locataire voit une bannière de compte à rebours avec un lien vers l'exportation des données.",
+      "Le studio a reçu un premier email. Un rappel suit automatiquement 7 jours avant la date cible. Dans le studio, le studio voit une bannière de compte à rebours avec un lien vers l'exportation des données.",
     tdArchiveNow: "Archiver maintenant",
     tdWithdrawPlan: "Retirer le plan",
     tdNameInternal: "Nom (interne)",
@@ -3164,7 +3172,7 @@ export const fr = {
       "Géré via Stripe — modifiez le plan dans le tableau de bord Stripe.",
     tdAssignOrChangePlan: "Attribuer/modifier le plan",
     tdNoSubscription:
-      "Aucun abonnement enregistré : le locataire fonctionne avec des limites d'essai. Attribuez un forfait pour le débloquer (sous forme d'abonnement gratuit sans Stripe pour les partenaires).",
+      "Aucun abonnement enregistré : le studio fonctionne avec des limites d'essai. Attribuez un forfait pour le débloquer (sous forme d'abonnement gratuit sans Stripe pour les partenaires).",
     tdAssignPlan: "Attribuer un plan",
     tdAssignedAs: "Sera affecté en tant que",
     tdFreeSubscription: "abonnement gratuit",
@@ -3179,7 +3187,7 @@ export const fr = {
     tdExtendTrial: "Prolonger l'essai",
     tdExtendByDays: "Dans combien de jours ?",
     tdNotesTitle: "Notes internes",
-    tdNotesHint: "Visible uniquement par vous. Le locataire ne le voit jamais.",
+    tdNotesHint: "Visible uniquement par vous. Le studio ne le voit jamais.",
     tdNotesEmpty: "Aucune note pour l'instant.",
     tdResetMailSent: "Réinitialiser l'e-mail envoyé",
     tdRetry: "Essayer à nouveau",
@@ -3203,15 +3211,15 @@ export const fr = {
     tdNotesPlaceholderAlt:
       "par ex. demandé de l'aide pour une sélection de galerie cassée (ticket n° 123)",
     tdDeleteError:
-      "La suppression a échoué (uniquement possible tant que le locataire ne paie pas activement).",
+      "La suppression a échoué (uniquement possible tant que le studio ne paie pas activement).",
     tdDeleteErrorShort: "La suppression a échoué",
     tdGraceExpired: "Délai de grâce expiré – suppression définitive désormais possible",
     tdPurgeConfirmTitle: "Supprimer le client de test immédiatement ?",
-    tdDeleteConfirmTitle: "Supprimer définitivement le locataire ?",
+    tdDeleteConfirmTitle: "Supprimer définitivement le studio ?",
     tdIrreversibleBilling:
       "Abonnement de facturation + client Stripe (supprimé dans Stripe)",
     tdPurgeHint:
-      "Sans archivage et sans délai de grâce. L'abonnement Stripe est annulé et le client Stripe supprimé. Uniquement pour les locataires de test et d'essai non payants. Les journaux d'audit sont conservés.",
+      "Sans archivage et sans délai de grâce. L'abonnement Stripe est annulé et le client Stripe supprimé. Uniquement pour les studios de test et d'essai non payants. Les journaux d'audit sont conservés.",
     tdDeleteHint:
       "Les journaux d'audit sont conservés. Le client Stripe reste dans le tableau de bord Stripe pour la comptabilité.",
     tdDeleting: "Suppression…",
@@ -3219,7 +3227,7 @@ export const fr = {
     tdExportStarting: "Départ…",
     tdExportStart: "Démarrer l'exportation",
     tdRemoveSubscriptionConfirm:
-      "Supprimer l'abonnement gratuit ? Le locataire revient alors aux limites d'essai (les galeries existantes restent, mais les téléchargements et les nouvelles galeries sont limités jusqu'à ce qu'ils s'abonnent). Le propriétaire peut ensuite souscrire à un forfait via Stripe dans le studio comme d'habitude.",
+      "Supprimer l'abonnement gratuit ? Le compte revient alors aux limites d'essai (les galeries existantes restent, mais les imports et les nouvelles galeries sont limités jusqu'à la souscription). Le propriétaire peut ensuite souscrire un forfait via Stripe dans le studio, comme d'habitude.",
     tdExtending: "Extension…",
     tdExtendByDaysAction: "Prolonger de jours {days}",
     tdSaving: "Économie…",
@@ -3239,7 +3247,7 @@ export const fr = {
     broadcastsRecipientsOne: "destinataire",
     broadcastsRecipientsMany: "destinataires",
     usersActiveOnly: "Uniquement pour les utilisateurs actifs",
-    usersPickTenant: "Veuillez choisir un locataire.",
+    usersPickTenant: "Veuillez choisir un studio.",
     systemUpdateAvailable: "Mise à jour disponible",
     systemUpToDate: "À jour",
     backupNoRestorable:
@@ -3280,15 +3288,15 @@ export const fr = {
 
     mkTitle: "E-mails marketing",
     mkSubtitle:
-      "Contrôle tous les e-mails automatiques du cycle de vie (rappels d’essai, reconquête). Le commutateur global remplace tous les paramètres par locataire. Les remplacements par locataire sont disponibles dans la vue détaillée du locataire concerné.",
+      "Contrôle tous les e-mails automatiques du cycle de vie (rappels d’essai, reconquête). Le commutateur global remplace tous les paramètres par studio. Les remplacements par studio sont disponibles dans la vue détaillée du studio concerné.",
     mkKillSwitch: "Coupe-circuit global",
     mkKillSwitchHint:
-      "Lorsqu'ils sont désactivés, tous les e-mails marketing automatiques s'arrêtent, quels que soient les paramètres de chaque locataire. Les e-mails transactionnels (réinitialisations de mot de passe, invitations à des galeries, etc.) ne sont pas affectés.",
+      "Lorsqu'ils sont désactivés, tous les e-mails marketing automatiques s'arrêtent, quels que soient les paramètres de chaque studio. Les e-mails transactionnels (réinitialisations de mot de passe, invitations à des galeries, etc.) ne sont pas affectés.",
     mkSaved: "✓ Enregistré",
     mkOptOutStats: "Statistiques de désinscription",
     mkWhatIsSent: "Qu'est-ce qui est envoyé ?",
     mkFooterHint:
-      "Chaque catégorie d'e-mail est envoyée à un locataire une seule fois (verrouillage d'envoi). Chaque email comporte un lien de désabonnement ne nécessitant aucune connexion (valable 90 jours). Les remplacements par locataire peuvent être définis dans la vue détaillée du locataire.",
+      "Chaque catégorie d'e-mail est envoyée à un studio une seule fois (verrouillage d'envoi). Chaque email comporte un lien de désabonnement ne nécessitant aucune connexion (valable 90 jours). Les remplacements par studio peuvent être définis dans la vue détaillée du studio.",
     mkTotalSubs: "Total des abonnements",
     mkMarketingEnabled: "E-mail marketing activé",
     mkOptedOut: "Désinscription",
@@ -3356,31 +3364,31 @@ export const fr = {
 
     backupTitle: "Sauvegarde",
     backupSubtitle:
-      "Statut des sauvegardes du système et exportation d'urgence des fichiers originaux par locataire.",
+      "Statut des sauvegardes du système et exportation d'urgence des fichiers originaux par studio.",
     backupMonitoring: "Surveillance",
     backupEmergencyExport: "Exportation d'urgence (originaux)",
-    backupTenantSearchPlaceholder: "Rechercher un locataire (nom ou slug)…",
-    backupNoTenantFound: "Aucun locataire trouvé.",
-    backupNoExports: "Aucune exportation pour ce locataire pour le moment.",
+    backupTenantSearchPlaceholder: "Rechercher un studio (nom ou slug)…",
+    backupNoTenantFound: "Aucun studio trouvé.",
+    backupNoExports: "Aucune exportation pour ce studio pour le moment.",
     backupRestoreHint:
       "Fournit les originaux supprimés des versions S3 des 30 derniers jours sous forme de fichier ZIP.",
       tdSuspendConfirm:
-      "Suspendre le locataire « {name} » ? La connexion et la vue client seront bloquées.",
+      "Suspendre le studio « {name} » ? La connexion et la vue client seront bloquées.",
     tdArchiveConfirm:
-      "Locataire d'archives « {name} » ?\n\n• La connexion et la vue client seront bloquées\n• L'abonnement Stripe est résilié immédiatement\n• Un délai de grâce de 30 jours commence ; après quoi, une suppression définitive est possible.\n• D'ici là, le locataire peut télécharger ses données via un flux d'exportation distinct.",
+      "Studio d'archives « {name} » ?\n\n• La connexion et la vue client seront bloquées\n• L'abonnement Stripe est résilié immédiatement\n• Un délai de grâce de 30 jours commence ; après quoi, une suppression définitive est possible.\n• D'ici là, le studio peut télécharger ses données via un flux d'exportation distinct.",
     tdWithdrawArchiveConfirm: "Annuler l'archivage programmé pour « {name} » ?",
     tdWithdrawArchiveNote:
-      "Le locataire ne reçoit aucune notification automatique. Si vous souhaitez les informer, écrivez-leur directement.",
+      "Le studio ne reçoit aucune notification automatique. Si vous souhaitez les informer, écrivez-leur directement.",
     tdGraceRunning: "Délai de grâce en cours – suppression définitive possible dans les jours {days}",
     tdDeadlineReached: "Délai atteint — l'archivage est en attente",
     tdArchiveScheduledFor: "Archivage prévu pour {date} (en jours {days})",
     tdSlugChangeConfirm: "Changer le slug de « {old} » en « {new} » ?",
     tdSlugChangeWarning:
-      "Cela modifie le sous-domaine URL (par exemple https://{slug}.{domain}) et chaque accès API basé sur l'en-tête pour ce locataire.",
+      "Cela modifie le sous-domaine URL (par exemple https://{slug}.{domain}) et chaque accès API basé sur l'en-tête pour ce studio.",
     tdSlugChangeBookmarks:
       "Les signets existants sous l'ancien slug ne fonctionneront plus.",
     tdSlugChangeShareLinks:
-      "Les liens de partage de galerie ne sont pas affectés : ils utilisent le slug de la galerie, pas le slug du locataire.",
+      "Les liens de partage de galerie ne sont pas affectés : ils utilisent le slug de la galerie, pas le slug du studio.",
       tdRemoveFailed: "Échec de la suppression",
       mailFooterTitle: "Pied de page de l'e-mail",
     mailFooterHint:

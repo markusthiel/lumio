@@ -1,18 +1,18 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { api, type TenantSettings, type BillingUsage, type UploadLimits } from "@/lib/api";
+import { TwoFactorSection } from "@/components/studio/TwoFactorSection";
+import { PasskeysSection } from "@/components/studio/PasskeysSection";
 import { ApiTokensSection } from "@/components/studio/ApiTokensSection";
 import { MotionSection } from "@/components/studio/MotionSection";
 import { NotificationSettings } from "@/components/studio/NotificationSettings";
 import { PageHeader } from "@/components/studio/PageHeader";
-import { PasskeysSection } from "@/components/studio/PasskeysSection";
-import { TwoFactorSection } from "@/components/studio/TwoFactorSection";
-import { useConfirm } from "@/components/ui/dialogs";
-import { api, type BillingUsage, type TenantSettings, type UploadLimits } from "@/lib/api";
+import { useT, useLocale } from "@/lib/i18n";
 import { useErrorText } from "@/lib/error-i18n";
-import { useLocale, useT } from "@/lib/i18n";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useConfirm } from "@/components/ui/dialogs";
 
 /** Kleine Status-Zeile mit farbigem Punkt + Label + Detail-Text.
  *  Für Custom-Domain DNS- und TLS-Status. */
@@ -597,7 +597,7 @@ export default function StudioSettingsPage() {
               // entstehen serverseitig, wenn kein Browser beteiligt ist.
               // Best-effort: ein Fehler darf die Umstellung nicht
               // blockieren, das Cookie ist bereits gesetzt.
-                 void api.updateMyMailLocale(next).catch(() => {});
+              void api.updateMyMailLocale(next).catch(() => {});
             }}
             className="text-sm rounded-md border border-line-subtle px-2 py-1 bg-surface-raised"
           >
