@@ -29,6 +29,10 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 
 ## [Unreleased]
 
+## [0.97.0] - 2026-11-05
+
+A pull is enough. No database migration; `DEFAULT_MAIL_LOCALE=fr` is optional.
+
 ### Added
 - **French** (#72, thanks to @benhu). The studio, the client gallery and all emails, including print-shop emails, are now available in French. French can be chosen in the language switchers, for a user's and a studio's mail language, and as `DEFAULT_MAIL_LOCALE=fr`. Dates, numbers and currencies use the French format.
 
