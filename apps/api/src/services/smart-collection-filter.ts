@@ -45,7 +45,12 @@ export type SmartCollectionFilter = z.infer<typeof smartCollectionFilterSchema>;
  *  aus dem Filter selbst (Cross-Tenant-Schutz). */
 export function buildWhereClause(
   filter: unknown,
-  ctx: { tenantId: string; ownerId: string }
+  ctx: {
+    tenantId: string;
+    ownerId: string;
+    /** Tag-ID → ID plus Unter-Tags (siehe services/tag-tree.ts). */
+    tagExpansion?: ReadonlyMap<string, string[]>;
+  }
 ): Prisma.GalleryWhereInput {
   // Defensiv parsen: kaputter JSON in der DB → wir behandeln das als
   // "leerer Filter" und zeigen alle Galerien des Owners. Falls jemand
@@ -65,8 +70,11 @@ export function buildWhereClause(
   if (f.tagIds && f.tagIds.length > 0) {
     // AND-Semantik: alle Tags müssen vorhanden sein. Identisch zur
     // existierenden ?tag=...,...-Filter-Logik in routes/galleries.ts.
+    // Ein Eltern-Tag schließt seine Unter-Tags ein (#73).
     where.AND = f.tagIds.map((tagId) => ({
-      tags: { some: { tagId } },
+      tags: {
+        some: { tagId: { in: ctx.tagExpansion?.get(tagId) ?? [tagId] } },
+      },
     }));
   }
   if (f.since || f.until) {

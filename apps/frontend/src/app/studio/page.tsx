@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   api,
@@ -11,7 +11,18 @@ import {
   type TagSummary,
   type SmartCollection,
   type GalleryFilter,
+  type GalleryFolder,
 } from "@/lib/api";
+import {
+  GALLERIES_CHANGED,
+  GALLERY_DRAG_TYPE,
+  childrenOf,
+  dropGalleries,
+  notifyFoldersChanged,
+  pathOf,
+  useFolders,
+} from "@/lib/folders";
+import { MoveToFolderDialog } from "@/components/studio/MoveToFolderDialog";
 import { useT } from "@/lib/i18n";
 import { PageHeader } from "@/components/studio/PageHeader";
 import { Button, Input, Textarea, Select } from "@/components/ui";
@@ -20,10 +31,35 @@ import { useErrorText } from "@/lib/error-i18n";
 import { useConfirm, useNotify, usePrompt } from "@/components/ui/dialogs";
 import { pagesHoldingGallery } from "@/components/studio/GalleryPagesSection";
 
-export default function StudioPage() {
+// useSearchParams braucht eine Suspense-Grenze, sonst bricht der Build ab.
+export default function StudioPageRoute() {
+  return (
+    <Suspense fallback={null}>
+      <StudioPage />
+    </Suspense>
+  );
+}
+
+function StudioPage() {
   const confirm = useConfirm();
+  const ask = usePrompt();
+  const notify = useNotify();
+  const errText = useErrorText();
   const router = useRouter();
   const t = useT();
+  // Ordner (#73): ?folder=<id> zeigt einen Ordner, ?folder=none die
+  // Galerien ohne Ordner, ohne Parameter alle Galerien flach wie bisher.
+  const searchParams = useSearchParams();
+  const folderParam = searchParams.get("folder");
+  const folderData = useFolders();
+  const folders = folderData.folders;
+  const currentFolder: GalleryFolder | null =
+    folderParam && folderParam !== "none"
+      ? folders.find((f) => f.id === folderParam) ?? null
+      : null;
+  const [moveGallery, setMoveGallery] = useState<Gallery | null>(null);
+  const [moveFolderOpen, setMoveFolderOpen] = useState(false);
+  const [folderMenuOpen, setFolderMenuOpen] = useState(false);
   const [user, setUser] = useState<ApiUser | null>(null);
   const [galleries, setGalleries] = useState<Gallery[]>([]);
   const [allTags, setAllTags] = useState<TagSummary[]>([]);
@@ -107,9 +143,18 @@ export default function StudioPage() {
   // Live-Suche (nach Name) + Sortierung; angepinnte Galerien immer zuerst.
   const displayedGalleries = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
+    // Die Suche läuft immer über alle Ordner; ohne Suche zeigt ein Ordner
+    // nur seine eigenen Galerien.
+    const inFolder = q
+      ? galleries
+      : folderParam === "none"
+        ? galleries.filter((g) => !g.folderId)
+        : folderParam
+          ? galleries.filter((g) => g.folderId === folderParam)
+          : galleries;
     const filtered = q
-      ? galleries.filter((g) => (g.title ?? "").toLowerCase().includes(q))
-      : galleries;
+      ? inFolder.filter((g) => (g.title ?? "").toLowerCase().includes(q))
+      : inFolder;
     const sorted = [...filtered].sort((a, b) => {
       switch (sortBy) {
         case "name_asc":
@@ -133,7 +178,92 @@ export default function StudioPage() {
     return sorted.sort(
       (a, b) => (pinned.has(b.id) ? 1 : 0) - (pinned.has(a.id) ? 1 : 0)
     );
-  }, [galleries, searchQuery, sortBy, pinned]);
+  }, [galleries, searchQuery, sortBy, pinned, folderParam]);
+
+  // Ordnerpfad je Galerie — in „Alle Galerien" und bei Suchtreffern
+  // unter dem Titel angezeigt.
+  const folderPathById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const f of folders) {
+      m.set(
+        f.id,
+        pathOf(folders, f.id)
+          .map((p) => p.name)
+          .join(" › ")
+      );
+    }
+    return m;
+  }, [folders]);
+  const showFolderPath =
+    folders.length > 0 && (!folderParam || searchQuery.trim() !== "");
+  const subfolders = currentFolder
+    ? childrenOf(folders, currentFolder.id)
+    : [];
+
+  async function newFolder() {
+    const name = await ask({
+      title: t("folders.newTitle"),
+      message: currentFolder
+        ? t("folders.newMessageIn", { name: currentFolder.name })
+        : t("folders.newMessageRoot"),
+      placeholder: t("folders.namePlaceholder"),
+      confirmLabel: t("folders.create"),
+    });
+    if (!name?.trim()) return;
+    try {
+      const res = await api.createFolder({
+        name: name.trim(),
+        parentId: currentFolder?.id ?? null,
+      });
+      notifyFoldersChanged();
+      router.push(`/studio?folder=${res.folder.id}`);
+    } catch (err) {
+      notify(errText(err, t("common.error")));
+    }
+  }
+
+  async function renameFolder() {
+    if (!currentFolder) return;
+    setFolderMenuOpen(false);
+    const name = await ask({
+      title: t("folders.renameTitle"),
+      message: t("folders.renameMessage"),
+      defaultValue: currentFolder.name,
+      confirmLabel: t("common.save"),
+    });
+    if (!name?.trim() || name.trim() === currentFolder.name) return;
+    try {
+      await api.updateFolder(currentFolder.id, { name: name.trim() });
+      notifyFoldersChanged();
+    } catch (err) {
+      notify(errText(err, t("common.error")));
+    }
+  }
+
+  async function deleteFolder() {
+    if (!currentFolder) return;
+    setFolderMenuOpen(false);
+    const parentId = currentFolder.parentId;
+    const ok = await confirm({
+      title: t("folders.deleteTitle", { name: currentFolder.name }),
+      message: t("folders.deleteMessage", {
+        parent: parentId
+          ? folders.find((f) => f.id === parentId)?.name ?? ""
+          : t("folders.topLevel"),
+      }),
+      confirmLabel: t("folders.deleteConfirm"),
+      destructive: true,
+    });
+    if (!ok) return;
+    try {
+      await api.deleteFolder(currentFolder.id);
+      notifyFoldersChanged();
+      await refresh();
+      router.push(parentId ? `/studio?folder=${parentId}` : "/studio");
+    } catch (err) {
+      notify(errText(err, t("common.error")));
+    }
+  }
 
   const refresh = useCallback(async () => {
     // Wenn eine Collection aktiv ist, laden wir über den Collection-
@@ -174,6 +304,13 @@ export default function StudioPage() {
       }
     })();
   }, [router]);
+
+  // Verschieben per Drag & Drop in den Baum: Liste neu laden.
+  useEffect(() => {
+    const on = () => void refresh();
+    window.addEventListener(GALLERIES_CHANGED, on);
+    return () => window.removeEventListener(GALLERIES_CHANGED, on);
+  }, [refresh]);
 
   // Bei jeder Filter-Änderung neu laden. activeCollection in der Dependency-
   // Liste damit das Wechseln zwischen Collection und freiem Filter
@@ -263,12 +400,88 @@ export default function StudioPage() {
   return (
     <>
       <PageHeader
-        title={t("studio.galleriesTitle")}
-        description={user.name ? t("settings.signedInAs", { name: user.name }) : user.email}
+        breadcrumb={
+          currentFolder
+            ? [
+                { label: t("folders.allGalleries"), href: "/studio" },
+                ...pathOf(folders, currentFolder.id)
+                  .slice(0, -1)
+                  .map((f) => ({ label: f.name, href: `/studio?folder=${f.id}` })),
+              ]
+            : folderParam === "none"
+              ? [{ label: t("folders.allGalleries"), href: "/studio" }]
+              : undefined
+        }
+        title={
+          currentFolder
+            ? currentFolder.name
+            : folderParam === "none"
+              ? t("folders.noFolder")
+              : t("studio.galleriesTitle")
+        }
+        description={
+          folderParam
+            ? undefined
+            : user.name
+              ? t("settings.signedInAs", { name: user.name })
+              : user.email
+        }
         actions={
-          <Button variant="primary" size="md" onClick={() => setShowCreate(true)}>
-            {t("studio.newGallery")}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {currentFolder && (
+              <div className="relative">
+                <Button
+                  size="md"
+                  onClick={() => setFolderMenuOpen((o) => !o)}
+                  aria-expanded={folderMenuOpen}
+                >
+                  {t("folders.editFolder")}
+                </Button>
+                {folderMenuOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-40"
+                      onClick={() => setFolderMenuOpen(false)}
+                    />
+                    <div className="absolute right-0 top-full mt-1 z-50 w-48 rounded-md border border-line-subtle bg-surface-overlay shadow-lg py-1 text-ui-sm">
+                      <button
+                        type="button"
+                        onClick={() => void renameFolder()}
+                        className="w-full text-left px-3 py-1.5 text-ink-secondary hover:text-ink-primary hover:bg-surface-sunken"
+                      >
+                        {t("folders.rename")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFolderMenuOpen(false);
+                          setMoveFolderOpen(true);
+                        }}
+                        className="w-full text-left px-3 py-1.5 text-ink-secondary hover:text-ink-primary hover:bg-surface-sunken"
+                      >
+                        {t("folders.moveFolder")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void deleteFolder()}
+                        className="w-full text-left px-3 py-1.5 text-semantic-danger/90 hover:text-semantic-danger hover:bg-surface-sunken"
+                      >
+                        {t("folders.delete")}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+            {folderParam !== "none" && (
+              <Button size="md" onClick={() => void newFolder()}>
+                {currentFolder ? t("folders.newSubfolder") : t("folders.newFolder")}
+              </Button>
+            )}
+            <Button variant="primary" size="md" onClick={() => setShowCreate(true)}>
+              {currentFolder ? t("folders.newGalleryHere") : t("studio.newGallery")}
+            </Button>
+          </div>
         }
       />
 
@@ -565,7 +778,35 @@ export default function StudioPage() {
             )}
           </div>
         )}
-        {displayedGalleries.length === 0 ? (
+        {subfolders.length > 0 && !searchQuery.trim() && (
+          <div className="mb-6">
+            <h2 className="text-ui-xs uppercase tracking-[0.12em] text-ink-tertiary mb-2.5">
+              {t("folders.subfolders")}
+            </h2>
+            <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+              {subfolders.map((f) => (
+                <li key={f.id}>
+                  <FolderCard
+                    folder={f}
+                    subfolderCount={childrenOf(folders, f.id).length}
+                  />
+                </li>
+              ))}
+            </ul>
+            {displayedGalleries.length > 0 && (
+              <h2 className="text-ui-xs uppercase tracking-[0.12em] text-ink-tertiary mt-6 -mb-1">
+                {t("folders.galleries")}
+              </h2>
+            )}
+          </div>
+        )}
+        {displayedGalleries.length === 0 && currentFolder && !searchQuery.trim() ? (
+          subfolders.length === 0 ? (
+            <div className="rounded-md border border-dashed border-line-subtle bg-surface-sunken p-12 text-center">
+              <p className="text-ink-tertiary text-ui">{t("folders.emptyFolder")}</p>
+            </div>
+          ) : null
+        ) : displayedGalleries.length === 0 ? (
           <div className="rounded-md border border-dashed border-line-subtle bg-surface-sunken p-12 text-center">
             <p className="text-ink-tertiary text-ui">
               {searchQuery.trim()
@@ -605,6 +846,12 @@ export default function StudioPage() {
                   pinned={pinned.has(g.id)}
                   onTogglePin={() => togglePin(g.id)}
                   onChanged={() => void refresh()}
+                  folderPath={
+                    showFolderPath && g.folderId
+                      ? folderPathById.get(g.folderId)
+                      : undefined
+                  }
+                  onMove={() => setMoveGallery(g)}
                 />
               </li>
             ))}
@@ -612,8 +859,40 @@ export default function StudioPage() {
         )}
       </div>
 
+      {moveGallery && (
+        <MoveToFolderDialog
+          folders={folders}
+          title={t("folders.moveGalleryTitle")}
+          description={t("folders.moveGalleryDescription", {
+            title: moveGallery.title,
+            path: moveGallery.folderId
+              ? folderPathById.get(moveGallery.folderId) ?? ""
+              : t("folders.topLevel"),
+          })}
+          currentFolderId={moveGallery.folderId ?? null}
+          galleryIds={[moveGallery.id]}
+          onClose={() => setMoveGallery(null)}
+          onMoved={() => {
+            setMoveGallery(null);
+            void refresh();
+          }}
+        />
+      )}
+
+      {moveFolderOpen && currentFolder && (
+        <MoveToFolderDialog
+          folders={folders}
+          title={t("folders.moveFolderTitle", { name: currentFolder.name })}
+          currentFolderId={currentFolder.parentId}
+          movingFolderId={currentFolder.id}
+          onClose={() => setMoveFolderOpen(false)}
+          onMoved={() => setMoveFolderOpen(false)}
+        />
+      )}
+
       {showCreate && (
         <CreateGalleryDialog
+          folderId={currentFolder?.id ?? null}
           onClose={() => setShowCreate(false)}
           onCreated={(g) => {
             setShowCreate(false);
@@ -846,6 +1125,8 @@ function GalleryCard({
   pinned,
   onTogglePin,
   onChanged,
+  folderPath,
+  onMove,
 }: {
   gallery: Gallery;
   view: "grid" | "list";
@@ -853,6 +1134,9 @@ function GalleryCard({
   pinned: boolean;
   onTogglePin: () => void;
   onChanged: () => void;
+  /** Ordnerpfad, in „Alle Galerien" unter dem Titel (#73). */
+  folderPath?: string;
+  onMove?: () => void;
 }) {
   const notify = useNotify();
   const errText = useErrorText();
@@ -956,6 +1240,13 @@ function GalleryCard({
 
   const stats = g.stats;
   const isCollab = g.mode === "collaboration";
+
+  // Ziehen auf einen Ordner im Navigationsbaum (#73).
+  function onDragStart(e: React.DragEvent) {
+    e.dataTransfer.setData(GALLERY_DRAG_TYPE, JSON.stringify([g.id]));
+    e.dataTransfer.setData("text/plain", g.title);
+    e.dataTransfer.effectAllowed = "move";
+  }
 
   const statsRow = (
     <div className="flex items-center gap-2.5 text-ui-xs text-ink-tertiary">
@@ -1102,6 +1393,19 @@ function GalleryCard({
               >
                 {t("studio.tabShare")}
               </button>
+              {onMove && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setMenuOpen(false);
+                    onMove();
+                  }}
+                  className="w-full text-left px-3 py-1.5 text-ink-secondary hover:text-ink-primary hover:bg-surface-sunken"
+                >
+                  {t("folders.moveToFolderMenu")}
+                </button>
+              )}
               {g.status === "archived" ? (
                 <>
                   <button
@@ -1148,7 +1452,11 @@ function GalleryCard({
 
   if (view === "list") {
     return (
-      <div className="group relative flex items-center gap-3 rounded-md border border-line-subtle bg-surface-raised hover:border-line-strong hover:bg-surface-overlay transition-all duration-motion ease-out p-2.5">
+      <div
+        draggable
+        onDragStart={onDragStart}
+        className="group relative flex items-center gap-3 rounded-md border border-line-subtle bg-surface-raised hover:border-line-strong hover:bg-surface-overlay transition-all duration-motion ease-out p-2.5"
+      >
         <Link
           href={`/studio/${g.id}`}
           className="flex items-center gap-3 min-w-0 flex-1"
@@ -1174,6 +1482,9 @@ function GalleryCard({
               </h2>
               <StatusBadge status={g.status} />
             </div>
+            {folderPath && (
+              <div className="mt-0.5 text-ui-xs text-ink-secondary truncate">{folderPath}</div>
+            )}
             <div className="mt-0.5">{statsRow}</div>
           </div>
         </Link>
@@ -1183,7 +1494,11 @@ function GalleryCard({
   }
 
   return (
-    <div className="group relative rounded-md border border-line-subtle bg-surface-raised hover:border-line-strong hover:bg-surface-overlay transition-all duration-motion ease-out overflow-hidden">
+    <div
+      draggable
+      onDragStart={onDragStart}
+      className="group relative rounded-md border border-line-subtle bg-surface-raised hover:border-line-strong hover:bg-surface-overlay transition-all duration-motion ease-out overflow-hidden"
+    >
       <Link href={`/studio/${g.id}`} className="block">
         {showCover && (
           <div className="aspect-[16/10] bg-surface-sunken overflow-hidden">
@@ -1206,6 +1521,9 @@ function GalleryCard({
             </h2>
             <StatusBadge status={g.status} />
           </div>
+          {folderPath && (
+            <p className="text-ui-xs text-ink-secondary mt-1 truncate">{folderPath}</p>
+          )}
           {g.description && (
             <p className="text-ui-sm text-ink-tertiary mt-1.5 line-clamp-2">
               {g.description}
@@ -1248,9 +1566,12 @@ function StatusBadge({ status }: { status: Gallery["status"] }) {
 }
 
 function CreateGalleryDialog({
+  folderId,
   onClose,
   onCreated,
 }: {
+  /** Neue Galerie direkt in diesem Ordner anlegen (#73). */
+  folderId?: string | null;
   onClose: () => void;
   onCreated: (g: Gallery) => void;
 }) {
@@ -1301,6 +1622,7 @@ function CreateGalleryDialog({
         mode,
         downloadEnabled,
         templateId: templateId || undefined,
+        folderId: folderId ?? undefined,
       });
       onCreated(gallery);
     } catch (err) {
@@ -1427,5 +1749,62 @@ function Field({
       {children}
       {hint && <p className="text-ui-xs text-ink-tertiary">{hint}</p>}
     </div>
+  );
+}
+
+/** Karte für einen Unterordner im geöffneten Ordner (#73). Galerien lassen
+ *  sich auch darauf ziehen. */
+function FolderCard({
+  folder,
+  subfolderCount,
+}: {
+  folder: GalleryFolder;
+  subfolderCount: number;
+}) {
+  const t = useT();
+  const notify = useNotify();
+  const errText = useErrorText();
+  const [over, setOver] = useState(false);
+  return (
+    <Link
+      href={`/studio?folder=${folder.id}`}
+      onDragOver={(e) => {
+        if (!e.dataTransfer.types.includes(GALLERY_DRAG_TYPE)) return;
+        e.preventDefault();
+        setOver(true);
+      }}
+      onDragLeave={() => setOver(false)}
+      onDrop={async (e) => {
+        e.preventDefault();
+        setOver(false);
+        try {
+          await dropGalleries(folder.id, e);
+        } catch (err) {
+          notify(errText(err, t("common.error")));
+        }
+      }}
+      className={`flex items-center gap-3 rounded-md border bg-surface-raised p-3 transition-all duration-motion ease-out hover:border-line-strong hover:bg-surface-overlay ${
+        over ? "border-accent ring-1 ring-accent" : "border-line-subtle"
+      }`}
+    >
+      <span className="flex-none h-9 w-9 rounded-md bg-surface-sunken flex items-center justify-center text-accent">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+        </svg>
+      </span>
+      <span className="min-w-0">
+        <span className="block text-ui-sm font-medium text-ink-primary truncate">
+          {folder.name}
+        </span>
+        <span className="block text-ui-xs text-ink-tertiary">
+          {subfolderCount > 0
+            ? t("folders.cardMetaWithSub", {
+                folders: subfolderCount,
+                galleries: folder.totalGalleryCount,
+              })
+            : t("folders.cardMeta", { galleries: folder.totalGalleryCount })}
+        </span>
+      </span>
+    </Link>
   );
 }

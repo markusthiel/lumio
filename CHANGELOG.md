@@ -29,6 +29,13 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 
 ## [Unreleased]
 
+### Added
+- **Folders for galleries** (#73). Galleries can now be filed into a folder tree, for example customer › country › city, nested as deep as needed. The tree sits in the navigation under *Galleries* and can be collapsed. Galleries are moved by drag and drop or via *Move to folder …* in their menu. *All galleries* still lists everything flat, now with each gallery's folder path, and *No folder* collects the rest. Folders belong to the studio, so the whole team sees the same tree; customers never see them. Deleting a folder deletes no galleries, its contents move up one level. Studios without folders look exactly as before. Folders can also be managed through the API with an API token, see [docs/FOLDERS.md](docs/FOLDERS.md).
+- **Chapter filter in the studio.** Above the image grid of a gallery, chapter chips show how many images each chapter holds and filter the grid by chapter.
+
+### Changed
+- **Filtering by a parent tag now includes its child tags**, in the gallery list and in smart collections. Before, nested tags had no effect when filtering.
+
 ## [0.97.0] - 2026-11-05
 
 A pull is enough. No database migration; `DEFAULT_MAIL_LOCALE=fr` is optional.

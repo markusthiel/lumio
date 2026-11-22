@@ -33,6 +33,7 @@ const ACTION_LABELS: Record<string, string> = {
   "branding.update": "audit.actBrandingUpdate",
   "branding.delete": "audit.actBrandingDelete",
   "branding.set_default": "audit.actBrandingDefault",
+  "folder.delete": "audit.actFolderDelete",
 };
 
 const ACTION_OPTIONS = Object.keys(ACTION_LABELS);

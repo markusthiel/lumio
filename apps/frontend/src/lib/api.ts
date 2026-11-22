@@ -111,8 +111,27 @@ export interface Gallery {
    *  Backend rollenbasiert berechnet (canDeleteGallery) — nur in den
    *  Listen-Endpunkten (listGalleries/runCollection) gesetzt. */
   canDelete?: boolean;
+  /** Ordner im Studio (#73). null = oberste Ebene, ohne Ordner. */
+  folderId?: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Ordner über den Galerien (#73), flach mit parentId. */
+export interface GalleryFolder {
+  id: string;
+  parentId: string | null;
+  name: string;
+  /** Galerien direkt in diesem Ordner (mit Zugriff). */
+  galleryCount: number;
+  /** Galerien inklusive aller Unterordner (mit Zugriff). */
+  totalGalleryCount: number;
+}
+
+export interface GalleryFolderList {
+  folders: GalleryFolder[];
+  allGalleryCount: number;
+  noFolderGalleryCount: number;
 }
 
 export interface GalleryFile {
@@ -1153,6 +1172,32 @@ export const api = {
     request<{ pages: GalleryPageRef[] }>(`/galleries/${galleryId}/pages`),
 
   // Tags
+  // Ordner (#73)
+  listFolders: () => request<GalleryFolderList>("/folders"),
+  createFolder: (input: { name: string; parentId?: string | null }) =>
+    request<{ folder: GalleryFolder }>("/folders", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  updateFolder: (
+    id: string,
+    patch: { name?: string; parentId?: string | null }
+  ) =>
+    request<{ folder: GalleryFolder }>(`/folders/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
+  deleteFolder: (id: string) =>
+    request<{ movedFolders: number; movedGalleries: number }>(
+      `/folders/${id}`,
+      { method: "DELETE" }
+    ),
+  assignGalleriesToFolder: (folderId: string | null, galleryIds: string[]) =>
+    request<{ affected: number }>("/folders/assign", {
+      method: "PUT",
+      body: JSON.stringify({ folderId, galleryIds }),
+    }),
+
   listTags: () => request<{ tags: TagSummary[] }>("/tags"),
   createTag: (input: {
     name: string;
@@ -1200,6 +1245,7 @@ export const api = {
     downloadEnabled?: boolean;
     watermarkEnabled?: boolean;
     templateId?: string;
+    folderId?: string | null;
   }) =>
     request<{ gallery: Gallery }>("/galleries", {
       method: "POST",

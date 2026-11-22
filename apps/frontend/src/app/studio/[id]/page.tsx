@@ -21,6 +21,8 @@ import { GalleryDetailsEditor } from "@/components/studio/GalleryDetailsEditor";
 import { GalleryShareSection } from "@/components/studio/GalleryShareSection";
 import { GalleryPagesSection } from "@/components/studio/GalleryPagesSection";
 import { SectionsEditor } from "@/components/studio/SectionsEditor";
+import { GalleryChapterFilter } from "@/components/studio/GalleryChapterFilter";
+import { pathOf, useFolders } from "@/lib/folders";
 import { UploadLinksSection } from "@/components/studio/UploadLinksSection";
 import { RejectDialog } from "@/components/studio/RejectDialog";
 import { DuplicatesDialog } from "@/components/studio/DuplicatesDialog";
@@ -104,6 +106,7 @@ export default function GalleryDetailPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
   const t = useT();
+  const folderData = useFolders();
   const [gallery, setGallery] = useState<GalleryDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploads, setUploads] = useState<Record<string, UploadProgress>>({});
@@ -237,6 +240,8 @@ export default function GalleryDetailPage() {
   // ausgewaehlten Tags haben). Zustand liegt hier oben damit die Filter-
   // Bar und das File-Grid synchron sind.
   const [tagFilter, setTagFilter] = useState<Set<string>>(new Set());
+  // Kapitel-Filter im Raster (#73): "" = alle, "none" = ohne Kapitel.
+  const [chapterFilter, setChapterFilter] = useState<string>("");
 
   // Detailseiten-Tabs: gruppiert die sehr volle Seite in Bilder / Teilen /
   // Auswahl & Statistik / Einstellungen. Reine Anzeige-Umschaltung — alle
@@ -1025,8 +1030,14 @@ export default function GalleryDetailPage() {
   const pendingCount = pendingFiles.length;
   // Erst Pending-Filter, dann Tag-Filter (UND-Semantik: File muss ALLE
   // ausgewählten Tags haben). Wenn tagFilter leer ist: kein Effekt.
-  const baseFiles =
+  const pendingOrAll =
     fileFilter === "pending" ? pendingFiles : gallery.files;
+  const baseFiles =
+    chapterFilter === ""
+      ? pendingOrAll
+      : chapterFilter === "none"
+        ? pendingOrAll.filter((f) => !f.sectionId)
+        : pendingOrAll.filter((f) => f.sectionId === chapterFilter);
   const visibleFiles =
     tagFilter.size === 0
       ? baseFiles
@@ -1089,6 +1100,11 @@ export default function GalleryDetailPage() {
       <PageHeader
         breadcrumb={[
           { label: t("nav.studio"), href: "/studio" },
+          // Ordnerpfad (#73)
+          ...pathOf(folderData.folders, gallery.folderId).map((f) => ({
+            label: f.name,
+            href: `/studio?folder=${f.id}`,
+          })),
           { label: gallery.title },
         ]}
         title={gallery.title}
@@ -1597,6 +1613,13 @@ export default function GalleryDetailPage() {
 
         {tab === "images" && (
           <>
+        <GalleryChapterFilter
+          galleryId={gallery.id}
+          files={gallery.files}
+          value={chapterFilter}
+          onChange={setChapterFilter}
+        />
+
         {/* File-Tag-Filter — direkt bei den Dateien, damit der Bezug
             zwischen Filter und gezeigten Bildern klar ist. */}
         <GalleryFileTagFilter

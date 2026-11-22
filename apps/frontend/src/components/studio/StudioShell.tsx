@@ -18,7 +18,7 @@
  * Sub-Routes (z.B. /studio/galleries/<id>) den Galerien-Eintrag
  * highlighten.
  */
-import { useEffect, useState } from "react";
+import { Fragment, Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LegalFooter } from "@/components/LegalFooter";
@@ -38,6 +38,8 @@ import {
   PendingDeletionBanner,
   useDeletionStatus,
 } from "@/components/studio/DangerZone";
+import { FolderTree } from "@/components/studio/FolderTree";
+import { useFolders } from "@/lib/folders";
 
 type NavIconName =
   | "galleries"
@@ -166,6 +168,23 @@ const RESERVED_SEGMENTS = new Set([
 
 export function StudioShell({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  // Ordnerbaum unter „Galerien" (#73). Ohne Ordner bleibt die Navigation
+  // wie bisher; der Baum lässt sich einklappen, der Browser merkt es sich.
+  const folderData = useFolders();
+  const [foldersCollapsed, setFoldersCollapsed] = useState(false);
+  useEffect(() => {
+    try {
+      setFoldersCollapsed(localStorage.getItem("lumio.folderTree.collapsed") === "1");
+    } catch {}
+  }, []);
+  function toggleFolders() {
+    setFoldersCollapsed((c) => {
+      try {
+        localStorage.setItem("lumio.folderTree.collapsed", c ? "0" : "1");
+      } catch {}
+      return !c;
+    });
+  }
   const [searchOpen, setSearchOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
   // null = noch nicht geladen. Der Button erscheint erst, wenn die API
@@ -350,13 +369,57 @@ export function StudioShell({ children }: { children: React.ReactNode }) {
         {/* Nav */}
         <nav className="flex-1 px-2 py-3 overflow-y-auto">
           <ul className="space-y-0.5">
-            {visibleNav.map((item) => (
-              <SidebarLink
-                key={item.href}
-                item={item}
-                onNavigate={() => setMobileOpen(false)}
-              />
-            ))}
+            {visibleNav.map((item) => {
+              const hasTree =
+                item.href === "/studio" && folderData.folders.length > 0;
+              return (
+                <Fragment key={item.href}>
+                  <SidebarLink
+                    item={item}
+                    onNavigate={() => setMobileOpen(false)}
+                    trailing={
+                      hasTree ? (
+                        <button
+                          type="button"
+                          onClick={toggleFolders}
+                          aria-expanded={!foldersCollapsed}
+                          aria-label={
+                            foldersCollapsed
+                              ? t("folders.showTree")
+                              : t("folders.hideTree")
+                          }
+                          className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 flex items-center justify-center rounded-md text-ink-tertiary hover:text-ink-primary"
+                        >
+                          <svg
+                            width="10"
+                            height="10"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            className={`transition-transform duration-motion ${foldersCollapsed ? "" : "rotate-90"}`}
+                            aria-hidden
+                          >
+                            <path d="M9 6l6 6-6 6" />
+                          </svg>
+                        </button>
+                      ) : undefined
+                    }
+                  />
+                  {hasTree && !foldersCollapsed && (
+                    <Suspense fallback={null}>
+                      <FolderTree
+                        folders={folderData.folders}
+                        allCount={folderData.allGalleryCount}
+                        noFolderCount={folderData.noFolderGalleryCount}
+                        onNavigate={() => setMobileOpen(false)}
+                      />
+                    </Suspense>
+                  )}
+                </Fragment>
+              );
+            })}
           </ul>
         </nav>
 
@@ -454,9 +517,12 @@ function ImpersonationBanner({
 function SidebarLink({
   item,
   onNavigate,
+  trailing,
 }: {
   item: NavItem;
   onNavigate: () => void;
+  /** Optionaler Knopf rechts im Eintrag (Ordnerbaum ein-/ausklappen). */
+  trailing?: React.ReactNode;
 }) {
   const t = useT();
   const pathname = usePathname();
@@ -485,7 +551,7 @@ function SidebarLink({
   })();
 
   return (
-    <li>
+    <li className="relative">
       <Link
         href={item.href}
         onClick={onNavigate}
@@ -514,6 +580,7 @@ function SidebarLink({
         </span>
         <span className="truncate">{label}</span>
       </Link>
+      {trailing}
     </li>
   );
 }

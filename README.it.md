@@ -218,6 +218,7 @@ Tutto opzionale. La Quick Start sopra è sufficiente per un singolo studio.
 | Produzione dietro un dominio proprio con HTTPS | [docs/SELFHOSTING.md](docs/SELFHOSTING.it.md) |
 | Più studi su un'unica istanza | [docs/MULTI_TENANT.md](docs/MULTI_TENANT.it.md) |
 | Portfolio pubblico o una pagina per cliente | [docs/LANDING_PAGES.it.md](docs/LANDING_PAGES.it.md) |
+| Cartelle per molte gallerie, script tramite API | [docs/FOLDERS.it.md](docs/FOLDERS.it.md) |
 | Modalità SaaS con billing Stripe | [docs/SAAS_MODE.md](docs/SAAS_MODE.it.md) |
 | Accelerazione GPU (NVENC + tag IA) | [docs/GPU.md](docs/GPU.it.md) |
 | Auto-tagging IA (CLIP) | [docs/ML.md](docs/ML.it.md) |

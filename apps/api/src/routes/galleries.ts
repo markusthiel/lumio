@@ -47,6 +47,7 @@ import {
   resolveDownloadFlags,
 } from "../services/download-policy.js";
 import { FILE_ORDER_BY } from "../services/file-order.js";
+import { expandTagIds } from "../services/tag-tree.js";
 
 // ---------------------------------------------------------------------------
 // Customer-Download: Variant-Auflösung (geteilt)
@@ -180,6 +181,8 @@ const createGallerySchema = z.object({
   // Optional: Template übernehmen. Explizit gesetzte Felder im Request
   // gewinnen über die Template-Werte.
   templateId: z.string().uuid().optional(),
+  // Ordner im Studio (#73). null = oberste Ebene.
+  folderId: z.string().uuid().nullable().optional(),
 });
 
 const HEX_RGB = /^#[0-9a-fA-F]{6}$/;
@@ -363,6 +366,8 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
   //   ?status=draft|live|archived
   //   ?since=<ISO>              → updatedAt >= since
   //   ?until=<ISO>              → updatedAt <= until
+  //   ?folder=<uuid>|none       → Galerien direkt in diesem Ordner bzw.
+  //                                ohne Ordner (#73)
   //
   // Filter-Macros (gespeicherte Filter-Sets) leben unter /collections/:id/galleries
   // und nutzen die gleiche Logik server-seitig. Frontend kann ad-hoc-
@@ -375,6 +380,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
       status?: string;
       since?: string;
       until?: string;
+      folder?: string;
     };
   }>(
     "/galleries",
@@ -403,12 +409,26 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
       const since = req.query.since ? safeDate(req.query.since) : undefined;
       const until = req.query.until ? safeDate(req.query.until) : undefined;
 
+      // Ordner: "none" = ohne Ordner, UUID = direkt in diesem Ordner.
+      // Alles andere wird wie bei mode/status ignoriert.
+      const folderParam = req.query.folder;
+      const folderFilter =
+        folderParam === "none"
+          ? { folderId: null }
+          : folderParam && /^[0-9a-f-]{36}$/i.test(folderParam)
+          ? { folderId: folderParam }
+          : {};
+
+      // Ein Eltern-Tag schließt seine Unter-Tags ein (#73).
+      const tagExpansion = await expandTagIds(req.tenantId, tagFilterIds);
+
       const galleries = await prisma.gallery.findMany({
         where: {
           tenantId: req.tenantId,
           ...galleryAccessWhere(s),
           ...(modeFilter ? { mode: modeFilter } : {}),
           ...(statusFilter ? { status: statusFilter } : {}),
+          ...folderFilter,
           ...(since || until
             ? {
                 updatedAt: {
@@ -422,7 +442,11 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           ...(tagFilterIds.length > 0
             ? {
                 AND: tagFilterIds.map((tagId) => ({
-                  tags: { some: { tagId } },
+                  tags: {
+                    some: {
+                      tagId: { in: tagExpansion.get(tagId) ?? [tagId] },
+                    },
+                  },
                 })),
               }
             : {}),
@@ -441,6 +465,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           createdAt: true,
           updatedAt: true,
           ownerId: true,
+          folderId: true,
           _count: { select: { files: true } },
           tags: {
             select: {
@@ -517,6 +542,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
           createdAt: g.createdAt,
           updatedAt: g.updatedAt,
           fileCount: g._count.files,
+          folderId: g.folderId,
           canDelete: canDeleteGallery(s),
           tags: g.tags.map((gt) => gt.tag),
           coverThumbUrl: coverUrlByGallery.get(g.id) ?? null,
@@ -555,6 +581,19 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
       });
       if (!template) {
         return reply.status(400).send({ error: "bad_template" });
+      }
+    }
+
+    // Ordner muss zum Studio gehören (#73).
+    if (body.folderId) {
+      const folder = await prisma.galleryFolder.findFirst({
+        where: { id: body.folderId, tenantId: req.tenantId },
+        select: { id: true },
+      });
+      if (!folder) {
+        return reply
+          .status(404)
+          .send({ error: "folder_not_found", message: "Folder not found." });
       }
     }
 
@@ -636,6 +675,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         customerLabelToggleEnabled: eff.customerLabelToggleEnabled,
         selectionLimit: body.selectionLimit ?? null,
         expiresAt: eff.expiresAt,
+        folderId: body.folderId ?? null,
       },
     });
 
@@ -949,6 +989,18 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
         newGallerySlug = candidate;
       }
 
+      if (body.folderId) {
+        const folder = await prisma.galleryFolder.findFirst({
+          where: { id: body.folderId, tenantId: req.tenantId },
+          select: { id: true },
+        });
+        if (!folder) {
+          return reply
+            .status(404)
+            .send({ error: "folder_not_found", message: "Folder not found." });
+        }
+      }
+
       const turningOnWatermark =
         body.watermarkEnabled === true && !existing.watermarkEnabled;
       const goingLive = body.status === "live" && existing.status !== "live";
@@ -975,6 +1027,7 @@ export async function registerGalleryRoutes(app: FastifyInstance) {
             ...(passwordHashUpdate ?? {}),
             ...(newGallerySlug !== undefined ? { slug: newGallerySlug } : {}),
             ...(body.title !== undefined ? { title: body.title } : {}),
+            ...(body.folderId !== undefined ? { folderId: body.folderId } : {}),
             ...(body.description !== undefined
               ? { description: body.description }
               : {}),

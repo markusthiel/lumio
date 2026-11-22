@@ -218,6 +218,7 @@ Alles optional. Das Quick-Start oben reicht für ein einzelnes Studio.
 | Production hinter eigener Domain mit HTTPS | [docs/SELFHOSTING.de.md](docs/SELFHOSTING.de.md) |
 | Mehrere Studios auf einer Instanz | [docs/MULTI_TENANT.md](docs/MULTI_TENANT.de.md) |
 | Öffentliches Portfolio oder eine Seite pro Kunde | [docs/LANDING_PAGES.de.md](docs/LANDING_PAGES.de.md) |
+| Ordner für viele Galerien, Skripten per API | [docs/FOLDERS.de.md](docs/FOLDERS.de.md) |
 | SaaS-Modus mit Stripe-Billing | [docs/SAAS_MODE.md](docs/SAAS_MODE.de.md) |
 | GPU-Beschleunigung (NVENC + KI-Tags) | [docs/GPU.md](docs/GPU.de.md) |
 | KI-Auto-Tagging (CLIP) | [docs/ML.md](docs/ML.de.md) |

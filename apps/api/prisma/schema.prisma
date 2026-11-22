@@ -150,6 +150,7 @@ model Tenant {
   webhooks    Webhook[]
   tags        Tag[]
   smartCollections SmartCollection[]
+  galleryFolders  GalleryFolder[]
   landingPages LandingPage[]
   exports     TenantExport[]
   notes       TenantNote[]
@@ -628,12 +629,42 @@ model Gallery {
   updatedAt       DateTime @updatedAt
   
   collaborators   GalleryCollaborator[]
+
+  // Ordner im Studio (#73). Rein organisatorisch, Kunden sehen davon
+  // nichts. null = liegt in keinem Ordner (oberste Ebene).
+  folderId        String?  @db.Uuid
+  folder          GalleryFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+
   @@unique([tenantId, slug])
   @@index([tenantId])
   @@index([ownerId])
+  @@index([folderId])
   // Not redundant: serves the slug-only fallback in resolveGalleryBySlug().
   @@index([slug])
   @@map("galleries")
+}
+
+// -----------------------------------------------------------------------------
+// GalleryFolder — Ordnerbaum über den Galerien (#73)
+// -----------------------------------------------------------------------------
+// Pro Studio (Tenant), für alle Teammitglieder gleich. Beliebig tief über
+// parentId. Eine Galerie liegt in höchstens einem Ordner (Gallery.folderId).
+// Löschen eines Ordners verschiebt Unterordner und Galerien eine Ebene
+// höher (in der Route, nicht per DB-Cascade) — es geht nichts verloren.
+model GalleryFolder {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tenantId  String   @db.Uuid
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parentId  String?  @db.Uuid
+  parent    GalleryFolder?  @relation("FolderTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children  GalleryFolder[] @relation("FolderTree")
+  name      String   @db.VarChar(120)
+  galleries Gallery[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId, parentId])
+  @@map("gallery_folders")
 }
 
 /// Freigabe einer Galerie für ein Team-Mitglied (granulare Sichtbarkeit).

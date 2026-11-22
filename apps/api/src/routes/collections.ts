@@ -19,6 +19,7 @@ import {
   buildWhereClause,
 } from "../services/smart-collection-filter.js";
 import { canDeleteGallery } from "../lib/gallery-access.js";
+import { expandTagIds } from "../services/tag-tree.js";
 
 const createSchema = z.object({
   name: z.string().min(1).max(120),
@@ -183,9 +184,15 @@ export async function registerCollectionRoutes(app: FastifyInstance) {
       });
       if (!c) return reply.status(404).send({ error: "not_found" });
 
+      const parsedFilter = smartCollectionFilterSchema.safeParse(c.filter);
+      const tagExpansion = await expandTagIds(
+        req.tenantId,
+        parsedFilter.success ? parsedFilter.data.tagIds ?? [] : []
+      );
       const where = buildWhereClause(c.filter, {
         tenantId: req.tenantId,
         ownerId: s.user.id,
+        tagExpansion,
       });
 
       const galleries = await prisma.gallery.findMany({
