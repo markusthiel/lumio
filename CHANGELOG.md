@@ -29,6 +29,10 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 
 ## [Unreleased]
 
+## [0.98.0] - 2026-11-21
+
+A pull is enough. The database migration only adds a table and a column and runs automatically on start; no configuration change.
+
 ### Added
 - **Folders for galleries** (#73). Galleries can now be filed into a folder tree, for example customer › country › city, nested as deep as needed. The tree sits in the navigation under *Galleries* and can be collapsed. Galleries are moved by drag and drop or via *Move to folder …* in their menu. *All galleries* still lists everything flat, now with each gallery's folder path, and *No folder* collects the rest. Folders belong to the studio, so the whole team sees the same tree; customers never see them. Deleting a folder deletes no galleries, its contents move up one level. Studios without folders look exactly as before. Folders can also be managed through the API with an API token, see [docs/FOLDERS.md](docs/FOLDERS.md).
 - **Chapter filter in the studio.** Above the image grid of a gallery, chapter chips show how many images each chapter holds and filter the grid by chapter.
