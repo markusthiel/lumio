@@ -29,6 +29,9 @@ Changes werden trotzdem klar als solche markiert. Details: `docs/VERSIONING.md`.
 
 ## [Unreleased]
 
+### Fixed
+- **Worker no longer crash-loops on a fresh build** (#74). `kombu` was not pinned, so a new build pulled kombu 5.7, which refuses the pinned `redis==5.1.1` and stopped the worker with `VersionMismatch`. `kombu` is now pinned to 5.5.2. Thanks to rawdlite for the report and the fix.
+
 ## [0.98.0] - 2026-11-21
 
 A pull is enough. The database migration only adds a table and a column and runs automatically on start; no configuration change.

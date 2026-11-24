@@ -5,6 +5,9 @@
 # Task Queue
 celery[redis]==5.4.0
 redis==5.1.1
+# kombu explizit pinnen: celery 5.4 erlaubt kombu <6.0, und kombu 5.7
+# verlangt redis-py >= 6.1 -> Worker crasht beim Start mit VersionMismatch (#74).
+kombu==5.5.2
 
 # Image processing
 pyvips==2.2.3       # libvips bindings — sehr schnelle Image-Pipeline (auch
